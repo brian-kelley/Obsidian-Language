@@ -6,10 +6,10 @@
 struct Options
 {
   string input;
-  string outputStem;
+  string output;
   bool emitPreprocess;
-  bool emitCPP;
-};
+  bool emitC;
+}
 
 Options getDefaultOptions();
 Options parseOptions(int argc, const char** argv);

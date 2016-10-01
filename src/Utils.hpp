@@ -1,16 +1,13 @@
-#include <cstdlib>
-#include <cstdio>
+#ifndef UTILS_H
+#define UTILS_H
 
-struct Text
-{
-  Text(size_t n);
-  Text(const Text& t);
-  ~Text();
-  char* buf;
-  size_t size;
-}
+#include "Misc.hpp"
 
 //Allocate a buffer and load a file into it
 //Always append one newline and a \0 at the end
-Text loadFile(const char* filename);
+string loadFile(string filename);
+void writeFile(string& text, string filename);
 
+void errAndQuit(string message);
+
+#endif

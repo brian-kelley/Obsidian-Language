@@ -7,8 +7,6 @@ add_executable (obsidian-c
   src/main.cpp
   src/Utils.cpp
   src/Options.cpp
-  src/PreTokenize.cpp
-  src/Token.cpp
-  src/Lexer.cpp
+  src/Preprocess.cpp
 )
 

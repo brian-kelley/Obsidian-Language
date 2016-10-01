@@ -1,0 +1,33 @@
+Goals for Hackathon
+
+-Everything is "local" to its function, and non-borrowed malloc'd things are deleted within function as soon as possible
+-(Later) this may allow for custom allocator that is like a stack and extremely fast
+
+-When are pointers used in C?
+  -Pass by "reference": resolve by doing Rust-like borrow (const or non), will affect parallelization later
+  -Allocating things: resolve by automatically choosing stack vs. heap allocation
+
+-No pointers. Pass by value (deep copy of all struct members), ref (allows modification of original), or const ref
+-No explicit constructor/destructor: memory is always owned by a function, and struct literals allow construction of simple structs
+-Array types with [], support up to 3D arrays
+-Arrays are fat pointers: int dims, int i, int j, int k
+-Array not pointer to pointers: instead a single buffer with multiply to calculate offsets
+ex:
+  byte checkerboard[8][8];
+-for loops nicer with arrays
+
+for(checkerboard)
+{
+  //automatically orders loops for best cache performance (row major) and provides i, j, k and it, jt and kt
+  //don't let users use those as identifiers
+}
+
+//Put T member functions in T's def, or write functions outside where "T this" is an argument
+-Universal print statement
+-No header files, for now combine sources into single C translation unit 
+-Later minimally recompile using diff on source
+-Nested comments supported
+-Int types are byte, short, int, long, ubyte, ushort, uint, ulong
+-Strings fully primitive type. Fat pointer implementation for O(1) len, cat
+-Write unit tests inline
+

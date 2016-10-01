@@ -1,6 +1,7 @@
 #include "Misc.hpp"
 #include "Options.hpp"
-#include "PreTokenize.hpp"
+#include "Utils.hpp"
+#include "Preprocess.hpp"
 
 int main(int argc, const char** argv)
 {
@@ -10,6 +11,23 @@ int main(int argc, const char** argv)
     puts("Error: no input files.");
     return EXIT_FAILURE;
   }
-  //Lex input file 
+  string code = loadFile(op.input.c_str());
+  cout << "Loaded " << code.size() << " bytes of source code.\n";
+  cout << "Will compile executable \"" << op.outputStem + ".exe" << "\"\n";
+  if(op.emitPreprocess)
+  {
+    cout << "Will emit preprocessed code to \"" << op.outputStem + ".obp" << "\"\n";
+  }
+  if(op.emitCPP)
+  {
+    cout << "Will emit C++ code to \"" << op.outputStem + ".cpp" << "\"\n";
+  }
+  //Preprocess
+  preprocess(code);
+  if(op.emitPreprocess)
+  {
+    writeFile(code, op.outputStem + ".obp");
+  }
   return 0;
 }
+

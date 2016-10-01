@@ -1,39 +1,37 @@
 #include "Utils.hpp"
 
-Text::Text(size_t n)
+string loadFile(string filename)
 {
-  buf = new char[n];
-  size = n;
-}
-
-Text::Text(const Text& t)
-{
-  buf = new char[t.size];
-  size = t.size;
-}
-
-Text::~Text()
-{
-  if(buf)
-    delete buf;
-}
-
-char* Utils::loadFile(const char* filename)
-{
-  FILE* f = fopen(filename, "r");
+  FILE* f = fopen(filename.c_str(), "rb");
   if(!f)
   {
-    printf("Could not open source file: \"%s\"\n", filename);
-    exit(EXIT_FAILURE);
+    errAndQuit(string("Could not open file \"") + filename + "\" for reading.");
   }
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
   rewind(f);
-  Text t(size + 2);
-  fread(t.buf, 1, size, f);
-  t.buf[size] = '\n';
-  t.buf[size + 1] = 0;
+  string text;
+  text.resize(size + 2);
+  fread((void*) text.c_str(), 1, size, f);
+  text[size + 1] = '\n';
   fclose(f);
-  return t;
+  return text;
+}
+
+void writeFile(string& text, string filename)
+{
+  FILE* f = fopen(filename.c_str(), "wb");
+  if(!f)
+  {
+    errAndQuit(string("Could not open file \"") + filename + "\" for writing.");
+  }
+  fwrite(text.c_str(), 1, text.size(), f);
+  fclose(f);
+}
+
+void errAndQuit(string message)
+{
+  cout << message << '\n';
+  exit(EXIT_FAILURE);
 }
 

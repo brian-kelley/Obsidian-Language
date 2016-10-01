@@ -4,9 +4,9 @@ Options getDefaultOptions()
 {
   Options op;
   op.emitPreprocess = false;
-  op.emitCPP = false;
+  op.emitC = false;
   op.input = "";
-  op.outputStem = "";
+  op.output = "";
   return op;
 }
 
@@ -24,9 +24,7 @@ Options parseOptions(int argc, const char** argv)
     {
       if(i < argc - 1)
       {
-        op.outputStem = argv[++i];
-        if(op.outputStem.find(".exe") != string::npos)
-          op.outputStem = op.outputStem.substr(0, op.outputStem.length() - 4);
+        op.output = argv[++i];
       }
       else
       {
@@ -37,7 +35,7 @@ Options parseOptions(int argc, const char** argv)
     else if(strcmp(argv[i], "--preprocess") == 0)
       op.emitPreprocess = true;
     else if(strcmp(argv[i], "--c") == 0)
-      op.emitCPP = true;
+      op.emitC = true;
     else
       op.input = argv[i];
   }
@@ -45,19 +43,6 @@ Options parseOptions(int argc, const char** argv)
   {
     puts("Error: no input files.");
     exit(EXIT_FAILURE);
-  }
-  else if(op.input.substr(op.input.length() - 3, 3) != ".ob")
-  {
-    puts("Error: input file does not have .ob file extension.");
-    exit(EXIT_FAILURE);
-  }
-  if(op.outputStem == "")
-  {
-    size_t stemStart = 0;
-    auto find = op.input.rfind("/");
-    if(find != string::npos)
-      stemStart = find + 1;
-    op.outputStem = op.input.substr(stemStart, op.input.length() - stemStart - 3);
   }
   return op;
 }
