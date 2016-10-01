@@ -5,4 +5,10 @@ project (Obsidian-Lang)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 add_executable (obsidian-c
   src/main.cpp
+  src/Utils.cpp
+  src/Options.cpp
+  src/PreTokenize.cpp
+  src/Token.cpp
+  src/Lexer.cpp
 )
+
