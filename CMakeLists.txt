@@ -8,5 +8,10 @@ add_executable (obsidian-c
   src/Utils.cpp
   src/Options.cpp
   src/Preprocess.cpp
+  src/Token.cpp
+  src/Scope.cpp
+  src/Variable.cpp
+  src/Type.cpp
+  src/CppGen.cpp
 )
 

@@ -1,11 +1,10 @@
 //First obsidian test program //
 /* A /* nested! */ comment */
 
-int main(string[] args)
+int main()
 {
-  int nargs = args.i;
   /* Print a message */
-  print("Hello world, I got ", nargs, " args");
+  print("Hello, ", " world!");
   return 0;
 }
 

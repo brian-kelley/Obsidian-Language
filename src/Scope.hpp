@@ -7,7 +7,7 @@
 
 struct Scope
 {
-  vector<Variable*> vars;
+  vector<Var*> vars;
 };
  
 #endif

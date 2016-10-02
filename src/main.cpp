@@ -2,6 +2,7 @@
 #include "Options.hpp"
 #include "Utils.hpp"
 #include "Preprocess.hpp"
+#include "CppGen.hpp"
 
 int main(int argc, const char** argv)
 {
@@ -27,6 +28,11 @@ int main(int argc, const char** argv)
   if(op.emitPreprocess)
   {
     writeFile(code, op.outputStem + ".obp");
+  }
+  //??? Compile ???
+  if(op.emitCPP)
+  {
+    generateCPP(op.outputStem, op.emitCPP, code);
   }
   return 0;
 }
