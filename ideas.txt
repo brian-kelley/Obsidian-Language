@@ -22,12 +22,23 @@ for(checkerboard)
   //don't let users use those as identifiers
 }
 
-//Put T member functions in T's def, or write functions outside where "T this" is an argument
--Universal print statement
+-Universal special print function, variadic and specialized at compile time
+
 -No header files, for now combine sources into single C translation unit 
 -Later minimally recompile using diff on source
 -Nested comments supported
--Int types are byte, short, int, long, ubyte, ushort, uint, ulong
--Strings fully primitive type. Fat pointer implementation for O(1) len, cat
+-Int types (keywords): char, short, int, long, uchar, ushort, uint, ulong
+-also defined (keywords): s8, s16, s32, s64 and u8, u16, u32 and u64
+-string a primitive type. Fat pointer implementation for O(1) len, cat.
 -Write unit tests inline
+
+-----------------------------------------------------------------------------------------
+
+-Major differences from C++:
+  -Need to scan through input once to build a table of special types (array specializations)
+  -Generate headers for C++ to read:
+    -types.hpp: struct definitions for array specializations
+    -functions.hpp (included after types): function prototypes for all obsidian functions, in no particular order
+  -Include the two generated headers, plus standard library headers
+  -print is special, not a regular function, must be converted to one or more cout calls
 

@@ -13,7 +13,6 @@ void stripComments(string& t)
   {
     if(t[i] == '/' && t[i + 1] == '*')
     {
-      cout << "Have a block comment at index " << i << '\n';
       //scan ahead and count the number of "/*" passed
       int depth = 1;
       i += 2;
@@ -30,7 +29,6 @@ void stripComments(string& t)
         }
         else if(t[i] == '*' && t[i + 1] == '/')
         {
-          cout << "Closing block comment at index " << i << '\n';
           depth--;
           i += 2;
           if(depth == 0)
@@ -74,3 +72,4 @@ void stripComments(string& t)
   }
   t = newT;
 }
+

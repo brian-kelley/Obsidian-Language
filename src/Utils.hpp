@@ -3,11 +3,13 @@
 
 #include "Misc.hpp"
 
-//Allocate a buffer and load a file into it
-//Always append one newline and a \0 at the end
+//Read string from file, and append \n
 string loadFile(string filename);
+//Write string to file
 void writeFile(string& text, string filename);
 
+//Print message and exit(EXIT_FAILURE)
 void errAndQuit(string message);
 
 #endif
+

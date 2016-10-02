@@ -3,8 +3,9 @@
 
 int main(string[] args)
 {
+  int nargs = args.i;
   /* Print a message */
-  print("Hello world");
+  print("Hello world, I got ", nargs, " args");
   return 0;
 }
 
