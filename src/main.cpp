@@ -3,6 +3,8 @@
 #include "Utils.hpp"
 #include "Preprocess.hpp"
 #include "CppGen.hpp"
+#include "Lexer.hpp"
+#include "Parser.hpp"
 
 int main(int argc, const char** argv)
 {
@@ -23,13 +25,14 @@ int main(int argc, const char** argv)
   {
     cout << "Will emit C++ code to \"" << op.outputStem + ".cpp" << "\"\n";
   }
-  //Preprocess
+  //Preprocessing
   preprocess(code);
   if(op.emitPreprocess)
   {
     writeFile(code, op.outputStem + ".obp");
   }
-  //??? Compile ???
+  //Lexing
+  vector<Token*> toks = lex(code);
   if(op.emitCPP)
   {
     generateCPP(op.outputStem, op.emitCPP, code);

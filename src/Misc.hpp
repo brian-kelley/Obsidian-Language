@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdio>
 #include <cstdlib>
+#include <cctype>
 
 using namespace std;
 
