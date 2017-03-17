@@ -9,7 +9,10 @@ int isKeyword(string str);
 
 enum KW
 {
+  FUNC,
+  PROC,
   VOID,
+  BOOL,
   CHAR,
   UCHAR,
   SHORT,
@@ -18,10 +21,37 @@ enum KW
   UINT,
   LONG,
   ULONG,
+  STRING,
+  FLOAT,
+  DOUBLE,
   PRINT,
   RETURN,
   TYPEDEF,
-  STRUCT
+  STRUCT,
+  ERROR,
+  TRAIT,
+  IF,
+  ELSE,
+  FOR,
+  WHILE,
+  SWITCH,
+  CASE,
+  DEFAULT,
+  BREAK,
+  CONTINUE,
+  METAIF,
+  METAELSE,
+  METAFOR,
+  METAFUNC,
+  VARIANT,
+  AUTO,
+  MODULE,
+  USING,
+  TRUE,
+  FALSE,
+  FUNCTYPE,
+  PROCTYPE,
+  NONTERM
 };
 
 enum OP
@@ -57,12 +87,14 @@ enum OP
 enum PUNC
 {
   SEMICOLON,
+  COLON,
   LPAREN,
   RPAREN,
   LBRACE,
   RBRACE,
   DOT,
-  COMMA
+  COMMA,
+  DOLLAR
 };
 
 enum TokType
@@ -74,9 +106,7 @@ enum TokType
   PUNCTUATION
 };
 
-struct Token
-{
-};
+struct Token {};
 
 //Identifier: variable name or type name
 struct Ident : public Token
@@ -92,25 +122,32 @@ struct Oper : public Token
   int op;
 };
 
-//"..."
+//"xyz"
 struct StrLit : public Token
 {
   StrLit(string val);
   string val;
 };
 
-//'.'
+//'?'
 struct CharLit : public Token
 {
   CharLit(char val);
   char val;
 };
 
-//0123456789
+//[-]0123456789
 struct IntLit : public Token
 {
   IntLit(int val);
   int val;
+};
+
+//any float/double
+struct FloatLit : public Token
+{
+  FloatLit(double val);
+  double val;
 };
 
 //Structure punctuation: (){};,.
@@ -128,3 +165,4 @@ struct Keyword : public Token
 };
 
 #endif
+

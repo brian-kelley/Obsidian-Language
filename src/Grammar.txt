@@ -1,0 +1,271 @@
+//---------------------//
+//Onyx informal grammar//
+//---------------------//
+
+//  Custom grammar language:
+//    Different rules for a nonterminal are on different lines, indented
+//    o before string literal means operator
+//    p means punctuation
+//    k means keyword
+//    (), {}, [] can nest
+//    () groups
+//    {} means any number
+//    [] means optional
+//    | means or
+//    Idents and literals are terminals
+
+// Punctuation is discarded when constructing the AST 
+
+Program:
+  ModuleDef
+
+Module:
+  k"module" Ident p"{" ModuleDef p"}"
+
+ModuleDef:
+  {ScopedDecl}
+
+ScopedDecl:
+  Module
+  VarDecl
+  StructDecl
+  VariantDecl
+  TraitDecl
+  EnumDecl
+  Typedef
+  FuncDecl
+  FuncDef
+  ProcDecl
+  ProcDef
+  TestDecl
+
+Type:
+  Member
+  k"void"
+  k"bool"
+  k"char"
+  k"uchar"
+  k"short"
+  k"ushort"
+  k"int"
+  k"uint"
+  k"long"
+  k"ulong"
+  k"float"
+  k"double"
+  k"string"
+  //n-dimensional array
+  Type {p"[" p"]"}
+  //tuple
+  p"(" Type {p"," Type} p")"
+
+Statement:
+  ScopedDecl
+  VarAssign
+  Print
+  Expression p";"
+  Block
+  Return
+  Continue
+  Break
+  Switch
+  For
+  While
+  If
+  Using
+  Assertion
+  EmptyStatement
+
+EmptyStatement:
+  p";"
+
+Typedef:
+  k"typedef" Type Ident
+
+Return:
+  k"return" p";"
+  k"return" Expression p";"
+
+Continue:
+  k"continue" p";"
+
+Break:
+  k"break" p";"
+
+Switch:
+  k"switch" p"(" Expression p")" p"{" {k"case" Expression p":" Statement} [k"default" p":" Statement] p:}"
+
+For:
+  //C-style for loop
+  k"for" p"(" VarDecl Expression p";" VarAssign p")" Statement
+  //Ranged for [0..n)
+  k"for" IntLit Statement
+  //Ranged for [m..n)
+  k"for" IntLit p":" IntLit Statement
+  //Loop over array elements
+  k"for" Member Statement
+
+While:
+  k"while" p"(" Expression p")" Statement
+
+If:
+  k"if" p"(" Expression p")" Statement {k"else" k"if" p"(" Expression p")" Statement} [k"else" Statement]
+
+Using:
+  k"using" Member p";"
+
+Assertion:
+  k"assert" Expression p";"
+
+TestDecl:
+  k"test" Call p";"
+
+EnumDecl:
+  k"enum" Ident p"{" {Ident 
+
+Block:
+  p"{" {Statement} p"}"
+
+VarDecl:
+  Type Ident p";"
+  Type Ident o"=" Expression p";"
+  k"auto" Ident o"=" Expression p";"
+
+VarAssign:
+  Member o"=" Expression p";"
+  Member o"++" p";"
+  Member o"--" p";"
+  Member o"+=" Expression p";"
+  Member o"-=" Expression p";"
+  Member o"*=" Expression p";"
+  Member o"/=" Expression p";"
+  Member o"%=" Expression p";"
+  Member o"&=" Expression p";"
+  Member o"^=" Expression p";"
+  Member o"|=" Expression p";"
+
+Print:
+  k"print" p"(" Expression {p"," Expression} p")" p";"
+
+Expression:
+  IntLit
+  FloatLit
+  StrLit
+  CharLit
+  BoolLit
+  ArrayLit
+  StructLit
+  Call
+  Member
+  Error
+  Expr1
+
+Call:
+  Member p"(" [{Expression p","} [Expression]] p")"
+
+FuncDecl:
+  k"func" Type Ident p"(" [Type | TraitType [Ident] {p"," Type | TraitType [Ident]}] p")" p";"
+
+FuncDef:
+  k"func" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")" Block
+
+FuncType:
+  k"functype" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")"
+
+ProcDecl:
+  [k"nonterm"] k"proc" Type Ident p"(" [Type | TraitType [Ident] {p"," Type | TraitType [Ident]}] p")" p";"
+
+ProcDef:
+  [k"nonterm"] k"proc" Type Member p"(" [(Type | TraitType) Ident {p"," Type | TraitType [Ident]}] p")" Block
+
+ProcType:
+  [k"nonterm"] k"proctype" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")"
+
+StructDecl:
+  k"struct" [p":" Ident {p"," Ident}] p"{" {([p"^"] VarDecl) | FuncDecl | FuncDef | ProcDecl | ProcDef} p"}"
+
+VariantDecl:
+  k"variant" Ident p"{" Type {p"," Type} p"}"
+
+ArrayLit:
+  p"{" [Expression {p"," Expression}] p"}"
+
+StructLit:
+  p"{" [Expression {p"," Expression}] p"}"
+
+Error:
+  k"error"
+
+Member:
+  Ident
+  Member p"." Ident
+ 
+TraitType:
+  Ident p":" Ident
+
+TraitDecl:
+  k"trait" Ident p"{" {FuncDecl | ProcDecl} p"}"
+
+BoolLit:
+  k"true"
+  k"false"
+
+//Use ExprN to handle orders of precedence (lower N = higher precedence)
+
+Expr0:
+  p"(" Expression p")"
+
+Expr1:
+  Expr0
+  Expr1 o"||" Expr2
+
+Expr10:
+  Expr11
+  Expr10 o"&&" Expr11
+
+Expr9:
+  Expr10
+  Expr9 o"|" Expr10
+
+Expr8:
+  Expr9
+  Expr8 o"^" Expr9
+
+Expr7:
+  Expr7
+  Expr6 o"&" Expr7
+
+Expr6:
+  Expr7
+  Expr6 o"==" Expr7
+  Expr6 o"!=" Expr7
+
+Expr5:
+  Expr6
+  Expr5 o"<" Expr6
+  Expr5 o">" Expr6
+  Expr5 o"<=" Expr6
+  Expr5 o">=" Expr6
+
+Expr4:
+  Expr5
+  Expr4 o">>" Expr5
+  Expr4 o"<<" Expr5
+
+Expr3:
+  Expr4
+  Expr3 o"+" Expr4
+  Expr3 o"-" Expr4
+
+Expr2:
+  Expr3
+  Expr2 o"*" Expr3
+  Expr2 o"/" Expr3
+  Expr2 o"%" Expr3
+
+Expr1:
+  Expr2
+  o"-" Expr2
+  o"!" Expr2
+  o"~" Expr2
+

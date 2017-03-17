@@ -2,7 +2,7 @@
 #include "Options.hpp"
 #include "Utils.hpp"
 #include "Preprocess.hpp"
-#include "CppGen.hpp"
+#include "CGen.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
 
@@ -21,9 +21,9 @@ int main(int argc, const char** argv)
   {
     cout << "Will emit preprocessed code to \"" << op.outputStem + ".obp" << "\"\n";
   }
-  if(op.emitCPP)
+  if(op.emitC)
   {
-    cout << "Will emit C++ code to \"" << op.outputStem + ".cpp" << "\"\n";
+    cout << "Will emit C++ code to \"" << op.outputStem + ".c" << "\"\n";
   }
   //Preprocessing
   preprocess(code);
@@ -33,9 +33,12 @@ int main(int argc, const char** argv)
   }
   //Lexing
   vector<Token*> toks = lex(code);
-  if(op.emitCPP)
+  //Parsing
+  Program prog = parse(toks);
+  //Code generation
+  if(op.emitC)
   {
-    generateCPP(op.outputStem, op.emitCPP, code);
+    generateC(op.outputStem, op.emitC, code);
   }
   return 0;
 }

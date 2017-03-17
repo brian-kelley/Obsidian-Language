@@ -1,44 +1,98 @@
-Goals for Hackathon
-
--Everything is "local" to its function, and non-borrowed malloc'd things are deleted within function as soon as possible
--(Later) this may allow for custom allocator that is like a stack and extremely fast
-
--When are pointers used in C?
-  -Pass by "reference": resolve by doing Rust-like borrow (const or non), will affect parallelization later
-  -Allocating things: resolve by automatically choosing stack vs. heap allocation
-
--No pointers. Pass by value (deep copy of all struct members), ref (allows modification of original), or const ref
 -No explicit constructor/destructor: memory is always owned by a function, and struct literals allow construction of simple structs
--Array types with [], support up to 3D arrays
--Arrays are fat pointers: int dims, int i, int j, int k
--Array not pointer to pointers: instead a single buffer with multiply to calculate offsets
-ex:
-  byte checkerboard[8][8];
--for loops nicer with arrays
+-Array types with [], support up to 3D arrays (for now)
+-Multidim array not a pointer to pointer array: instead a single buffer with multiply to calculate offsets
 
-for(checkerboard)
-{
-  //automatically orders loops for best cache performance (row major) and provides i, j, k and it, jt and kt
-  //don't let users use those as identifiers
-}
-
--Universal special print function, variadic and specialized at compile time
-
--No header files, for now combine sources into single C translation unit 
+-No header files, for minimal implementation combine sources into single C translation unit
 -Later minimally recompile using diff on source
 -Nested comments supported
 -Int types (keywords): char, short, int, long, uchar, ushort, uint, ulong
 -also defined (keywords): s8, s16, s32, s64 and u8, u16, u32 and u64
 -string a primitive type. Fat pointer implementation for O(1) len, cat.
--Write unit tests inline
+-Write unit and integration tests in same file as the thing being tested, or in different file if desired
 
------------------------------------------------------------------------------------------
+Onyx Language Features (language, not compiler)
 
--Major differences from C++:
-  -Need to scan through input once to build a table of special types (array specializations)
-  -Generate headers for C++ to read:
-    -types.hpp: struct definitions for array specializations
-    -functions.hpp (included after types): function prototypes for all obsidian functions, in no particular order
-  -Include the two generated headers, plus standard library headers
-  -print is special, not a regular function, must be converted to one or more cout calls
+if, for, while, scopes all same as C
+“meta” prefix on if/for treats body like a macro
+strings are used like POD, compiler handles the rest
+char = i8, byte = u8, short = i16, ushort = u16, int = i32, unsigned = u32, long = i64, ulong = u64
+also support i128 and u128 as built in types (low priority)
+float = f32, double = f64
+bit = bool, 1 = true and 0 = false
+string – should support Unicode, + for concatenation, otherwise like char[]
+auto keyword as in cpp11
+functions and procedures as lvalues, allow partial application/binding
+typedef as in c, for anything – i8[], (int, int), int[][], proc void(int), func bool valid(string), etc.
+function type syntax identical to their declaration (as opposed to C func ptrs)
+procedure (proc) modifier keywords: nonterm
+function (func) modifier keywords: 
+native tuples for passing/returning arguments (sort of like MATLAB function products), i.e.:
+(string, int, int) myFunc(int a) {...}
+Tuples can be indexed just like arrays
+
+Variants like Haskell
+Union can only be one of the things! (is an enum value and pointer to actual thing under the hood)
+
+//Ex:
+variant AST_Node
+{
+  IntLiteral,
+  StringLiteral,
+  Operator,
+  /* etc */
+};
+
+Then can do things like:
+//have AST_Node tree
+AST_Node node = tree.root;
+//now do haskell-style pattern matching but in a switch
+switch(node)
+{
+  case IntLiteral:
+    //have node now be an IntLiteral
+    print("Int literal: ", node.value);
+    break;
+  case StringLiteral:
+    print("String literal, length ", node.value.i);
+    break;
+  case void:
+    print("AST_Node not initialized!\n");
+  //...
+}
+
+Generic types: instead of angle brackets, use:
+Matrix(double) and HashTable(int, string)
+
+Casting never needed, have implicit conversion work on any primitive or compound type (arrays), and even that should be avoided in the compiler
+
+Testing features: test as more powerful assert()
+-test(aFunction(input), goldStandard); ///// assert equality of two expressions, but is written as the first thing inside a function
+Put test(a, b) in global scope to do the test at (debug build) compile time, and inside to do whenever the func/proc is run (compile-time or run-time)
+All tests are left out of release builds
+
+Builtin functions:
+-bytes(...) to serialize anything, since pointers aren't available
+-bits(...) to transform int/float (and int/float arrays) to array of bits
+
+Builtin procs:
+-print(...) and println(...) are variadic procs, take any comma-separated sequence of Printable things
+
+Modules!
+-basically namespace:
+-don't do :: shit, just have definition also go inside the braces
+-access members with . instead of ::
+-like namespace, things can be put inside a module in different files
+-obviously, have the implicit global module
+-modules can nest, and can access submodules like "using graphics.thing;"
+
+module MyModule
+{
+  func int getThing(int asdf);
+  string val;
+  private proc setVal(int asdf);  //not accessible outside module?
+}
+
+Errors are an implicit variant called "error" of any type
+so just "return error;" for any return type (even void)
+Don't necessarily have to store the error state with the type, could be a separate bitset on the stack
 

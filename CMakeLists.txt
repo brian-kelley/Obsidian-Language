@@ -12,8 +12,8 @@ add_executable (obsidian-c
   src/Scope.cpp
   src/Variable.cpp
   src/Type.cpp
-  src/CppGen.cpp
   src/Lexer.cpp
   src/Parser.cpp
+  src/CGen.cpp
 )
 

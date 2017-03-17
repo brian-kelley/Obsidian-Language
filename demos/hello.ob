@@ -4,7 +4,7 @@
 int main()
 {
   /* Print a message */
-  print("Hello, ", " world!");
+  print("Hello, world!");
   return 0;
 }
 
