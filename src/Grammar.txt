@@ -210,62 +210,62 @@ BoolLit:
   k"true"
   k"false"
 
-//Use ExprN to handle orders of precedence (lower N = higher precedence)
-
-Expr0:
-  p"(" Expression p")"
+//Use ExprN to handle orders of precedence (lower N = lower precedence)
 
 Expr1:
-  Expr0
+  Expr2
   Expr1 o"||" Expr2
 
-Expr10:
-  Expr11
-  Expr10 o"&&" Expr11
+Expr2:
+  Expr3
+  Expr2 o"&&" Expr3
 
-Expr9:
-  Expr10
-  Expr9 o"|" Expr10
+Expr3:
+  Expr4
+  Expr3 o"|" Expr4
 
-Expr8:
-  Expr9
-  Expr8 o"^" Expr9
+Expr4:
+  Expr5
+  Expr4 o"^" Expr5
 
-Expr7:
-  Expr7
-  Expr6 o"&" Expr7
+Expr5:
+  Expr6
+  Expr5 o"&" Expr6
 
 Expr6:
   Expr7
   Expr6 o"==" Expr7
   Expr6 o"!=" Expr7
 
-Expr5:
-  Expr6
-  Expr5 o"<" Expr6
-  Expr5 o">" Expr6
-  Expr5 o"<=" Expr6
-  Expr5 o">=" Expr6
+Expr7:
+  Expr8
+  Expr7 o"<" Expr8
+  Expr7 o">" Expr8
+  Expr7 o"<=" Expr8
+  Expr7 o">=" Expr8
 
-Expr4:
-  Expr5
-  Expr4 o">>" Expr5
-  Expr4 o"<<" Expr5
+Expr8:
+  Expr9
+  Expr8 o">>" Expr9
+  Expr8 o"<<" Expr9
 
-Expr3:
-  Expr4
-  Expr3 o"+" Expr4
-  Expr3 o"-" Expr4
+Expr9:
+  Expr10
+  Expr9 o"+" Expr10
+  Expr9 o"-" Expr10
 
-Expr2:
-  Expr3
-  Expr2 o"*" Expr3
-  Expr2 o"/" Expr3
-  Expr2 o"%" Expr3
+Expr10:
+  Expr11
+  Expr10 o"*" Expr11
+  Expr10 o"/" Expr11
+  Expr10 o"%" Expr11
 
-Expr1:
-  Expr2
-  o"-" Expr2
-  o"!" Expr2
-  o"~" Expr2
+Expr11:
+  Expr12
+  o"-" Expr11
+  o"!" Expr11
+  o"~" Expr11
+
+Expr12
+  p"(" Expression p")"
 
