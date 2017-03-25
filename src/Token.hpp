@@ -4,6 +4,15 @@
 #include "Misc.hpp"
 #include "Type.hpp"
 
+#include <map>
+
+using namespace std;
+
+extern map<int, string> keywordTable;
+extern map<int, string> tokTypeTable;
+
+void initTokens();
+
 //return index in Keyword enum, or -1
 int isKeyword(string str);
 
@@ -28,6 +37,7 @@ enum KW
   RETURN,
   TYPEDEF,
   STRUCT,
+  THIS,
   ERROR,
   TRAIT,
   IF,
@@ -53,6 +63,7 @@ enum KW
   PROCTYPE,
   NONTERM
 };
+
 
 enum OP
 {
@@ -103,15 +114,29 @@ enum TokType
   STRING_LITERAL,
   CHAR_LITERAL,
   INT_LITERAL,
-  PUNCTUATION
+  FLOAT_LITERAL,
+  PUNCTUATION,
+  OPERATOR,
+  KEYWORD,
+  PAST_EOF          //null or empty token
 };
 
-struct Token {};
+struct Token
+{
+  virtual bool operator==(const Token& rhs) = 0;
+  virtual int getType() = 0;
+  virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
+  virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
+};
 
 //Identifier: variable name or type name
 struct Ident : public Token
 {
   Ident(string name);
+  bool operator==(const Ident& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   string name;
 };
 
@@ -119,6 +144,10 @@ struct Ident : public Token
 struct Oper : public Token
 {
   Oper(int op);
+  bool operator==(const Oper& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   int op;
 };
 
@@ -126,6 +155,10 @@ struct Oper : public Token
 struct StrLit : public Token
 {
   StrLit(string val);
+  bool operator==(const StrLit& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   string val;
 };
 
@@ -133,6 +166,10 @@ struct StrLit : public Token
 struct CharLit : public Token
 {
   CharLit(char val);
+  bool operator==(const CharLit& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   char val;
 };
 
@@ -140,6 +177,10 @@ struct CharLit : public Token
 struct IntLit : public Token
 {
   IntLit(int val);
+  bool operator==(const IntLit& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   int val;
 };
 
@@ -147,6 +188,10 @@ struct IntLit : public Token
 struct FloatLit : public Token
 {
   FloatLit(double val);
+  bool operator==(const FloatLit& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   double val;
 };
 
@@ -154,6 +199,10 @@ struct FloatLit : public Token
 struct Punct : public Token
 {
   Punct(PUNC val);
+  bool operator==(const Punct& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   int val;
 };
 
@@ -161,7 +210,21 @@ struct Keyword : public Token
 {
   Keyword(string text);
   Keyword(int val);
+  bool operator==(const Keyword& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
   int kw;
+};
+
+struct PastEOF : public Token
+{
+  PastEOF();
+  static PastEOF inst;
+  bool operator==(const Keyword& rhs);
+  int getType();
+  string getStr();
+  string getDesc();
 };
 
 #endif

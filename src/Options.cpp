@@ -1,10 +1,10 @@
-#include "Options.hpp"
-
+#include "Options.hpp" 
 Options getDefaultOptions()
 {
   Options op;
-  op.emitPreprocess = false;
-  op.emitCPP = false;
+  op.backend = Options::BACKEND_C;
+  op.emitC = false;
+  op.emitLLVM = false;
   op.input = "";
   op.outputStem = "";
   return op;
@@ -37,7 +37,7 @@ Options parseOptions(int argc, const char** argv)
     else if(strcmp(argv[i], "--preprocess") == 0)
       op.emitPreprocess = true;
     else if(strcmp(argv[i], "--c") == 0)
-      op.emitCPP = true;
+      op.emitC = true;
     else
       op.input = argv[i];
   }

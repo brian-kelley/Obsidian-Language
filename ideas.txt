@@ -96,3 +96,12 @@ Errors are an implicit variant called "error" of any type
 so just "return error;" for any return type (even void)
 Don't necessarily have to store the error state with the type, could be a separate bitset on the stack
 
+BETTER METAPROGRAMMING
+-"meta" keyword before VarDecl, FuncDecl, If, For
+-types used in meta functions:
+  -int, float, char, bool, string, Array, Type, Func
+  -Type is the Type nonterminal from the parser
+  -primitives are literals in the usage code
+  -allow full arithmetic on meta primitives
+-parsing will effectively performs type checking on metafunctions
+

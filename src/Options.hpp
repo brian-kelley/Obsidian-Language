@@ -5,10 +5,19 @@
 
 struct Options
 {
+  enum BackendType
+  {
+    BACKEND_C,
+    BACKEND_LLVM,
+    BACKEND_X86
+  };
   string input;
   string outputStem;
-  bool emitPreprocess;
-  bool emitCPP;
+  int backend;
+  //emit intermediate c source
+  bool emitC;
+  //emit llvm ir
+  bool emitLLVM;
 };
 
 Options getDefaultOptions();

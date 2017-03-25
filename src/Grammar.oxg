@@ -1,6 +1,6 @@
-//---------------------//
-//Onyx informal grammar//
-//---------------------//
+//------------//
+//Onyx grammar//
+//------------//
 
 //  Custom grammar language:
 //    Different rules for a nonterminal are on different lines, indented
@@ -15,9 +15,7 @@
 //    Idents and literals are terminals
 
 // Punctuation is discarded when constructing the AST 
-
-Program:
-  ModuleDef
+// ModuleDef is the type of the AST root; a program is a module
 
 Module:
   k"module" Ident p"{" ModuleDef p"}"
@@ -31,7 +29,7 @@ ScopedDecl:
   StructDecl
   VariantDecl
   TraitDecl
-  EnumDecl
+  Enum
   Typedef
   FuncDecl
   FuncDef
@@ -83,8 +81,7 @@ Typedef:
   k"typedef" Type Ident
 
 Return:
-  k"return" p";"
-  k"return" Expression p";"
+  k"return" [Expression] p";"
 
 Continue:
   k"continue" p";"
@@ -99,9 +96,9 @@ For:
   //C-style for loop
   k"for" p"(" VarDecl Expression p";" VarAssign p")" Statement
   //Ranged for [0..n)
-  k"for" IntLit Statement
+  k"for" Expression Statement
   //Ranged for [m..n)
-  k"for" IntLit p":" IntLit Statement
+  k"for" Expression p":" Expression Statement
   //Loop over array elements
   k"for" Member Statement
 
@@ -109,7 +106,7 @@ While:
   k"while" p"(" Expression p")" Statement
 
 If:
-  k"if" p"(" Expression p")" Statement {k"else" k"if" p"(" Expression p")" Statement} [k"else" Statement]
+  k"if" p"(" Expression p")" Statement
 
 Using:
   k"using" Member p";"
@@ -120,8 +117,8 @@ Assertion:
 TestDecl:
   k"test" Call p";"
 
-EnumDecl:
-  k"enum" Ident p"{" {Ident 
+Enum:
+  k"enum" Ident p"{" [Ident [o"=" IntLit] {p"," Ident [o"=" IntLit]} p"}"
 
 Block:
   p"{" {Statement} p"}"
@@ -163,23 +160,29 @@ Expression:
 Call:
   Member p"(" [{Expression p","} [Expression]] p")"
 
+Arg:
+  Type | TraitType [Ident]
+
+Args:
+  {Arg}
+
 FuncDecl:
-  k"func" Type Ident p"(" [Type | TraitType [Ident] {p"," Type | TraitType [Ident]}] p")" p";"
+  k"func" Type Ident p"(" Args p")" p";"
 
 FuncDef:
-  k"func" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")" Block
+  k"func" Type Member p"(" Args p")" Block
 
 FuncType:
-  k"functype" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")"
+  k"functype" Type Member p"(" Args p")"
 
 ProcDecl:
-  [k"nonterm"] k"proc" Type Ident p"(" [Type | TraitType [Ident] {p"," Type | TraitType [Ident]}] p")" p";"
+  [k"nonterm"] k"proc" Type Ident p"(" Args p")" p";"
 
 ProcDef:
-  [k"nonterm"] k"proc" Type Member p"(" [(Type | TraitType) Ident {p"," Type | TraitType [Ident]}] p")" Block
+  [k"nonterm"] k"proc" Type Member p"(" Args p")" Block
 
 ProcType:
-  [k"nonterm"] k"proctype" Type Member p"(" [Type | TraitType Ident {p"," Type | TraitType [Ident]}] p")"
+  [k"nonterm"] k"proctype" Type Member p"(" Args p")"
 
 StructDecl:
   k"struct" [p":" Ident {p"," Ident}] p"{" {([p"^"] VarDecl) | FuncDecl | FuncDef | ProcDecl | ProcDef} p"}"
@@ -268,4 +271,11 @@ Expr11:
 
 Expr12
   p"(" Expression p")"
+  IntLit
+  BoolLit
+  CharLit
+  StrLit
+  FloatLit
+  StructLit
+  ArrayLit
 

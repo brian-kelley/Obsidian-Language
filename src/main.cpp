@@ -3,11 +3,18 @@
 #include "Utils.hpp"
 #include "Preprocess.hpp"
 #include "CGen.hpp"
+#include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
 
+void init()
+{
+  initTokens();
+}
+
 int main(int argc, const char** argv)
 {
+  init();
   Options op = parseOptions(argc, argv);
   if(argc == 1)
   {
@@ -27,14 +34,10 @@ int main(int argc, const char** argv)
   }
   //Preprocessing
   preprocess(code);
-  if(op.emitPreprocess)
-  {
-    writeFile(code, op.outputStem + ".obp");
-  }
   //Lexing
   vector<Token*> toks = lex(code);
   //Parsing
-  Program prog = parse(toks);
+  auto ast = parse(toks);
   //Code generation
   if(op.emitC)
   {
