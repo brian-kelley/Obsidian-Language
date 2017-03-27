@@ -1,12 +1,19 @@
 #include "Token.hpp"
 
 PastEOF PastEOF::inst;
-map<int, string> keywordTable;
-map<int, string> tokTypeTable;
+
+map<string, int> keywordMap;
+vector<string> keywordTable;
+map<string, int> operatorMap;
+vector<string> operatorTable;
+map<char, int> punctMap;
+vector<char> punctTable;
+//enum values => string
+vector<string> tokTypeTable;
 
 void initTokens()
 {
-#define SET_KEY(str, val) keywordTable[val] = str;
+#define SET_KEY(str, val) keywordMap[str] = val;
   SET_KEY("void", VOID)
   SET_KEY("bool", BOOL)
   SET_KEY("char", CHAR)
@@ -54,7 +61,13 @@ void initTokens()
   SET_KEY("functype", FUNCTYPE)
   SET_KEY("proctype", PROCTYPE)
   SET_KEY("nonterm", NONTERM)
+  keywordTable.resize(keywordMap.size());
+  for(auto& it : keywordMap)
+  {
+    keywordTable[it.second] = it.first;
+  }
 #undef SET_KEY
+  tokTypeTable.resize(NUM_TOKEN_TYPES);
   tokTypeTable[IDENTIFIER] = "identifier";
   tokTypeTable[STRING_LITERAL] = "string-literal";
   tokTypeTable[CHAR_LITERAL] = "char-literal";
@@ -64,16 +77,67 @@ void initTokens()
   tokTypeTable[OPERATOR] = "operator";
   tokTypeTable[KEYWORD] = "keyword";
   tokTypeTable[PAST_EOF] = "null-token";
+  operatorMap["+"] = PLUS;
+  operatorMap["+="] = PLUSEQ;
+  operatorMap["-"] = SUB;
+  operatorMap["-="] = SUBEQ;
+  operatorMap["*"] = MUL;
+  operatorMap["*="] = MULEQ;
+  operatorMap["/"] = DIV;
+  operatorMap["/="] = DIVEQ;
+  operatorMap["%"] = MOD;
+  operatorMap["%="] = MODEQ;
+  operatorMap["||"] = LOR;
+  operatorMap["|"] = BOR;
+  operatorMap["|="] = BOREQ;
+  operatorMap["^"] = BXOR;
+  operatorMap["^="] = BXOREQ;
+  operatorMap["!"] = LNOT;
+  operatorMap["~"] = BNOT;
+  operatorMap["&&"] = LAND;
+  operatorMap["&"] = BAND;
+  operatorMap["&="] = BANDEQ;
+  operatorMap["<<"] = SHL;
+  operatorMap["<<="] = SHLEQ;
+  operatorMap[">>"] = SHR;
+  operatorMap[">>="] = SHREQ;
+  operatorMap["=="] = CMPEQ;
+  operatorMap["!="] = CMPNEQ;
+  operatorMap["<"] = CMPL;
+  operatorMap["<="] = CMPLE;
+  operatorMap[">"] = CMPG;
+  operatorMap[">="] = CMPGE;
+  operatorMap["="] = ASSIGN;
+  operatorTable.resize(operatorMap.size());
+  for(auto& it : operatorMap)
+  {
+    operatorTable[it.second] = it.first;
+  }
+  punctMap[';'] = SEMICOLON;
+  punctMap[':'] = COLON;
+  punctMap['('] = LPAREN;
+  punctMap[')'] = RPAREN;
+  punctMap['{'] = LBRACE;
+  punctMap['}'] = RBRACE;
+  punctMap['['] = LBRACKET;
+  punctMap[']'] = RBRACKET;
+  punctMap['.'] = DOT;
+  punctMap[','] = COMMA;
+  punctMap['$'] = DOLLAR;
+  punctTable.resize(punctMap.size());
+  for(auto& it : punctMap)
+  {
+    punctTable[it.second] = it.first;
+  }
 }
 
 int isKeyword(string str)
 {
-  for(auto& it : keywordMap)
-  {
-    if(it.second == str)
-      return it.first;
-  }
-  return -1;
+  auto it = keywordTable.find(str);
+  if(it == keywordTable.end())
+    return -1;
+  else
+    return (it - keywordTabler.begin())->second;
 }
 
 /* Identifier */
@@ -127,63 +191,7 @@ int Oper::getType()
 
 string Oper::getStr()
 {
-  switch(op)
-  {
-    case PLUS:
-      return "+";
-    case PLUSEQ:
-      return "+=";
-    case SUB:
-      return "-";
-    case SUBEQ:
-      return "-=";
-    case MUL:
-      return "*";
-    case MULEQ:
-      return "*=";
-    case DIV:
-      return "/";
-    case DIVEQ:
-      return "/=";
-    case LOR:
-      return "||";
-    case BOR:
-      return "|";
-    case BXOR:
-      return "^";
-    case LNOT:
-      return "!";
-    case BNOT:
-      return "~";
-    case LAND:
-      return "&&";
-    case BAND:
-      return "&";
-    case SHL:
-      return "<<";
-    case SHR:
-      return ">>";
-    case CMPEQ:
-      return "==";
-    case CMPNEQ:
-      return "!=";
-    case CMPL:
-      return "<";
-    case CMPLE:
-      return "<=";
-    case CMPG:
-      return ">";
-    case CMPGE:
-      return ">=";
-    case LBRACK:
-      return "[";
-    case RBRACK:
-      return "]";
-    case ASSIGN:
-      return "=";
-    default:
-      return "";
-  }
+  return operatorTable[op];
 }
 
 string Oper::getDesc()
@@ -313,29 +321,7 @@ int Punct::getType()
 
 string Punct::getStr()
 {
-  switch(val)
-  {
-    case SEMICOLON:
-      return ";";
-    case COLON:
-      return ":";
-    case LPAREN:
-      return "(";
-    case RPAREN:
-      return ")";
-    case LBRACE:
-      return "{";
-    case RBRACE:
-      return "}";
-    case DOT:
-      return ".";
-    case COMMA:
-      return ",";
-    case DOLLAR:
-      return "$";
-    default:
-      return "";
-  };
+  return punctTable[val];
 }
 
 string Punct::getDesc()

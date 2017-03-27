@@ -5,11 +5,14 @@
 #include "Type.hpp"
 
 #include <map>
+#include <vector>
 
 using namespace std;
 
-extern map<int, string> keywordTable;
-extern map<int, string> tokTypeTable;
+extern map<string, int> keywordTable;
+extern map<string, int> operatorTable;
+extern map<char, int> punctTable;
+extern vector<string> tokTypeTable;
 
 void initTokens();
 
@@ -64,7 +67,6 @@ enum KW
   NONTERM
 };
 
-
 enum OP
 {
   PLUS,
@@ -75,23 +77,28 @@ enum OP
   MULEQ,
   DIV,
   DIVEQ,
+  MOD,
+  MODEQ,
   LOR,
   BOR,
+  BOREQ,
   BXOR,
+  BXOREQ,
   LNOT,
   BNOT,
   LAND,
   BAND,
+  BANDEQ,
   SHL,
+  SHLEQ,
   SHR,
+  SHREQ,
   CMPEQ,
   CMPNEQ,
   CMPL,
   CMPLE,
   CMPG,
   CMPGE,
-  LBRACK,   //index operator, left and right
-  RBRACK,
   ASSIGN
 };
 
@@ -103,6 +110,8 @@ enum PUNC
   RPAREN,
   LBRACE,
   RBRACE,
+  LBRACKET,
+  RBRACKET,
   DOT,
   COMMA,
   DOLLAR
@@ -119,6 +128,7 @@ enum TokType
   OPERATOR,
   KEYWORD,
   PAST_EOF          //null or empty token
+  NUM_TOKEN_TYPES
 };
 
 struct Token

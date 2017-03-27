@@ -5,6 +5,12 @@
 #include "Token.hpp"
 #include "Type.hpp"
 
+#include <stdexcept>
+
+using namespace std;
+
+typedef runtime_error ParseErr
+
 namespace Parser
 {
   //the types of nonterminals
@@ -52,16 +58,27 @@ namespace Parser
     TRAIT_TYPE,
     BOOL_LIT,
     EXPR_1,
+    EXPR_1_RHS,
     EXPR_2,
+    EXPR_2_RHS,
     EXPR_3,
+    EXPR_3_RHS,
     EXPR_4,
+    EXPR_4_RHS,
     EXPR_5,
+    EXPR_5_RHS,
     EXPR_6,
+    EXPR_6_RHS,
     EXPR_7,
+    EXPR_7_RHS,
     EXPR_8,
+    EXPR_8_RHS,
     EXPR_9,
+    EXPR_9_RHS,
     EXPR_10,
+    EXPR_10_RHS,
     EXPR_11,
+    EXPR_11_RHS,
     EXPR_12
   };
   
@@ -109,16 +126,27 @@ namespace Parser
   struct TraitType;
   struct BoolLit;
   struct Expr1;
+  struct Expr1RHS;
   struct Expr2;
+  struct Expr2RHS;
   struct Expr3;
+  struct Expr3RHS;
   struct Expr4;
+  struct Expr4RHS;
   struct Expr5;
+  struct Expr5RHS;
   struct Expr6;
+  struct Expr6RHS;
   struct Expr7;
+  struct Expr7RHS;
   struct Expr8;
+  struct Expr8RHS;
   struct Expr9;
+  struct Expr9RHS;
   struct Expr10;
+  struct Expr10RHS;
   struct Expr11;
+  struct Expr11RHS;
   struct Expr12;
 
   struct Module : public Nonterm
@@ -468,289 +496,130 @@ namespace Parser
 
   struct Expr1 : public Nonterm
   {
-    struct OrExpr
-    {
-      Expr1* lhs;
-      Expr2* rhs;
-    };
-    enum
-    {
-      EX2,
-      OR
-    };
-    union
-    {
-      Expr2* ex2;
-      OrExpr orEx;
-    } e;
-    int op;
+    Expr2* head;
+    vector<Expr1RHS*> tail;
+  };
+
+  struct Expr1RHS: public Nonterm
+  {
+    // || is only op
+    Expr2* rhs;
   };
 
   struct Expr2 : public Nonterm
   {
-    struct AndExpr
-    {
-      Expr2* lhs;
-      Expr3* rhs;
-    };
-    enum
-    {
-      EX3,
-      AND
-    };
-    union
-    {
-      Expr3* ex3;
-      AndExpr andEx;
-    } e;
-    int op;
+    Expr3* head;
+    vector<Expr2RHS*> tail;
+  };
+
+  struct Expr2RHS : public Nonterm
+  {
+    Expr3* rhs;
   };
 
   struct Expr3 : public Nonterm
   {
-    struct BitOrExpr
-    {
-      Expr3* lhs;
-      Expr4* rhs;
-    };
-    enum
-    {
-      EX4,
-      OR
-    };
-    union
-    {
-      Expr4* ex4;
-      BitOrExpr bitOrEx;
-    } e;
-    int op;
+    Expr4* head;
+    vector<Expr3HRS*> tail;
+  };
+
+  struct Expr3RHS : public Nonterm
+  {
+    Expr4* rhs;
   };
 
   struct Expr4 : public Nonterm
   {
-    struct XorExpr
-    {
-      Expr4* lhs;
-      Expr5* rhs;
-    };
-    enum
-    {
-      EX5,
-      XOR
-    };
-    union
-    {
-      Expr5* ex5;
-      XorExpr xorEx;
-    } e;
-    int op;
+    Expr5* head;
+    vector<Expr4RHS*> tail;
+  };
+
+  struct Expr4RHS : public Nonterm
+  {
+    Expr5* rhs;
   };
 
   struct Expr5 : public Nonterm
   {
-    struct BitAndExpr
-    {
-      Expr5* lhs;
-      Expr6* rhs;
-    };
-    enum
-    {
-      EX6,
-      AND
-    };
-    union
-    {
-      Expr6* ex6;
-      BitAndExpr bitAndEx;
-    } e;
-    int op;
+    Expr6* head; 
+    vector<Expr5RHS*> tail;
+  };
+
+  struct Expr5RHS : public Nonterm
+  {
+    Expr6* rhs;
   };
 
   struct Expr6 : public Nonterm
   {
-    struct EqualsExpr
-    {
-      Expr6* lhs;
-      Expr7* rhs;
-    };
-    struct NotEqualsExpr
-    {
-      Expr6* lhs;
-      Expr7* rhs;
-    };
-    enum
-    {
-      EX7,
-      EQUAL,
-      NOT_EQUAL
-    };
-    union
-    {
-      Expr7* ex7;
-      EqualsExpr eqEx;
-      NotEqualsExpr neqEx;
-    } e;
-    int op;
+    Expr7* head;
+    vector<Expr6RHS*> tail;
+  };
+
+  struct Expr6RHS : public Nonterm
+  {
+    int op; //CMPEQ or CMPNEQ
+    Expr7* rhs;
   };
 
   struct Expr7 : public Nonterm
   {
-    struct LessExpr
-    {
-      Expr7* lhs;
-      Expr8* rhs;
-    };
-    struct GreaterExpr
-    {
-      Expr7* lhs;
-      Expr8* rhs;
-    };
-    struct LessEqExpr
-    {
-      Expr7* lhs;
-      Expr8* rhs;
-    };
-    struct GreaterEqExpr
-    {
-      Expr7* lhs;
-      Expr8* rhs;
-    };
-    enum
-    {
-      EX8,
-      LESS,
-      LESS_EQ,
-      GREATER,
-      GREATER_EQ
-    };
-    union
-    {
-      Expr8* ex8;
-      LessExpr lessEx;
-      GreaterExpr greaterEx;
-      LessEqExpr lessEqEx;
-      GreaterEqExpr greaterEqEx;
-    } e;
-    int op;
+    Expr8* head;
+    vector<Expr7RHS*> tail;
+  };
+
+  struct Expr7RHS : public Nonterm
+  {
+    int op;  //CMPL, CMPLE, CMPG, CMPGE
+    Expr8* rhs;
   };
 
   struct Expr8 : public Nonterm
   {
-    struct ShlExpr
-    {
-      Expr8* lhs;
-      Expr9* rhs;
-    };
-    struct ShrExpr
-    {
-      Expr8* lhs;
-      Expr9* rhs;
-    };
-    enum
-    {
-      EX9,
-      SHL,
-      SHR
-    };
-    union
-    {
-      Expr9* ex9;
-      ShlExpr shlEx;
-      ShrExpr shrEx;
-    } e;
-    int op;
+    Expr9* head;
+    vector<Expr8RHS*> tail;
+  };
+
+  struct Expr8RHS : public Nonterm
+  {
+    int op; //SHL, SHR
+    Expr9* rhs;
   };
 
   struct Expr9 : public Nonterm
   {
-    struct AddExpr
-    {
-      Expr9* lhs;
-      Expr10* rhs;
-    };
-    struct SubExpr
-    {
-      Expr9* lhs;
-      Expr10* rhs;
-    };
-    enum
-    {
-      EX10,
-      ADD,
-      SUB
-    };
-    union
-    {
-      Expr10* ex10;
-      AddExpr addEx;
-      SubExpr subEx;
-    } e;
-    int op;
+    Expr10* head;
+    vector<Expr9RHS*> tail;
+  };
+
+  struct Expr9RHS : public Nonterm
+  {
+    int op; //PLUS, SUB
+    Expr10* rhs;
   };
 
   struct Expr10 : public Nonterm
   {
-    struct MulExpr
-    {
-      Expr10* lhs;
-      Expr11* rhs;
-    };
-    struct DivExpr
-    {
-      Expr10* lhs;
-      Expr11* rhs;
-    };
-    struct ModExpr
-    {
-      Expr10* lhs;
-      Expr11* rhs;
-    };
-    enum
-    {
-      EX11,
-      MUL,
-      DIV,
-      MOD
-    };
-    union
-    {
-      Expr11* ex11;
-      MulExpr mulEx;
-      DivExpr divEx;
-      ModExpr modEx;
-    } e;
-    int op;
+    Expr11* head;
+    vector<Expr10RHS*> tail;
+  };
+
+  struct Expr10RHS : public Nonterm
+  {
+    int op; //MUL, DIV, MOD
+    Expr11* rhs;
   };
 
   struct Expr11 : public Nonterm
   {
-    struct NotExpr    //!
-    {
-      Expr11* val;
-    };
-    struct NegExpr    //-
-    {
-      Expr11* val;
-    };
-    struct BitNotExpr //~
-    {
-      Expr11* val;
-    }
-    enum
-    {
-      EXPR12,
-      NOT,
-      NEG,
-      BITNOT
-    };
-    union
-    {
-      Expr12* ex12;
-      NotExpr notEx;
-      NegExpr negEx;
-      BitNotExpr bitNotEx;
-    } e;
-    int op;
+    Expr12* head;
+    vector<Expr11RHS*> tail;
+  };
+
+  struct Expr11RHS : public Nonterm
+  {
+    int op; //SUB, LNOT, BNOT
+    Expr12* rhs;
   };
 
   struct Expr12 : public Nonterm
@@ -783,23 +652,55 @@ namespace Parser
   //Parse from a linear token stream into a program (default module)
   ModuleDef* parseProgram(vector<Token*>& toks);
 
-  //Parse a nonterminal of type NT. 
-  //If allowFail, will silently return NULL if the parse fails
-  //If !allowFail, will print error message and stop the compiler if parse fails
+  //Parse a nonterminal of type NT
   template<typename NT>
-  NT* parse(bool allowFail = true);
+  NT* parse();
 
-  //Parsing utilities
+  template<typename NT>
+  NT* parseOptional()
+  {
+    int prevPos = pos;
+    try
+    {
+      NT* nt = parse<NT>();
+      return nt;
+    }
+    catch(...)
+    {
+      //backtrack
+      pos = prevPos;
+      return NULL;
+    }
+  }
+
+  template<typename NT>
+  vector<NT*> parseSome()
+  {
+    vector<NT*> nts;
+    while(true)
+    {
+      NT* nt = parseOptional<NT>();
+      if(!nt)
+        break;
+      else
+        nts.push_back(nt);
+    };
+    return nts;
+  }
+
+  //Token stream utilities
   bool accept(Token& t);
   Token* accept(int tokType);   //return NULL if tokType doesn't match next
   bool acceptKeyword(int type);
   bool acceptOper(int type);
   bool acceptPunct(int type);
+
   void expect(Token& t);
   Token* expect(int tokType);
   void expectKeyword(int type);
   void expectOper(int type);
   void expectPunct(int type);
+
   Token* getNext();
   void unget();
   Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
@@ -810,3 +711,12 @@ namespace Parser
 
 #endif
 
+//parse plan
+//parse<type> parses nonterm type (failure is an error)
+//parseOptional<type> parses one nonterm, but failure just returns NULL
+//parseSome<type> parses 0 or more nonterms (repeatedly parseOptional)
+//use exceptions to propagate parse failures up the chain
+//parseOptional just catches the error, and backtracks token iterator
+//the top-level parse function can print the error
+// error messages: i.e. "Parse error: expected <nonterm type/keyword/etc> but got "<token text>"
+ 

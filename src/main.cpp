@@ -9,6 +9,7 @@
 
 void init()
 {
+  //all namespace initialization
   initTokens();
 }
 

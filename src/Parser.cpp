@@ -9,68 +9,51 @@ namespace Parser
   {
     pos = 0;
     tokens = &toks;
-    return parseModuleDef(false);
+    return parse<ModuleDef>();
   }
 
   template<>
   Module* parse<Module>(bool canFail)
   {
     Module m;
-    if(canFail)
-    {
-      expectKeyword(
-    }
     expectKeyword(MODULE);
-    m.name = (Ident*) expect(IDENTIFIER);
+    m.name = (Ident*) accept(IDENTIFIER, canFail);
     expectPunct(LBRACE);
-    m.def = parseModuleDef();
+    m.def = parse<ModuleDef>();
     expectPunct(RBRACE);
+    return new Module(m);
   }
 
   template<>
   ModuleDef* parse<ModuleDef>(bool canFail)
   {
-    ModuleDef* md = new ModuleDef;
-    while(true)
-    {
-      ScopedDecl* sd = parse<ScopedDecl>();
-      if(sd)
-        md->decls.push_back(sd);
-      else
-        break;
-    }
-    return md;
+    ModuleDef md;
+    md.decls = parseMany<ScopedDecl>();
+    return new ModuleDef(md);
   }
 
   template<>
   ScopedDecl* parse<ScopedDecl>(bool canFail)
   {
     /*
-Module
-StructDecl
-VariantDecl
-TraitDecl
-Enum
-Typedef
-TestDecl
+       Module
+       StructDecl
+       VariantDecl
+       TraitDecl
+       Enum
+       Typedef
+       TestDecl
        FuncDecl
        FuncDef
        ProcDecl
        ProcDef
        VarDecl
        */
-    ScopedDecl* sd = new ScopedDecl;
-    if(acceptKeyword(MODULE))
+    ScopedDecl sd;
+    sd.
+    else if(sd.decl.
     {
-      unget();
-      sd->type = NodeType::MODULE;
-      sd->decl.m = parseModule();
-    }
-    else if(acceptKeyword(STRUCT))
-    {
-      unget();
-      sd->type = NodeType::STRUCT_DECL;
-      sd->decl.structDecl = parseStructDecl();
+      sd.
     }
     else if(acceptKeyword(VARIANT))
     {
@@ -349,24 +332,32 @@ TestDecl
       pos++;
     return res;
   }
+
   Token* accept(int tokType)
   {
     Token* next = getNext();
     bool res = next->getType() == tokType;
     if(res)
+    {
       pos++;
-    return res ? next : NULL;
+      return next;
+    }
+    else
+      return NULL;
   }
+
   bool acceptKeyword(int type)
   {
-    Keyword k(type);
-    return accept(k);
+    Keyword kw(type);
+    return accept(kw);
   }
+
   bool acceptOper(int type)
   {
-    Oper o(type);
-    return accept(o);
+    Oper op(type);
+    return accept(op);
   }
+
   bool acceptPunct(int type)
   {
     Punct p(type);
@@ -375,33 +366,71 @@ TestDecl
 
   void expect(Token& t)
   {
-    if(*getNext() != t)
-      err(string("expected token: ") + t.getStr());
+    bool res = *getNext() == t;
     if(res)
+    {
       pos++;
-    return res;
+      return;
+    }
+    throw ParseErr(string("expected ") + t.getStr() + " but got " + next->getStr());
   }
+
   Token* expect(int tokType)
   {
-    if(getNext()->getType() == tokType)
-      return *tokens[pos++];
-    err(string("expected ") + tokTypeTable[tokType]);
-    return NULL;
+    Token* next = getNext();
+    bool res = next->getType() == tokType;
+    if(res)
+      pos++;
+    else
+      throw parseErr(string("expected ") + tokTypeTable[tokType] + " but got " + next->getStr());
+    return next;
   }
+
   void expectKeyword(int type)
   {
-    Keyword k(type);
-    expect(k);
+    Keyword kw(type);
+    expect(kw);
   }
+
   void expectOper(int type)
   {
-    Oper o(type);
-    expect(o);
+    Oper op(type);
+    expect(op);
   }
+
   void expectPunct(int type)
   {
     Punct p(type);
     expect(p);
+  }
+
+  Token* accept(int tokType)
+  {
+    Token* next = getNext();
+    bool res = next->getType() == tokType;
+    if(res)
+      pos++;
+    else
+      err(string("expected ") + tokTypeTable[tokType] + " but got " + next->getStr());
+    return res ? next : NULL;
+  }
+
+  bool acceptKeyword(int type, bool canFail)
+  {
+    Keyword k(type);
+    return accept(k, canFail);
+  }
+
+  bool acceptOper(int type, bool canFail)
+  {
+    Oper o(type);
+    return accept(o, canFail1);
+  }
+
+  bool acceptPunct(int type, bool canFail)
+  {
+    Punct p(type);
+    return accept(p, canFail);
   }
 
   Token* getNext()
@@ -411,6 +440,7 @@ TestDecl
     else
       return *tokens[pos];
   }
+
   Token* lookAhead(int ahead)
   {
     if(pos + ahead < tokens->size())
@@ -418,10 +448,12 @@ TestDecl
     else
       return *tokens[pos + ahead];
   }
+
   void unget()
   {
     pos--;
   }
+
   void err(string msg)
   {
     if(msg.length())

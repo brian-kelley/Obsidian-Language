@@ -4,7 +4,7 @@ vector<Token*> lex(string& code)
 {
   vector<Token*> tokens;
   //note: i is incremented various amounts depending on the tokens
-  for(size_t i = 0; i < code.size() - 2;)
+  for(size_t i = 0; i < code.size();)
   {
     //scan to start of next token (ignoring whitespace)
     if(code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
