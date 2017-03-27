@@ -55,7 +55,7 @@ Type:
   //n-dimensional array
   Type {p"[" p"]"}
   //tuple
-  p"(" Type {p"," Type} p")"
+  TupleType
 
 Statement:
   ScopedDecl
@@ -73,6 +73,9 @@ Statement:
   Using
   Assertion
   EmptyStatement
+
+TupleType:
+  p"(" Type {p"," Type} p")"
 
 EmptyStatement:
   p";"

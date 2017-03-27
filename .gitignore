@@ -3,4 +3,4 @@ build/
 *.swo
 */*.swp
 */*.swo
-*/.DS_Store
+.DS_Store

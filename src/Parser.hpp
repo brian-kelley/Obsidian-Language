@@ -9,7 +9,7 @@
 
 using namespace std;
 
-typedef runtime_error ParseErr
+typedef runtime_error ParseErr;
 
 namespace Parser
 {
@@ -124,6 +124,7 @@ namespace Parser
   struct StructLit;
   struct Member;
   struct TraitType;
+  struct TupleType;
   struct BoolLit;
   struct Expr1;
   struct Expr1RHS;
@@ -172,10 +173,6 @@ namespace Parser
       Type* t;
       int dims;
     };
-    struct TupleType
-    {
-      vector<Type*> types;
-    };
     enum Primitives
     {
       BOOL,
@@ -198,7 +195,7 @@ namespace Parser
       ARRAY,
       TUPLE
     };
-    int type;
+    int type; //TypeType value
     union
     {
       int prim;
@@ -487,6 +484,12 @@ namespace Parser
     //trait types of the form "<localName> : <traitName>"
     Ident* localName;
     Ident* traitName;
+  };
+
+  struct TupleType : public Nonterm
+  {
+    //cannot be empty
+    vector<Type*> members;
   };
 
   struct BoolLit : public Nonterm

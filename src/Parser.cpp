@@ -33,91 +33,211 @@ namespace Parser
   }
 
   template<>
-  ScopedDecl* parse<ScopedDecl>(bool canFail)
+  ScopedDecl* parse<ScopedDecl>()
+  {
+    ScopedDecl* sd = new ScopedDecl;
+    if(sd->nt = parseOptional<Module>())
+      return sd;
+    if(sd->nt = parseOptional<VarDecl>())
+      return sd;
+    if(sd->nt = parseOptional<VariantDecl>())
+      return sd;
+    if(sd->nt = parseOptional<TraitDecl>())
+      return sd;
+    if(sd->nt = parseOptional<Enum>())
+      return sd;
+    if(sd->nt = parseOptional<Typedef>())
+      return sd;
+    if(sd->nt = parseOptional<TestDecl>())
+      return sd;
+    if(sd->nt = parseOptional<FuncDecl>())
+      return sd;
+    if(sd->nt = parseOptional<FuncDef>())
+      return sd;
+    if(sd->nt = parseOptional<ProcDecl>())
+      return sd;
+    if(sd->nt = parseOptional<ProcDef>())
+      return sd;
+    delete sd;
+    throw ParseErr("invalid scoped declaration");
+  }
+
+  template<>
+  Type* parse<Type>()
+  {
+    Type* t = new Type;
+    TupleType* tup = NULL;
+    Member* mem = NULL;
+    if(acceptKeyword(VOID))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::VOID;
+    }
+    else if(acceptKeyword(BOOL))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::BOOL;
+    }
+    else if(acceptKeyword(CHAR))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::CHAR;
+    }
+    else if(acceptKeyword(UCHAR))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::UCHAR;
+    }
+    else if(acceptKeyword(SHORT))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::SHORT;
+    }
+    else if(acceptKeyword(USHORT))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::USHORT;
+    }
+    else if(acceptKeyword(INT))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::INT;
+    }
+    else if(acceptKeyword(UINT))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::UINT;
+    }
+    else if(acceptKeyword(LONG))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::LONG;
+    }
+    else if(acceptKeyword(ULONG))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::ULONG;
+    }
+    else if(acceptKeyword(FLOAT))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::FLOAT;
+    }
+    else if(acceptKeyword(DOUBLE))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::DOUBLE;
+    }
+    else if(acceptKeyword(STRING))
+    {
+      t->type = Type::PRIMITIVE;
+      t->t.prim = Type::STRING;
+    }
+    else if(tup = parseOptional<TupleType>())
+    {
+      t->type = Type::TUPLE;
+      t->t.tup = *tup;
+      delete tup;
+    }
+    else if(mem = parse<Member>())
+    {
+      t->type = Type::MEMBER;
+      t->t.mem = mem;
+    }
+    else
+    {
+      throw ParseErr("invalid type");
+    }
+    //now that base type has been parsed, there may be array dimension brackets after
+    int dims = 0;
+    while(1)
+    {
+      if(!acceptPunct(LBRACKET))
+      {
+        break;
+      }
+      expectPunct(RBRACKET);
+      dims++;
+    }
+    if(dims > 0)
+    {
+      //this type is an array, and its underlying type is the previously parsed type
+      ArrayType at;
+      at.t = t;
+      at.dims = dims;
+      Type* arrayType = new Type;
+      arrayType->type = Type::ARRAY;
+      arrayType->t.arr = at;
+      return arrayType;
+    }
+    else
+    {
+      //keep the original type
+      return t;
+    }
+  }
+
+  template<>
+  Statement* parse<Statement>()
   {
     /*
-       Module
-       StructDecl
-       VariantDecl
-       TraitDecl
-       Enum
-       Typedef
-       TestDecl
-       FuncDecl
-       FuncDef
-       ProcDecl
-       ProcDef
-       VarDecl
+       ScopedDecl
+       VarAssign
+       Print
+       Expression p";"
+       Block
+       Return
+       Continue
+       Break
+       Switch
+       For
+       While
+       If
+       Using
+       Assertion
+       EmptyStatement
        */
-    ScopedDecl sd;
-    sd.
-    else if(sd.decl.
+    Statement* s = new Statement;
+    if(s->nt = parseOptional<ScopedDecl>())
+      return s;
+    if(s->nt = parseOptional<VarAssign>())
+      return s;
+    if(s->nt = parseOptional<Print>())
+      return s;
+    if(s->nt = parseOptional<Expression>())
     {
-      sd.
+      expectPunct(SEMICOLON);
+      return s;
     }
-    else if(acceptKeyword(VARIANT))
-    {
-      unget();
-      sd->type = NodeType::VARIANT_DECL;
-      sd->decl.vd = parseVariantDecl();
-    }
-    else if(acceptKeyword(TRAIT))
-    {
-      unget();
-      sd->type = NodeType::TRAIT_DECL;
-      sd->decl.td = parseTraitDecl();
-    }
-    else if(acceptKeyword(ENUM))
-    {
-      unget();
-      sd->type = NodeType::ENUM;
-      sd->decl.e = parseEnum();
-    }
-    else if(acceptKeyword(TYPEDEF))
-    {
-      unget();
-      sd->type = NodeType::TYPEDEF;
-      sd->decl.t = parseTypedef();
-    }
-    else if(acceptKeyword(TEST))
-    {
-      unget();
-      sd->type = NodeType::TEST_DECL;
-      sd->decl.test = parseTestDecl();
-    }
-    else if(acceptKeyword(FUNC))
-    {
-      //either func decl or def
-      auto fdef = parseFuncDef();
-      if(fdef)
-      {
-        sd->type = NodeType::FUNC_DEF;
-        sd->decl.fdef = fdef;
-      }
-      else
-      {
-        sd->type = NodeType::FUNC_DECL;
-        sd->decl.fdcl = parseFuncDecl();
-      }
-    }
-    else if(acceptKeyword(PROC))
-    {
-    }
+    if(s->nt = parseOptional<Block>())
+      return s;
+    if(s->nt = parseOptional<Return>())
+      return s;
+    if(s->nt = parseOptional<Continue>())
+      return s;
+    if(s->nt = parseOptional<Break>())
+      return s;
+    if(s->nt = parseOptional<Switch>())
+      return s;
+    if(s->nt = parseOptional<For>())
+      return s;
+    if(s->nt = parseOptional<While>())
+      return s;
+    if(s->nt = parseOptional<If>())
+      return s;
+    if(s->nt = parseOptional<Using>())
+      return s;
+    if(s->nt = parseOptional<Assertion>())
+      return s;
+    if(s->nt = parseOptional<EmptyStatement>())
+      return s;
+    throw parseErr("invalid statement");
   }
 
   template<>
-  Type* parse<Type>(bool canFail)
+  Typedef* parse<Typedef>()
   {
-  }
-
-  template<>
-  Statement* parse<Statement>(bool canFail)
-  {
-  }
-
-  template<>
-  Typedef* parse<Typedef>(bool canFail)
-  {
+    expectKeyword(TYPEDEF);
   }
 
   template<>
@@ -410,8 +530,6 @@ namespace Parser
     bool res = next->getType() == tokType;
     if(res)
       pos++;
-    else
-      err(string("expected ") + tokTypeTable[tokType] + " but got " + next->getStr());
     return res ? next : NULL;
   }
 
