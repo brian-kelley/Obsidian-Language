@@ -96,14 +96,19 @@ Switch:
   k"switch" p"(" Expression p")" p"{" {k"case" Expression p":" Statement} [k"default" p":" Statement] p:}"
 
 For:
-  //C-style for loop
-  k"for" p"(" VarDecl Expression p";" VarAssign p")" Statement
-  //Ranged for [0..n)
-  k"for" Expression Statement
-  //Ranged for [m..n)
-  k"for" Expression p":" Expression Statement
-  //Loop over array elements
-  k"for" Member Statement
+  (ForC | ForRange1 | ForRange2 | ForArray) Statement
+
+ForC:
+  k"for" p"(" VarDecl Expression p";" VarAssign p")"
+
+ForRange1:
+  k"for" Expression
+
+ForRange2:
+  k"for" Expression p":" Expression
+
+ForArray
+  k"for" Member
 
 While:
   k"while" p"(" Expression p")" Statement
@@ -148,16 +153,7 @@ Print:
   k"print" p"(" Expression {p"," Expression} p")" p";"
 
 Expression:
-  IntLit
-  FloatLit
-  StrLit
-  CharLit
-  BoolLit
-  ArrayLit
-  StructLit
   Call
-  Member
-  Error
   Expr1
 
 Call:
@@ -303,4 +299,6 @@ Expr12
   FloatLit
   StructLit
   ArrayLit
+  Member
+  Error
 

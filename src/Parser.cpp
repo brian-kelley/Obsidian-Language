@@ -35,31 +35,20 @@ namespace Parser
   template<>
   ScopedDecl* parse<ScopedDecl>()
   {
-    ScopedDecl* sd = new ScopedDecl;
-    if(sd->nt = parseOptional<Module>())
-      return sd;
-    if(sd->nt = parseOptional<VarDecl>())
-      return sd;
-    if(sd->nt = parseOptional<VariantDecl>())
-      return sd;
-    if(sd->nt = parseOptional<TraitDecl>())
-      return sd;
-    if(sd->nt = parseOptional<Enum>())
-      return sd;
-    if(sd->nt = parseOptional<Typedef>())
-      return sd;
-    if(sd->nt = parseOptional<TestDecl>())
-      return sd;
-    if(sd->nt = parseOptional<FuncDecl>())
-      return sd;
-    if(sd->nt = parseOptional<FuncDef>())
-      return sd;
-    if(sd->nt = parseOptional<ProcDecl>())
-      return sd;
-    if(sd->nt = parseOptional<ProcDef>())
-      return sd;
-    delete sd;
+    ScopedDecl sd;
+    if(!sd.nt) sd.nt = parseOptional<Module>();
+    if(!sd.nt) sd.nt = parseOptional<VarDecl>();
+    if(!sd.nt) sd.nt = parseOptional<VariantDecl>();
+    if(!sd.nt) sd.nt = parseOptional<TraitDecl>();
+    if(!sd.nt) sd.nt = parseOptional<Enum>();
+    if(!sd.nt) sd.nt = parseOptional<Typedef>();
+    if(!sd.nt) sd.nt = parseOptional<TestDecl>();
+    if(!sd.nt) sd.nt = parseOptional<FuncDecl>();
+    if(!sd.nt) sd.nt = parseOptional<FuncDef>();
+    if(!sd.nt) sd.nt = parseOptional<ProcDecl>();
+    if(!sd.nt) sd.nt = parseOptional<ProcDef>();
     throw ParseErr("invalid scoped declaration");
+    return new ScopedDecl(sd);
   }
 
   template<>
@@ -180,133 +169,272 @@ namespace Parser
   template<>
   Statement* parse<Statement>()
   {
-    /*
-       ScopedDecl
-       VarAssign
-       Print
-       Expression p";"
-       Block
-       Return
-       Continue
-       Break
-       Switch
-       For
-       While
-       If
-       Using
-       Assertion
-       EmptyStatement
-       */
-    Statement* s = new Statement;
-    if(s->nt = parseOptional<ScopedDecl>())
-      return s;
-    if(s->nt = parseOptional<VarAssign>())
-      return s;
-    if(s->nt = parseOptional<Print>())
-      return s;
-    if(s->nt = parseOptional<Expression>())
-    {
+    Statement s;
+    if(!s.nt) s.nt = parseOptional<ScopedDecl>();
+    if(!s.nt) s.nt = parseOptional<VarAssign>();
+    if(!s.nt) s.nt = parseOptional<Print>();
+    //expression must be followed by semicolon
+    if(!s.nt && (s.nt = parseOptional<Expression>()))
       expectPunct(SEMICOLON);
-      return s;
-    }
-    if(s->nt = parseOptional<Block>())
-      return s;
-    if(s->nt = parseOptional<Return>())
-      return s;
-    if(s->nt = parseOptional<Continue>())
-      return s;
-    if(s->nt = parseOptional<Break>())
-      return s;
-    if(s->nt = parseOptional<Switch>())
-      return s;
-    if(s->nt = parseOptional<For>())
-      return s;
-    if(s->nt = parseOptional<While>())
-      return s;
-    if(s->nt = parseOptional<If>())
-      return s;
-    if(s->nt = parseOptional<Using>())
-      return s;
-    if(s->nt = parseOptional<Assertion>())
-      return s;
-    if(s->nt = parseOptional<EmptyStatement>())
-      return s;
-    throw parseErr("invalid statement");
+    if(!s.nt) s.nt = parseOptional<Block>();
+    if(!s.nt) s.nt = parseOptional<Return>();
+    if(!s.nt) s.nt = parseOptional<Continue>();
+    if(!s.nt) s.nt = parseOptional<Break>();
+    if(!s.nt) s.nt = parseOptional<Switch>();
+    if(!s.nt) s.nt = parseOptional<For>();
+    if(!s.nt) s.nt = parseOptional<While>();
+    if(!s.nt) s.nt = parseOptional<If>();
+    if(!s.nt) s.nt = parseOptional<Using>();
+    if(!s.nt) s.nt = parseOptional<Assertion>();
+    if(!s.nt) s.nt = parseOptional<EmptyStatement>();
+    if(!s.nt)
+      throw parseErr("invalid statement");
+    return new Statement(s);
   }
 
   template<>
   Typedef* parse<Typedef>()
   {
+    Typedef t;
     expectKeyword(TYPEDEF);
+    t.type = parse<Type>();
+    t.ident = (Ident*) expect(IDENT);
+    expectPunct(SEMICOLON);
+    return new Typedef(t);
   }
 
   template<>
-  Return* parse<Return>(bool canFail)
+  Return* parse<Return>()
+  {
+    expectKeyword(RETURN);
+    Return* r = new Return;
+    r->ex = parseOptional<Expression>();
+    expectPunct(SEMICOLON);
+    return r;
+  }
+
+  template<>
+  Switch* parse<Switch>()
+  {
+    Switch sw;
+    sw.defaultStatement = NULL;
+    expectKeyword(SWITCH);
+    expectPunct(LPAREN);
+    sw.sw = parse<Expression>();
+    expectPunct(RPAREN);
+    expectPunct(LBRACE);
+    while(true)
+    {
+      if(acceptKeyword(CASE))
+      {
+        SwitchCase sc;
+        sc.matchVal = parse<Expression>();
+        expectPunct(COLON);
+        sc.s = parse<Statement>();
+        sw.cases.push_back(sc);
+      }
+      else
+        break;
+    }
+    if(acceptKeyword(DEFAULT))
+    {
+      sw.defaultStatement = parse<Statement>();
+    }
+    expectPunct(RBRACE);
+  }
+
+  template<>
+  ForC* parse<ForC>()
+  {
+    //try to parse C style for loop
+    ForC forC;
+    expectKeyword(FOR);
+    expectPunct(LPAREN);
+    //all 3 parts of the loop are optional
+    forC.decl = parseOptional<VarDecl>();
+    if(!forC.decl)
+    {
+      expectPunct(SEMICOLON);
+    }
+    forC.condition = parseOptional<Expression>();
+    expectPunct(SEMICOLON);
+    forC.incr = parseOptional<VarDecl>();
+    expectParen(RPAREN);
+    //parse succeeded, use forC
+    return new ForC(forC);
+  }
+
+  template<>
+  ForRange1* parse<ForRange1>()
+  {
+    ForRange1 fr1;
+    expectKeyword(FOR);
+    fr1.expr = parse<Expression>();
+    return new ForRange1(fr1);
+  }
+
+  template<>
+  ForRange2* parse<ForRange2>()
+  {
+    ForRange1 fr1;
+    expectKeyword(FOR);
+    fr1.start = parse<Expression>();
+    expectPunct(COLON);
+    fr1.end = parse<Expression>();
+    return new ForRange1(fr1);
+  }
+
+  template<>
+  ForArray* parse<ForArray>()
+  {
+    Expression* arr = parse<Expression>();
+    ForArray fa;
+    fa.container = arr;
+    return new ForArray(fa);
+  }
+
+  template<>
+  For* parse<For>()
+  {
+    if(f.loop.forC = parseOptional<ForC>())
+    {
+      f.type = For::C_STYLE;
+    }
+    else if(f.loop.forRange1 = parseOptional<ForRange1>())
+    {
+      f.type = For::RANGE_1;
+    }
+    else if(f.loop.forRange2 = parseOptional<ForRange2>())
+    {
+      f.type = For::RANGE_2;
+    }
+    else if(f.loop.forArray = parseOptional<ForArray>())
+    {
+      f.type = For::ARRAY;
+    }
+    else
+    {
+      throw ParseErr("invalid for loop");
+    }
+    f.body = parse<Expression>();
+  }
+
+  template<>
+  While* parse<While>()
+  {
+    While w;
+    expectKeyword(WHILE);
+    expectPunct(LPAREN);
+    w.cond = parse<Expression>();
+    expectPunct(RPAREN);
+    w.body = parse<Statement>();
+    return new While(w);
+  }
+
+  template<>
+  If* parse<If>()
+  {
+    If i;
+    expectKeyword(IF);
+    expectPunct(LPAREN);
+    i.cond = parse<Expression>();
+    expectPunct(RPAREN);
+    i.ifBody = parse<Statement>();
+    if(acceptKeyword(ELSE))
+      i.elseBody = parse<Statement>();
+    else
+      i.elseBody = NULL;
+    return new If(i);
+  }
+
+  template<>
+  Using* parse<Using>()
+  {
+    Using u;
+    expectKeyword(USING);
+    u.mem = parse<Member>();
+    expectPunct(SEMICOLON);
+    return new Using(u);
+  }
+
+  template<>
+  Assertion* parse<Assertion>()
+  {
+    Assertion a;
+    expectKeyword(ASSERT);
+    a.expr = parse<Expression>();
+    expectPunct(SEMICOLON);
+    return new Assertion(a);
+  }
+
+  template<>
+  TestDecl* parse<TestDecl>()
+  {
+    Test t;
+    expectKeyword(TEST);
+    t.call = parse<Call>();
+    expectPunct(SEMICOLON);
+    return new Test(t);
+  }
+
+  template<>
+  Enum* parse<Enum>()
+  {
+    Enum e;
+    expectKeyword(ENUM);
+    e.name = (Ident*) expect(IDENTIFIER);
+    expectPunct(LBRACE);
+    while(true)
+    {
+      if(e.items.size() != 0)
+        expectPunct(COMMA);
+      EnumItem item;
+      item.name = (Ident*) accept(IDENTIFIER);
+      if(!item.name)
+        break;
+      if(acceptOper(ASSIGN))
+      {
+        item.value = (IntLit*) expect(INT_LITERAL);
+      }
+      e.items.push_back(item);
+    }
+    expectPunct(RBRACE);
+    return new Enum(e);
+  }
+
+  template<>
+  Block* parse<Block>()
+  {
+    Block b;
+    expectPunct(LBRACE);
+    while(true)
+    {
+      Statement* s = parseOptional<Statement>();
+      if(!s)
+        break;
+      b.statements.push_back(s);
+    }
+    expectPunct(RBRACE);
+    return new Block(b);
+  }
+
+  template<>
+  VarDecl* parse<VarDecl>()
   {
   }
 
   template<>
-  Switch* parse<Switch>(bool canFail)
+  VarAssign* parse<VarAssign>()
   {
   }
 
   template<>
-  For* parse<For>(bool canFail)
+  Print* parse<Print>()
   {
   }
 
   template<>
-  While* parse<While>(bool canFail)
-  {
-  }
-
-  template<>
-  If* parse<If>(bool canFail)
-  {
-  }
-
-  template<>
-  Using* parse<Using>(bool canFail)
-  {
-  }
-
-  template<>
-  Assertion* parse<Assertion>(bool canFail)
-  {
-  }
-
-  template<>
-  TestDecl* parse<TestDecl>(bool canFail)
-  {
-  }
-
-  template<>
-  Enum* parse<Enum>(bool canFail)
-  {
-  }
-
-  template<>
-  Block* parse<Block>(bool canFail)
-  {
-  }
-
-  template<>
-  VarDecl* parse<VarDecl>(bool canFail)
-  {
-  }
-
-  template<>
-  VarAssign* parse<VarAssign>(bool canFail)
-  {
-  }
-
-  template<>
-  Print* parse<Print>(bool canFail)
-  {
-  }
-
-  template<>
-  Expression* parse<Expr>(bool canFail)
+  Expression* parse<Expression>()
   {
   }
 
@@ -579,6 +707,282 @@ namespace Parser
     else
       printf("Parse error on line %i, col %i\n", 0, 0);  //TODO!
     exit(1);
+  }
+  
+  //nonterm destructors
+
+  Module::Module(const Module& rhs)
+  {
+    name = rhs.name;
+    def = new ModuleDef(rhs.def);
+  }
+  Module::~Module()
+  {
+    if(def)
+      delete def;
+  }
+
+  ModuleDef::~ModuleDef()
+  {
+    for(auto decl : decls)
+      delete decl;
+  }
+
+  ScopedDecl::~ScopedDecl()
+  {
+    if(nt)
+      delete nt;
+  }
+
+  Type::~Type()
+  {
+    switch(type)
+    {
+      case MEMBER:
+        delete t.member;
+        break;
+      case ARRAY:
+        delete t.arr;
+        break;
+      case TUPLE:
+        delete t.tup;
+        break;
+      default:;
+    }
+  }
+
+  Statement::~Statement()
+  {
+    if(nt)
+      delete nt;
+  }
+
+  Typedef::~Typedef()
+  {
+    if(type)
+      delete type;
+  }
+
+  Return::~Return()
+  {
+    if(ex)
+      delete ex;
+  }
+
+  Switch::~Switch()
+  {
+  }
+
+  For::~For()
+  {
+  }
+  
+  While::~While()
+  {
+  }
+
+  If::~If()
+  {
+  }
+
+  Using::~Using()
+  {
+  }
+
+  Assertion::~Assertion()
+  {
+  }
+
+  TestDecl::~TestDecl()
+  {
+  }
+
+  Enum::~Enum()
+  {
+  }
+
+  Block::~Block()
+  {
+  }
+
+  VarDecl::~VarDecl()
+  {
+  }
+
+  VarAssign::~VarAssign()
+  {
+  }
+
+  Print::~Print()
+  {
+  }
+
+  Expression::~Expression()
+  {
+  }
+
+  Call::~Call()
+  {
+  }
+
+  Arg::~Arg()
+  {
+  }
+
+  Args::~Args()
+  {
+  }
+
+  FuncDecl::~FuncDecl()
+  {
+  }
+
+  FuncDef::~FuncDef()
+  {
+  }
+
+  FuncType::~FuncType()
+  {
+  }
+
+  ProcDecl::~ProcDecl()
+  {
+  }
+
+  ProcDef::~ProcDef()
+  {
+  }
+
+  ProcType::~ProcType()
+  {
+  }
+
+  StructDecl::~StructDecl()
+  {
+  }
+
+  VariantDecl::~VariantDecl()
+  {
+  }
+
+  TraitDecl::~TraitDecl()
+  {
+  }
+
+  ArrayLit::~ArrayLit()
+  {
+  }
+
+  StructLit::~StructLit()
+  {
+  }
+
+  Member::~Member()
+  {
+  }
+
+  TraitType::~TraitType()
+  {
+  }
+
+  TupleType::~TupleType()
+  {
+  }
+
+  BoolLit::~BoolLit()
+  {
+  }
+
+  Expr1::~Expr1()
+  {
+  }
+
+  Expr1RHS::~Expr1RHS()
+  {
+  }
+
+  Expr2::~Expr2()
+  {
+  }
+
+  Expr2RHS::~Expr2RHS()
+  {
+  }
+
+  Expr3::~Expr3()
+  {
+  }
+
+  Expr3RHS::~Expr3RHS()
+  {
+  }
+
+  Expr4::~Expr4()
+  {
+  }
+
+  Expr4RHS::~Expr4RHS()
+  {
+  }
+
+  Expr5::~Expr5()
+  {
+  }
+
+  Expr5RHS::~Expr5RHS()
+  {
+  }
+
+  Expr6::~Expr6()
+  {
+  }
+
+  Expr6RHS::~Expr6RHS()
+  {
+  }
+
+  Expr7::~Expr7()
+  {
+  }
+
+  Expr7RHS::~Expr7RHS()
+  {
+  }
+
+  Expr8::~Expr8()
+  {
+  }
+
+  Expr8RHS::~Expr8RHS()
+  {
+  }
+
+  Expr9::~Expr9()
+  {
+  }
+
+  Expr9RHS::~Expr9RHS()
+  {
+  }
+
+  Expr10::~Expr10()
+  {
+  }
+
+  Expr10RHS::~Expr10RHS()
+  {
+  }
+
+  Expr11::~Expr11()
+  {
+  }
+
+  Expr11RHS::~Expr11RHS()
+  {
+  }
+
+  Expr12::~Expr12()
+  {
   }
 }
 
