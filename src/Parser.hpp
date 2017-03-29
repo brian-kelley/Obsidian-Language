@@ -12,6 +12,7 @@
 using namespace std;
 
 #define UP unique_ptr
+typedef monostate None;
 typedef runtime_error ParseErr;
 
 namespace Parser
@@ -167,6 +168,7 @@ namespace Parser
   struct ScopedDecl : public Nonterm
   {
     variant<
+      None,
       UP<Module>,
       UP<VarDecl>,
       UP<StructDecl>,
@@ -199,6 +201,7 @@ namespace Parser
       STRING
     };
     variant<
+      None,
       Prim,
       UP<Member>,
       UP<ArrayType>,
@@ -208,6 +211,7 @@ namespace Parser
   struct Statement : public Nonterm
   {
     variant<
+      None,
       UP<ScopedDecl>,
       UP<VarAssign>,
       UP<Print>,
@@ -253,6 +257,7 @@ namespace Parser
   struct For : public Nonterm
   {
     variant<
+      None,
       UP<ForC>,
       UP<ForRange1>,
       UP<ForRange2>,
@@ -356,6 +361,7 @@ namespace Parser
   struct Expression : public Nonterm
   {
     variant<
+      None,
       UP<Call>,
       UP<Member>,
       UP<Expr1>> e;
@@ -371,6 +377,7 @@ namespace Parser
   {
     bool traitType;
     variant<
+      None,
       UP<Type>,
       UP<TraitType>> t;
     string name;
@@ -446,11 +453,10 @@ namespace Parser
   {
     struct TraitMember
     {
-      union
-      {
-        UP<FuncDecl> fd;
-        UP<ProcDecl> pd;
-      } f;
+      variant<
+        None,
+        UP<FuncDecl>,
+        UP<ProcDecl>> tm;
       bool proc;
     };
     string name;
