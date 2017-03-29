@@ -487,6 +487,8 @@ namespace Parser
     UP<Member> traitName;
   };
 
+  //note: ArrayType is one rule for Type but it doesn't have
+  //its own parse specialization
   struct ArrayType
   {
     UP<Type> t;
