@@ -188,6 +188,11 @@ Oper::Oper(int op)
   this->op = op;
 }
 
+bool Oper::operator==(Token& rhs)
+{
+  return rhs.getType() == OPERATOR && ((Oper&) rhs) == *this;
+}
+
 bool Oper::operator==(Oper& rhs)
 {
   return op == rhs.op;
@@ -212,6 +217,11 @@ string Oper::getDesc()
 StrLit::StrLit(string val)
 {
   this->val = val;
+}
+
+bool StrLit::operator==(Token& rhs)
+{
+  return rhs.getType() == STRING_LITERAL && ((StrLit&) rhs) == *this;
 }
 
 bool StrLit::operator==(StrLit& rhs)
@@ -240,6 +250,11 @@ CharLit::CharLit(char val)
   this->val = val;
 }
 
+bool CharLit::operator==(Token& rhs)
+{
+  return rhs.getType() == CHAR_LITERAL && ((CharLit&) rhs) == *this;
+}
+
 bool CharLit::operator==(CharLit& rhs)
 {
   return val == rhs.val;
@@ -264,6 +279,11 @@ string CharLit::getDesc()
 IntLit::IntLit(int val)
 {
   this->val = val;
+}
+
+bool IntLit::operator==(Token& rhs)
+{
+  return rhs.getType() == INT_LITERAL && ((IntLit&) rhs) == *this;
 }
 
 bool IntLit::operator==(IntLit& rhs)
@@ -292,6 +312,11 @@ FloatLit::FloatLit(double val)
   this->val = val;
 }
 
+bool FloatLit::operator==(Token& rhs)
+{
+  return rhs.getType() == FLOAT_LITERAL && ((FloatLit&) rhs) == *this;
+}
+
 bool FloatLit::operator==(FloatLit& rhs)
 {
   return val == rhs.val;
@@ -316,6 +341,11 @@ string FloatLit::getDesc()
 Punct::Punct(PUNC val)
 {
   this->val = val;
+}
+
+bool Punct::operator==(Token& rhs)
+{
+  return rhs.getType() == PUNCTUATION && ((Punct&) rhs) == *this;
 }
 
 bool Punct::operator==(Punct& rhs)
@@ -354,6 +384,11 @@ Keyword::Keyword(int val)
   this->kw = val;
 }
 
+bool Keyword::operator==(Token& rhs)
+{
+  return rhs.getType() == KEYWORD && ((Keyword&) rhs) == *this;
+}
+
 bool Keyword::operator==(Keyword& rhs)
 {
   return kw == rhs.kw;
@@ -372,6 +407,11 @@ string Keyword::getStr()
 string Keyword::getDesc()
 {
   return tokTypeTable[KEYWORD];
+}
+
+bool PastEOF::operator==(Token& t)
+{
+  return t.getType() == PAST_EOF;
 }
 
 bool PastEOF::operator==(PastEOF& rhs)

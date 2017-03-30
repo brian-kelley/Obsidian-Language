@@ -40,7 +40,7 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks = lex(code);
   //Parsing
-  UP<Parser::ModuleDef> ast = Parser::parseProgram(toks);
+  UP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
   //Code generation
   if(op.emitC)
   {

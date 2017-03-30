@@ -115,13 +115,14 @@ public:
 		impl::storage_ops<0, Types...>::del(tag, storage);
 	}
 	template<typename X>
-	void operator=(const X& v) {
+	const X& operator=(const X& v) {
 		static_assert(
 			impl::position<X, Types...>::pos != -1,
 			"Type not in variant."
 		);
 		this->~variant();
 		init(v);
+    return v;
 	}
 	template<typename X>
 	X& get() {

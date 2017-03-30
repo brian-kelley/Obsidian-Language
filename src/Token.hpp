@@ -245,7 +245,7 @@ struct Keyword : public Token
 
 struct PastEOF : public Token
 {
-  PastEOF();
+  //PastEOF();
   static PastEOF inst;
   bool operator==(Token& rhs);
   bool operator==(PastEOF& rhs);
