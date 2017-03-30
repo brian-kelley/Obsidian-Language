@@ -7,10 +7,9 @@
 
 #include <stdexcept>
 #include <memory>
-#include "boost/variant.hpp"
+#include "variadic-variant/variant.h"
 
 using namespace std;
-using boost::variant;
 
 #define UP unique_ptr
 //Use empty struct as default value in some variants

@@ -11,6 +11,8 @@ namespace Parser
     return UP<NT>();
   }
 
+  template<> 
+
   UP<ModuleDef> parseProgram(vector<Token*>& toks)
   {
     pos = 0;
@@ -19,7 +21,7 @@ namespace Parser
   }
 
   template<>
-  UP<Module> parse<Module>()
+  UP<Module> parse<>()
   {
     UP<Module> m(new Module);
     expectKeyword(MODULE);
@@ -31,7 +33,7 @@ namespace Parser
   }
 
   template<>
-  UP<ModuleDef> parse()
+  UP<ModuleDef> parse<>()
   {
     UP<ModuleDef> md(new ModuleDef);
     md->decls = parseMany<ScopedDecl>();
