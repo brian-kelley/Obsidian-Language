@@ -293,9 +293,9 @@ void addToken(vector<Token*>& tokList, string token, int hint)
     else if(token == "^")
       tokList.push_back(new Oper(BXOR));
     else if(token == "[")
-      tokList.push_back(new Oper(LBRACK));
+      tokList.push_back(new Oper(LBRACKET));
     else if(token == "]")
-      tokList.push_back(new Oper(RBRACK));
+      tokList.push_back(new Oper(RBRACKET));
     else
       errAndQuit(string("Invalid or unknown punctuation token: \"") + token + "\"");
   }

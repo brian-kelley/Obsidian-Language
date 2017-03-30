@@ -6,7 +6,7 @@
 #include "Type.hpp"
 #include "Parser.hpp"
 
-void generateC(string outputStem, bool keep, Program p);
+void generateC(string outputStem, bool keep, UP<Parser::ModuleDef>& ast);
 
 #endif
 

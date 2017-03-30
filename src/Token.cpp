@@ -21,7 +21,7 @@ void initTokens()
   SET_KEY("short", SHORT)
   SET_KEY("ushort", USHORT)
   SET_KEY("int", INT)
-  SET_KEY("uint" UINT)
+  SET_KEY("uint", UINT)
   SET_KEY("long", LONG)
   SET_KEY("ulong", ULONG)
   SET_KEY("string", STRING)
@@ -135,11 +135,11 @@ void initTokens()
 
 int isKeyword(string str)
 {
-  auto it = keywordTable.find(str);
-  if(it == keywordTable.end())
+  auto it = keywordMap.find(str);
+  if(it == keywordMap.end())
     return -1;
   else
-    return (it - keywordTabler.begin())->second;
+    return it->second;
 }
 
 /* Identifier */
@@ -148,7 +148,14 @@ Ident::Ident(string name)
   this->name = name;
 }
 
-bool Ident::operator==(const Ident& rhs)
+bool Ident::operator==(Token& rhs)
+{
+  if(rhs.getType() == IDENTIFIER && ((Ident&) rhs) == *this)
+    return true;
+  return false;
+}
+
+bool Ident::operator==(Ident& rhs)
 {
   return name == rhs.name;
 }
@@ -181,7 +188,7 @@ Oper::Oper(int op)
   this->op = op;
 }
 
-bool Oper::operator==(const Oper& rhs)
+bool Oper::operator==(Oper& rhs)
 {
   return op == rhs.op;
 }
@@ -207,7 +214,7 @@ StrLit::StrLit(string val)
   this->val = val;
 }
 
-bool StrLit::operator==(const StrLit& rhs)
+bool StrLit::operator==(StrLit& rhs)
 {
   return val == rhs.val;
 }
@@ -233,7 +240,7 @@ CharLit::CharLit(char val)
   this->val = val;
 }
 
-bool CharLit::operator==(const CharLit& rhs)
+bool CharLit::operator==(CharLit& rhs)
 {
   return val == rhs.val;
 }
@@ -259,7 +266,7 @@ IntLit::IntLit(int val)
   this->val = val;
 }
 
-bool IntLit::operator==(const IntLit& rhs)
+bool IntLit::operator==(IntLit& rhs)
 {
   return val == rhs.val;
 }
@@ -285,7 +292,7 @@ FloatLit::FloatLit(double val)
   this->val = val;
 }
 
-bool FloatLit::operator==(const FloatLit& rhs)
+bool FloatLit::operator==(FloatLit& rhs)
 {
   return val == rhs.val;
 }
@@ -311,7 +318,7 @@ Punct::Punct(PUNC val)
   this->val = val;
 }
 
-bool Punct::operator==(const Punct& rhs)
+bool Punct::operator==(Punct& rhs)
 {
   return val == rhs.val;
 }
@@ -323,12 +330,12 @@ int Punct::getType()
 
 string Punct::getStr()
 {
-  return punctTable[val];
+  return string("") + punctTable[val];
 }
 
 string Punct::getDesc()
 {
-  return tokTypetable[PUNCTUATION];
+  return tokTypeTable[PUNCTUATION];
 }
 
 /* Keyword */
@@ -347,7 +354,7 @@ Keyword::Keyword(int val)
   this->kw = val;
 }
 
-bool Keyword::operator==(const Keyword& rhs)
+bool Keyword::operator==(Keyword& rhs)
 {
   return kw == rhs.kw;
 }
@@ -359,7 +366,7 @@ int Keyword::getType()
 
 string Keyword::getStr()
 {
-  return keywordTable[val];
+  return keywordTable[kw];
 }
 
 string Keyword::getDesc()
@@ -367,7 +374,7 @@ string Keyword::getDesc()
   return tokTypeTable[KEYWORD];
 }
 
-bool PastEOF::operator==(const PastEOF& rhs)
+bool PastEOF::operator==(PastEOF& rhs)
 {
   return true;
 }

@@ -34,8 +34,6 @@ Options parseOptions(int argc, const char** argv)
         exit(EXIT_FAILURE);
       }
     }
-    else if(strcmp(argv[i], "--preprocess") == 0)
-      op.emitPreprocess = true;
     else if(strcmp(argv[i], "--c") == 0)
       op.emitC = true;
     else

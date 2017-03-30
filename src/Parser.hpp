@@ -7,16 +7,40 @@
 
 #include <stdexcept>
 #include <memory>
-#include <variant>
+#include "boost/variant.hpp"
 
 using namespace std;
+using boost::variant;
 
 #define UP unique_ptr
-typedef monostate None;
+//Use empty struct as default value in some variants
+struct None{};
 typedef runtime_error ParseErr;
 
 namespace Parser
 {
+  struct ModuleDef;
+  //Parse a program from token string (only function needed outside namespace)
+  UP<ModuleDef> parseProgram(vector<Token*>& toks);
+
+  //Token stream utilities
+  extern int pos;
+  extern vector<Token*>* tokens;
+  bool accept(Token& t);
+  Token* accept(int tokType);   //return NULL if tokType doesn't match next
+  bool acceptKeyword(int type);
+  bool acceptOper(int type);
+  bool acceptPunct(int type);
+  void expect(Token& t);
+  Token* expect(int tokType);
+  void expectKeyword(int type);
+  void expectOper(int type);
+  void expectPunct(int type);
+  Token* getNext();
+  void unget();
+  Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
+  void err(string msg = "");
+
   //the types of nonterminals
   enum struct NodeType
   {
@@ -86,21 +110,22 @@ namespace Parser
     EXPR_12
   };
   
-  struct Nonterm
-  {
-    virtual int getType() = 0;
-  }
-
   //lots of mutual recursion in nonterminal structs so forward-declare all
   struct Module;
-  struct ModuleDef;
   struct ScopedDecl;
   struct Type;
   struct Statement;
   struct Typedef;
   struct Return;
   struct Switch;
+  struct Continue;
+  struct Break;
+  struct EmptyStatement;
   struct For;
+  struct ForC;
+  struct ForRange1;
+  struct ForRange2;
+  struct ForArray;
   struct While;
   struct If;
   struct Using;
@@ -153,18 +178,18 @@ namespace Parser
   struct Expr11RHS;
   struct Expr12;
 
-  struct Module : public Nonterm
+  struct Module
   {
     string name;
     UP<ModuleDef> def;
   };
 
-  struct ModuleDef : public Nonterm
+  struct ModuleDef
   {
     vector<UP<ScopedDecl>> decls;
   };
 
-  struct ScopedDecl : public Nonterm
+  struct ScopedDecl
   {
     variant<
       None,
@@ -182,7 +207,7 @@ namespace Parser
       UP<TestDecl>> decl;
   };
 
-  struct Type : public Nonterm
+  struct Type
   {
     enum struct Prim
     {
@@ -207,7 +232,7 @@ namespace Parser
       UP<TupleType>> t;
   };
 
-  struct Statement : public Nonterm
+  struct Statement
   {
     variant<
       None,
@@ -228,25 +253,25 @@ namespace Parser
       UP<EmptyStatement>> s;
   };
 
-  struct Typedef : public Nonterm
+  struct Typedef
   {
     UP<Type> type;
     string ident;
   };
 
-  struct Return : public Nonterm
+  struct Return
   {
     //optional returned expression (NULL if unused)
     UP<Expression> ex;
   };
 
-  struct SwitchCase : public Nonterm
+  struct SwitchCase
   {
     UP<Expression> matchVal;
     UP<Statement> s;
   };
 
-  struct Switch : public Nonterm
+  struct Switch
   {
     UP<Expression> sw;
     vector<UP<SwitchCase>> cases;
@@ -254,7 +279,11 @@ namespace Parser
     UP<Statement> defaultStatement;
   };
 
-  struct For : public Nonterm
+  struct Continue {};
+  struct Break {};
+  struct EmptyStatement {};
+
+  struct For
   {
     variant<
       None,
@@ -265,36 +294,36 @@ namespace Parser
     UP<Statement> body;
   };
 
-  struct ForC : public Nonterm
+  struct ForC
   {
     UP<VarDecl> decl;
     UP<Expression> condition;
     UP<VarAssign> incr;
   };
 
-  struct ForRange1 : public Nonterm
+  struct ForRange1
   {
     UP<Expression> expr;
   };
 
-  struct ForRange2 : public Nonterm
+  struct ForRange2
   {
     UP<Expression> start;
     UP<Expression> end;
   };
 
-  struct ForArray : public Nonterm
+  struct ForArray
   {
     UP<Expression> container;
   };
 
-  struct While : public Nonterm
+  struct While
   {
     UP<Expression> cond;
     UP<Statement> body;
   };
 
-  struct If : public Nonterm
+  struct If
   {
     UP<Expression> cond;
     UP<Statement> ifBody;
@@ -302,40 +331,40 @@ namespace Parser
     UP<Statement> elseBody;
   };
 
-  struct Using : public Nonterm
+  struct Using
   {
     UP<Member> mem;
   };
 
-  struct Assertion : public Nonterm
+  struct Assertion
   {
     UP<Expression> expr;
   };
 
-  struct TestDecl : public Nonterm
+  struct TestDecl
   {
     UP<Call> call;
   };
 
-  struct EnumItem : public Nonterm
+  struct EnumItem
   {
     string name;
     //value is optional (assigned automatically if not explicit)
     IntLit* value;
   };
 
-  struct Enum : public Nonterm
+  struct Enum
   {
     string name;
     vector<EnumItem> items;
   };
 
-  struct Block : public Nonterm
+  struct Block
   {
     vector<UP<Statement>> statements;
   };
 
-  struct VarDecl : public Nonterm
+  struct VarDecl
   {
     //NULL if "auto"
     UP<Type> type;
@@ -344,7 +373,7 @@ namespace Parser
     UP<Expression> val;
   };
 
-  struct VarAssign : public Nonterm
+  struct VarAssign
   {
     UP<Member> target;
     Oper* op;
@@ -352,12 +381,12 @@ namespace Parser
     UP<Expression> rhs;
   };
 
-  struct Print : public Nonterm
+  struct Print
   {
     vector<UP<Expression>> exprs;
   };
 
-  struct Expression : public Nonterm
+  struct Expression
   {
     variant<
       None,
@@ -366,14 +395,14 @@ namespace Parser
       UP<Expr1>> e;
   };
 
-  struct Call : public Nonterm
+  struct Call
   {
     //name of func/proc
     UP<Member> callable;
     vector<UP<Expression>> args;
   };
 
-  struct Arg : public Nonterm
+  struct Arg
   {
     variant<
       None,
@@ -383,14 +412,14 @@ namespace Parser
     string name;
   };
 
-  struct FuncDecl : public Nonterm
+  struct FuncDecl
   {
     UP<Type> retType;
     string name;
     vector<UP<Arg>> args;
   };
 
-  struct FuncDef : public Nonterm
+  struct FuncDef
   {
     UP<Type> retType;
     UP<Member> name;
@@ -398,14 +427,14 @@ namespace Parser
     UP<Block> body;
   };
 
-  struct FuncType : public Nonterm
+  struct FuncType
   {
     UP<Type> retType;
     UP<Member> name;
     vector<UP<Type>> args;
   };
 
-  struct ProcDecl : public Nonterm
+  struct ProcDecl
   {
     bool nonterm;
     UP<Type> retType;
@@ -413,7 +442,7 @@ namespace Parser
     vector<UP<Arg>> args;
   };
 
-  struct ProcDef : public Nonterm
+  struct ProcDef
   {
     bool nonterm;
     UP<Type> retType;
@@ -422,7 +451,7 @@ namespace Parser
     UP<Block> body;
   };
 
-  struct ProcType : public Nonterm
+  struct ProcType
   {
     bool nonterm;
     UP<Type> retType;
@@ -430,27 +459,27 @@ namespace Parser
     vector<UP<Type>> args;
   };
 
-  struct StructMem : public Nonterm
+  struct StructMem
   {
     UP<ScopedDecl> sd;
     //composition only used if sd is a VarDecl
     bool compose;
   };
 
-  struct StructDecl : public Nonterm
+  struct StructDecl
   {
     string name;
     vector<UP<Member>> traits;
     vector<UP<StructMem>> members;
   };
 
-  struct VariantDecl : public Nonterm
+  struct VariantDecl
   {
     string name;
     vector<UP<Type>> types;
   };
 
-  struct TraitDecl : public Nonterm
+  struct TraitDecl
   {
     string name;
     vector<variant<
@@ -459,19 +488,19 @@ namespace Parser
       UP<ProcDecl>>> members;
   };
 
-  struct StructLit : public Nonterm
+  struct StructLit
   {
     vector<UP<Expression>> vals;
   };
 
-  struct Member : public Nonterm
+  struct Member
   {
     string owner;
     //mem is optional
     UP<Member> mem;
   };
 
-  struct TraitType : public Nonterm
+  struct TraitType
   {
     //trait types of the form "<localName> : <traitName>"
     string localName;
@@ -486,151 +515,150 @@ namespace Parser
     int dims;
   };
 
-  struct TupleType : public Nonterm
+  struct TupleType
   {
     //cannot be empty
     vector<UP<Type>> members;
   };
 
-  struct BoolLit : public Nonterm
+  struct BoolLit
   {
     bool val;
   };
 
-  struct Expr1 : public Nonterm
+  struct Expr1
   {
     UP<Expr2> head;
     vector<UP<Expr1RHS>> tail;
   };
 
-  struct Expr1RHS: public Nonterm
+  struct Expr1RHS
   {
     // || is only op
     UP<Expr2> rhs;
   };
 
-  struct Expr2 : public Nonterm
+  struct Expr2
   {
     UP<Expr3> head;
     vector<UP<Expr2RHS>> tail;
   };
 
-  struct Expr2RHS : public Nonterm
+  struct Expr2RHS
   {
     // && is only op
     UP<Expr3> rhs;
   };
 
-  struct Expr3 : public Nonterm
+  struct Expr3
   {
     UP<Expr4> head;
-    vector<UP<Expr3HRS>> tail;
+    vector<UP<Expr3RHS>> tail;
   };
 
-  struct Expr3RHS : public Nonterm
+  struct Expr3RHS
   {
     // | is only op
     UP<Expr4> rhs;
   };
 
-  struct Expr4 : public Nonterm
+  struct Expr4
   {
     UP<Expr5> head;
     vector<UP<Expr4RHS>> tail;
   };
 
-  struct Expr4RHS : public Nonterm
+  struct Expr4RHS
   {
     // ^ is only op
     UP<Expr5> rhs;
   };
 
-  struct Expr5 : public Nonterm
+  struct Expr5
   {
     UP<Expr6> head; 
     vector<UP<Expr5RHS>> tail;
   };
 
-  struct Expr5RHS : public Nonterm
+  struct Expr5RHS
   {
     // & is only op
     UP<Expr6> rhs;
-    return rhs;
   };
 
-  struct Expr6 : public Nonterm
+  struct Expr6
   {
     UP<Expr7> head;
     vector<UP<Expr6RHS>> tail;
   };
 
-  struct Expr6RHS : public Nonterm
+  struct Expr6RHS
   {
     int op; //CMPEQ or CMPNEQ
     UP<Expr7> rhs;
   };
 
-  struct Expr7 : public Nonterm
+  struct Expr7
   {
     UP<Expr8> head;
     vector<UP<Expr7RHS>> tail;
   };
 
-  struct Expr7RHS : public Nonterm
+  struct Expr7RHS
   {
     int op;  //CMPL, CMPLE, CMPG, CMPGE
     UP<Expr8> rhs;
   };
 
-  struct Expr8 : public Nonterm
+  struct Expr8
   {
     UP<Expr9> head;
     vector<UP<Expr8RHS>> tail;
   };
 
-  struct Expr8RHS : public Nonterm
+  struct Expr8RHS
   {
     int op; //SHL, SHR
     UP<Expr9> rhs;
   };
 
-  struct Expr9 : public Nonterm
+  struct Expr9
   {
     UP<Expr10> head;
     vector<UP<Expr9RHS>> tail;
   };
 
-  struct Expr9RHS : public Nonterm
+  struct Expr9RHS
   {
     int op; //PLUS, SUB
     UP<Expr10> rhs;
   };
 
-  struct Expr10 : public Nonterm
+  struct Expr10
   {
     UP<Expr11> head;
     vector<UP<Expr10RHS>> tail;
   };
 
-  struct Expr10RHS : public Nonterm
+  struct Expr10RHS
   {
     int op; //MUL, DIV, MOD
     UP<Expr11> rhs;
   };
 
   //Expr11 can be Expr12 or <op>Expr11
-  struct Expr11 : public Nonterm
+  struct Expr11
   {
-    variant<Expr12, Expr11RHS> e;
+    variant<UP<Expr12>, UP<Expr11RHS>> e;
   };
 
-  struct Expr11RHS : public Nonterm
+  struct Expr11RHS
   {
     int op; //SUB, LNOT, BNOT
     UP<Expr11> base;
   };
 
-  struct Expr12 : public Nonterm
+  struct Expr12
   {
     variant<
       IntLit*,
@@ -643,9 +671,6 @@ namespace Parser
       UP<StructLit>> e;
   }; 
 
-  //Parse from a linear token stream into a program (default module)
-  UP<ModuleDef> parseProgram(vector<Token*>& toks);
-
   //Parse a nonterminal of type NT
   template<typename NT>
   UP<NT> parse();
@@ -654,16 +679,17 @@ namespace Parser
   UP<NT> parseOptional()
   {
     int prevPos = pos;
+    UP<NT> nt;
     try
     {
-      UP<NT> nt = parse<NT>();
+      nt = parse<NT>();
       return nt;
     }
     catch(...)
     {
       //backtrack
       pos = prevPos;
-      return UP<NT>;
+      return nt;
     }
   }
 
@@ -703,26 +729,6 @@ namespace Parser
     };
     return nts;
   }
-
-  //Token stream utilities
-  bool accept(Token& t);
-  Token* accept(int tokType);   //return NULL if tokType doesn't match next
-  bool acceptKeyword(int type);
-  bool acceptOper(int type);
-  bool acceptPunct(int type);
-
-  void expect(Token& t);
-  Token* expect(int tokType);
-  void expectKeyword(int type);
-  void expectOper(int type);
-  void expectPunct(int type);
-
-  Token* getNext();
-  void unget();
-  Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
-  void err(string msg = "");
-  extern int pos;
-  extern vector<Token*>* tokens;
 }
 
 #endif

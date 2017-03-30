@@ -2,6 +2,7 @@
 #define OPTIONS_H
 
 #include "Misc.hpp"
+#include "string.h"
 
 struct Options
 {

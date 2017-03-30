@@ -9,9 +9,12 @@
 
 using namespace std;
 
-extern map<string, int> keywordTable;
-extern map<string, int> operatorTable;
-extern map<char, int> punctTable;
+extern vector<string> keywordTable;
+extern map<string, int> keywordMap;
+extern vector<string> operatorTable;
+extern map<string, int> operatorMap;
+extern vector<char> punctTable;
+extern map<char, int> punctMap;
 extern vector<string> tokTypeTable;
 
 void initTokens();
@@ -57,6 +60,7 @@ enum KW
   METAFOR,
   METAFUNC,
   VARIANT,
+  ENUM,
   AUTO,
   MODULE,
   USING,
@@ -64,7 +68,9 @@ enum KW
   FALSE,
   FUNCTYPE,
   PROCTYPE,
-  NONTERM
+  NONTERM,
+  TEST,
+  ASSERT
 };
 
 enum OP
@@ -129,13 +135,13 @@ enum TokType
   PUNCTUATION,
   OPERATOR,
   KEYWORD,
-  PAST_EOF          //null or empty token
+  PAST_EOF,         //null or empty token
   NUM_TOKEN_TYPES
 };
 
 struct Token
 {
-  virtual bool operator==(const Token& rhs) = 0;
+  virtual bool operator==(Token& rhs) = 0;
   virtual int getType() = 0;
   virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
@@ -145,7 +151,8 @@ struct Token
 struct Ident : public Token
 {
   Ident(string name);
-  bool operator==(const Ident& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(Ident& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -156,7 +163,8 @@ struct Ident : public Token
 struct Oper : public Token
 {
   Oper(int op);
-  bool operator==(const Oper& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(Oper& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -167,7 +175,8 @@ struct Oper : public Token
 struct StrLit : public Token
 {
   StrLit(string val);
-  bool operator==(const StrLit& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(StrLit& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -178,7 +187,8 @@ struct StrLit : public Token
 struct CharLit : public Token
 {
   CharLit(char val);
-  bool operator==(const CharLit& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(CharLit& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -189,7 +199,8 @@ struct CharLit : public Token
 struct IntLit : public Token
 {
   IntLit(int val);
-  bool operator==(const IntLit& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(IntLit& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -200,7 +211,8 @@ struct IntLit : public Token
 struct FloatLit : public Token
 {
   FloatLit(double val);
-  bool operator==(const FloatLit& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(FloatLit& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -211,7 +223,8 @@ struct FloatLit : public Token
 struct Punct : public Token
 {
   Punct(PUNC val);
-  bool operator==(const Punct& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(Punct& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -222,7 +235,8 @@ struct Keyword : public Token
 {
   Keyword(string text);
   Keyword(int val);
-  bool operator==(const Keyword& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(Keyword& rhs);
   int getType();
   string getStr();
   string getDesc();
@@ -233,7 +247,8 @@ struct PastEOF : public Token
 {
   PastEOF();
   static PastEOF inst;
-  bool operator==(const Keyword& rhs);
+  bool operator==(Token& rhs);
+  bool operator==(PastEOF& rhs);
   int getType();
   string getStr();
   string getDesc();

@@ -5,6 +5,12 @@ namespace Parser
   int pos;
   vector<Token*>* tokens;
 
+  template<typename NT>
+  UP<NT> parse()
+  {
+    return UP<NT>();
+  }
+
   UP<ModuleDef> parseProgram(vector<Token*>& toks)
   {
     pos = 0;
@@ -15,19 +21,19 @@ namespace Parser
   template<>
   UP<Module> parse<Module>()
   {
-    UP<Module> m = UP(new Module);
+    UP<Module> m(new Module);
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
     m->def = parse<ModuleDef>();
     expectPunct(RBRACE);
-    return m
+    return m;
   }
 
   template<>
-  UP<ModuleDef> parse<ModuleDef>()
+  UP<ModuleDef> parse()
   {
-    UP<ModuleDef> md = UP(new ModuleDef);
+    UP<ModuleDef> md(new ModuleDef);
     md->decls = parseMany<ScopedDecl>();
     return md;
   }
