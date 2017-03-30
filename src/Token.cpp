@@ -108,6 +108,8 @@ void initTokens()
   operatorMap[">"] = CMPG;
   operatorMap[">="] = CMPGE;
   operatorMap["="] = ASSIGN;
+  operatorMap["++"] = INC;
+  operatorMap["--"] = DEC;
   operatorTable.resize(operatorMap.size());
   for(auto& it : operatorMap)
   {

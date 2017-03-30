@@ -99,7 +99,9 @@ enum OP
   CMPLE,
   CMPG,
   CMPGE,
-  ASSIGN
+  ASSIGN,
+  INC,
+  DEC
 };
 
 enum PUNC

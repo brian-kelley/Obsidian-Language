@@ -203,7 +203,7 @@ Member:
   Member p"." Ident
  
 TraitType:
-  Ident p":" Ident
+  Ident p":" Member
 
 TraitDecl:
   k"trait" Ident p"{" {FuncDecl | ProcDecl} p"}"
@@ -283,9 +283,7 @@ Expr10RHS:
   o"%" Expr11
 
 Expr11:
-  Expr12 {Expr11RHS}
-
-Expr11RHS:
+  Expr12
   o"-" Expr12
   o"!" Expr12
   o"~" Expr12

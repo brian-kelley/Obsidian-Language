@@ -114,7 +114,6 @@ namespace Parser
   struct Expression;
   struct Call;
   struct Arg;
-  struct Args;
   struct FuncDecl;
   struct FuncDef;
   struct FuncType;
@@ -241,15 +240,16 @@ namespace Parser
     UP<Expression> ex;
   };
 
+  struct SwitchCase : public Nonterm
+  {
+    UP<Expression> matchVal;
+    UP<Statement> s;
+  };
+
   struct Switch : public Nonterm
   {
     UP<Expression> sw;
-    struct SwitchCase
-    {
-      UP<Expression> matchVal;
-      UP<Statement> s;
-    };
-    vector<SwitchCase> cases;
+    vector<UP<SwitchCase>> cases;
     //optional default: statement, NULL if unused
     UP<Statement> defaultStatement;
   };
@@ -317,14 +317,15 @@ namespace Parser
     UP<Call> call;
   };
 
+  struct EnumItem : public Nonterm
+  {
+    string name;
+    //value is optional (assigned automatically if not explicit)
+    IntLit* value;
+  };
+
   struct Enum : public Nonterm
   {
-    struct EnumItem
-    {
-      string name;
-      //value is optional (assigned automatically if not explicit)
-      UP<IntLit> value;
-    };
     string name;
     vector<EnumItem> items;
   };
@@ -338,24 +339,22 @@ namespace Parser
   {
     //NULL if "auto"
     UP<Type> type;
-    //NULL if uninitialized
+    string name;
+    //NULL if not initialization, but required if auto
     UP<Expression> val;
   };
 
   struct VarAssign : public Nonterm
   {
     UP<Member> target;
-    UP<Oper> op;
-    //optional
+    Oper* op;
+    //NULL if ++ or --
     UP<Expression> rhs;
   };
 
   struct Print : public Nonterm
   {
-    UP<Type> retType;
-    UP<Member> name;
-    vector<UP<Arg>> args;
-    vector<UP<Expression>> toPrint;
+    vector<UP<Expression>> exprs;
   };
 
   struct Expression : public Nonterm
@@ -369,23 +368,19 @@ namespace Parser
 
   struct Call : public Nonterm
   {
-    UP<Member> name;
+    //name of func/proc
+    UP<Member> callable;
     vector<UP<Expression>> args;
   };
 
   struct Arg : public Nonterm
   {
-    bool traitType;
     variant<
       None,
       UP<Type>,
       UP<TraitType>> t;
+    bool haveName;
     string name;
-  };
-
-  struct Args : public Nonterm
-  {
-    vector<UP<Arg>> args;
   };
 
   struct FuncDecl : public Nonterm
@@ -407,11 +402,12 @@ namespace Parser
   {
     UP<Type> retType;
     UP<Member> name;
-    vector<UP<Arg>> args;
+    vector<UP<Type>> args;
   };
 
   struct ProcDecl : public Nonterm
   {
+    bool nonterm;
     UP<Type> retType;
     string name;
     vector<UP<Arg>> args;
@@ -419,6 +415,7 @@ namespace Parser
 
   struct ProcDef : public Nonterm
   {
+    bool nonterm;
     UP<Type> retType;
     UP<Member> name;
     vector<UP<Arg>> args;
@@ -427,20 +424,24 @@ namespace Parser
 
   struct ProcType : public Nonterm
   {
+    bool nonterm;
     UP<Type> retType;
     UP<Member> name;
-    vector<UP<Arg>> args;
+    vector<UP<Type>> args;
+  };
+
+  struct StructMem : public Nonterm
+  {
+    UP<ScopedDecl> sd;
+    //composition only used if sd is a VarDecl
+    bool compose;
   };
 
   struct StructDecl : public Nonterm
   {
-    struct StructMem
-    {
-      UP<ScopedDecl> sd;
-      //composition only used if sd is a VarDecl
-      bool compose;
-    };
-    vector<UP<StructMem>> traits;
+    string name;
+    vector<UP<Member>> traits;
+    vector<UP<StructMem>> members;
   };
 
   struct VariantDecl : public Nonterm
@@ -451,26 +452,16 @@ namespace Parser
 
   struct TraitDecl : public Nonterm
   {
-    struct TraitMember
-    {
-      variant<
-        None,
-        UP<FuncDecl>,
-        UP<ProcDecl>> tm;
-      bool proc;
-    };
     string name;
-    vector<UP<TraitMember>> members;
-  };
-
-  struct ArrayLit : public Nonterm
-  {
-    vector<UP<Expression>> vals;
+    vector<variant<
+      None,
+      UP<FuncDecl>,
+      UP<ProcDecl>>> members;
   };
 
   struct StructLit : public Nonterm
   {
-    vector<UP<Expression>> members;
+    vector<UP<Expression>> vals;
   };
 
   struct Member : public Nonterm
@@ -526,6 +517,7 @@ namespace Parser
 
   struct Expr2RHS : public Nonterm
   {
+    // && is only op
     UP<Expr3> rhs;
   };
 
@@ -537,6 +529,7 @@ namespace Parser
 
   struct Expr3RHS : public Nonterm
   {
+    // | is only op
     UP<Expr4> rhs;
   };
 
@@ -548,6 +541,7 @@ namespace Parser
 
   struct Expr4RHS : public Nonterm
   {
+    // ^ is only op
     UP<Expr5> rhs;
   };
 
@@ -559,7 +553,9 @@ namespace Parser
 
   struct Expr5RHS : public Nonterm
   {
+    // & is only op
     UP<Expr6> rhs;
+    return rhs;
   };
 
   struct Expr6 : public Nonterm
@@ -622,29 +618,28 @@ namespace Parser
     UP<Expr11> rhs;
   };
 
+  //Expr11 can be Expr12 or <op>Expr11
   struct Expr11 : public Nonterm
   {
-    UP<Expr12> head;
-    vector<UP<Expr11RHS>> tail;
+    variant<Expr12, Expr11RHS> e;
   };
 
   struct Expr11RHS : public Nonterm
   {
     int op; //SUB, LNOT, BNOT
-    UP<Expr12> rhs;
+    UP<Expr11> base;
   };
 
   struct Expr12 : public Nonterm
   {
     variant<
       IntLit*,
-      BoolLit*,
       CharLit*,
       StrLit*,
       FloatLit*,
+      UP<BoolLit>,
       UP<Expression>,
       UP<Member>,
-      UP<ArrayLit>,
       UP<StructLit>> e;
   }; 
 
@@ -672,12 +667,34 @@ namespace Parser
     }
   }
 
+  //Parse some NTs
   template<typename NT>
   vector<UP<NT>> parseSome()
   {
     vector<UP<NT>> nts;
     while(true)
     {
+      UP<NT> nt = parseOptional<NT>();
+      if(!nt)
+        break;
+      else
+        nts.push_back(nt);
+    };
+    return nts;
+  }
+
+  //Parse some comma-separated NTs
+  template<typename NT>
+  vector<UP<NT>> parseSomeCommaSeparated()
+  {
+    vector<UP<NT>> nts;
+    while(true)
+    {
+      if(nts.size() != 0)
+      {
+        if(!acceptPunct(COMMA))
+          break;
+      }
       UP<NT> nt = parseOptional<NT>();
       if(!nt)
         break;
