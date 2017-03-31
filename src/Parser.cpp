@@ -13,134 +13,70 @@ namespace Parser
   }
 
   //Need to forward-declare all parse() specializations
-  template<> 
-  UP(Module) parse<Module>();
-  template<>
-  UP(ModuleDef) parse<ModuleDef>();
-  template<>
-  UP(ScopedDecl) parse<ScopedDecl>();
-  template<>
-  UP(Type) parse<Type>();
-  template<>
-  UP(Statement) parse<Statement>();
-  template<>
-  UP(Typedef) parse<Typedef>();
-  template<>
-  UP(Return) parse<Return>();
-  template<>
-  UP(SwitchCase) parse<SwitchCase>();
-  template<>
-  UP(Switch) parse<Switch>();
-  template<>
-  UP(ForC) parse<ForC>();
-  template<>
-  UP(ForRange1) parse<ForRange1>();
-  template<>
-  UP(ForRange2) parse<ForRange2>();
-  template<>
-  UP(ForArray) parse<ForArray>();
-  template<>
-  UP(For) parse<For>();
-  template<>
-  UP(While) parse<While>();
-  template<>
-  UP(If) parse<If>();
-  template<>
-  UP(Using) parse<Using>();
-  template<>
-  UP(Assertion) parse<Assertion>();
-  template<>
-  UP(TestDecl) parse<TestDecl>();
-  template<>
-  UP(EnumItem) parse<EnumItem>();
-  template<>
-  UP(Enum) parse<Enum>();
-  template<>
-  UP(Block) parse<Block>();
-  template<>
-  UP(VarDecl) parse<VarDecl>();
-  template<>
-  UP(VarAssign) parse<VarAssign>();
-  template<>
-  UP(Print) parse<Print>();
-  template<>
-  UP(Expression) parse<Expression>();
-  template<>
-  UP(Call) parse<Call>();
-  template<>
-  UP(Arg) parse<Arg>();
-  template<>
-  UP(FuncDecl) parse<FuncDecl>();
-  template<>
-  UP(FuncDef) parse<FuncDef>();
-  template<>
-  UP(FuncType) parse<FuncType>();
-  template<>
-  UP(ProcDecl) parse<ProcDecl>();
-  template<>
-  UP(ProcDef) parse<ProcDef>();
-  template<>
-  UP(ProcType) parse<ProcType>();
-  template<>
-  UP(StructMem) parse<StructMem>();
-  template<>
-  UP(StructDecl) parse<StructDecl>();
-  template<>
-  UP(VariantDecl) parse<VariantDecl>();
-  template<>
-  UP(TraitDecl) parse<TraitDecl>();
-  template<>
-  UP(StructLit) parse<StructLit>();
-  template<>
-  UP(Member) parse<Member>();
-  template<>
-  UP(TraitType) parse<TraitType>();
-  template<>
-  UP(Expr1) parse<Expr1>();
-  template<>
-  UP(Expr1RHS) parse<Expr1RHS>();
-  template<>
-  UP(Expr2) parse<Expr2>();
-  template<>
-  UP(Expr2RHS) parse<Expr2RHS>();
-  template<>
-  UP(Expr3) parse<Expr3>();
-  template<>
-  UP(Expr3RHS) parse<Expr3RHS>();
-  template<>
-  UP(Expr4) parse<Expr4>();
-  template<>
-  UP(Expr4RHS) parse<Expr4RHS>();
-  template<>
-  UP(Expr5) parse<Expr5>();
-  template<>
-  UP(Expr5RHS) parse<Expr5RHS>();
-  template<>
-  UP(Expr6) parse<Expr6>();
-  template<>
-  UP(Expr6RHS) parse<Expr6RHS>();
-  template<>
-  UP(Expr7) parse<Expr7>();
-  template<>
-  UP(Expr7RHS) parse<Expr7RHS>();
-  template<>
-  UP(Expr8) parse<Expr8>();
-  template<>
-  UP(Expr8RHS) parse<Expr8RHS>();
-  template<>
-  UP(Expr9) parse<Expr9>();
-  template<>
-  UP(Expr9RHS) parse<Expr9RHS>();
-  template<>
-  UP(Expr10) parse<Expr10>();
-  template<>
-  UP(Expr10RHS) parse<Expr10RHS>();
-  template<>
-  UP(Expr11) parse<Expr11>();
-  template<>
-  UP(Expr11RHS) parse<Expr11RHS>();
-  template<>
-  UP(Expr12) parse<Expr12>();
+  template<> UP(Module) parse<Module>();
+  template<> UP(ModuleDef) parse<ModuleDef>();
+  template<> UP(ScopedDecl) parse<ScopedDecl>();
+  template<> UP(Type) parse<Type>();
+  template<> UP(Statement) parse<Statement>();
+  template<> UP(Typedef) parse<Typedef>();
+  template<> UP(Return) parse<Return>();
+  template<> UP(SwitchCase) parse<SwitchCase>();
+  template<> UP(Switch) parse<Switch>();
+  template<> UP(ForC) parse<ForC>();
+  template<> UP(ForRange1) parse<ForRange1>();
+  template<> UP(ForRange2) parse<ForRange2>();
+  template<> UP(ForArray) parse<ForArray>();
+  template<> UP(For) parse<For>();
+  template<> UP(While) parse<While>();
+  template<> UP(If) parse<If>();
+  template<> UP(Using) parse<Using>();
+  template<> UP(Assertion) parse<Assertion>();
+  template<> UP(TestDecl) parse<TestDecl>();
+  template<> UP(EnumItem) parse<EnumItem>();
+  template<> UP(Enum) parse<Enum>();
+  template<> UP(Block) parse<Block>();
+  template<> UP(VarDecl) parse<VarDecl>();
+  template<> UP(VarAssign) parse<VarAssign>();
+  template<> UP(Print) parse<Print>();
+  template<> UP(Expression) parse<Expression>();
+  template<> UP(Call) parse<Call>();
+  template<> UP(Arg) parse<Arg>();
+  template<> UP(FuncDecl) parse<FuncDecl>();
+  template<> UP(FuncDef) parse<FuncDef>();
+  template<> UP(FuncType) parse<FuncType>();
+  template<> UP(ProcDecl) parse<ProcDecl>();
+  template<> UP(ProcDef) parse<ProcDef>();
+  template<> UP(ProcType) parse<ProcType>();
+  template<> UP(StructMem) parse<StructMem>();
+  template<> UP(StructDecl) parse<StructDecl>();
+  template<> UP(VariantDecl) parse<VariantDecl>();
+  template<> UP(TraitDecl) parse<TraitDecl>();
+  template<> UP(StructLit) parse<StructLit>();
+  template<> UP(Member) parse<Member>();
+  template<> UP(TraitType) parse<TraitType>();
+  template<> UP(Expr1) parse<Expr1>();
+  template<> UP(Expr1RHS) parse<Expr1RHS>();
+  template<> UP(Expr2) parse<Expr2>();
+  template<> UP(Expr2RHS) parse<Expr2RHS>();
+  template<> UP(Expr3) parse<Expr3>();
+  template<> UP(Expr3RHS) parse<Expr3RHS>();
+  template<> UP(Expr4) parse<Expr4>();
+  template<> UP(Expr4RHS) parse<Expr4RHS>();
+  template<> UP(Expr5) parse<Expr5>();
+  template<> UP(Expr5RHS) parse<Expr5RHS>();
+  template<> UP(Expr6) parse<Expr6>();
+  template<> UP(Expr6RHS) parse<Expr6RHS>();
+  template<> UP(Expr7) parse<Expr7>();
+  template<> UP(Expr7RHS) parse<Expr7RHS>();
+  template<> UP(Expr8) parse<Expr8>();
+  template<> UP(Expr8RHS) parse<Expr8RHS>();
+  template<> UP(Expr9) parse<Expr9>();
+  template<> UP(Expr9RHS) parse<Expr9RHS>();
+  template<> UP(Expr10) parse<Expr10>();
+  template<> UP(Expr10RHS) parse<Expr10RHS>();
+  template<> UP(Expr11) parse<Expr11>();
+  template<> UP(Expr11RHS) parse<Expr11RHS>();
+  template<> UP(Expr12) parse<Expr12>();
 
   UP(ModuleDef) parseProgram(vector<Token*>& toks)
   {

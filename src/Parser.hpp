@@ -742,12 +742,3 @@ namespace Parser
 
 #endif
 
-//parse plan
-//parse<type> parses nonterm type (failure is an error)
-//parseOptional<type> parses one nonterm, but failure just returns NULL
-//parseSome<type> parses 0 or more nonterms (repeatedly parseOptional)
-//use exceptions to propagate parse failures up the chain
-//parseOptional just catches the error, and backtracks token iterator
-//the top-level parse function can print the error
-// error messages: i.e. "Parse error: expected <nonterm type/keyword/etc> but got "<token text>"
- 
