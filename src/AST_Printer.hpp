@@ -46,7 +46,7 @@ namespace AstPrinter
   void printMember(UP(Member)& m, int indent);
   void printTraitType(UP(TraitType)& tt, int indent);
   void printTupleType(UP(TupleType)& tt, int indent);
-  void printBoolLit(UP(TupleType)& bl, int indent);
+  void printBoolLit(UP(BoolLit)& bl, int indent);
   void printExpr1(UP(Expr1)& e, int indent);
   void printExpr1RHS(UP(Expr1RHS)& e, int indent);
   void printExpr2(UP(Expr2)& e, int indent);

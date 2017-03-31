@@ -624,122 +624,357 @@ namespace AstPrinter
 
   void printStructDecl(UP(StructDecl)& sd, int ind)
   {
+    indent(ind);  
+    cout << "Struct \"" << sd->name << "\"\n";
+    if(sd->traits.size()
+    {
+      indent(ind + indentLevel);
+      cout << "Traits:\n";
+      for(auto& it : sd->traits)
+      {
+        printMember(it, ind + indentLevel);
+      }
+    }
+    indent(ind + indentLevel);
+    cout << "Members:\n";
+    for(auto& it : sd->members)
+    {
+      if(it->compose)
+      {
+        indent(ind + indentLevel);
+        cout << "(Composed)\n";
+      }
+      printScopedDecl(it->sd);
+    }
   }
 
   void printVariantDecl(UP(VariantDecl)& vd, int ind)
   {
+    indent(ind);
+    cout << "Variant \"" << vd->name << "\"\n";
+    for(auto& it = vd->types)
+    {
+      printType(it, ind + indentLevel);
+    }
   }
 
   void printTraitDecl(UP(TraitDecl)& td, int ind)
   {
+    indent(ind);
+    cout << "Trait \"" << td->name << "\"\n";
+    for(auto& it : td->members)
+    {
+      if(it.which() == 1)
+      {
+        printFuncDecl(it.get<UP(FuncDec)>(), ind + indentLevel);
+      }
+      else if(it.which() == 2)
+      {
+        printProcDecl(it.get<UP(ProcDecl)>(), ind + indentLevel);
+      }
+    }
   }
 
   void printStructLit(UP(StructLit)& sl, int ind)
   {
+    indent(ind);
+    cout << "Struct/Array literal\n";
+    for(auto& it : sl->vals)
+    {
+      printExpression(it, ind + indentLevel);
+    }
   }
 
   void printMember(UP(Member)& m, int ind)
   {
+    indent(ind);
+    cout << "Member \"" << m->owner << "\":\n";
+    if(m->mem)
+    {
+      printMember(m->mem, ind + indentLevel);
+    }
   }
 
   void printTraitType(UP(TraitType)& tt, int ind)
   {
+    indent(ind);
+    cout << "TraitType \"" << tt->localName << "\", underlying:\n";
+    printMember(tt->traitName);
   }
 
   void printTupleType(UP(TupleType)& tt, int ind)
   {
+    indent(ind);
+    cout << "Tuple type, members:\n";
+    for(auto& it : tt->members)
+    {
+      printMember(it, ind + indentLevel);
+    }
   }
 
-  void printBoolLit(UP(TupleType)& bl, int ind)
+  void printBoolLit(UP(BoolLit)& bl, int ind)
   {
+    indent(ind);
+    cout << "Bool lit: ";
+    if(bl->val)
+    {
+      cout << "true\n";
+    }
+    else
+    {
+      cout << "false\n";
+    }
   }
 
   void printExpr1(UP(Expr1)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr1, head:\n";
+    printExpr2(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr1RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr1RHS(UP(Expr1RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr1RHS (||)\n";
+    printExpr2(e->rhs, ind + indentLevel);
   }
 
   void printExpr2(UP(Expr2)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr2, head:\n";
+    printExpr3(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr2RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr2RHS(UP(Expr2RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr2RHS (&&)\n";
+    printExpr3(e->rhs, ind + indentLevel);
   }
 
   void printExpr3(UP(Expr3)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr3, head:\n";
+    printExpr4(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr3RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr3RHS(UP(Expr3RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr3RHS (|)\n";
+    printExpr4(e->rhs, ind + indentLevel);
   }
 
   void printExpr4(UP(Expr4)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr4, head:\n";
+    printExpr5(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr4RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr4RHS(UP(Expr4RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr4RHS (^)\n";
+    printExpr5(e->rhs, ind + indentLevel);
   }
 
   void printExpr5(UP(Expr5)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr5, head:\n";
+    printExpr6(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr5RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr5RHS(UP(Expr5RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr5RHS (&)\n";
+    printExpr6(e->rhs, ind + indentLevel);
   }
 
   void printExpr6(UP(Expr6)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr6, head:\n";
+    printExpr7(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr6RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr6RHS(UP(Expr6RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr6RHS (" << operTable[e->op] << ")\n";
+    printExpr7(e->rhs, ind + indentLevel);
   }
 
   void printExpr7(UP(Expr7)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr7, head:\n";
+    printExpr8(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr7RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr7RHS(UP(Expr7RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr7RHS (" << operTable[e->op] << ")\n";
+    printExpr8(e->rhs, ind + indentLevel);
   }
 
   void printExpr8(UP(Expr8)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr8, head:\n";
+    printExpr9(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr8RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr8RHS(UP(Expr8RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr8RHS (" << operTable[e->op] << ")\n";
+    printExpr9(e->rhs, ind + indentLevel);
   }
 
   void printExpr9(UP(Expr9)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr9, head:\n";
+    printExpr10(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr9RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr9RHS(UP(Expr9RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr9RHS (" << operTable[e->op] << ")\n";
+    printExpr10(e->rhs, ind + indentLevel);
   }
 
   void printExpr10(UP(Expr10)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr10, head:\n";
+    printExpr11(e->head, ind + indentLevel);
+    if(e->tail.size())
+    {
+      indent(ind);
+      cout << "tail:\n";
+    }
+    for(auto& it : e->tail)
+    {
+      printExpr10RHS(it, ind + indentLevel);
+    }
   }
 
   void printExpr10RHS(UP(Expr10RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr10RHS (" << operTable[e->op] << ")\n";
+    printExpr11(e->rhs, ind + indentLevel);
   }
 
   void printExpr11(UP(Expr11)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr11\n";
+    if(e->e.which() == 1)
+    {
+      printExpr12(e->e.get<UP(Expr12)>(), ind + indentLevel);
+    }
+    else if(e->e.which() == 2)
+    {
+      printExpr11RHS(e->e.get<UP(Expr11RHS)>(), ind + indentLevel);
+    }
   }
 
   void printExpr11RHS(UP(Expr11RHS)& e, int ind)
   {
+    indent(ind);
+    cout << "Expr11RHS (" << operTable[e->op] << ")\n";
+    printExpr12(e->rhs, ind + indentLevel);
   }
 
   void printExpr12(UP(Expr12)& e, int ind)
