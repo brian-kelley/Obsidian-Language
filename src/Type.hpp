@@ -4,6 +4,9 @@
 #include "Misc.hpp"
 #include "Utils.hpp"
 
+namespace TypeSystem
+{
+
 enum PodCategory
 {
   INTEGER,
@@ -92,6 +95,8 @@ struct AliasType : public Type
   int getSize() const;
   Type* actual;
 };
+
+}
 
 #endif
 

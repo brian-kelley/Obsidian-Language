@@ -1,5 +1,8 @@
 #include "Type.hpp"
 
+namespace TypeSystem
+{
+
 vector<Type*> Type::table;
 
 void Type::registerType(Type* newType)
@@ -310,5 +313,7 @@ int AliasType::getSize() const
 bool AliasType::isAlias() const
 {
   return true;
+}
+
 }
 

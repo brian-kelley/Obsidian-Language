@@ -7,7 +7,7 @@
 
 struct Var
 {
-  Type* type;
+  TypeSystem::Type* type;
 };
 
 #endif

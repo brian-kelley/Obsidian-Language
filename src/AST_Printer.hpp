@@ -1,24 +1,31 @@
+#ifndef AST_PRINTER_H
+#define AST_PRINTER_H
+
 #include "Parser.hpp"
 #include "Token.hpp"
 #include <iostream>
 
-void printAST(UP(ModuleDef)& ast);
+using namespace Parser;
+
+void printAST(UP(ModuleDef) ast);
 
 namespace AstPrinter
 {
+
   void setIndentLevel(int il);
   extern int indentLevel;
 
   void printModule(UP(Module)& m, int indent);
+  void printModuleDef(UP(ModuleDef)& md, int indent);
   void printScopedDecl(UP(ScopedDecl)& m, int indent);
-  void printType(UP(Type)& t, int indent);
+  void printType(AutoPtr<Parser::Type>& t, int indent);
   void printStatement(UP(Statement)& s, int indent);
   void printTypedef(UP(Typedef)& t, int indent);
   void printReturn(UP(Return)& r, int indent);
   void printSwitch(UP(Switch)& s, int indent);
-  void printContinue(UP(Continue)& c, int indent);
-  void printBreak(UP(Break)& b, int indent);
-  void printEmptyStatement(UP(Statement)& s, int indent);
+  void printContinue(int indent);
+  void printBreak(int indent);
+  void printEmptyStatement(int indent);
   void printFor(UP(For)& f, int indent);
   void printWhile(UP(While)& w, int indent);
   void printIf(UP(If)& i, int indent);
@@ -71,4 +78,6 @@ namespace AstPrinter
   void printExpr11RHS(UP(Expr11RHS)& e, int indent);
   void printExpr12(UP(Expr12)& e, int indent);
 }
+
+#endif
 
