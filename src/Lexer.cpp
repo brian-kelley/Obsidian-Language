@@ -7,7 +7,7 @@ vector<Token*> lex(string& code)
   for(size_t i = 0; i < code.size();)
   {
     //scan to start of next token (ignoring whitespace)
-    if(code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
+    if(code[i] == ' ' || code[i] == '\t' || code[i] == '\n' || code[i] == 0)
     {
       i++;
       continue;
@@ -217,8 +217,12 @@ vector<Token*> lex(string& code)
     else
     {
       //???
-      cout << &code[i] << '\n';
-      errAndQuit(string("Error: lexer could not identify token at index ") + to_string(i));
+      cout << "Lexer iter is " << i << ", have " << code.length() << " bytes of input.\n";
+      cout << "Code byte at iter = " << (int) code[i] << '\n';
+      cout << "Last token was \"" << tokens.back()->getStr() << "\"\n";
+      string rem = code.substr(i, min<int>(10, code.length() - i));
+      errAndQuit(string("Error: lexer could not identify token at index ") +
+          to_string(i) + ", code: \"" + rem + "\"");
     }
   }
   return tokens;
@@ -268,7 +272,7 @@ void addToken(vector<Token*>& tokList, string token, int hint)
   {
     //token is a copy outside of code stream and is null-terminated
     int val;
-    sscanf(&token[1], "%i\n", &val);
+    sscanf(&token[0], "%i\n", &val);
     tokList.push_back(new IntLit(val));
   }
   else if(hint == PUNCTUATION)

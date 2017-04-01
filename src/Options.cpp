@@ -44,9 +44,9 @@ Options parseOptions(int argc, const char** argv)
     puts("Error: no input files.");
     exit(EXIT_FAILURE);
   }
-  else if(op.input.substr(op.input.length() - 3, 3) != ".ob")
+  else if(op.input.substr(op.input.length() - 3, 3) != ".os")
   {
-    puts("Error: input file does not have .ob file extension.");
+    puts("Error: input file does not have .os file extension.");
     exit(EXIT_FAILURE);
   }
   if(op.outputStem == "")

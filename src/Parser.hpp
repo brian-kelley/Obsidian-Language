@@ -11,17 +11,6 @@
 
 using namespace std;
 
-/*
-template<typename T>
-struct upHelper
-{
-  //typedef unique_ptr<T, default_delete<T>> upImpl;
-  typedef shared_ptr<T> upImpl;
-};
-
-#define UP(T) typename upHelper<T>::upImpl
-*/
-
 template<typename T>
 struct AutoPtr
 {

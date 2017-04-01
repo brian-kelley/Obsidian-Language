@@ -5,12 +5,11 @@
 #include "Token.hpp"
 #include <iostream>
 
-using namespace Parser;
-
-void printAST(UP(ModuleDef) ast);
+void printAST(UP(Parser::ModuleDef)& ast);
 
 namespace AstPrinter
 {
+  using namespace Parser;
 
   void setIndentLevel(int il);
   extern int indentLevel;

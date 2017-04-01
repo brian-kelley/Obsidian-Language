@@ -6,6 +6,7 @@
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "AST_Printer.hpp"
 
 void init()
 {
@@ -39,8 +40,22 @@ int main(int argc, const char** argv)
   preprocess(code);
   //Lexing
   vector<Token*> toks = lex(code);
+  cout << "************************************\n";
+  cout << "*            TOKENS                *\n";
+  cout << "************************************\n";
+  for(auto& it : toks)
+  {
+    cout << it->getStr() << " ";
+  }
+  cout << '\n';
   //Parsing
   UP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
+  cout << "************************************\n";
+  cout << "*             AST                  *\n";
+  cout << "************************************\n";
+
+  printAST(ast);
+
   //Code generation
   if(op.emitC)
   {
