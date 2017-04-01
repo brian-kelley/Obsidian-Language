@@ -141,17 +141,20 @@ enum TokType
 
 struct Token
 {
-  virtual bool operator==(Token& rhs) = 0;
+  Token();
+  virtual bool compareTo(Token* rhs) = 0;
   virtual int getType() = 0;
   virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
+  int type;
 };
 
 //Identifier: variable name or type name
 struct Ident : public Token
 {
+  Ident();
   Ident(string name);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(Ident& rhs);
   int getType();
   string getStr();
@@ -162,8 +165,9 @@ struct Ident : public Token
 //Operator: non-structure punctuation sequence
 struct Oper : public Token
 {
+  Oper();
   Oper(int op);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(Oper& rhs);
   int getType();
   string getStr();
@@ -174,8 +178,9 @@ struct Oper : public Token
 //"xyz"
 struct StrLit : public Token
 {
+  StrLit();
   StrLit(string val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(StrLit& rhs);
   int getType();
   string getStr();
@@ -186,8 +191,9 @@ struct StrLit : public Token
 //'?'
 struct CharLit : public Token
 {
+  CharLit();
   CharLit(char val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(CharLit& rhs);
   int getType();
   string getStr();
@@ -198,8 +204,9 @@ struct CharLit : public Token
 //[-]0123456789
 struct IntLit : public Token
 {
+  IntLit();
   IntLit(int val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(IntLit& rhs);
   int getType();
   string getStr();
@@ -210,8 +217,9 @@ struct IntLit : public Token
 //any float/double
 struct FloatLit : public Token
 {
+  FloatLit();
   FloatLit(double val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(FloatLit& rhs);
   int getType();
   string getStr();
@@ -222,8 +230,9 @@ struct FloatLit : public Token
 //Structure punctuation: (){};,.
 struct Punct : public Token
 {
+  Punct();
   Punct(PUNC val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(Punct& rhs);
   int getType();
   string getStr();
@@ -233,9 +242,10 @@ struct Punct : public Token
 
 struct Keyword : public Token
 {
+  Keyword();
   Keyword(string text);
   Keyword(int val);
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(Keyword& rhs);
   int getType();
   string getStr();
@@ -245,9 +255,9 @@ struct Keyword : public Token
 
 struct PastEOF : public Token
 {
-  //PastEOF();
+  PastEOF();
   static PastEOF inst;
-  bool operator==(Token& rhs);
+  bool compareTo(Token* rhs);
   bool operator==(PastEOF& rhs);
   int getType();
   string getStr();

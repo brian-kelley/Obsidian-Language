@@ -235,6 +235,7 @@ void addToken(vector<Token*>& tokList, string token, int hint)
     int kw = isKeyword(token);
     if(kw != -1)
     {
+      cout << "Got keyword: " << token << "\n";
       tokList.push_back(new Keyword(kw));
     }
     else

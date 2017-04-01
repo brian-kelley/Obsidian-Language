@@ -9,6 +9,8 @@ namespace Parser
   template<typename NT>
   UP(NT) parse()
   {
+    cout << "FATAL ERROR: non-implemented parse called.\n";
+    exit(1);
     return UP(NT)();
   }
 
@@ -54,6 +56,7 @@ namespace Parser
   template<> UP(StructLit) parse<StructLit>();
   template<> UP(Member) parse<Member>();
   template<> UP(TraitType) parse<TraitType>();
+  template<> UP(TupleType) parse<TupleType>();
   template<> UP(Expr1) parse<Expr1>();
   template<> UP(Expr1RHS) parse<Expr1RHS>();
   template<> UP(Expr2) parse<Expr2>();
@@ -82,7 +85,18 @@ namespace Parser
   {
     pos = 0;
     tokens = &toks;
-    return parse<ModuleDef>();
+    UP(ModuleDef) prog = parse<ModuleDef>();
+    if(pos != tokens->size())
+    {
+      cout << "Parse error: not all tokens accepted.\n";
+      cout << "Remaining tokens:";
+      for(size_t i = pos; i < tokens->size(); i++)
+      {
+        cout << (*tokens)[i]->getStr() << " ";
+      }
+      cout << '\n';
+    }
+    return prog;
   }
 
   template<>
@@ -102,12 +116,14 @@ namespace Parser
   {
     UP(ModuleDef) md(new ModuleDef);
     md->decls = parseSome<ScopedDecl>();
+    cout << ">>> Successfully parsed " << md->decls.size() << " scoped decls.\n";
     return md;
   }
 
   template<>
   UP(ScopedDecl) parse<ScopedDecl>()
   {
+    cout << "Trying to parse ScopedDecl at " << pos << '\n';
     UP(ScopedDecl) sd(new ScopedDecl);
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
@@ -205,10 +221,14 @@ namespace Parser
   template<>
   UP(Typedef) parse<Typedef>()
   {
+    cout << "******************\n";
+    cout << "Parsing typedef...\n";
     UP(Typedef) td(new Typedef);
     expectKeyword(TYPEDEF);
     td->type = parse<Type>();
+    cout << "Got type.\n";
     td->ident = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "Got name: " << td->ident << '\n';
     expectPunct(SEMICOLON);
     return td;
   }
@@ -559,14 +579,20 @@ namespace Parser
   template<>
   UP(ProcDef) parse<ProcDef>()
   {
+    cout << "Trying to parse procdef at pos " << pos << "\n";
     UP(ProcDef) pd(new ProcDef);
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
-    expectKeyword(FUNC);
+    cout << "here\n";
+    expectKeyword(PROC);
+    cout << "Got 'proc'\n";
     pd->retType = parse<Type>();
+    cout << "Got ret type\n";
     pd->name = parse<Member>();
+    cout << "Got name\n";
     expectPunct(LPAREN);
     pd->args = parseSomeCommaSeparated<Arg>();
+    cout << "Got args\n";
     expectPunct(RPAREN);
     pd->body = parse<Block>();
     return pd;
@@ -684,6 +710,16 @@ namespace Parser
     tt->localName = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
     tt->traitName = parse<Member>();
+    return tt;
+  }
+
+  template<>
+  UP(TupleType) parse<TupleType>()
+  {
+    UP(TupleType) tt(new TupleType);
+    expectPunct(LPAREN);
+    tt->members = parseSomeCommaSeparated<Type>();
+    expectPunct(RPAREN);
     return tt;
   }
 
@@ -965,7 +1001,7 @@ namespace Parser
 
   bool accept(Token& t)
   {
-    bool res = *getNext() == t;
+    bool res = getNext()->compareTo(&t);
     if(res)
       pos++;
     return res;
@@ -1004,7 +1040,8 @@ namespace Parser
 
   void expect(Token& t)
   {
-    bool res = *getNext() == t;
+    //bool res = getNext()->compareTo(t);
+    bool res = t.compareTo(getNext());
     if(res)
     {
       pos++;
@@ -1045,7 +1082,7 @@ namespace Parser
 
   Token* getNext()
   {
-    if(pos < tokens->size())
+    if(pos >= tokens->size())
       return &PastEOF::inst;
     else
       return (*tokens)[pos];

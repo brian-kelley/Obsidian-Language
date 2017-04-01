@@ -27,6 +27,10 @@ struct AutoPtr
     p = rhs.p;
     ((AutoPtr&) rhs).p = nullptr;
   }
+  AutoPtr(const AutoPtr&& rhs)
+  {
+    p = rhs.p;
+  }
   T& operator*() const
   {
     return *p;
@@ -730,14 +734,17 @@ namespace Parser
   {
     int prevPos = pos;
     UP(NT) nt;
+    cout << "Trying to parse " << typeid(NT).name() << "...";
     try
     {
       nt = parse<NT>();
+      cout << " success.\n";
       return nt;
     }
     catch(...)
     {
       //backtrack
+      cout << " failed, backtracking\n";
       pos = prevPos;
       return nt;
     }
@@ -747,14 +754,22 @@ namespace Parser
   template<typename NT>
   vector<UP(NT)> parseSome()
   {
+    cout << "Trying to parse some " << typeid(NT).name() << "\n";
     vector<UP(NT)> nts;
     while(true)
     {
       UP(NT) nt = parseOptional<NT>();
+      cout << "NT ptr: " << nt.p << "\n";
       if(!nt)
+      {
+        cout << "Done getting " << typeid(NT).name() << "\n";
         break;
+      }
       else
+      {
+        cout << "Got one " << typeid(NT).name() << "\n";
         nts.push_back(nt);
+      }
     };
     return nts;
   }

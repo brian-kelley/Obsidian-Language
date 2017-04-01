@@ -142,15 +142,26 @@ int isKeyword(string str)
     return it->second;
 }
 
+Token::Token()
+{
+  type = -1;
+}
+
 /* Identifier */
+Ident::Ident()
+{
+  type = IDENTIFIER;
+}
+
 Ident::Ident(string name)
 {
+  type = IDENTIFIER;
   this->name = name;
 }
 
-bool Ident::operator==(Token& rhs)
+bool Ident::compareTo(Token* rhs)
 {
-  if(rhs.getType() == IDENTIFIER && ((Ident&) rhs) == *this)
+  if(rhs->getType() == IDENTIFIER && ((Ident*) rhs)->name == name)
     return true;
   return false;
 }
@@ -183,14 +194,20 @@ string Ident::getDesc()
 }
 
 /* Operator */
+Oper::Oper()
+{
+  type = OPERATOR;
+}
+
 Oper::Oper(int op)
 {
+  type = OPERATOR;
   this->op = op;
 }
 
-bool Oper::operator==(Token& rhs)
+bool Oper::compareTo(Token* rhs)
 {
-  return rhs.getType() == OPERATOR && ((Oper&) rhs) == *this;
+  return rhs->getType() == OPERATOR && ((Oper*) rhs)->op == op;
 }
 
 bool Oper::operator==(Oper& rhs)
@@ -214,14 +231,20 @@ string Oper::getDesc()
 }
 
 /* String Literal */
+StrLit::StrLit()
+{
+  type = STRING_LITERAL;
+}
+
 StrLit::StrLit(string val)
 {
+  type = STRING_LITERAL;
   this->val = val;
 }
 
-bool StrLit::operator==(Token& rhs)
+bool StrLit::compareTo(Token* rhs)
 {
-  return rhs.getType() == STRING_LITERAL && ((StrLit&) rhs) == *this;
+  return rhs->getType() == STRING_LITERAL && ((StrLit*) rhs)->val == val;
 }
 
 bool StrLit::operator==(StrLit& rhs)
@@ -245,14 +268,20 @@ string StrLit::getDesc()
 }
 
 /* Character Literal */
+CharLit::CharLit()
+{
+  type = CHAR_LITERAL;
+}
+
 CharLit::CharLit(char val)
 {
+  type = CHAR_LITERAL;
   this->val = val;
 }
 
-bool CharLit::operator==(Token& rhs)
+bool CharLit::compareTo(Token* rhs)
 {
-  return rhs.getType() == CHAR_LITERAL && ((CharLit&) rhs) == *this;
+  return rhs->getType() == CHAR_LITERAL && ((CharLit*) rhs)->val == val;
 }
 
 bool CharLit::operator==(CharLit& rhs)
@@ -276,14 +305,20 @@ string CharLit::getDesc()
 }
 
 /* Integer Literal */
+IntLit::IntLit()
+{
+  type = INT_LITERAL;
+}
+
 IntLit::IntLit(int val)
 {
+  type = INT_LITERAL;
   this->val = val;
 }
 
-bool IntLit::operator==(Token& rhs)
+bool IntLit::compareTo(Token* rhs)
 {
-  return rhs.getType() == INT_LITERAL && ((IntLit&) rhs) == *this;
+  return rhs->getType() == INT_LITERAL && ((IntLit*) rhs)->val == val;
 }
 
 bool IntLit::operator==(IntLit& rhs)
@@ -307,14 +342,20 @@ string IntLit::getDesc()
 }
 
 /* float/double literal */
+FloatLit::FloatLit()
+{
+  type = FLOAT_LITERAL;
+}
+
 FloatLit::FloatLit(double val)
 {
+  type = FLOAT_LITERAL;
   this->val = val;
 }
 
-bool FloatLit::operator==(Token& rhs)
+bool FloatLit::compareTo(Token* rhs)
 {
-  return rhs.getType() == FLOAT_LITERAL && ((FloatLit&) rhs) == *this;
+  return rhs->getType() == FLOAT_LITERAL && ((FloatLit*) rhs)->val == val;
 }
 
 bool FloatLit::operator==(FloatLit& rhs)
@@ -338,14 +379,20 @@ string FloatLit::getDesc()
 }
 
 /* Punctuation */
+Punct::Punct()
+{
+  type = PUNCTUATION;
+}
+
 Punct::Punct(PUNC val)
 {
+  type = PUNCTUATION;
   this->val = val;
 }
 
-bool Punct::operator==(Token& rhs)
+bool Punct::compareTo(Token* rhs)
 {
-  return rhs.getType() == PUNCTUATION && ((Punct&) rhs) == *this;
+  return rhs->getType() == PUNCTUATION && ((Punct*) rhs)->val == val;
 }
 
 bool Punct::operator==(Punct& rhs)
@@ -369,8 +416,14 @@ string Punct::getDesc()
 }
 
 /* Keyword */
+Keyword::Keyword()
+{
+  type = KEYWORD;
+}
+
 Keyword::Keyword(string text)
 {
+  type = KEYWORD;
   int val = isKeyword(text);
   if(val == -1)
   {
@@ -384,9 +437,9 @@ Keyword::Keyword(int val)
   this->kw = val;
 }
 
-bool Keyword::operator==(Token& rhs)
+bool Keyword::compareTo(Token* rhs)
 {
-  return rhs.getType() == KEYWORD && ((Keyword&) rhs) == *this;
+  return rhs->getType() == KEYWORD && ((Keyword*) rhs)->kw == kw;
 }
 
 bool Keyword::operator==(Keyword& rhs)
@@ -409,9 +462,14 @@ string Keyword::getDesc()
   return tokTypeTable[KEYWORD];
 }
 
-bool PastEOF::operator==(Token& t)
+PastEOF::PastEOF()
 {
-  return t.getType() == PAST_EOF;
+  type = PAST_EOF;
+}
+
+bool PastEOF::compareTo(Token* t)
+{
+  return t->getType() == PAST_EOF;
 }
 
 bool PastEOF::operator==(PastEOF& rhs)
@@ -426,7 +484,7 @@ int PastEOF::getType()
 
 string PastEOF::getStr()
 {
-  return "";
+  return "<INVALID TOKEN>";
 }
 
 string PastEOF::getDesc()

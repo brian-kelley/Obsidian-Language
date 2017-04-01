@@ -48,6 +48,11 @@ int main(int argc, const char** argv)
     cout << it->getStr() << " ";
   }
   cout << '\n';
+  for(auto& it : toks)
+  {
+    cout << it->getType() << " ";
+  }
+  cout << '\n';
   //Parsing
   UP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
