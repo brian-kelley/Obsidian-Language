@@ -485,6 +485,7 @@ namespace Parser
   UP(Print) parse<Print>()
   {
     UP(Print) p(new Print);
+    expectKeyword(PRINT);
     expectPunct(LPAREN);
     p->exprs = parseSomeCommaSeparated<Expression>();
     expectPunct(RPAREN);
