@@ -186,6 +186,19 @@ vector<Token*> lex(string& code)
           i++;
         }
       }
+      else if(code[tokStart] == '%')
+      {
+        if(code[tokStart + 1] == '=')
+        {
+          tokens.push_back(new Oper(MODEQ));
+          i += 2;
+        }
+        else
+        {
+          tokens.push_back(new Oper(MOD));
+          i++;
+        }
+      }
       else
       {
         //1 punctuation char

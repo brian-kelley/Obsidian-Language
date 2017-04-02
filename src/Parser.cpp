@@ -116,14 +116,12 @@ namespace Parser
   {
     UP(ModuleDef) md(new ModuleDef);
     md->decls = parseSome<ScopedDecl>();
-    //cout << ">>> Successfully parsed " << md->decls.size() << " scoped decls.\n";
     return md;
   }
 
   template<>
   UP(ScopedDecl) parse<ScopedDecl>()
   {
-    //cout << "Trying to parse ScopedDecl at " << pos << '\n';
     UP(ScopedDecl) sd(new ScopedDecl);
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
@@ -498,9 +496,9 @@ namespace Parser
   UP(Expression) parse<Expression>()
   {
     UP(Expression) e(new Expression);
-    if((e->e = parse<Call>()) ||
-        (e->e = parse<Member>()) ||
-        (e->e = parse<Expr1>()))
+    if((e->e = parseOptional<Call>()) ||
+        (e->e = parseOptional<Member>()) ||
+        (e->e = parseOptional<Expr1>()))
     {
       return e;
     }
@@ -762,8 +760,6 @@ namespace Parser
   template<>
   UP(Expr1) parse<Expr1>()
   {
-    cout << "**********************\n";
-    cout << "Parsing Expr1\n";
     UP(Expr1) e1(new Expr1);
     e1->head = parse<Expr2>();
     e1->tail = parseSome<Expr1RHS>();
@@ -782,8 +778,6 @@ namespace Parser
   template<>
   UP(Expr2) parse<Expr2>()
   {
-    cout << "**********************\n";
-    cout << "Parsing Expr2\n";
     UP(Expr2) e2(new Expr2);
     e2->head = parse<Expr3>();
     e2->tail = parseSome<Expr2RHS>();

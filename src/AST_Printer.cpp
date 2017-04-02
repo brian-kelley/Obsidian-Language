@@ -446,13 +446,13 @@ namespace AstPrinter
     cout << "Variable declaration\n";
     indent(ind + indentLevel);
     cout << "Name: " << vd->name << '\n';
-    indent(ind + indentLevel);
     if(vd->type)
     {
       printType(vd->type, ind + indentLevel);
     }
     else
     {
+      indent(ind + indentLevel);
       cout << "Type: auto\n";
     }
     if(vd->val)
