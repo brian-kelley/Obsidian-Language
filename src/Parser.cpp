@@ -11,7 +11,7 @@ namespace Parser
   {
     cout << "FATAL ERROR: non-implemented parse called.\n";
     exit(1);
-    return UP(NT)();
+    return UP(NT)(nullptr);
   }
 
   //Need to forward-declare all parse() specializations
@@ -219,10 +219,27 @@ namespace Parser
   }
 
   template<>
+  UP(Break) parse<Break>()
+  {
+    expectKeyword(BREAK);
+    expectPunct(SEMICOLON);
+    return UP(Break)(new Break);
+  }
+
+  template<>
+  UP(Continue) parse<Continue>()
+  {
+    expectKeyword(CONTINUE);
+    expectPunct(SEMICOLON);
+    return UP(Continue)(new Continue);
+  }
+
+  template<>
   UP(Typedef) parse<Typedef>()
   {
-    cout << "******************\n";
-    cout << "Parsing typedef...\n";
+    cout << "\n******************\n";
+    cout << "Parsing typedef...";
+    cout << "\n******************\n";
     UP(Typedef) td(new Typedef);
     expectKeyword(TYPEDEF);
     td->type = parse<Type>();
@@ -401,18 +418,24 @@ namespace Parser
   {
     UP(EnumItem) ei(new EnumItem);
     ei->name = ((Ident*) expect(IDENTIFIER))->name;
-    ei->value = (IntLit*) expect(INT_LITERAL);
+    if(acceptOper(ASSIGN))
+    {
+      ei->value = (IntLit*) expect(INT_LITERAL);
+    }
     return ei;
   }
 
   template<>
   UP(Enum) parse<Enum>()
   {
+    cout << "Parsing enum\n";
     UP(Enum) e(new Enum);
     expectKeyword(ENUM);
     e->name = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "Name: " << e->name << '\n';
     expectPunct(LBRACE);
     e->items = parseSomeCommaSeparated<EnumItem>();
+    cout << "Got " << e->items.size() << " items.\n";
     expectPunct(RBRACE);
     return e;
   }
@@ -579,20 +602,14 @@ namespace Parser
   template<>
   UP(ProcDef) parse<ProcDef>()
   {
-    cout << "Trying to parse procdef at pos " << pos << "\n";
     UP(ProcDef) pd(new ProcDef);
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
-    cout << "here\n";
     expectKeyword(PROC);
-    cout << "Got 'proc'\n";
     pd->retType = parse<Type>();
-    cout << "Got ret type\n";
     pd->name = parse<Member>();
-    cout << "Got name\n";
     expectPunct(LPAREN);
     pd->args = parseSomeCommaSeparated<Arg>();
-    cout << "Got args\n";
     expectPunct(RPAREN);
     pd->body = parse<Block>();
     return pd;
@@ -1040,14 +1057,13 @@ namespace Parser
 
   void expect(Token& t)
   {
-    //bool res = getNext()->compareTo(t);
-    bool res = t.compareTo(getNext());
+    Token* next = getNext();
+    bool res = t.compareTo(next);
     if(res)
     {
       pos++;
       return;
     }
-    Token* next = (*tokens)[pos];
     throw ParseErr(string("expected ") + t.getStr() + " but got " + next->getStr());
   }
 
@@ -1090,7 +1106,7 @@ namespace Parser
 
   Token* lookAhead(int ahead)
   {
-    if(pos + ahead < tokens->size())
+    if(pos + ahead >= tokens->size())
       return &PastEOF::inst;
     else
       return (*tokens)[pos + ahead];

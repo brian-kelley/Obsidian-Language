@@ -11,6 +11,8 @@
 
 using namespace std;
 
+//custom unique ptr
+//transfers ownership on assignment/move/copy
 template<typename T>
 struct AutoPtr
 {
@@ -25,7 +27,7 @@ struct AutoPtr
   AutoPtr(const AutoPtr& rhs)
   {
     p = rhs.p;
-    ((AutoPtr&) rhs).p = nullptr;
+    //rhs.p = nullptr;
   }
   AutoPtr(const AutoPtr&& rhs)
   {
@@ -42,7 +44,7 @@ struct AutoPtr
   T* operator=(const AutoPtr& rhs)
   {
     p = rhs.p;
-    rhs.p = nullptr;
+    //rhs.p = nullptr;
     return p;
   }
   operator bool() const
@@ -57,7 +59,7 @@ struct AutoPtr
   {
     if(p)
     {
-      delete p;
+      //delete p;
     }
   }
   mutable T* p;
@@ -404,7 +406,8 @@ namespace Parser
   struct EnumItem
   {
     string name;
-    //value is optional (assigned automatically if not explicit)
+    //value is optional
+    //(NULL if not explicit, then set automatically)
     IntLit* value;
   };
 
@@ -734,17 +737,17 @@ namespace Parser
   {
     int prevPos = pos;
     UP(NT) nt;
-    cout << "Trying to parse " << typeid(NT).name() << "...";
+    //cout << "Trying to parse " << typeid(NT).name() << "...";
     try
     {
       nt = parse<NT>();
-      cout << " success.\n";
+      //cout << " success.\n";
       return nt;
     }
     catch(...)
     {
       //backtrack
-      cout << " failed, backtracking\n";
+      //cout << " failed, backtracking\n";
       pos = prevPos;
       return nt;
     }
@@ -754,23 +757,19 @@ namespace Parser
   template<typename NT>
   vector<UP(NT)> parseSome()
   {
-    cout << "Trying to parse some " << typeid(NT).name() << "\n";
     vector<UP(NT)> nts;
     while(true)
     {
       UP(NT) nt = parseOptional<NT>();
-      cout << "NT ptr: " << nt.p << "\n";
       if(!nt)
       {
-        cout << "Done getting " << typeid(NT).name() << "\n";
         break;
       }
       else
       {
-        cout << "Got one " << typeid(NT).name() << "\n";
         nts.push_back(nt);
       }
-    };
+    }
     return nts;
   }
 
@@ -781,17 +780,21 @@ namespace Parser
     vector<UP(NT)> nts;
     while(true)
     {
-      if(nts.size() != 0)
+      if(nts.size() == 0)
+      {
+        UP(NT) nt = parseOptional<NT>();
+        if(nt)
+          nts.push_back(nt);
+        else
+          break;
+      }
+      else
       {
         if(!acceptPunct(COMMA))
           break;
+        nts.push_back(parse<NT>());
       }
-      UP(NT) nt = parseOptional<NT>();
-      if(!nt)
-        break;
-      else
-        nts.push_back(nt);
-    };
+    }
     return nts;
   }
 }
