@@ -561,6 +561,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(fd->retType, ind + indentLevel);
+    indent(ind);
+    if(fd->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : fd->args)
     {
       printArg(it, ind + indentLevel);
@@ -575,6 +580,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(fd->retType, ind + indentLevel);
+    indent(ind);
+    if(fd->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : fd->args)
     {
       printArg(it, ind + indentLevel);
@@ -592,6 +602,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(ft->retType, ind + indentLevel);
+    indent(ind);
+    if(ft->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : ft->args)
     {
       printArg(it, ind + indentLevel);
@@ -605,6 +620,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(pd->retType, ind + indentLevel);
+    indent(ind);
+    if(pd->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : pd->args)
     {
       printArg(it, ind + indentLevel);
@@ -619,6 +639,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(pd->retType, ind + indentLevel);
+    indent(ind);
+    if(pd->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : pd->args)
     {
       printArg(it, ind + indentLevel);
@@ -636,6 +661,11 @@ namespace AstPrinter
     indent(ind);
     cout << "Return type:\n";
     printType(pt->retType, ind + indentLevel);
+    indent(ind);
+    if(pt->args.size() == 0)
+      cout << "No args\n";
+    else
+      cout << "Args:\n";
     for(auto& it : pt->args)
     {
       printArg(it, ind + indentLevel);

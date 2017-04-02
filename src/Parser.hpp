@@ -738,17 +738,14 @@ namespace Parser
   {
     int prevPos = pos;
     UP(NT) nt;
-    cout << "Trying to parse " << typeid(NT).name() << "...";
     try
     {
       nt = parse<NT>();
-      cout << " success.\n";
       return nt;
     }
     catch(...)
     {
       //backtrack
-      cout << " failed, backtracking\n";
       pos = prevPos;
       return nt;
     }

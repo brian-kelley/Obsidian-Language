@@ -149,9 +149,8 @@ namespace Parser
     UP(Type) type(new Type);
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
-      if(acceptKeyword(p)) { \
+      if(type->t.which() == 0 && acceptKeyword(p)) { \
         type->t = Type::Prim::p; \
-        return type; \
       } \
     }
     TRY_PRIMITIVE(BOOL);
@@ -185,7 +184,6 @@ namespace Parser
       expectPunct(RBRACKET);
       type->arrayDims++;
     }
-    cout << "Type array dimensions: " << type->arrayDims << '\n';
     return type;
   }
 
@@ -458,7 +456,10 @@ namespace Parser
       vd->type = parse<Type>();
     }
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
-    vd->val = parse<Expression>();
+    if(acceptOper(ASSIGN))
+    {
+      vd->val = parse<Expression>();
+    }
     expectPunct(SEMICOLON);
     if(!vd->type && !vd->val)
     {
