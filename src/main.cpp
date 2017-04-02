@@ -40,19 +40,17 @@ int main(int argc, const char** argv)
   preprocess(code);
   //Lexing
   vector<Token*> toks = lex(code);
+  /*
   cout << "************************************\n";
   cout << "*            TOKENS                *\n";
   cout << "************************************\n";
   for(auto& it : toks)
   {
-    cout << it->getStr() << " ";
+    cout << it->getDesc() << " : " << it->getStr() << '\n';
+    //cout << it->getStr() << " ";
   }
   cout << '\n';
-  for(auto& it : toks)
-  {
-    cout << it->getType() << " ";
-  }
-  cout << '\n';
+  */
   //Parsing
   UP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
   cout << "************************************\n";

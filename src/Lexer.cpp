@@ -188,7 +188,7 @@ vector<Token*> lex(string& code)
       }
       else
       {
-        //must be a 1-character punctuation
+        //1 punctuation char
         string token = string("") + code[tokStart];
         addToken(tokens, token, PUNCTUATION);
         i++;
@@ -235,7 +235,6 @@ void addToken(vector<Token*>& tokList, string token, int hint)
     int kw = isKeyword(token);
     if(kw != -1)
     {
-      cout << "Got keyword: " << token << "\n";
       tokList.push_back(new Keyword(kw));
     }
     else
@@ -280,29 +279,15 @@ void addToken(vector<Token*>& tokList, string token, int hint)
   {
     char tok = token[0];
     //Structure punctuation
-    if(tok == '(')
-      tokList.push_back(new Punct(LPAREN));
-    else if(tok == ')')
-      tokList.push_back(new Punct(RPAREN));
-    else if(tok == '{')
-      tokList.push_back(new Punct(LBRACE));
-    else if(tok == '}')
-      tokList.push_back(new Punct(RBRACE));
-    else if(tok == '.')
-      tokList.push_back(new Punct(DOT));
-    else if(tok == ',')
-      tokList.push_back(new Punct(COMMA));
-    else if(tok == ';')
-      tokList.push_back(new Punct(SEMICOLON));
-    //Operators
-    else if(token == "^")
-      tokList.push_back(new Oper(BXOR));
-    else if(token == "[")
-      tokList.push_back(new Oper(LBRACKET));
-    else if(token == "]")
-      tokList.push_back(new Oper(RBRACKET));
+    auto it = punctMap.find(tok);
+    if(it != punctMap.end())
+    {
+      tokList.push_back(new Punct(it->second));
+    }
     else
+    {
       errAndQuit(string("Invalid or unknown punctuation token: \"") + token + "\"");
+    }
   }
 }
 

@@ -9,7 +9,7 @@ namespace Parser
   template<typename NT>
   UP(NT) parse()
   {
-    cout << "FATAL ERROR: non-implemented parse called.\n";
+    cout << "FATAL ERROR: non-implemented parse called, for type " << typeid(NT).name() << "\n";
     exit(1);
     return UP(NT)(nullptr);
   }
@@ -89,7 +89,7 @@ namespace Parser
     if(pos != tokens->size())
     {
       cout << "Parse error: not all tokens accepted.\n";
-      cout << "Remaining tokens:";
+      cout << "Remaining tokens: ";
       for(size_t i = pos; i < tokens->size(); i++)
       {
         cout << (*tokens)[i]->getStr() << " ";
@@ -116,14 +116,14 @@ namespace Parser
   {
     UP(ModuleDef) md(new ModuleDef);
     md->decls = parseSome<ScopedDecl>();
-    cout << ">>> Successfully parsed " << md->decls.size() << " scoped decls.\n";
+    //cout << ">>> Successfully parsed " << md->decls.size() << " scoped decls.\n";
     return md;
   }
 
   template<>
   UP(ScopedDecl) parse<ScopedDecl>()
   {
-    cout << "Trying to parse ScopedDecl at " << pos << '\n';
+    //cout << "Trying to parse ScopedDecl at " << pos << '\n';
     UP(ScopedDecl) sd(new ScopedDecl);
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
@@ -147,6 +147,7 @@ namespace Parser
   UP(Type) parse<Type>()
   {
     UP(Type) type(new Type);
+    type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
       if(acceptKeyword(p)) { \
         type->t = Type::Prim::p; \
@@ -166,15 +167,17 @@ namespace Parser
     TRY_PRIMITIVE(DOUBLE);
     TRY_PRIMITIVE(STRING);
     #undef TRY_PRIMITIVE
-    if(!(type->t = parseOptional<Member>()))
+    if(type->t.which() != 1)
     {
-      if(!(type->t = parseOptional<TupleType>()))
+      if(!(type->t = parseOptional<Member>()))
       {
-        throw ParseErr("Invalid type");
+        if(!(type->t = parseOptional<TupleType>()))
+        {
+          throw ParseErr("Invalid type");
+        }
       }
     }
     //check for square bracket pairs after, indicating array type
-    type->arrayDims = 0;
     while(true)
     {
       if(!acceptPunct(LBRACKET))
@@ -182,6 +185,7 @@ namespace Parser
       expectPunct(RBRACKET);
       type->arrayDims++;
     }
+    cout << "Type array dimensions: " << type->arrayDims << '\n';
     return type;
   }
 
@@ -189,12 +193,8 @@ namespace Parser
   UP(Statement) parse<Statement>()
   {
     UP(Statement) s(new Statement);
-    if(s->s = parseOptional<Expression>())
-    {
-      expectPunct(SEMICOLON);
-      return s;
-    }
     if((s->s = parseOptional<ScopedDecl>()) ||
+        (s->s = parseOptional<VarDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
         (s->s = parseOptional<Print>()) ||
         (s->s = parseOptional<Block>()) ||
@@ -235,17 +235,19 @@ namespace Parser
   }
 
   template<>
+  UP(EmptyStatement) parse<EmptyStatement>()
+  {
+    expectPunct(SEMICOLON);
+    return UP(EmptyStatement)(new EmptyStatement);
+  }
+
+  template<>
   UP(Typedef) parse<Typedef>()
   {
-    cout << "\n******************\n";
-    cout << "Parsing typedef...";
-    cout << "\n******************\n";
     UP(Typedef) td(new Typedef);
     expectKeyword(TYPEDEF);
     td->type = parse<Type>();
-    cout << "Got type.\n";
     td->ident = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "Got name: " << td->ident << '\n';
     expectPunct(SEMICOLON);
     return td;
   }
@@ -419,23 +421,20 @@ namespace Parser
     UP(EnumItem) ei(new EnumItem);
     ei->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptOper(ASSIGN))
-    {
       ei->value = (IntLit*) expect(INT_LITERAL);
-    }
+    else
+      ei->value = nullptr;
     return ei;
   }
 
   template<>
   UP(Enum) parse<Enum>()
   {
-    cout << "Parsing enum\n";
     UP(Enum) e(new Enum);
     expectKeyword(ENUM);
     e->name = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "Name: " << e->name << '\n';
     expectPunct(LBRACE);
     e->items = parseSomeCommaSeparated<EnumItem>();
-    cout << "Got " << e->items.size() << " items.\n";
     expectPunct(RBRACE);
     return e;
   }
@@ -762,6 +761,8 @@ namespace Parser
   template<>
   UP(Expr1) parse<Expr1>()
   {
+    cout << "**********************\n";
+    cout << "Parsing Expr1\n";
     UP(Expr1) e1(new Expr1);
     e1->head = parse<Expr2>();
     e1->tail = parseSome<Expr1RHS>();
@@ -780,6 +781,8 @@ namespace Parser
   template<>
   UP(Expr2) parse<Expr2>()
   {
+    cout << "**********************\n";
+    cout << "Parsing Expr2\n";
     UP(Expr2) e2(new Expr2);
     e2->head = parse<Expr3>();
     e2->tail = parseSome<Expr2RHS>();
@@ -1051,7 +1054,7 @@ namespace Parser
 
   bool acceptPunct(int type)
   {
-    Punct p((PUNC) type);
+    Punct p(type);
     return accept(p);
   }
 
@@ -1074,7 +1077,7 @@ namespace Parser
     if(res)
       pos++;
     else
-      throw ParseErr(string("expected ") + tokTypeTable[tokType] + " but got " + next->getStr());
+      throw ParseErr(string("expected a ") + tokTypeTable[tokType] + " but got " + next->getStr());
     return next;
   }
 
@@ -1092,7 +1095,7 @@ namespace Parser
 
   void expectPunct(int type)
   {
-    Punct p((PUNC) type);
+    Punct p(type);
     expect(p);
   }
 

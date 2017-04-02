@@ -384,7 +384,7 @@ Punct::Punct()
   type = PUNCTUATION;
 }
 
-Punct::Punct(PUNC val)
+Punct::Punct(int val)
 {
   type = PUNCTUATION;
   this->val = val;

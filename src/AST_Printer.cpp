@@ -97,7 +97,7 @@ namespace AstPrinter
     cout << "Type: ";
     if(t->arrayDims)
     {
-      cout << t->arrayDims << "-dim array of";
+      cout << t->arrayDims << "-dim array of ";
     }
     switch(t->t.which())
     {
@@ -214,6 +214,8 @@ namespace AstPrinter
       case 15:
         printEmptyStatement(ind);
         break;
+      case 16:
+        printVarDecl(s->s.get<UP(VarDecl)>(), ind);
       default:;
     }
   }
@@ -423,7 +425,7 @@ namespace AstPrinter
       }
       else
       {
-        cout << " automatic\n";
+        cout << "automatic\n";
       }
     }
   }
@@ -570,6 +572,7 @@ namespace AstPrinter
     indent(ind);
     cout << "Func definition:\n";
     printMember(fd->name, ind + indentLevel);
+    indent(ind);
     cout << "Return type:\n";
     printType(fd->retType, ind + indentLevel);
     for(auto& it : fd->args)
@@ -586,6 +589,7 @@ namespace AstPrinter
     indent(ind);
     cout << "Func type:\n";
     printMember(ft->name, ind + indentLevel);
+    indent(ind);
     cout << "Return type:\n";
     printType(ft->retType, ind + indentLevel);
     for(auto& it : ft->args)
@@ -612,6 +616,7 @@ namespace AstPrinter
     indent(ind);
     cout << "Proc definition:\n";
     printMember(pd->name, ind + indentLevel);
+    indent(ind);
     cout << "Return type:\n";
     printType(pd->retType, ind + indentLevel);
     for(auto& it : pd->args)
@@ -628,6 +633,7 @@ namespace AstPrinter
     indent(ind);
     cout << "Func type:\n";
     printMember(pt->name, ind + indentLevel);
+    indent(ind);
     cout << "Return type:\n";
     printType(pt->retType, ind + indentLevel);
     for(auto& it : pt->args)

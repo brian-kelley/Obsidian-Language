@@ -306,7 +306,8 @@ namespace Parser
       UP(If),
       UP(Using),
       UP(Assertion),
-      UP(EmptyStatement)> s;
+      UP(EmptyStatement),
+      UP(VarDecl)> s;
   };
 
   struct Typedef
@@ -737,17 +738,17 @@ namespace Parser
   {
     int prevPos = pos;
     UP(NT) nt;
-    //cout << "Trying to parse " << typeid(NT).name() << "...";
+    cout << "Trying to parse " << typeid(NT).name() << "...";
     try
     {
       nt = parse<NT>();
-      //cout << " success.\n";
+      cout << " success.\n";
       return nt;
     }
     catch(...)
     {
       //backtrack
-      //cout << " failed, backtracking\n";
+      cout << " failed, backtracking\n";
       pos = prevPos;
       return nt;
     }

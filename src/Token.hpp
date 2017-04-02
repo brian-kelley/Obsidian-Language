@@ -22,7 +22,7 @@ void initTokens();
 //return index in Keyword enum, or -1
 int isKeyword(string str);
 
-enum KW
+enum
 {
   FUNC,
   PROC,
@@ -73,7 +73,7 @@ enum KW
   ASSERT
 };
 
-enum OP
+enum
 {
   PLUS,
   PLUSEQ,
@@ -110,7 +110,7 @@ enum OP
   DEC
 };
 
-enum PUNC
+enum
 {
   SEMICOLON,
   COLON,
@@ -125,7 +125,7 @@ enum PUNC
   DOLLAR
 };
 
-enum TokType
+enum
 {
   IDENTIFIER,
   STRING_LITERAL,
@@ -231,7 +231,7 @@ struct FloatLit : public Token
 struct Punct : public Token
 {
   Punct();
-  Punct(PUNC val);
+  Punct(int val);
   bool compareTo(Token* rhs);
   bool operator==(Punct& rhs);
   int getType();
