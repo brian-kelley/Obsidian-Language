@@ -473,11 +473,19 @@ namespace Parser
     va->target = parse<Member>();
     va->op = (Oper*) expect(OPERATOR);
     //unary assign operators don't have rhs
-    if(va->op->getType() != INC && va->op->getType() != DEC)
+    int otype = va->op->op;
+    if(otype != INC && otype != DEC)
     {
       va->rhs = parse<Expression>();
     }
     expectPunct(SEMICOLON);
+    if(otype != INC && otype != DEC &&
+        otype != PLUSEQ && otype != SUBEQ && otype != MULEQ &&
+        otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
+        otype != BANDEQ && otype != BXOREQ)
+    {
+      throw ParseErr("invalid operator for variable assignment/update");
+    }
     return va;
   }
 

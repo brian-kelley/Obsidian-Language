@@ -141,6 +141,11 @@ vector<Token*> lex(string& code)
           tokens.push_back(new Oper(PLUSEQ));
           i += 2;
         }
+        else if(code[tokStart + 1] == '+')
+        {
+          tokens.push_back(new Oper(INC));
+          i += 2;
+        }
         else
         {
           tokens.push_back(new Oper(PLUS));
@@ -152,6 +157,11 @@ vector<Token*> lex(string& code)
         if(code[tokStart + 1] == '=')
         {
           tokens.push_back(new Oper(SUBEQ));
+          i += 2;
+        }
+        else if(code[tokStart + 1] == '-')
+        {
+          tokens.push_back(new Oper(DEC));
           i += 2;
         }
         else
