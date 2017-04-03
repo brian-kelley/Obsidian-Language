@@ -125,6 +125,7 @@ namespace Parser
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
         !(sd->decl = parseOptional<VarDecl>()) &&
+        !(sd->decl = parseOptional<StructDecl>()) &&
         !(sd->decl = parseOptional<VariantDecl>()) &&
         !(sd->decl = parseOptional<TraitDecl>()) &&
         !(sd->decl = parseOptional<Enum>()) &&
@@ -644,6 +645,10 @@ namespace Parser
     {
       sm->compose = true;
     }
+    else
+    {
+      sm->compose = false;
+    }
     sm->sd = parse<ScopedDecl>();
     return sm;
   }
@@ -653,13 +658,15 @@ namespace Parser
   {
     AP(StructDecl) sd(new StructDecl);
     expectKeyword(STRUCT);
+    cout << "Parsing struct decl\n";
     sd->name = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "got name: " << sd->name << '\n';
     if(acceptPunct(COLON))
     {
       sd->traits = parseSomeCommaSeparated<Member>();
     }
     expectPunct(LBRACE);
-    sd->members = parseSomeCommaSeparated<StructMem>();
+    sd->members = parseSome<StructMem>();
     expectPunct(RBRACE);
     return sd;
   }

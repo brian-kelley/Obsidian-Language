@@ -201,6 +201,19 @@ vector<Token*> lex(string& code)
           i++;
         }
       }
+      else if(code[tokStart] == '^')
+      {
+        if(code[tokStart + 1] == '=')
+        {
+          tokens.push_back(new Oper(BXOREQ));
+          i += 2;
+        }
+        else
+        {
+          tokens.push_back(new Oper(BXOR));
+          i++;
+        }
+      }
       else if(code[tokStart] == '%')
       {
         if(code[tokStart + 1] == '=')
