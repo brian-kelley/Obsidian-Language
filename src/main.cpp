@@ -52,11 +52,10 @@ int main(int argc, const char** argv)
   cout << '\n';
   */
   //Parsing
-  UP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
+  AP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";
-
   printAST(ast);
 
   //Code generation

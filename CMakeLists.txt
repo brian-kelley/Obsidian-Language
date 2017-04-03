@@ -9,7 +9,7 @@ add_executable (onyx
   src/Options.cpp
   src/Preprocess.cpp
   src/Token.cpp
-  src/Scope.cpp
+  src/MiddleEnd.cpp
   src/Variable.cpp
   src/Type.cpp
   src/Lexer.cpp

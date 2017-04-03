@@ -1,0 +1,45 @@
+TODO:
+
+Ongoing work:
+-thoroughly test lexer and parser
+
+CORE LANGUAGE SUBSET:
+
+Tasks:
+-Type system
+  -Type struct (primitive, array, tuple, struct, variant)
+  -Rules for implicit conversion between primitives
+  -Give all expressions a type
+  -Struct types: can include traits and 
+-Scope to hold list of all declarations, in order
+  -Give function arguments and return values types
+-Semantic checker
+  -Owner-member checking
+  -Check that arithmetic operations are done on compatible types
+  -Type checking
+    -Check struct/array literals against their usage
+    -Check function arguments, assignment
+    -Check traits of passed values to trait arguments
+  -Check that variables declared before use
+    -Globals can be accessed anywhere
+    -Locals can be accessed after decl in same scope
+    -Locals can also be accessed in functions both declared and called after
+  -Check that structs implement all functions in traits
+  -Check if/while/for conditions are bools
+  -Check that functions don't modify vars not declared in it
+  -Passing things to trait types
+-C code generation:
+  In each scope:
+    -First, declare all global typedefs
+      -Need to manage interdependencies
+    -Declare structs, tuples and variants
+      -Structs and tuples are just C structs, with regular members
+      -Variants are structs with a union and int containing which item is active
+    -Arrays are fat-pointer types, N dimensions and just one buffer
+  -Name mangler for modules, structs, nested functions
+    -Struct functions take first argument T* self
+  -Forward-declare all functions/procedures
+  -All function definitions
+    -respect nesting (top-down) but besides that order doesn't matter
+  -Start standard library, for now just basic stdin and stdout
+

@@ -7,85 +7,84 @@ namespace Parser
   None none;
 
   template<typename NT>
-  UP(NT) parse()
+  AP(NT) parse()
   {
     cout << "FATAL ERROR: non-implemented parse called, for type " << typeid(NT).name() << "\n";
     exit(1);
-    return UP(NT)(nullptr);
+    return AP(NT)(nullptr);
   }
 
   //Need to forward-declare all parse() specializations
-  template<> UP(Module) parse<Module>();
-  template<> UP(ModuleDef) parse<ModuleDef>();
-  template<> UP(ScopedDecl) parse<ScopedDecl>();
-  template<> UP(Type) parse<Type>();
-  template<> UP(Statement) parse<Statement>();
-  template<> UP(Typedef) parse<Typedef>();
-  template<> UP(Return) parse<Return>();
-  template<> UP(SwitchCase) parse<SwitchCase>();
-  template<> UP(Switch) parse<Switch>();
-  template<> UP(ForC) parse<ForC>();
-  template<> UP(ForRange1) parse<ForRange1>();
-  template<> UP(ForRange2) parse<ForRange2>();
-  template<> UP(ForArray) parse<ForArray>();
-  template<> UP(For) parse<For>();
-  template<> UP(While) parse<While>();
-  template<> UP(If) parse<If>();
-  template<> UP(Using) parse<Using>();
-  template<> UP(Assertion) parse<Assertion>();
-  template<> UP(TestDecl) parse<TestDecl>();
-  template<> UP(EnumItem) parse<EnumItem>();
-  template<> UP(Enum) parse<Enum>();
-  template<> UP(Block) parse<Block>();
-  template<> UP(VarDecl) parse<VarDecl>();
-  template<> UP(VarAssign) parse<VarAssign>();
-  template<> UP(Print) parse<Print>();
-  template<> UP(Expression) parse<Expression>();
-  template<> UP(Call) parse<Call>();
-  template<> UP(Arg) parse<Arg>();
-  template<> UP(FuncDecl) parse<FuncDecl>();
-  template<> UP(FuncDef) parse<FuncDef>();
-  template<> UP(FuncType) parse<FuncType>();
-  template<> UP(ProcDecl) parse<ProcDecl>();
-  template<> UP(ProcDef) parse<ProcDef>();
-  template<> UP(ProcType) parse<ProcType>();
-  template<> UP(StructMem) parse<StructMem>();
-  template<> UP(StructDecl) parse<StructDecl>();
-  template<> UP(VariantDecl) parse<VariantDecl>();
-  template<> UP(TraitDecl) parse<TraitDecl>();
-  template<> UP(StructLit) parse<StructLit>();
-  template<> UP(Member) parse<Member>();
-  template<> UP(TraitType) parse<TraitType>();
-  template<> UP(TupleType) parse<TupleType>();
-  template<> UP(Expr1) parse<Expr1>();
-  template<> UP(Expr1RHS) parse<Expr1RHS>();
-  template<> UP(Expr2) parse<Expr2>();
-  template<> UP(Expr2RHS) parse<Expr2RHS>();
-  template<> UP(Expr3) parse<Expr3>();
-  template<> UP(Expr3RHS) parse<Expr3RHS>();
-  template<> UP(Expr4) parse<Expr4>();
-  template<> UP(Expr4RHS) parse<Expr4RHS>();
-  template<> UP(Expr5) parse<Expr5>();
-  template<> UP(Expr5RHS) parse<Expr5RHS>();
-  template<> UP(Expr6) parse<Expr6>();
-  template<> UP(Expr6RHS) parse<Expr6RHS>();
-  template<> UP(Expr7) parse<Expr7>();
-  template<> UP(Expr7RHS) parse<Expr7RHS>();
-  template<> UP(Expr8) parse<Expr8>();
-  template<> UP(Expr8RHS) parse<Expr8RHS>();
-  template<> UP(Expr9) parse<Expr9>();
-  template<> UP(Expr9RHS) parse<Expr9RHS>();
-  template<> UP(Expr10) parse<Expr10>();
-  template<> UP(Expr10RHS) parse<Expr10RHS>();
-  template<> UP(Expr11) parse<Expr11>();
-  template<> UP(Expr11RHS) parse<Expr11RHS>();
-  template<> UP(Expr12) parse<Expr12>();
+  template<> AP(Module) parse<Module>();
+  template<> AP(ModuleDef) parse<ModuleDef>();
+  template<> AP(ScopedDecl) parse<ScopedDecl>();
+  template<> AP(Type) parse<Type>();
+  template<> AP(Statement) parse<Statement>();
+  template<> AP(Typedef) parse<Typedef>();
+  template<> AP(Return) parse<Return>();
+  template<> AP(SwitchCase) parse<SwitchCase>();
+  template<> AP(Switch) parse<Switch>();
+  template<> AP(ForC) parse<ForC>();
+  template<> AP(ForRange1) parse<ForRange1>();
+  template<> AP(ForRange2) parse<ForRange2>();
+  template<> AP(ForArray) parse<ForArray>();
+  template<> AP(For) parse<For>();
+  template<> AP(While) parse<While>();
+  template<> AP(If) parse<If>();
+  template<> AP(Using) parse<Using>();
+  template<> AP(Assertion) parse<Assertion>();
+  template<> AP(TestDecl) parse<TestDecl>();
+  template<> AP(EnumItem) parse<EnumItem>();
+  template<> AP(Enum) parse<Enum>();
+  template<> AP(Block) parse<Block>();
+  template<> AP(VarDecl) parse<VarDecl>();
+  template<> AP(VarAssign) parse<VarAssign>();
+  template<> AP(Print) parse<Print>();
+  template<> AP(Expression) parse<Expression>();
+  template<> AP(Call) parse<Call>();
+  template<> AP(Arg) parse<Arg>();
+  template<> AP(FuncDecl) parse<FuncDecl>();
+  template<> AP(FuncDef) parse<FuncDef>();
+  template<> AP(FuncType) parse<FuncType>();
+  template<> AP(ProcDecl) parse<ProcDecl>();
+  template<> AP(ProcDef) parse<ProcDef>();
+  template<> AP(ProcType) parse<ProcType>();
+  template<> AP(StructMem) parse<StructMem>();
+  template<> AP(StructDecl) parse<StructDecl>();
+  template<> AP(VariantDecl) parse<VariantDecl>();
+  template<> AP(TraitDecl) parse<TraitDecl>();
+  template<> AP(StructLit) parse<StructLit>();
+  template<> AP(Member) parse<Member>();
+  template<> AP(TraitType) parse<TraitType>();
+  template<> AP(TupleType) parse<TupleType>();
+  template<> AP(Expr1) parse<Expr1>();
+  template<> AP(Expr1RHS) parse<Expr1RHS>();
+  template<> AP(Expr2) parse<Expr2>();
+  template<> AP(Expr2RHS) parse<Expr2RHS>();
+  template<> AP(Expr3) parse<Expr3>();
+  template<> AP(Expr3RHS) parse<Expr3RHS>();
+  template<> AP(Expr4) parse<Expr4>();
+  template<> AP(Expr4RHS) parse<Expr4RHS>();
+  template<> AP(Expr5) parse<Expr5>();
+  template<> AP(Expr5RHS) parse<Expr5RHS>();
+  template<> AP(Expr6) parse<Expr6>();
+  template<> AP(Expr6RHS) parse<Expr6RHS>();
+  template<> AP(Expr7) parse<Expr7>();
+  template<> AP(Expr7RHS) parse<Expr7RHS>();
+  template<> AP(Expr8) parse<Expr8>();
+  template<> AP(Expr8RHS) parse<Expr8RHS>();
+  template<> AP(Expr9) parse<Expr9>();
+  template<> AP(Expr9RHS) parse<Expr9RHS>();
+  template<> AP(Expr10) parse<Expr10>();
+  template<> AP(Expr10RHS) parse<Expr10RHS>();
+  template<> AP(Expr11) parse<Expr11>();
+  template<> AP(Expr12) parse<Expr12>();
 
-  UP(ModuleDef) parseProgram(vector<Token*>& toks)
+  AP(ModuleDef) parseProgram(vector<Token*>& toks)
   {
     pos = 0;
     tokens = &toks;
-    UP(ModuleDef) prog = parse<ModuleDef>();
+    AP(ModuleDef) prog = parse<ModuleDef>();
     if(pos != tokens->size())
     {
       cout << "Parse error: not all tokens accepted.\n";
@@ -100,9 +99,9 @@ namespace Parser
   }
 
   template<>
-  UP(Module) parse<Module>()
+  AP(Module) parse<Module>()
   {
-    UP(Module) m(new Module);
+    AP(Module) m(new Module);
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
@@ -112,17 +111,17 @@ namespace Parser
   }
 
   template<>
-  UP(ModuleDef) parse<ModuleDef>()
+  AP(ModuleDef) parse<ModuleDef>()
   {
-    UP(ModuleDef) md(new ModuleDef);
+    AP(ModuleDef) md(new ModuleDef);
     md->decls = parseSome<ScopedDecl>();
     return md;
   }
 
   template<>
-  UP(ScopedDecl) parse<ScopedDecl>()
+  AP(ScopedDecl) parse<ScopedDecl>()
   {
-    UP(ScopedDecl) sd(new ScopedDecl);
+    AP(ScopedDecl) sd(new ScopedDecl);
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
         !(sd->decl = parseOptional<VarDecl>()) &&
@@ -142,9 +141,9 @@ namespace Parser
   }
 
   template<>
-  UP(Type) parse<Type>()
+  AP(Type) parse<Type>()
   {
-    UP(Type) type(new Type);
+    AP(Type) type(new Type);
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
       if(type->t.which() == 0 && acceptKeyword(p)) { \
@@ -186,9 +185,9 @@ namespace Parser
   }
 
   template<>
-  UP(Statement) parse<Statement>()
+  AP(Statement) parse<Statement>()
   {
-    UP(Statement) s(new Statement);
+    AP(Statement) s(new Statement);
     if((s->s = parseOptional<ScopedDecl>()) ||
         (s->s = parseOptional<VarDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
@@ -215,32 +214,32 @@ namespace Parser
   }
 
   template<>
-  UP(Break) parse<Break>()
+  AP(Break) parse<Break>()
   {
     expectKeyword(BREAK);
     expectPunct(SEMICOLON);
-    return UP(Break)(new Break);
+    return AP(Break)(new Break);
   }
 
   template<>
-  UP(Continue) parse<Continue>()
+  AP(Continue) parse<Continue>()
   {
     expectKeyword(CONTINUE);
     expectPunct(SEMICOLON);
-    return UP(Continue)(new Continue);
+    return AP(Continue)(new Continue);
   }
 
   template<>
-  UP(EmptyStatement) parse<EmptyStatement>()
+  AP(EmptyStatement) parse<EmptyStatement>()
   {
     expectPunct(SEMICOLON);
-    return UP(EmptyStatement)(new EmptyStatement);
+    return AP(EmptyStatement)(new EmptyStatement);
   }
 
   template<>
-  UP(Typedef) parse<Typedef>()
+  AP(Typedef) parse<Typedef>()
   {
-    UP(Typedef) td(new Typedef);
+    AP(Typedef) td(new Typedef);
     expectKeyword(TYPEDEF);
     td->type = parse<Type>();
     td->ident = ((Ident*) expect(IDENTIFIER))->name;
@@ -249,9 +248,9 @@ namespace Parser
   }
 
   template<>
-  UP(Return) parse<Return>()
+  AP(Return) parse<Return>()
   {
-    UP(Return) r(new Return);
+    AP(Return) r(new Return);
     expectKeyword(RETURN);
     r->ex = parseOptional<Expression>();
     expectPunct(SEMICOLON);
@@ -259,9 +258,9 @@ namespace Parser
   }
 
   template<>
-  UP(SwitchCase) parse<SwitchCase>()
+  AP(SwitchCase) parse<SwitchCase>()
   {
-    UP(SwitchCase) sc(new SwitchCase);
+    AP(SwitchCase) sc(new SwitchCase);
     sc->matchVal = parse<Expression>();
     expectPunct(COLON);
     sc->s = parse<Statement>();
@@ -269,9 +268,9 @@ namespace Parser
   }
 
   template<>
-  UP(Switch) parse<Switch>()
+  AP(Switch) parse<Switch>()
   {
-    UP(Switch) sw(new Switch);
+    AP(Switch) sw(new Switch);
     expectKeyword(SWITCH);
     expectPunct(LPAREN);
     sw->sw = parse<Expression>();
@@ -289,10 +288,10 @@ namespace Parser
   }
 
   template<>
-  UP(ForC) parse<ForC>()
+  AP(ForC) parse<ForC>()
   {
     //try to parse C style for loop
-    UP(ForC) forC(new ForC);
+    AP(ForC) forC(new ForC);
     expectKeyword(FOR);
     expectPunct(LPAREN);
     //all 3 parts of the loop are optional
@@ -310,18 +309,18 @@ namespace Parser
   }
 
   template<>
-  UP(ForRange1) parse<ForRange1>()
+  AP(ForRange1) parse<ForRange1>()
   {
-    UP(ForRange1) fr1(new ForRange1);
+    AP(ForRange1) fr1(new ForRange1);
     expectKeyword(FOR);
     fr1->expr = parse<Expression>();
     return fr1;
   }
 
   template<>
-  UP(ForRange2) parse<ForRange2>()
+  AP(ForRange2) parse<ForRange2>()
   {
-    UP(ForRange2) fr2(new ForRange2);
+    AP(ForRange2) fr2(new ForRange2);
     expectKeyword(FOR);
     fr2->start = parse<Expression>();
     expectPunct(COLON);
@@ -330,17 +329,17 @@ namespace Parser
   }
 
   template<>
-  UP(ForArray) parse<ForArray>()
+  AP(ForArray) parse<ForArray>()
   {
-    UP(ForArray) fa(new ForArray);
+    AP(ForArray) fa(new ForArray);
     fa->container = parse<Expression>();
     return fa;
   }
 
   template<>
-  UP(For) parse<For>()
+  AP(For) parse<For>()
   {
-    UP(For) f(new For);
+    AP(For) f(new For);
     if((f->f = parseOptional<ForC>()) ||
         (f->f = parseOptional<ForRange1>()) ||
         (f->f = parseOptional<ForRange2>()) ||
@@ -356,9 +355,9 @@ namespace Parser
   }
 
   template<>
-  UP(While) parse<While>()
+  AP(While) parse<While>()
   {
-    UP(While) w(new While);
+    AP(While) w(new While);
     expectKeyword(WHILE);
     expectPunct(LPAREN);
     w->cond = parse<Expression>();
@@ -368,9 +367,9 @@ namespace Parser
   }
 
   template<>
-  UP(If) parse<If>()
+  AP(If) parse<If>()
   {
-    UP(If) i(new If);
+    AP(If) i(new If);
     expectKeyword(IF);
     expectPunct(LPAREN);
     i->cond = parse<Expression>();
@@ -382,9 +381,9 @@ namespace Parser
   }
 
   template<>
-  UP(Using) parse<Using>()
+  AP(Using) parse<Using>()
   {
-    UP(Using) u(new Using);
+    AP(Using) u(new Using);
     expectKeyword(USING);
     u->mem = parse<Member>();
     expectPunct(SEMICOLON);
@@ -392,9 +391,9 @@ namespace Parser
   }
 
   template<>
-  UP(Assertion) parse<Assertion>()
+  AP(Assertion) parse<Assertion>()
   {
-    UP(Assertion) a(new Assertion);
+    AP(Assertion) a(new Assertion);
     expectKeyword(ASSERT);
     a->expr = parse<Expression>();
     expectPunct(SEMICOLON);
@@ -402,9 +401,9 @@ namespace Parser
   }
 
   template<>
-  UP(TestDecl) parse<TestDecl>()
+  AP(TestDecl) parse<TestDecl>()
   {
-    UP(TestDecl) t(new TestDecl);
+    AP(TestDecl) t(new TestDecl);
     expectKeyword(TEST);
     t->call = parse<Call>();
     expectPunct(SEMICOLON);
@@ -412,9 +411,9 @@ namespace Parser
   }
 
   template<>
-  UP(EnumItem) parse<EnumItem>()
+  AP(EnumItem) parse<EnumItem>()
   {
-    UP(EnumItem) ei(new EnumItem);
+    AP(EnumItem) ei(new EnumItem);
     ei->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptOper(ASSIGN))
       ei->value = (IntLit*) expect(INT_LITERAL);
@@ -424,9 +423,9 @@ namespace Parser
   }
 
   template<>
-  UP(Enum) parse<Enum>()
+  AP(Enum) parse<Enum>()
   {
-    UP(Enum) e(new Enum);
+    AP(Enum) e(new Enum);
     expectKeyword(ENUM);
     e->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
@@ -436,9 +435,9 @@ namespace Parser
   }
 
   template<>
-  UP(Block) parse<Block>()
+  AP(Block) parse<Block>()
   {
-    UP(Block) b(new Block);
+    AP(Block) b(new Block);
     expectPunct(LBRACE);
     b->statements = parseSome<Statement>();
     expectPunct(RBRACE);
@@ -446,9 +445,9 @@ namespace Parser
   }
 
   template<>
-  UP(VarDecl) parse<VarDecl>()
+  AP(VarDecl) parse<VarDecl>()
   {
-    UP(VarDecl) vd(new VarDecl);
+    AP(VarDecl) vd(new VarDecl);
     if(!acceptKeyword(AUTO))
     {
       vd->type = parse<Type>();
@@ -467,9 +466,9 @@ namespace Parser
   }
 
   template<>
-  UP(VarAssign) parse<VarAssign>()
+  AP(VarAssign) parse<VarAssign>()
   {
-    UP(VarAssign) va(new VarAssign);
+    AP(VarAssign) va(new VarAssign);
     va->target = parse<Member>();
     va->op = (Oper*) expect(OPERATOR);
     //unary assign operators don't have rhs
@@ -490,9 +489,9 @@ namespace Parser
   }
 
   template<>
-  UP(Print) parse<Print>()
+  AP(Print) parse<Print>()
   {
-    UP(Print) p(new Print);
+    AP(Print) p(new Print);
     expectKeyword(PRINT);
     expectPunct(LPAREN);
     p->exprs = parseSomeCommaSeparated<Expression>();
@@ -502,9 +501,9 @@ namespace Parser
   }
 
   template<>
-  UP(Expression) parse<Expression>()
+  AP(Expression) parse<Expression>()
   {
-    UP(Expression) e(new Expression);
+    AP(Expression) e(new Expression);
     if((e->e = parseOptional<Call>()) ||
         (e->e = parseOptional<Member>()) ||
         (e->e = parseOptional<Expr1>()))
@@ -516,9 +515,9 @@ namespace Parser
   }
 
   template<>
-  UP(Call) parse<Call>()
+  AP(Call) parse<Call>()
   {
-    UP(Call) c(new Call);
+    AP(Call) c(new Call);
     c->callable = parse<Member>();
     expectPunct(LPAREN);
     c->args = parseSomeCommaSeparated<Expression>();
@@ -527,9 +526,9 @@ namespace Parser
   }
 
   template<>
-  UP(Arg) parse<Arg>()
+  AP(Arg) parse<Arg>()
   {
-    UP(Arg) a(new Arg);
+    AP(Arg) a(new Arg);
     if((a->t = parseOptional<Type>()) ||
         (a->t = parseOptional<TraitType>()))
     {
@@ -550,9 +549,9 @@ namespace Parser
   }
 
   template<>
-  UP(FuncDecl) parse<FuncDecl>()
+  AP(FuncDecl) parse<FuncDecl>()
   {
-    UP(FuncDecl) fd(new FuncDecl);
+    AP(FuncDecl) fd(new FuncDecl);
     expectKeyword(FUNC);
     fd->retType = parse<Type>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
@@ -564,9 +563,9 @@ namespace Parser
   }
 
   template<>
-  UP(FuncDef) parse<FuncDef>()
+  AP(FuncDef) parse<FuncDef>()
   {
-    UP(FuncDef) fd(new FuncDef);
+    AP(FuncDef) fd(new FuncDef);
     expectKeyword(FUNC);
     fd->retType = parse<Type>();
     fd->name = parse<Member>();
@@ -578,9 +577,9 @@ namespace Parser
   }
 
   template<>
-  UP(FuncType) parse<FuncType>()
+  AP(FuncType) parse<FuncType>()
   {
-    UP(FuncType) ft(new FuncType);
+    AP(FuncType) ft(new FuncType);
     expectKeyword(FUNCTYPE);
     ft->retType = parse<Type>();
     ft->name = parse<Member>();
@@ -591,9 +590,9 @@ namespace Parser
   }
 
   template<>
-  UP(ProcDecl) parse<ProcDecl>()
+  AP(ProcDecl) parse<ProcDecl>()
   {
-    UP(ProcDecl) pd(new ProcDecl);
+    AP(ProcDecl) pd(new ProcDecl);
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
     expectKeyword(PROC);
@@ -607,9 +606,9 @@ namespace Parser
   }
   
   template<>
-  UP(ProcDef) parse<ProcDef>()
+  AP(ProcDef) parse<ProcDef>()
   {
-    UP(ProcDef) pd(new ProcDef);
+    AP(ProcDef) pd(new ProcDef);
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
     expectKeyword(PROC);
@@ -623,9 +622,9 @@ namespace Parser
   }
 
   template<>
-  UP(ProcType) parse<ProcType>()
+  AP(ProcType) parse<ProcType>()
   {
-    UP(ProcType) pt(new ProcType);
+    AP(ProcType) pt(new ProcType);
     if(acceptKeyword(NONTERM))
       pt->nonterm = true;
     expectKeyword(PROCTYPE);
@@ -638,9 +637,9 @@ namespace Parser
   }
 
   template<>
-  UP(StructMem) parse<StructMem>()
+  AP(StructMem) parse<StructMem>()
   {
-    UP(StructMem) sm(new StructMem);
+    AP(StructMem) sm(new StructMem);
     if(acceptOper(BXOR))
     {
       sm->compose = true;
@@ -650,9 +649,9 @@ namespace Parser
   }
 
   template<>
-  UP(StructDecl) parse<StructDecl>()
+  AP(StructDecl) parse<StructDecl>()
   {
-    UP(StructDecl) sd(new StructDecl);
+    AP(StructDecl) sd(new StructDecl);
     expectKeyword(STRUCT);
     sd->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptPunct(COLON))
@@ -666,9 +665,9 @@ namespace Parser
   }
 
   template<>
-  UP(VariantDecl) parse<VariantDecl>()
+  AP(VariantDecl) parse<VariantDecl>()
   {
-    UP(VariantDecl) vd(new VariantDecl);
+    AP(VariantDecl) vd(new VariantDecl);
     expectKeyword(VARIANT);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     vd->types = parseSomeCommaSeparated<Type>();
@@ -676,15 +675,15 @@ namespace Parser
   }
 
   template<>
-  UP(TraitDecl) parse<TraitDecl>()
+  AP(TraitDecl) parse<TraitDecl>()
   {
-    UP(TraitDecl) td(new TraitDecl);
+    AP(TraitDecl) td(new TraitDecl);
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
     while(true)
     {
-      UP(FuncDecl) fd;
-      UP(ProcDecl) pd;
+      AP(FuncDecl) fd;
+      AP(ProcDecl) pd;
       if((fd = parseOptional<FuncDecl>()) ||
           (pd = parseOptional<ProcDecl>()))
       {
@@ -706,9 +705,9 @@ namespace Parser
   }
 
   template<>
-  UP(StructLit) parse<StructLit>()
+  AP(StructLit) parse<StructLit>()
   {
-    UP(StructLit) sl(new StructLit);
+    AP(StructLit) sl(new StructLit);
     expectPunct(LBRACE);
     sl->vals = parseSomeCommaSeparated<Expression>();
     expectPunct(RBRACE);
@@ -716,9 +715,9 @@ namespace Parser
   }
 
   template<>
-  UP(Member) parse<Member>()
+  AP(Member) parse<Member>()
   {
-    UP(Member) m(new Member);
+    AP(Member) m(new Member);
     m->owner = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptPunct(DOT))
     {
@@ -728,9 +727,9 @@ namespace Parser
   }
 
   template<>
-  UP(TraitType) parse<TraitType>()
+  AP(TraitType) parse<TraitType>()
   {
-    UP(TraitType) tt(new TraitType);
+    AP(TraitType) tt(new TraitType);
     tt->localName = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
     tt->traitName = parse<Member>();
@@ -738,9 +737,9 @@ namespace Parser
   }
 
   template<>
-  UP(TupleType) parse<TupleType>()
+  AP(TupleType) parse<TupleType>()
   {
-    UP(TupleType) tt(new TupleType);
+    AP(TupleType) tt(new TupleType);
     expectPunct(LPAREN);
     tt->members = parseSomeCommaSeparated<Type>();
     expectPunct(RPAREN);
@@ -748,9 +747,9 @@ namespace Parser
   }
 
   template<>
-  UP(BoolLit) parse<BoolLit>()
+  AP(BoolLit) parse<BoolLit>()
   {
-    UP(BoolLit) bl(new BoolLit);
+    AP(BoolLit) bl(new BoolLit);
     if(acceptKeyword(TRUE))
     {
       bl->val = true;
@@ -767,108 +766,108 @@ namespace Parser
   }
 
   template<>
-  UP(Expr1) parse<Expr1>()
+  AP(Expr1) parse<Expr1>()
   {
-    UP(Expr1) e1(new Expr1);
+    AP(Expr1) e1(new Expr1);
     e1->head = parse<Expr2>();
     e1->tail = parseSome<Expr1RHS>();
     return e1;
   }
 
   template<>
-  UP(Expr1RHS) parse<Expr1RHS>()
+  AP(Expr1RHS) parse<Expr1RHS>()
   {
-    UP(Expr1RHS) e1r(new Expr1RHS);
+    AP(Expr1RHS) e1r(new Expr1RHS);
     expectOper(LOR);
     e1r->rhs = parse<Expr2>();
     return e1r;
   }
 
   template<>
-  UP(Expr2) parse<Expr2>()
+  AP(Expr2) parse<Expr2>()
   {
-    UP(Expr2) e2(new Expr2);
+    AP(Expr2) e2(new Expr2);
     e2->head = parse<Expr3>();
     e2->tail = parseSome<Expr2RHS>();
     return e2;
   }
 
   template<>
-  UP(Expr2RHS) parse<Expr2RHS>()
+  AP(Expr2RHS) parse<Expr2RHS>()
   {
-    UP(Expr2RHS) e2r(new Expr2RHS);
+    AP(Expr2RHS) e2r(new Expr2RHS);
     expectOper(LAND);
     e2r->rhs = parse<Expr3>();
     return e2r;
   }
 
   template<>
-  UP(Expr3) parse<Expr3>()
+  AP(Expr3) parse<Expr3>()
   {
-    UP(Expr3) e3(new Expr3);
+    AP(Expr3) e3(new Expr3);
     e3->head = parse<Expr4>();
     e3->tail = parseSome<Expr3RHS>();
     return e3;
   }
 
   template<>
-  UP(Expr3RHS) parse<Expr3RHS>()
+  AP(Expr3RHS) parse<Expr3RHS>()
   {
-    UP(Expr3RHS) e3r(new Expr3RHS);
+    AP(Expr3RHS) e3r(new Expr3RHS);
     expectOper(BOR);
     e3r->rhs = parse<Expr4>();
     return e3r;
   }
 
   template<>
-  UP(Expr4) parse<Expr4>()
+  AP(Expr4) parse<Expr4>()
   {
-    UP(Expr4) e4(new Expr4);
+    AP(Expr4) e4(new Expr4);
     e4->head = parse<Expr5>();
     e4->tail = parseSome<Expr4RHS>();
     return e4;
   }
 
   template<>
-  UP(Expr4RHS) parse<Expr4RHS>()
+  AP(Expr4RHS) parse<Expr4RHS>()
   {
-    UP(Expr4RHS) e4r(new Expr4RHS);
+    AP(Expr4RHS) e4r(new Expr4RHS);
     expectOper(BXOR);
     e4r->rhs = parse<Expr5>();
     return e4r;
   }
 
   template<>
-  UP(Expr5) parse<Expr5>()
+  AP(Expr5) parse<Expr5>()
   {
-    UP(Expr5) e5(new Expr5);
+    AP(Expr5) e5(new Expr5);
     e5->head = parse<Expr6>();
     e5->tail = parseSome<Expr5RHS>();
     return e5;
   }
 
   template<>
-  UP(Expr5RHS) parse<Expr5RHS>()
+  AP(Expr5RHS) parse<Expr5RHS>()
   {
-    UP(Expr5RHS) e5r(new Expr5RHS);
+    AP(Expr5RHS) e5r(new Expr5RHS);
     expectOper(BAND);
     e5r->rhs = parse<Expr6>();
     return e5r;
   }
 
   template<>
-  UP(Expr6) parse<Expr6>()
+  AP(Expr6) parse<Expr6>()
   {
-    UP(Expr6) e6(new Expr6);
+    AP(Expr6) e6(new Expr6);
     e6->head = parse<Expr7>();
     e6->tail = parseSome<Expr6RHS>();
     return e6;
   }
 
   template<>
-  UP(Expr6RHS) parse<Expr6RHS>()
+  AP(Expr6RHS) parse<Expr6RHS>()
   {
-    UP(Expr6RHS) e6r(new Expr6RHS);
+    AP(Expr6RHS) e6r(new Expr6RHS);
     e6r->op = ((Oper*) expect(OPERATOR))->op;
     if(e6r->op != CMPEQ && e6r->op != CMPNEQ)
     {
@@ -879,18 +878,18 @@ namespace Parser
   }
 
   template<>
-  UP(Expr7) parse<Expr7>()
+  AP(Expr7) parse<Expr7>()
   {
-    UP(Expr7) e7(new Expr7);
+    AP(Expr7) e7(new Expr7);
     e7->head = parse<Expr8>();
     e7->tail = parseSome<Expr7RHS>();
     return e7;
   }
 
   template<>
-  UP(Expr7RHS) parse<Expr7RHS>()
+  AP(Expr7RHS) parse<Expr7RHS>()
   {
-    UP(Expr7RHS) e7r(new Expr7RHS);
+    AP(Expr7RHS) e7r(new Expr7RHS);
     e7r->op = ((Oper*) expect(OPERATOR))->op;
     if(e7r->op != CMPL && e7r->op != CMPLE &&
         e7r->op != CMPG && e7r->op != CMPGE)
@@ -902,18 +901,18 @@ namespace Parser
   }
 
   template<>
-  UP(Expr8) parse<Expr8>()
+  AP(Expr8) parse<Expr8>()
   {
-    UP(Expr8) e8(new Expr8);
+    AP(Expr8) e8(new Expr8);
     e8->head = parse<Expr9>();
     e8->tail = parseSome<Expr8RHS>();
     return e8;
   }
 
   template<>
-  UP(Expr8RHS) parse<Expr8RHS>()
+  AP(Expr8RHS) parse<Expr8RHS>()
   {
-    UP(Expr8RHS) e8r(new Expr8RHS);
+    AP(Expr8RHS) e8r(new Expr8RHS);
     e8r->op = ((Oper*) expect(OPERATOR))->op;
     if(e8r->op != SHL && e8r->op != SHR)
     {
@@ -924,18 +923,18 @@ namespace Parser
   }
 
   template<>
-  UP(Expr9) parse<Expr9>()
+  AP(Expr9) parse<Expr9>()
   {
-    UP(Expr9) e9(new Expr9);
+    AP(Expr9) e9(new Expr9);
     e9->head = parse<Expr10>();
     e9->tail = parseSome<Expr9RHS>();
     return e9;
   }
 
   template<>
-  UP(Expr9RHS) parse<Expr9RHS>()
+  AP(Expr9RHS) parse<Expr9RHS>()
   {
-    UP(Expr9RHS) e9r(new Expr9RHS);
+    AP(Expr9RHS) e9r(new Expr9RHS);
     e9r->op = ((Oper*) expect(OPERATOR))->op;
     if(e9r->op != PLUS && e9r->op != SUB)
     {
@@ -946,18 +945,18 @@ namespace Parser
   }
 
   template<>
-  UP(Expr10) parse<Expr10>()
+  AP(Expr10) parse<Expr10>()
   {
-    UP(Expr10) e10(new Expr10);
+    AP(Expr10) e10(new Expr10);
     e10->head = parse<Expr11>();
     e10->tail = parseSome<Expr10RHS>();
     return e10;
   }
 
   template<>
-  UP(Expr10RHS) parse<Expr10RHS>()
+  AP(Expr10RHS) parse<Expr10RHS>()
   {
-    UP(Expr10RHS) e10r(new Expr10RHS);
+    AP(Expr10RHS) e10r(new Expr10RHS);
     e10r->op = ((Oper*) expect(OPERATOR))->op;
     if(e10r->op != MUL && e10r->op != DIV && e10r->op != MOD)
     {
@@ -968,40 +967,32 @@ namespace Parser
   }
 
   template<>
-  UP(Expr11) parse<Expr11>()
+  AP(Expr11) parse<Expr11>()
   {
-    UP(Expr11) e11(new Expr11);
-    if((e11->e = parseOptional<Expr11RHS>()))
+    AP(Expr11) e11(new Expr11);
+    Oper* oper = (Oper*) accept(OPERATOR);
+    if(oper)
     {
-      return e11;
-    }
-    else if((e11->e = parseOptional<Expr12>()))
-    {
-      return e11;
+      if(oper->op != SUB && oper->op != LNOT && oper->op != BNOT)
+      {
+        throw ParseErr("invalid unary operator");
+      }
+      Expr11::UnaryExpr ue;
+      ue.op = oper->op;
+      ue.rhs = parse<Expr11>();
+      e11->e = ue;
     }
     else
     {
-      throw ParseErr("invalid unary expression");
+      e11->e = parse<Expr12>();
     }
     return e11;
   }
 
   template<>
-  UP(Expr11RHS) parse<Expr11RHS>()
+  AP(Expr12) parse<Expr12>()
   {
-    UP(Expr11RHS) e11r(new Expr11RHS);
-    e11r->op = ((Oper*) expect(OPERATOR))->op;
-    // must be SUB, BNOT, or LNOT
-    if(e11r->op != SUB && e11r->op != BNOT && e11r->op != LNOT)
-      throw ParseErr("expected - ! ~");
-    e11r->base = parse<Expr11>();
-    return e11r;
-  }
-
-  template<>
-  UP(Expr12) parse<Expr12>()
-  {
-    UP(Expr12) e12(new Expr12);
+    AP(Expr12) e12(new Expr12);
     if((e12->e = (IntLit*) accept(INT_LITERAL)))
       return e12;
     else if((e12->e = (CharLit*) accept(CHAR_LITERAL)))

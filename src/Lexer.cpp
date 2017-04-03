@@ -134,6 +134,11 @@ vector<Token*> lex(string& code)
           i++;
         }
       }
+      else if(code[tokStart] == '~')
+      {
+        tokens.push_back(new Oper(BNOT));
+        i++;
+      }
       else if(code[tokStart] == '+')
       {
         if(code[tokStart + 1] == '=')

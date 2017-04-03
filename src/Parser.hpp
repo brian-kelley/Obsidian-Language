@@ -4,68 +4,13 @@
 #include "Misc.hpp"
 #include "Token.hpp"
 #include "Type.hpp"
+#include "AutoPtr.hpp"
 
 #include <stdexcept>
 #include <memory>
 #include "variadic-variant/variant.h"
 
 using namespace std;
-
-//custom unique ptr
-//transfers ownership on assignment/move/copy
-template<typename T>
-struct AutoPtr
-{
-  AutoPtr()
-  {
-    p = nullptr;
-  }
-  AutoPtr(T* newPtr)
-  {
-    p = newPtr;
-  }
-  AutoPtr(const AutoPtr& rhs)
-  {
-    p = rhs.p;
-    //rhs.p = nullptr;
-  }
-  AutoPtr(const AutoPtr&& rhs)
-  {
-    p = rhs.p;
-  }
-  T& operator*() const
-  {
-    return *p;
-  }
-  T* operator->() const
-  {
-    return p;
-  }
-  T* operator=(const AutoPtr& rhs)
-  {
-    p = rhs.p;
-    //rhs.p = nullptr;
-    return p;
-  }
-  operator bool() const
-  {
-    return p != nullptr;
-  }
-  bool operator!() const
-  {
-    return p == nullptr;
-  }
-  ~AutoPtr()
-  {
-    if(p)
-    {
-      //delete p;
-    }
-  }
-  mutable T* p;
-};
-
-#define UP(T) AutoPtr<T>
 
 //Use empty struct as default value in some variants
 struct None{};
@@ -75,7 +20,7 @@ namespace Parser
 {
   struct ModuleDef;
   //Parse a program from token string (only function needed outside namespace)
-  UP(ModuleDef) parseProgram(vector<Token*>& toks);
+  AP(ModuleDef) parseProgram(vector<Token*>& toks);
 
   //Token stream utilities
   extern size_t pos;                //token iterator
@@ -228,18 +173,17 @@ namespace Parser
   struct Expr10;
   struct Expr10RHS;
   struct Expr11;
-  struct Expr11RHS;
   struct Expr12;
 
   struct Module
   {
     string name;
-    UP(ModuleDef) def;
+    AP(ModuleDef) def;
   };
 
   struct ModuleDef
   {
-    vector<UP(ScopedDecl)> decls;
+    vector<AP(ScopedDecl)> decls;
   };
 
   struct ScopedDecl
@@ -247,18 +191,18 @@ namespace Parser
     ScopedDecl();
     variant<
       None,
-      UP(Module),
-      UP(VarDecl),
-      UP(StructDecl),
-      UP(VariantDecl),
-      UP(TraitDecl),
-      UP(Enum),
-      UP(Typedef),
-      UP(FuncDecl),
-      UP(FuncDef),
-      UP(ProcDecl),
-      UP(ProcDef),
-      UP(TestDecl)> decl;
+      AP(Module),
+      AP(VarDecl),
+      AP(StructDecl),
+      AP(VariantDecl),
+      AP(TraitDecl),
+      AP(Enum),
+      AP(Typedef),
+      AP(FuncDecl),
+      AP(FuncDef),
+      AP(ProcDecl),
+      AP(ProcDef),
+      AP(TestDecl)> decl;
   };
 
   struct Type
@@ -282,8 +226,8 @@ namespace Parser
     variant<
       None,
       Prim,
-      UP(Member),
-      UP(TupleType)> t;
+      AP(Member),
+      AP(TupleType)> t;
     int arrayDims;
   };
 
@@ -292,48 +236,48 @@ namespace Parser
     Statement();
     variant<
       None,
-      UP(ScopedDecl),
-      UP(VarAssign),
-      UP(Print),
-      UP(Expression),
-      UP(Block),
-      UP(Return),
-      UP(Continue),
-      UP(Break),
-      UP(Switch),
-      UP(For),
-      UP(While),
-      UP(If),
-      UP(Using),
-      UP(Assertion),
-      UP(EmptyStatement),
-      UP(VarDecl)> s;
+      AP(ScopedDecl),
+      AP(VarAssign),
+      AP(Print),
+      AP(Expression),
+      AP(Block),
+      AP(Return),
+      AP(Continue),
+      AP(Break),
+      AP(Switch),
+      AP(For),
+      AP(While),
+      AP(If),
+      AP(Using),
+      AP(Assertion),
+      AP(EmptyStatement),
+      AP(VarDecl)> s;
   };
 
   struct Typedef
   {
-    UP(Type) type;
+    AP(Type) type;
     string ident;
   };
 
   struct Return
   {
     //optional returned expression (NULL if unused)
-    UP(Expression) ex;
+    AP(Expression) ex;
   };
 
   struct SwitchCase
   {
-    UP(Expression) matchVal;
-    UP(Statement) s;
+    AP(Expression) matchVal;
+    AP(Statement) s;
   };
 
   struct Switch
   {
-    UP(Expression) sw;
-    vector<UP(SwitchCase)> cases;
+    AP(Expression) sw;
+    vector<AP(SwitchCase)> cases;
     //optional default: statement, NULL if unused
-    UP(Statement) defaultStatement;
+    AP(Statement) defaultStatement;
   };
 
   struct Continue {};
@@ -345,63 +289,63 @@ namespace Parser
     For();
     variant<
       None,
-      UP(ForC),
-      UP(ForRange1),
-      UP(ForRange2),
-      UP(ForArray)> f;
-    UP(Statement) body;
+      AP(ForC),
+      AP(ForRange1),
+      AP(ForRange2),
+      AP(ForArray)> f;
+    AP(Statement) body;
   };
 
   struct ForC
   {
-    UP(VarDecl) decl;
-    UP(Expression) condition;
-    UP(VarAssign) incr;
+    AP(VarDecl) decl;
+    AP(Expression) condition;
+    AP(VarAssign) incr;
   };
 
   struct ForRange1
   {
-    UP(Expression) expr;
+    AP(Expression) expr;
   };
 
   struct ForRange2
   {
-    UP(Expression) start;
-    UP(Expression) end;
+    AP(Expression) start;
+    AP(Expression) end;
   };
 
   struct ForArray
   {
-    UP(Expression) container;
+    AP(Expression) container;
   };
 
   struct While
   {
-    UP(Expression) cond;
-    UP(Statement) body;
+    AP(Expression) cond;
+    AP(Statement) body;
   };
 
   struct If
   {
-    UP(Expression) cond;
-    UP(Statement) ifBody;
+    AP(Expression) cond;
+    AP(Statement) ifBody;
     //elseBody NULL if there is no else clause
-    UP(Statement) elseBody;
+    AP(Statement) elseBody;
   };
 
   struct Using
   {
-    UP(Member) mem;
+    AP(Member) mem;
   };
 
   struct Assertion
   {
-    UP(Expression) expr;
+    AP(Expression) expr;
   };
 
   struct TestDecl
   {
-    UP(Call) call;
+    AP(Call) call;
   };
 
   struct EnumItem
@@ -415,34 +359,34 @@ namespace Parser
   struct Enum
   {
     string name;
-    vector<UP(EnumItem)> items;
+    vector<AP(EnumItem)> items;
   };
 
   struct Block
   {
-    vector<UP(Statement)> statements;
+    vector<AP(Statement)> statements;
   };
 
   struct VarDecl
   {
     //NULL if "auto"
-    UP(Type) type;
+    AP(Type) type;
     string name;
     //NULL if not initialization, but required if auto
-    UP(Expression) val;
+    AP(Expression) val;
   };
 
   struct VarAssign
   {
-    UP(Member) target;
+    AP(Member) target;
     Oper* op;
     //NULL if ++ or --
-    UP(Expression) rhs;
+    AP(Expression) rhs;
   };
 
   struct Print
   {
-    vector<UP(Expression)> exprs;
+    vector<AP(Expression)> exprs;
   };
 
   struct Expression
@@ -450,16 +394,16 @@ namespace Parser
     Expression();
     variant<
       None,
-      UP(Call),
-      UP(Member),
-      UP(Expr1)> e;
+      AP(Call),
+      AP(Member),
+      AP(Expr1)> e;
   };
 
   struct Call
   {
     //name of func/proc
-    UP(Member) callable;
-    vector<UP(Expression)> args;
+    AP(Member) callable;
+    vector<AP(Expression)> args;
   };
 
   struct Arg
@@ -467,62 +411,62 @@ namespace Parser
     Arg();
     variant<
       None,
-      UP(Type),
-      UP(TraitType)> t;
+      AP(Type),
+      AP(TraitType)> t;
     bool haveName;
     string name;
   };
 
   struct FuncDecl
   {
-    UP(Type) retType;
+    AP(Type) retType;
     string name;
-    vector<UP(Arg)> args;
+    vector<AP(Arg)> args;
   };
 
   struct FuncDef
   {
-    UP(Type) retType;
-    UP(Member) name;
-    vector<UP(Arg)> args;
-    UP(Block) body;
+    AP(Type) retType;
+    AP(Member) name;
+    vector<AP(Arg)> args;
+    AP(Block) body;
   };
 
   struct FuncType
   {
-    UP(Type) retType;
-    UP(Member) name;
-    vector<UP(Arg)> args;
+    AP(Type) retType;
+    AP(Member) name;
+    vector<AP(Arg)> args;
   };
 
   struct ProcDecl
   {
     bool nonterm;
-    UP(Type) retType;
+    AP(Type) retType;
     string name;
-    vector<UP(Arg)> args;
+    vector<AP(Arg)> args;
   };
 
   struct ProcDef
   {
     bool nonterm;
-    UP(Type) retType;
-    UP(Member) name;
-    vector<UP(Arg)> args;
-    UP(Block) body;
+    AP(Type) retType;
+    AP(Member) name;
+    vector<AP(Arg)> args;
+    AP(Block) body;
   };
 
   struct ProcType
   {
     bool nonterm;
-    UP(Type) retType;
-    UP(Member) name;
-    vector<UP(Arg)> args;
+    AP(Type) retType;
+    AP(Member) name;
+    vector<AP(Arg)> args;
   };
 
   struct StructMem
   {
-    UP(ScopedDecl) sd;
+    AP(ScopedDecl) sd;
     //composition only used if sd is a VarDecl
     bool compose;
   };
@@ -530,14 +474,14 @@ namespace Parser
   struct StructDecl
   {
     string name;
-    vector<UP(Member)> traits;
-    vector<UP(StructMem)> members;
+    vector<AP(Member)> traits;
+    vector<AP(StructMem)> members;
   };
 
   struct VariantDecl
   {
     string name;
-    vector<UP(Type)> types;
+    vector<AP(Type)> types;
   };
 
   struct TraitDecl
@@ -545,33 +489,33 @@ namespace Parser
     string name;
     vector<variant<
       None,
-      UP(FuncDecl),
-      UP(ProcDecl)>> members;
+      AP(FuncDecl),
+      AP(ProcDecl)>> members;
   };
 
   struct StructLit
   {
-    vector<UP(Expression)> vals;
+    vector<AP(Expression)> vals;
   };
 
   struct Member
   {
     string owner;
     //mem is optional
-    UP(Member) mem;
+    AP(Member) mem;
   };
 
   struct TraitType
   {
     //trait types of the form "<localName> : <traitName>"
     string localName;
-    UP(Member) traitName;
+    AP(Member) traitName;
   };
 
   struct TupleType
   {
     //cannot be empty
-    vector<UP(Type)> members;
+    vector<AP(Type)> members;
   };
 
   struct BoolLit
@@ -581,137 +525,136 @@ namespace Parser
 
   struct Expr1
   {
-    UP(Expr2) head;
-    vector<UP(Expr1RHS)> tail;
+    AP(Expr2) head;
+    vector<AP(Expr1RHS)> tail;
   };
 
   struct Expr1RHS
   {
     // || is only op
-    UP(Expr2) rhs;
+    AP(Expr2) rhs;
   };
 
   struct Expr2
   {
-    UP(Expr3) head;
-    vector<UP(Expr2RHS)> tail;
+    AP(Expr3) head;
+    vector<AP(Expr2RHS)> tail;
   };
 
   struct Expr2RHS
   {
     // && is only op
-    UP(Expr3) rhs;
+    AP(Expr3) rhs;
   };
 
   struct Expr3
   {
-    UP(Expr4) head;
-    vector<UP(Expr3RHS)> tail;
+    AP(Expr4) head;
+    vector<AP(Expr3RHS)> tail;
   };
 
   struct Expr3RHS
   {
     // | is only op
-    UP(Expr4) rhs;
+    AP(Expr4) rhs;
   };
 
   struct Expr4
   {
-    UP(Expr5) head;
-    vector<UP(Expr4RHS)> tail;
+    AP(Expr5) head;
+    vector<AP(Expr4RHS)> tail;
   };
 
   struct Expr4RHS
   {
     // ^ is only op
-    UP(Expr5) rhs;
+    AP(Expr5) rhs;
   };
 
   struct Expr5
   {
-    UP(Expr6) head; 
-    vector<UP(Expr5RHS)> tail;
+    AP(Expr6) head; 
+    vector<AP(Expr5RHS)> tail;
   };
 
   struct Expr5RHS
   {
     // & is only op
-    UP(Expr6) rhs;
+    AP(Expr6) rhs;
   };
 
   struct Expr6
   {
-    UP(Expr7) head;
-    vector<UP(Expr6RHS)> tail;
+    AP(Expr7) head;
+    vector<AP(Expr6RHS)> tail;
   };
 
   struct Expr6RHS
   {
     int op; //CMPEQ or CMPNEQ
-    UP(Expr7) rhs;
+    AP(Expr7) rhs;
   };
 
   struct Expr7
   {
-    UP(Expr8) head;
-    vector<UP(Expr7RHS)> tail;
+    AP(Expr8) head;
+    vector<AP(Expr7RHS)> tail;
   };
 
   struct Expr7RHS
   {
     int op;  //CMPL, CMPLE, CMPG, CMPGE
-    UP(Expr8) rhs;
+    AP(Expr8) rhs;
   };
 
   struct Expr8
   {
-    UP(Expr9) head;
-    vector<UP(Expr8RHS)> tail;
+    AP(Expr9) head;
+    vector<AP(Expr8RHS)> tail;
   };
 
   struct Expr8RHS
   {
     int op; //SHL, SHR
-    UP(Expr9) rhs;
+    AP(Expr9) rhs;
   };
 
   struct Expr9
   {
-    UP(Expr10) head;
-    vector<UP(Expr9RHS)> tail;
+    AP(Expr10) head;
+    vector<AP(Expr9RHS)> tail;
   };
 
   struct Expr9RHS
   {
     int op; //PLUS, SUB
-    UP(Expr10) rhs;
+    AP(Expr10) rhs;
   };
 
   struct Expr10
   {
-    UP(Expr11) head;
-    vector<UP(Expr10RHS)> tail;
+    AP(Expr11) head;
+    vector<AP(Expr10RHS)> tail;
   };
 
   struct Expr10RHS
   {
     int op; //MUL, DIV, MOD
-    UP(Expr11) rhs;
+    AP(Expr11) rhs;
   };
 
   //Expr11 can be Expr12 or <op>Expr11
   struct Expr11
   {
     Expr11();
+    struct UnaryExpr
+    {
+      int op; //SUB, LNOT, BNOT
+      AP(Expr11) rhs;
+    };
     variant<None,
-      UP(Expr12),
-      UP(Expr11RHS)> e;
-  };
-
-  struct Expr11RHS
-  {
-    int op; //SUB, LNOT, BNOT
-    UP(Expr11) base;
+      AP(Expr12),
+      UnaryExpr> e;
   };
 
   struct Expr12
@@ -723,21 +666,21 @@ namespace Parser
       CharLit*,
       StrLit*,
       FloatLit*,
-      UP(BoolLit),
-      UP(Expression),
-      UP(Member),
-      UP(StructLit)> e;
+      AP(BoolLit),
+      AP(Expression),
+      AP(Member),
+      AP(StructLit)> e;
   }; 
 
   //Parse a nonterminal of type NT
   template<typename NT>
-  UP(NT) parse();
+  AP(NT) parse();
 
   template<typename NT>
-  UP(NT) parseOptional()
+  AP(NT) parseOptional()
   {
     int prevPos = pos;
-    UP(NT) nt;
+    AP(NT) nt;
     try
     {
       nt = parse<NT>();
@@ -753,12 +696,12 @@ namespace Parser
 
   //Parse some NTs
   template<typename NT>
-  vector<UP(NT)> parseSome()
+  vector<AP(NT)> parseSome()
   {
-    vector<UP(NT)> nts;
+    vector<AP(NT)> nts;
     while(true)
     {
-      UP(NT) nt = parseOptional<NT>();
+      AP(NT) nt = parseOptional<NT>();
       if(!nt)
       {
         break;
@@ -773,14 +716,14 @@ namespace Parser
 
   //Parse some comma-separated NTs
   template<typename NT>
-  vector<UP(NT)> parseSomeCommaSeparated()
+  vector<AP(NT)> parseSomeCommaSeparated()
   {
-    vector<UP(NT)> nts;
+    vector<AP(NT)> nts;
     while(true)
     {
       if(nts.size() == 0)
       {
-        UP(NT) nt = parseOptional<NT>();
+        AP(NT) nt = parseOptional<NT>();
         if(nt)
           nts.push_back(nt);
         else

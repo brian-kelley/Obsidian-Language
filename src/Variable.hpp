@@ -5,9 +5,13 @@
 #include "Utils.hpp"
 #include "Type.hpp"
 
+/*
 struct Var
 {
   TypeSystem::Type* type;
+  Scope* enclosingScope;
 };
+*/
 
 #endif
+

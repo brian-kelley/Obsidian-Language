@@ -1,6 +1,6 @@
 #include "CGen.hpp"
 
-void generateC(string outputStem, bool keep, UP(Parser::ModuleDef)& ast)
+void generateC(string outputStem, bool keep, AP(Parser::ModuleDef)& ast)
 {
   string cName = outputStem + ".c";
   string exeName = outputStem + ".exe";
