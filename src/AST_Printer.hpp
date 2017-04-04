@@ -17,7 +17,7 @@ namespace AstPrinter
   void printModule(AP(Module)& m, int indent);
   void printModuleDef(AP(ModuleDef)& md, int indent);
   void printScopedDecl(AP(ScopedDecl)& m, int indent);
-  void printType(AP(Parser::Type)& t, int indent);
+  void printTypeNT(AP(Parser::TypeNT)& t, int indent);
   void printStatement(AP(Statement)& s, int indent);
   void printTypedef(AP(Typedef)& t, int indent);
   void printReturn(AP(Return)& r, int indent);

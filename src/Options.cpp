@@ -3,7 +3,7 @@ Options getDefaultOptions()
 {
   Options op;
   op.backend = Options::BACKEND_C;
-  op.emitC = false;
+  op.emitC = true;
   op.emitLLVM = false;
   op.input = "";
   op.outputStem = "";

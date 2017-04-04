@@ -18,7 +18,7 @@ namespace Parser
   template<> AP(Module) parse<Module>();
   template<> AP(ModuleDef) parse<ModuleDef>();
   template<> AP(ScopedDecl) parse<ScopedDecl>();
-  template<> AP(Type) parse<Type>();
+  template<> AP(TypeNT) parse<TypeNT>();
   template<> AP(Statement) parse<Statement>();
   template<> AP(Typedef) parse<Typedef>();
   template<> AP(Return) parse<Return>();
@@ -142,13 +142,13 @@ namespace Parser
   }
 
   template<>
-  AP(Type) parse<Type>()
+  AP(TypeNT) parse<TypeNT>()
   {
-    AP(Type) type(new Type);
+    AP(TypeNT) type(new TypeNT);
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
       if(type->t.which() == 0 && acceptKeyword(p)) { \
-        type->t = Type::Prim::p; \
+        type->t = TypeNT::Prim::p; \
       } \
     }
     TRY_PRIMITIVE(BOOL);
@@ -242,7 +242,7 @@ namespace Parser
   {
     AP(Typedef) td(new Typedef);
     expectKeyword(TYPEDEF);
-    td->type = parse<Type>();
+    td->type = parse<TypeNT>();
     td->ident = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(SEMICOLON);
     return td;
@@ -451,7 +451,7 @@ namespace Parser
     AP(VarDecl) vd(new VarDecl);
     if(!acceptKeyword(AUTO))
     {
-      vd->type = parse<Type>();
+      vd->type = parse<TypeNT>();
     }
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptOper(ASSIGN))
@@ -530,7 +530,7 @@ namespace Parser
   AP(Arg) parse<Arg>()
   {
     AP(Arg) a(new Arg);
-    if((a->t = parseOptional<Type>()) ||
+    if((a->t = parseOptional<TypeNT>()) ||
         (a->t = parseOptional<TraitType>()))
     {
       Ident* name = (Ident*) accept(IDENTIFIER);
@@ -554,7 +554,7 @@ namespace Parser
   {
     AP(FuncDecl) fd(new FuncDecl);
     expectKeyword(FUNC);
-    fd->retType = parse<Type>();
+    fd->retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     fd->args = parseSomeCommaSeparated<Arg>();
@@ -568,7 +568,7 @@ namespace Parser
   {
     AP(FuncDef) fd(new FuncDef);
     expectKeyword(FUNC);
-    fd->retType = parse<Type>();
+    fd->retType = parse<TypeNT>();
     fd->name = parse<Member>();
     expectPunct(LPAREN);
     fd->args = parseSomeCommaSeparated<Arg>();
@@ -582,7 +582,7 @@ namespace Parser
   {
     AP(FuncType) ft(new FuncType);
     expectKeyword(FUNCTYPE);
-    ft->retType = parse<Type>();
+    ft->retType = parse<TypeNT>();
     ft->name = parse<Member>();
     expectPunct(LPAREN);
     ft->args = parseSomeCommaSeparated<Arg>();
@@ -597,7 +597,7 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
     expectKeyword(PROC);
-    pd->retType = parse<Type>();
+    pd->retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     pd->args = parseSomeCommaSeparated<Arg>();
@@ -613,7 +613,7 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pd->nonterm = true;
     expectKeyword(PROC);
-    pd->retType = parse<Type>();
+    pd->retType = parse<TypeNT>();
     pd->name = parse<Member>();
     expectPunct(LPAREN);
     pd->args = parseSomeCommaSeparated<Arg>();
@@ -629,7 +629,7 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pt->nonterm = true;
     expectKeyword(PROCTYPE);
-    pt->retType = parse<Type>();
+    pt->retType = parse<TypeNT>();
     pt->name = parse<Member>();
     expectPunct(LPAREN);
     pt->args = parseSomeCommaSeparated<Arg>();
@@ -677,7 +677,7 @@ namespace Parser
     AP(VariantDecl) vd(new VariantDecl);
     expectKeyword(VARIANT);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
-    vd->types = parseSomeCommaSeparated<Type>();
+    vd->types = parseSomeCommaSeparated<TypeNT>();
     return vd;
   }
 
@@ -748,7 +748,7 @@ namespace Parser
   {
     AP(TupleType) tt(new TupleType);
     expectPunct(LPAREN);
-    tt->members = parseSomeCommaSeparated<Type>();
+    tt->members = parseSomeCommaSeparated<TypeNT>();
     expectPunct(RPAREN);
     return tt;
   }
@@ -1132,7 +1132,7 @@ namespace Parser
   }
 
   ScopedDecl::ScopedDecl() : decl(none) {}
-  Type::Type() : t(none) {}
+  TypeNT::TypeNT() : t(none) {}
   Statement::Statement() : s(none) {}
   For::For() : f(none) {}
   Expression::Expression() : e(none) {}

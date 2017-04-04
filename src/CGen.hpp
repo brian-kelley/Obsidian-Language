@@ -6,6 +6,7 @@
 #include "Type.hpp"
 #include "Parser.hpp"
 #include <cstdio>
+#include <cstring>
 
 void genHeader(FILE* c, AP(Parser::ModuleDef)& ast);
 void generateC(string outputStem, bool keep, AP(Parser::ModuleDef)& ast);

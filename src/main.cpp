@@ -59,10 +59,7 @@ int main(int argc, const char** argv)
   printAST(ast);
 
   //Code generation
-  if(op.emitC)
-  {
-    generateC(op.outputStem, op.emitC, ast);
-  }
+  generateC(op.outputStem, op.emitC, ast);
   return 0;
 }
 

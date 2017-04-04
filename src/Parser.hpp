@@ -3,7 +3,6 @@
 
 #include "Misc.hpp"
 #include "Token.hpp"
-#include "Type.hpp"
 #include "AutoPtr.hpp"
 
 #include <stdexcept>
@@ -112,7 +111,7 @@ namespace Parser
   //lots of mutual recursion in nonterminal structs so forward-declare all
   struct Module;
   struct ScopedDecl;
-  struct Type;
+  struct TypeNT;
   struct Statement;
   struct Typedef;
   struct Return;
@@ -205,9 +204,9 @@ namespace Parser
       AP(TestDecl)> decl;
   };
 
-  struct Type
+  struct TypeNT
   {
-    Type();
+    TypeNT();
     enum struct Prim
     {
       BOOL,
@@ -256,7 +255,7 @@ namespace Parser
 
   struct Typedef
   {
-    AP(Type) type;
+    AP(TypeNT) type;
     string ident;
   };
 
@@ -370,7 +369,7 @@ namespace Parser
   struct VarDecl
   {
     //NULL if "auto"
-    AP(Type) type;
+    AP(TypeNT) type;
     string name;
     //NULL if not initialization, but required if auto
     AP(Expression) val;
@@ -411,7 +410,7 @@ namespace Parser
     Arg();
     variant<
       None,
-      AP(Type),
+      AP(TypeNT),
       AP(TraitType)> t;
     bool haveName;
     string name;
@@ -419,14 +418,14 @@ namespace Parser
 
   struct FuncDecl
   {
-    AP(Type) retType;
+    AP(TypeNT) retType;
     string name;
     vector<AP(Arg)> args;
   };
 
   struct FuncDef
   {
-    AP(Type) retType;
+    AP(TypeNT) retType;
     AP(Member) name;
     vector<AP(Arg)> args;
     AP(Block) body;
@@ -434,7 +433,7 @@ namespace Parser
 
   struct FuncType
   {
-    AP(Type) retType;
+    AP(TypeNT) retType;
     AP(Member) name;
     vector<AP(Arg)> args;
   };
@@ -442,7 +441,7 @@ namespace Parser
   struct ProcDecl
   {
     bool nonterm;
-    AP(Type) retType;
+    AP(TypeNT) retType;
     string name;
     vector<AP(Arg)> args;
   };
@@ -450,7 +449,7 @@ namespace Parser
   struct ProcDef
   {
     bool nonterm;
-    AP(Type) retType;
+    AP(TypeNT) retType;
     AP(Member) name;
     vector<AP(Arg)> args;
     AP(Block) body;
@@ -459,7 +458,7 @@ namespace Parser
   struct ProcType
   {
     bool nonterm;
-    AP(Type) retType;
+    AP(TypeNT) retType;
     AP(Member) name;
     vector<AP(Arg)> args;
   };
@@ -481,7 +480,7 @@ namespace Parser
   struct VariantDecl
   {
     string name;
-    vector<AP(Type)> types;
+    vector<AP(TypeNT)> types;
   };
 
   struct TraitDecl
@@ -515,7 +514,7 @@ namespace Parser
   struct TupleType
   {
     //cannot be empty
-    vector<AP(Type)> members;
+    vector<AP(TypeNT)> members;
   };
 
   struct BoolLit

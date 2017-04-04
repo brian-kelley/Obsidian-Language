@@ -91,7 +91,7 @@ namespace AstPrinter
     }
   }
 
-  void printType(AutoPtr<Parser::Type>& t, int ind)
+  void printTypeNT(AutoPtr<Parser::TypeNT>& t, int ind)
   {
     indent(ind);
     cout << "Type: ";
@@ -104,44 +104,44 @@ namespace AstPrinter
       case 1:
       {
         //primitive
-        Type::Prim p = t->t.get<Type::Prim>();
+        TypeNT::Prim p = t->t.get<TypeNT::Prim>();
         cout << "primitive ";
         switch(p)
         {
-          case Type::Prim::BOOL:
+          case TypeNT::Prim::BOOL:
             cout << "bool";
             break;
-          case Type::Prim::CHAR:
+          case TypeNT::Prim::CHAR:
             cout << "char";
             break;
-          case Type::Prim::UCHAR:
+          case TypeNT::Prim::UCHAR:
             cout << "uchar";
             break;
-          case Type::Prim::SHORT:
+          case TypeNT::Prim::SHORT:
             cout << "short";
             break;
-          case Type::Prim::USHORT:
+          case TypeNT::Prim::USHORT:
             cout << "ushort";
             break;
-          case Type::Prim::INT:
+          case TypeNT::Prim::INT:
             cout << "int";
             break;
-          case Type::Prim::UINT:
+          case TypeNT::Prim::UINT:
             cout << "uint";
             break;
-          case Type::Prim::LONG:
+          case TypeNT::Prim::LONG:
             cout << "long";
             break;
-          case Type::Prim::ULONG:
+          case TypeNT::Prim::ULONG:
             cout << "ulong";
             break;
-          case Type::Prim::FLOAT:
+          case TypeNT::Prim::FLOAT:
             cout << "float";
             break;
-          case Type::Prim::DOUBLE:
+          case TypeNT::Prim::DOUBLE:
             cout << "double";
             break;
-          case Type::Prim::STRING:
+          case TypeNT::Prim::STRING:
             cout << "string";
             break;
           default:
@@ -224,7 +224,7 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Typedef\n";
-    printType(t->type, ind + indentLevel);
+    printTypeNT(t->type, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Name: " << t->ident << '\n';
   }
@@ -448,7 +448,7 @@ namespace AstPrinter
     cout << "Name: " << vd->name << '\n';
     if(vd->type)
     {
-      printType(vd->type, ind + indentLevel);
+      printTypeNT(vd->type, ind + indentLevel);
     }
     else
     {
@@ -546,7 +546,7 @@ namespace AstPrinter
     }
     if(a->t.which() == 1)
     {
-      printType(a->t.get<AP(Type)>(), ind + indentLevel);
+      printTypeNT(a->t.get<AP(TypeNT)>(), ind + indentLevel);
     }
     else if(a->t.which() == 2)
     {
@@ -560,7 +560,7 @@ namespace AstPrinter
     cout << "Func declaration: \"" << fd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printType(fd->retType, ind + indentLevel);
+    printTypeNT(fd->retType, ind + indentLevel);
     indent(ind);
     if(fd->args.size() == 0)
       cout << "No args\n";
@@ -579,7 +579,7 @@ namespace AstPrinter
     printMember(fd->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printType(fd->retType, ind + indentLevel);
+    printTypeNT(fd->retType, ind + indentLevel);
     indent(ind);
     if(fd->args.size() == 0)
       cout << "No args\n";
@@ -601,7 +601,7 @@ namespace AstPrinter
     printMember(ft->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printType(ft->retType, ind + indentLevel);
+    printTypeNT(ft->retType, ind + indentLevel);
     indent(ind);
     if(ft->args.size() == 0)
       cout << "No args\n";
@@ -619,7 +619,7 @@ namespace AstPrinter
     cout << "Proc declaration: \"" << pd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printType(pd->retType, ind + indentLevel);
+    printTypeNT(pd->retType, ind + indentLevel);
     indent(ind);
     if(pd->args.size() == 0)
       cout << "No args\n";
@@ -638,7 +638,7 @@ namespace AstPrinter
     printMember(pd->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printType(pd->retType, ind + indentLevel);
+    printTypeNT(pd->retType, ind + indentLevel);
     indent(ind);
     if(pd->args.size() == 0)
       cout << "No args\n";
@@ -660,7 +660,7 @@ namespace AstPrinter
     printMember(pt->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printType(pt->retType, ind + indentLevel);
+    printTypeNT(pt->retType, ind + indentLevel);
     indent(ind);
     if(pt->args.size() == 0)
       cout << "No args\n";
@@ -704,7 +704,7 @@ namespace AstPrinter
     cout << "Variant \"" << vd->name << "\"\n";
     for(auto& it : vd->types)
     {
-      printType(it, ind + indentLevel);
+      printTypeNT(it, ind + indentLevel);
     }
   }
 
@@ -758,7 +758,7 @@ namespace AstPrinter
     cout << "Tuple type, members:\n";
     for(auto& it : tt->members)
     {
-      printType(it, ind + indentLevel);
+      printTypeNT(it, ind + indentLevel);
     }
   }
 

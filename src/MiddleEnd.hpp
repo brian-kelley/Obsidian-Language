@@ -6,9 +6,11 @@
 #include "Variable.hpp"
 #include "Parser.hpp"
 
-/*
 namespace MiddleEnd
 {
+  void semanticCheck(AP(Parser::ModuleDef)& ast);
+  void checkEntryPoint(AP(Parser::ModuleDef)& ast);
+/*
   enum DeclType
   {
     VAR,
@@ -46,8 +48,8 @@ namespace MiddleEnd
   struct TupleType
   {
   };
-}
 */
+}
 
 #endif
 
