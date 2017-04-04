@@ -7,7 +7,7 @@
 
 #include <stdexcept>
 #include <memory>
-#include "variadic-variant/variant.h"
+#include "variant.h"
 
 using namespace std;
 
@@ -659,6 +659,12 @@ namespace Parser
   struct Expr12
   {
     Expr12();
+    struct ArrayIndex
+    {
+      //arr[index]
+      AP(Expr12) arr;
+      Expression* index;
+    };
     variant<
       None,
       IntLit*,
@@ -668,7 +674,8 @@ namespace Parser
       AP(BoolLit),
       AP(Expression),
       AP(Member),
-      AP(StructLit)> e;
+      AP(StructLit),
+      ArrayIndex> e;
   }; 
 
   //Parse a nonterminal of type NT

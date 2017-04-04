@@ -1000,24 +1000,31 @@ namespace Parser
   AP(Expr12) parse<Expr12>()
   {
     AP(Expr12) e12(new Expr12);
-    if((e12->e = (IntLit*) accept(INT_LITERAL)))
+    if(acceptPunct(LPAREN))
+    {
+      e12->e = parse<Expresion>();
+      expectPunct(RPAREN);
+    }
+    if(e12->e.which() ||
+        (e12->e = (IntLit*) accept(INT_LITERAL)) ||
+        (e12->e = (CharLit*) accept(CHAR_LITERAL)) ||
+        (e12->e = (StrLit*) accept(STRING_LITERAL)) ||
+        (e12->e = (FloatLit*) accept(FLOAT_LITERAL)) ||
+        (e12->e = parseOptional<BoolLit>()) ||
+        (e12->e = parseOptional<Member>()) ||
+        (e12->e = parseOptional<StructLit>()))
+    {
+      //check for array indexing
+      if(acceptPunct(LBRACKET))
+      {
+        Expr12::ArrayIndex ai;
+        ai.arr = e12;
+        ai.index = parse<Expression>();
+        expectPunct(RBRACKET);
+      }
       return e12;
-    else if((e12->e = (CharLit*) accept(CHAR_LITERAL)))
-      return e12;
-    else if((e12->e = (StrLit*) accept(STRING_LITERAL)))
-      return e12;
-    else if((e12->e = (FloatLit*) accept(FLOAT_LITERAL)))
-      return e12;
-    else if((e12->e = parseOptional<BoolLit>()))
-      return e12;
-    else if((e12->e = parseOptional<Member>()))
-      return e12;
-    else if((e12->e = parseOptional<StructLit>()))
-      return e12;
-    //only other option is (Expr)
-    expectPunct(LPAREN);
-    e12->e = parse<Expression>();
-    expectPunct(RPAREN);
+    }
+    throw parseErr("invalid expression.");
     return e12;
   }
 
