@@ -4,42 +4,14 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <map>
 #include "Parser.hpp"
-
-/**************************
-*    Middle-End Scope     *
-**************************/
-
-enum struct ScopeType
-{
-  MODULE,
-  STRUCT,
-  BLOCK
-};
-
-struct Scope
-{
-  virtual ScopeType getType() = 0;
-};
-
-struct ModuleScope : public Scope
-{
-  ScopeType getType();
-}
-
-struct StructScope : public Scope
-{
-  ScopeType getType();
-}
-
-struct BlockScope : public Scope
-{
-  ScopeType getType();
-}
 
 /**************************
 *   Type System Structs   *
 **************************/
+
+struct Scope;
 
 struct Type
 {
@@ -47,33 +19,57 @@ struct Type
   virtual string getCName() = 0;
   Scope* enclosing;
   int dims;
-  static vector<Type*> table;
+  static void createTypeTable(Parser::ModuleDef& globalModule);
+  static Type& getType(string localName, Scope* usedScope);
+  static Type& getType(Parser::Member& localName, Scope* usedScope);
+  static vector<AP(Type)> table;
 };
 
 struct StructType : public Type
 {
+  StructType(Parser::StructDecl& sd);
   string getCName();
+  string name;
+  //check for member functions
+  //note: self doesn't count as an argument but it is the 1st arg internally
+  bool hasFunc(ProcType& type);
+  bool hasProc(ProcType& type);
+  vector<Trait*> traits;
   vector<Type*> members;
+  vector<bool> composed;  //1-1 correspondence with members
 };
 
 struct TupleType : public Type
 {
+  TupleType(Parser::TupleType& tt);
   string getCName();
   vector<Type*> members;
 };
 
 struct AliasType : public Type
 {
+  AliasType(string newName, Type* t);
+  AliasType(Parser::Typedef& td);
   string getCName();
   Type* actual;
 };
 
+struct EnumType : public Type
+{
+  EnumType(Parser::Enum& e);
+  string getCName();
+  string name;
+  map<string, int> values;
+};
+
 struct IntegerType : public Type
 {
+  IntegerType(string name, int size, bool sign);
+  string getCName();
   //Size in bytes
+  string name;
   int size;
   bool isSigned;
-  string getCName();
 };
 
 //A 1-dimensional array of underlying
@@ -81,32 +77,25 @@ struct IntegerType : public Type
 //Makes semantic checking of indexing easier
 struct ArrayType : public Type
 {
+  //constructor also creates Types for all lower dimensions
+  ArrayType(Type* t, int dims);
   string getCName();
   Type* underlying;
 };
 
 struct FloatType : public Type
 {
+  FloatType(string name, int size);
   //4 or 8
+  string name;
   int size;
   string getCName();
 };
 
-struct String : public Type
+struct StringType : public Type
 {
   string getCName();
 };
-
-/**************************
-*  Type System Utilities  *
-**************************/
-
-//Add a new type to the type table
-void createTypeTable(Parser::ModuleDef& globalModule);
-
-//Get the type table entry, given the local usage name and current scope
-Type* getType(string localName, Scope* usedScope);
-Type* getType(Parser::Member& localName, Scope* usedScope);
 
 #endif
 

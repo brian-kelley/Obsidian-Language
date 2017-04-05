@@ -43,3 +43,23 @@ Tasks:
     -respect nesting (top-down) but besides that order doesn't matter
   -Start standard library, for now just basic stdin and stdout
 
+C INTERFACE:
+
+-Automatically wrap C header + library in a "module"
+  -Run C preprocessor on headers before use
+  -Most decls very similar: global constants, structs, enums, global primitives
+  -Pointers cause biggest issues:
+    -As variable, pointer can be used as an alias or dynamically allocated data
+    -As function argument, pointer can be input or output, and can be single or array (or NULL!)
+  -Struct layout in memory should be the same as C (for now at least)
+  -For C functions that take C strings, use Onyx strings instead
+
+LANGUAGE BUILT-IN MODULES (all must be fully cross-platform):
+  -OpenGL (and some more user-friendly utilties)
+    -Also include GLM-style math functions
+  -UI (nice libUI interface)
+  -OpenAL
+  -libz
+  -Parsing (make parsing numbers, formatted strings, regexes very nice)
+  -Sys (File I/O, directories, sockets)
+
