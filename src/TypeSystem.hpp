@@ -35,8 +35,8 @@ struct StructType : public Type
   //note: self doesn't count as an argument but it is the 1st arg internally
   bool hasFunc(ProcType& type);
   bool hasProc(ProcType& type);
-  vector<Trait*> traits;
-  vector<Type*> members;
+  vector<AP(Trait)> traits;
+  vector<AP(Type)> members;
   vector<bool> composed;  //1-1 correspondence with members
 };
 

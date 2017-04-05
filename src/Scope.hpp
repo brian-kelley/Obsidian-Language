@@ -55,10 +55,11 @@ struct Scope
   string getFullPath();
   Scope* parent;
   vector<AP(Scope)> children;
+  Type* typeFromName(string name);
+  vector<AP(Type)> types;
   vector<AP(Variable)> vars;
   vector<AP(FuncPrototype)> funcs;
-  vector<AP(ProcPrototype)> funcs;
-  vector<AP(Trait)> traits;
+  vector<AP(ProcPrototype)> procs;
 };
 
 struct ModuleScope : public Scope
@@ -85,12 +86,6 @@ struct BlockScope : public Scope
   int index;
   static int nextBlockIndex;
 };
-
-/*****************************************/
-/* Scope hierarchy + type system loading */
-/*****************************************/
-
-
 
 #endif
 

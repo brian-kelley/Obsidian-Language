@@ -6,6 +6,8 @@
 
 int BlockScope::nextBlockIndex = 0;
 
+  Type* typeFromName(string name);
+
 string Scope::getFullPath()
 {
   if(parent)
