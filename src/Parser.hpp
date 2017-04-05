@@ -3,6 +3,7 @@
 
 #include "Misc.hpp"
 #include "Token.hpp"
+#include "Utils.hpp"
 #include "AutoPtr.hpp"
 
 #include <stdexcept>
