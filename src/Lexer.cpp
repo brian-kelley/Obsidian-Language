@@ -1,263 +1,148 @@
 #include "Lexer.hpp"
 
-vector<Token*> lex(string& code)
+#define TAB_LENGTH 4
+
+struct CodeStream
 {
-  int row = 0;
-  int col = 0;
-  vector<Token*> tokens;
-  //note: i is incremented various amounts depending on the tokens
-  for(size_t i = 0; i < code.size();)
+  CodeStream(string& srcIn) : src(srcIn)
   {
-    //scan to start of next token (ignoring whitespace)
-    if(code[i] == ' ' || code[i] == '\t' || code[i] == '\n' || code[i] == 0)
+    iter = 0;
+    line = 0;
+    col = 0;
+  }
+  char getNext()
+  {
+    if(iter >= src.length())
+      return '\0';
+    char c = src[iter];
+    if(c == '\n') 
     {
-      i++;
-      continue;
+      line++;
+      col = 0;
     }
-    //start a token here
-    size_t tokStart = i;
-    //scan to end of token
-    size_t iter = tokStart + 1;
-    if(code[tokStart] == '"')
+    else if(c == '\t')
     {
-      while(code[iter] != '"')
-      {
-        if(code[iter] == '\\')
-        {
-          iter++;
-        }
-        iter++;
-      }
-      iter++;
-      i = iter;
-      addToken(tokens, code.substr(tokStart, iter - tokStart), STRING_LITERAL);
-    }
-    else if(code[tokStart] == '\'')
-    {
-      if(code[tokStart + 1] == '\\')
-      {
-        addToken(tokens, code.substr(tokStart, 4), CHAR_LITERAL);
-        i += 4;
-      }
-      else
-      {
-        addToken(tokens, code.substr(tokStart, 3), CHAR_LITERAL);
-        i += 3;
-      }
-    }
-    else if(ispunct(code[tokStart]))
-    {
-      //make token out of one or two punct chars
-      if(code[tokStart] == '=')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(CMPEQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(ASSIGN));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '<')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(CMPLE));
-          i += 2;
-        }
-        else if(code[tokStart + 1] == '<')
-        {
-          tokens.push_back(new Oper(SHL));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(CMPL));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '>')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(CMPGE));
-          i += 2;
-        }
-        else if(code[tokStart + 1] == '>')
-        {
-          tokens.push_back(new Oper(SHR));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(CMPG));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '|')
-      {
-        if(code[tokStart + 1] == '|')
-        {
-          tokens.push_back(new Oper(LOR));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(BOR));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '&')
-      {
-        if(code[tokStart + 1] == '&')
-        {
-          tokens.push_back(new Oper(LAND));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(BAND));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '!')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(CMPNEQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(LNOT));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '~')
-      {
-        tokens.push_back(new Oper(BNOT));
-        i++;
-      }
-      else if(code[tokStart] == '+')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(PLUSEQ));
-          i += 2;
-        }
-        else if(code[tokStart + 1] == '+')
-        {
-          tokens.push_back(new Oper(INC));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(PLUS));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '-')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(SUBEQ));
-          i += 2;
-        }
-        else if(code[tokStart + 1] == '-')
-        {
-          tokens.push_back(new Oper(DEC));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(SUB));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '*')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(MULEQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(MUL));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '/')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(DIVEQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(DIV));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '^')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(BXOREQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(BXOR));
-          i++;
-        }
-      }
-      else if(code[tokStart] == '%')
-      {
-        if(code[tokStart + 1] == '=')
-        {
-          tokens.push_back(new Oper(MODEQ));
-          i += 2;
-        }
-        else
-        {
-          tokens.push_back(new Oper(MOD));
-          i++;
-        }
-      }
-      else
-      {
-        //1 punctuation char
-        string token = string("") + code[tokStart];
-        addToken(tokens, token, PUNCTUATION);
-        i++;
-      }
-    }
-    else if(isdigit(code[i]))
-    {
-      //int literal
-      while(isdigit(code[iter]))
-      {
-        iter++;
-      }
-      addToken(tokens, code.substr(tokStart, iter - tokStart), INT_LITERAL);
-      i = iter;
-    }
-    else if(isalpha(code[i]))
-    {
-      //keyword, type or identifier; read to end of [a-z, 0-9, _]
-      while(isalpha(code[iter]) || isdigit(code[iter]) || code[iter] == '_')
-      {
-        iter++;
-      }
-      addToken(tokens, code.substr(tokStart, iter - tokStart), IDENTIFIER);
-      i += (iter - tokStart);
+      col += TAB_LENGTH;
     }
     else
+    {
+      col++;
+    }
+  }
+  char peek(int ahead)
+  {
+    if(iter + ahead >= src.length())
+      return '\0';
+    return src[iter + ahead];
+  }
+  operator bool()
+  {
+    return iter == src.length();
+  }
+  void err(string msg)
+  {
+    string fullMsg = string("Lexical error at line ") + to_string(line) + ", col " + to_string(col) + ": " + msg;
+    errAndQuit(fullMsg);
+  }
+  string& src;
+  int iter;
+  int line;
+  int col;
+};
+
+void lex(string& code, vector<Token*>& tokList)
+{
+  CodeStream cs(code);
+  int commentDepth = 0;
+  vector<Token*> tokens;
+  //note: i is incremented various amounts depending on the tokens
+  while(cs)
+  {
+    char c = cs.getNext();
+    if(c == ' ' || c == '\t' || c == '\n')
+    {
+      continue;
+    }
+    else if(c == '"')
+    {
+      //string literal
+      int stringStart = cs.iter + 1;
+      while(true)
+      {
+        char c = cs.getNext();
+        if(c == '\\')
+        {
+          //eat an additional character no matter what it is
+          cs.getNext();
+        }
+        else if(c == '"')
+        {
+          //end of string
+          break;
+        }
+      }
+      //stringEnd is index of the closing quotations
+      int stringEnd = cs.iter;
+      //get string literal between stringStart and stringEnd
+      vector<char> strLit;
+      strLit.reserve(stringEnd - stringStart + 1);
+      for(int i = stringStart; i < stringEnd; i++)
+      {
+        if(code[i] == '\\')
+        {
+          i++;
+          strLit.push_back(getEscapedChar(code[i]));
+        }
+        else
+        {
+          strLit.push_back(code[i]);
+        }
+      }
+      strLit.push_back('\0');
+      string s(&strLit[0]);
+      tokList.push_back(new StrLit(s));
+    }
+    else if(c == ''')
+    {
+      char charVal = cs.getNext();
+      if(charVal == '\\')
+      {
+        tokList.push_back(new CharLit(getEscapedChar(cs.getNext())));
+      }
+      else
+      {
+        tokList.push_back(new CharLit(charVal));
+      }
+      //finally, expect closing quote
+      if(cs.getNext() != '\'')
+      {
+        cs.err("non-terminated character literal");
+      }
+    }
+    else if(c == '/' && cs.peek(1) == '*')
+    {
+      commentDepth++;
+      cs.getNext();
+    }
+    else if(c == '*' && cs.peek(1) == '/')
+    {
+      commentDepth--;
+      if(commentDepth < 0)
+      {
+        cs.err("*/ without /*");
+      }
+      cs.getNext();
+    }
+    else if(isalpha(c) || c == '_')
+    {
+      //keyword or identifier
+      //scan all following alphanumeric/underscore chars to classify
+      int identStart = cs.iter;
+      while(true)
+      {
+        char identChar = cs.getNext();
+      }
+    }
     {
       //???
       cout << "Lexer iter is " << i << ", have " << code.length() << " bytes of input.\n";
@@ -267,6 +152,10 @@ vector<Token*> lex(string& code)
       errAndQuit(string("Error: lexer could not identify token at index ") +
           to_string(i) + ", code: \"" + rem + "\"");
     }
+  }
+  if(commentDepth != 0)
+  {
+    cs.err("/* without */");
   }
   return tokens;
 }
