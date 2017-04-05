@@ -21,9 +21,10 @@ namespace Parser
   //Parse a program from token string (only function needed outside namespace)
   AP(ModuleDef) parseProgram(vector<Token*>& toks);
 
-  //Token stream utilities
+  //Token stream & utilities
   extern size_t pos;                //token iterator
   extern vector<Token*>* tokens;    //tokens from lexer
+
   bool accept(Token& t);
   Token* accept(int tokType);   //return NULL if tokType doesn't match next
   bool acceptKeyword(int type);

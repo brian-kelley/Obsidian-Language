@@ -6,6 +6,10 @@ namespace Parser
   vector<Token*>* tokens;
   None none;
 
+  //Furthest the recursive descent reached, and associated error message if parsing failed there
+  size_t deepest = 0;
+  string deepestErr;
+
   template<typename NT>
   AP(NT) parse()
   {
@@ -136,7 +140,7 @@ namespace Parser
         !(sd->decl = parseOptional<ProcDecl>()) &&
         !(sd->decl = parseOptional<ProcDef>()))
     {
-      throw ParseErr("invalid scoped declaration");
+      err("invalid scoped declaration");
     }
     return sd;
   }
@@ -170,7 +174,7 @@ namespace Parser
       {
         if(!(type->t = parseOptional<TupleType>()))
         {
-          throw ParseErr("Invalid type");
+          err("Invalid type");
         }
       }
     }
@@ -209,7 +213,7 @@ namespace Parser
     }
     else
     {
-      throw ParseErr("invalid statement");
+      err("invalid statement");
       return s;
     }
   }
@@ -351,7 +355,7 @@ namespace Parser
     }
     else
     {
-      throw ParseErr("invalid for loop");
+      err("invalid for loop");
     }
   }
 
@@ -461,7 +465,7 @@ namespace Parser
     expectPunct(SEMICOLON);
     if(!vd->type && !vd->val)
     {
-      throw ParseErr("auto declaration requires initialization");
+      err("auto declaration requires initialization");
     }
     return vd;
   }
@@ -484,7 +488,7 @@ namespace Parser
         otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
         otype != BANDEQ && otype != BXOREQ)
     {
-      throw ParseErr("invalid operator for variable assignment/update");
+      err("invalid operator for variable assignment/update");
     }
     return va;
   }
@@ -511,7 +515,7 @@ namespace Parser
     {
       return e;
     }
-    throw ParseErr("invalid expression");
+    err("invalid expression");
     return e;
   }
 
@@ -545,7 +549,7 @@ namespace Parser
       }
       return a;
     }
-    throw ParseErr("invalid argument");
+    err("invalid argument");
     return a;
   }
 
@@ -767,7 +771,7 @@ namespace Parser
     }
     else
     {
-      throw ParseErr("invalid bool literal");
+      err("invalid bool literal");
     }
     return bl;
   }
@@ -878,7 +882,7 @@ namespace Parser
     e6r->op = ((Oper*) expect(OPERATOR))->op;
     if(e6r->op != CMPEQ && e6r->op != CMPNEQ)
     {
-      throw ParseErr("expected == !=");
+      err("expected == !=");
     }
     e6r->rhs = parse<Expr7>();
     return e6r;
@@ -901,7 +905,7 @@ namespace Parser
     if(e7r->op != CMPL && e7r->op != CMPLE &&
         e7r->op != CMPG && e7r->op != CMPGE)
     {
-      throw ParseErr("expected < > <= >=");
+      err("expected < > <= >=");
     }
     e7r->rhs = parse<Expr8>();
     return e7r;
@@ -923,7 +927,7 @@ namespace Parser
     e8r->op = ((Oper*) expect(OPERATOR))->op;
     if(e8r->op != SHL && e8r->op != SHR)
     {
-      throw ParseErr("expected << >>");
+      err("expected << >>");
     }
     e8r->rhs = parse<Expr9>();
     return e8r;
@@ -945,7 +949,7 @@ namespace Parser
     e9r->op = ((Oper*) expect(OPERATOR))->op;
     if(e9r->op != PLUS && e9r->op != SUB)
     {
-      throw ParseErr("expected + -");
+      err("expected + -");
     }
     e9r->rhs = parse<Expr10>();
     return e9r;
@@ -967,7 +971,7 @@ namespace Parser
     e10r->op = ((Oper*) expect(OPERATOR))->op;
     if(e10r->op != MUL && e10r->op != DIV && e10r->op != MOD)
     {
-      throw ParseErr("expected * / %");
+      err("expected * / %");
     }
     e10r->rhs = parse<Expr11>();
     return e10r;
@@ -982,7 +986,7 @@ namespace Parser
     {
       if(oper->op != SUB && oper->op != LNOT && oper->op != BNOT)
       {
-        throw ParseErr("invalid unary operator");
+        err("invalid unary operator");
       }
       Expr11::UnaryExpr ue;
       ue.op = oper->op;
@@ -1024,7 +1028,7 @@ namespace Parser
       }
       return e12;
     }
-    throw parseErr("invalid expression.");
+    err("invalid expression.");
     return e12;
   }
 
@@ -1076,7 +1080,7 @@ namespace Parser
       pos++;
       return;
     }
-    throw ParseErr(string("expected ") + t.getStr() + " but got " + next->getStr());
+    err(string("expected ") + t.getStr() + " but got " + next->getStr());
   }
 
   Token* expect(int tokType)
@@ -1086,7 +1090,7 @@ namespace Parser
     if(res)
       pos++;
     else
-      throw ParseErr(string("expected a ") + tokTypeTable[tokType] + " but got " + next->getStr());
+      err(string("expected a ") + tokTypeTable[tokType] + " but got " + next->getStr());
     return next;
   }
 
@@ -1131,11 +1135,17 @@ namespace Parser
 
   void err(string msg)
   {
+    string fullMsg = string("Parse error on line ") + to_string(getNext()->row) + ", col " + to_string(getNext()->col);
     if(msg.length())
-      printf("Parse error on line %i, col %i: %s\n", 0, 0, msg.c_str());  //TODO!
+      fullMsg += string(": ") + msg;
     else
-      printf("Parse error on line %i, col %i\n", 0, 0);  //TODO!
-    exit(1);
+      fullMsg += '.';
+    if(pos > deepest)
+    {
+      deepest = pos;
+      deepestErr = fullMsg;
+    }
+    throw ParseErr(fullMsg);
   }
 
   ScopedDecl::ScopedDecl() : decl(none) {}

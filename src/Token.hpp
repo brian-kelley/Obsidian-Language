@@ -147,6 +147,8 @@ struct Token
   virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   int type;
+  int row;
+  int col;
 };
 
 //Identifier: variable name or type name

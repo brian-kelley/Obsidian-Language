@@ -2,6 +2,8 @@
 
 vector<Token*> lex(string& code)
 {
+  int row = 0;
+  int col = 0;
   vector<Token*> tokens;
   //note: i is incremented various amounts depending on the tokens
   for(size_t i = 0; i < code.size();)
@@ -334,6 +336,7 @@ void addToken(vector<Token*>& tokList, string token, int hint)
 
 char getEscapedChar(char ident)
 {
+  //TODO: are there more that should be supported?
   if(ident == 'n')
     return '\n';
   if(ident == 't')
