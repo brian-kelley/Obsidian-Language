@@ -6,6 +6,7 @@
 #include "Variable.hpp"
 #include "Parser.hpp"
 #include "TypeSystem.hpp"
+#include "Scope.hpp"
 
 namespace MiddleEnd
 {

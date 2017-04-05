@@ -44,13 +44,16 @@ enum struct ScopeType
 {
   MODULE,
   STRUCT,
-  BLOCK
+  BLOCK   //includes func/proc bodies
 };
 
 //Scopes own all funcs/structs/traits/etc
 struct Scope
 {
   virtual ScopeType getType() = 0;
+  virtual string getLocalName() = 0;
+  string getFullPath();
+  Scope* parent;
   vector<AP(Scope)> children;
   vector<AP(Variable)> vars;
   vector<AP(FuncPrototype)> funcs;
@@ -60,18 +63,34 @@ struct Scope
 
 struct ModuleScope : public Scope
 {
+  ModuleScope(Scope* parent);
   ScopeType getType();
+  string getLocalName();
+  string name;  //local name
 };
 
 struct StructScope : public Scope
 {
+  StructScope(Scope* parent);
   ScopeType getType();
+  string getLocalName();
+  string name;  //local name
 };
 
 struct BlockScope : public Scope
 {
+  BlockScope(Scope* parent);
   ScopeType getType();
+  string getLocalName();
+  int index;
+  static int nextBlockIndex;
 };
+
+/*****************************************/
+/* Scope hierarchy + type system loading */
+/*****************************************/
+
+
 
 #endif
 

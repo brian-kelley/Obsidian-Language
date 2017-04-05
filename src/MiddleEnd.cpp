@@ -2,7 +2,6 @@
 
 using namespace std;
 using namespace Parser;
-using namespace MiddleEnd;
 
 void MiddleEnd::semanticCheck(AP(ModuleDef)& ast)
 {

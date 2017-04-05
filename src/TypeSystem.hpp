@@ -16,10 +16,11 @@ struct Scope;
 struct Type
 {
   //Get unique, mangled name for use in backend
+  static void createBuiltinTypes();
   virtual string getCName() = 0;
   Scope* enclosing;
   int dims;
-  static void createTypeTable(Parser::ModuleDef& globalModule);
+  //Functions used by semantic checking
   static Type& getType(string localName, Scope* usedScope);
   static Type& getType(Parser::Member& localName, Scope* usedScope);
   static vector<AP(Type)> table;

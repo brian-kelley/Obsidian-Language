@@ -53,13 +53,15 @@ C INTERFACE:
     -As function argument, pointer can be input or output, and can be single or array (or NULL!)
   -Struct layout in memory should be the same as C (for now at least)
   -For C functions that take C strings, use Onyx strings instead
+-Make a hash function that mangles names longer than 31 chars to 31
+  -Debugger will need to have demangling information available at runtime
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform):
   -OpenGL (and some more user-friendly utilties)
     -Also include GLM-style math functions
   -UI (nice libUI interface)
   -OpenAL
-  -libz
+  -zlib
   -Parsing (make parsing numbers, formatted strings, regexes very nice)
   -Sys (File I/O, directories, sockets)
 

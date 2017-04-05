@@ -9,7 +9,7 @@ vector<AP(Type)> Type::table;
 /* Type and subclasses */
 /***********************/
 
-void Type::createTypeTable(ModuleDef& globalModule)
+void Type::createBuiltinTypes();
 {
   //first, add primitives and their aliases
   table.push_back(new IntegerType("char", 1, true));
@@ -33,7 +33,6 @@ void Type::createTypeTable(ModuleDef& globalModule)
   table.push_back(new FloatType("double", 8));
   table.push_back(new AliasType("f64", &table.back());
   table.push_back(new StringType);
-  //traverse AST in-order, adding all types encountered
 }
 
 //Get the type table entry, given the local usage name and current scope
@@ -85,7 +84,6 @@ string AliasType::getCName()
 
 EnumType::EnumType(Parser::Enum& e)
 {
-
 }
 
 string EnumType::getCName()
@@ -94,9 +92,9 @@ string EnumType::getCName()
 
 IntegerType::IntegerType(string name, int size, bool sign)
 {
-  this.name = name;
-  this.size = size;
-  this.isSigned = sign;
+  this->name = name;
+  this->size = size;
+  this->isSigned = sign;
 }
 
 string IntegerType::getCName()
@@ -133,8 +131,8 @@ string ArrayType::getCName()
 
 FloatType::FloatType(string name, int size)
 {
-  this.name = name;
-  this.size = size;
+  this->name = name;
+  this->size = size;
 }
 
 string FloatType::getCName()
