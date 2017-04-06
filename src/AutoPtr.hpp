@@ -47,6 +47,10 @@ struct AutoPtr
   {
     return p == nullptr;
   }
+  T* get() const
+  {
+    return p;
+  }
   ~AutoPtr()
   {
     if(p)

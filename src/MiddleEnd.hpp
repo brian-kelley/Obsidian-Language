@@ -14,7 +14,8 @@ namespace MiddleEnd
   void loadBuiltinTypes(AP(Scope)& global);
   void semanticCheck(AP(Scope)& global);
   void checkEntryPoint(AP(Scope)& global);
-  //AST inorder traversal for building scope tree
+  //AST traversal functions for building scope tree
+  //Note: Module, Block, Struct are all the scope types
   void visitModule(Scope* current, AP(Parser::Module)& module);
   void visitBlock(Scope* current, AP(Parser::Block)& module);
   void visitStruct(Scope* current, AP(Parser::StructDecl)& module);

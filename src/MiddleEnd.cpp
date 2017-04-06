@@ -42,19 +42,21 @@ void MiddleEnd::semanticCheck(AP(Scope)& global)
 
 void MiddleEnd::checkEntryPoint(AP(Scope)& global)
 {
-  bool found = false;
-  for(auto& it : global->procs)
-  {
-    if(it->retType == 
-  }
-
-  ProcPrototype(Parser::ProcType& pt);
-  bool nonterm;
-  Type* retType;
-  vector<Type*> argTypes;
 }
 
-void visitModule(Scope* current, AP(Parser::Module)& module);
-void visitBlock(Scope* current, AP(Parser::Block)& module);
-void visitStruct(Scope* current, AP(Parser::StructDecl)& module);
+void MiddleEnd::visitModule(Scope* current, AP(Parser::Module)& module)
+{
+  //create new scope, add to current
+  for(auto& decl : module->def->decls)
+  {
+  }
+}
+
+void MiddleEnd::visitBlock(Scope* current, AP(Parser::Block)& module)
+{
+}
+
+void MiddleEnd::visitStruct(Scope* current, AP(Parser::StructDecl)& module)
+{
+}
 
