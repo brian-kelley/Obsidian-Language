@@ -328,6 +328,7 @@ namespace Parser
       AP(Call),
       AP(Member),
       AP(Expr1)> e;
+    Type* getType();
   };
 
   struct Call
@@ -459,6 +460,7 @@ namespace Parser
   {
     AP(Expr2) head;
     vector<AP(Expr1RHS)> tail;
+    Type* type;
   };
 
   struct Expr1RHS
@@ -471,6 +473,7 @@ namespace Parser
   {
     AP(Expr3) head;
     vector<AP(Expr2RHS)> tail;
+    Type* type;
   };
 
   struct Expr2RHS
@@ -483,6 +486,7 @@ namespace Parser
   {
     AP(Expr4) head;
     vector<AP(Expr3RHS)> tail;
+    Type* type;
   };
 
   struct Expr3RHS
@@ -495,6 +499,7 @@ namespace Parser
   {
     AP(Expr5) head;
     vector<AP(Expr4RHS)> tail;
+    Type* type;
   };
 
   struct Expr4RHS
@@ -507,6 +512,7 @@ namespace Parser
   {
     AP(Expr6) head; 
     vector<AP(Expr5RHS)> tail;
+    Type* type;
   };
 
   struct Expr5RHS
@@ -519,6 +525,7 @@ namespace Parser
   {
     AP(Expr7) head;
     vector<AP(Expr6RHS)> tail;
+    Type* type;
   };
 
   struct Expr6RHS
@@ -531,6 +538,7 @@ namespace Parser
   {
     AP(Expr8) head;
     vector<AP(Expr7RHS)> tail;
+    Type* type;
   };
 
   struct Expr7RHS
@@ -543,6 +551,7 @@ namespace Parser
   {
     AP(Expr9) head;
     vector<AP(Expr8RHS)> tail;
+    Type* type;
   };
 
   struct Expr8RHS
@@ -555,6 +564,7 @@ namespace Parser
   {
     AP(Expr10) head;
     vector<AP(Expr9RHS)> tail;
+    Type* type;
   };
 
   struct Expr9RHS
@@ -567,6 +577,7 @@ namespace Parser
   {
     AP(Expr11) head;
     vector<AP(Expr10RHS)> tail;
+    Type* type;
   };
 
   struct Expr10RHS
@@ -587,6 +598,7 @@ namespace Parser
     variant<None,
       AP(Expr12),
       UnaryExpr> e;
+    Type* type;
   };
 
   struct Expr12
@@ -609,6 +621,7 @@ namespace Parser
       AP(Member),
       AP(StructLit),
       ArrayIndex> e;
+    Type* type;
   }; 
 
   //Parse a nonterminal of type NT

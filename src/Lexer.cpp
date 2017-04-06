@@ -167,6 +167,11 @@ void lex(string& code, vector<Token*>& tokList)
         cs.err("non-terminated block comment (missing */)");
       }
     }
+    else if(c == '/' && cs.peek(1) == '/')
+    {
+      cs.getNext();
+      while(cs.getNext() != '\n');
+    }
     else if(isalpha(c) || c == '_')
     {
       //keyword or identifier

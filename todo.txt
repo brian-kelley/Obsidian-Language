@@ -8,7 +8,7 @@ Ongoing work:
 IMMEDIATE SMALL TASKS:
 
 Middle-end/Type checking
-  -ScopedDecl will have pointer to enclosing Scope struct (Scope structs form a tree, traversible up and down)
+* -ScopedDecl will have pointer to enclosing Scope struct (Scope structs form a tree, traversible up and down)
   -TypeNT and Expression and ExprN will all have pointers to Type struct (which is owned by a Scope)
   -Remove ModuleDef, move decls into Module and make parseProgram return vector<AP(ScopedDecl)>
   -Module, Block, Struct will each have a ptr to their corresponding *Scope subclass
