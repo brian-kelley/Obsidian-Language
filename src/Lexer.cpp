@@ -2,9 +2,12 @@
 
 #define TAB_LENGTH 4
 
+//utility func to parse escaped chars, e.g. 'n' -> '\n'
+char getEscapedChar(char ident);
+
 struct CodeStream
 {
-  CodeStream(string& srcIn) : src(srcIn)
+  CodeStream(string& srcIn, vector<Token*>& toksIn) : src(srcIn), toks(toksIn)
   {
     iter = 0;
     line = 0;
@@ -35,16 +38,33 @@ struct CodeStream
       return '\0';
     return src[iter + ahead];
   }
+  void putback()
+  {
+    if(iter == 0)
+    {
+      err("tried to backtrack at start of code stream");
+    }
+    iter--;
+  }
+  void addToken(Token* tok)
+  {
+    toks.push_back(tok);
+    toks.back()->line = line;
+    toks.back()->col = col;
+  }
+  //bool value is "eof?"
   operator bool()
   {
     return iter == src.length();
   }
   void err(string msg)
   {
-    string fullMsg = string("Lexical error at line ") + to_string(line) + ", col " + to_string(col) + ": " + msg;
+    string fullMsg = string("Lexical error at line ") + to_string(line) +
+      ", col " + to_string(col) + ": " + msg;
     errAndQuit(fullMsg);
   }
   string& src;
+  vector<Token*>& toks;
   int iter;
   int line;
   int col;
@@ -52,7 +72,7 @@ struct CodeStream
 
 void lex(string& code, vector<Token*>& tokList)
 {
-  CodeStream cs(code);
+  CodeStream cs(code, tokList);
   int commentDepth = 0;
   vector<Token*> tokens;
   //note: i is incremented various amounts depending on the tokens
@@ -100,18 +120,18 @@ void lex(string& code, vector<Token*>& tokList)
       }
       strLit.push_back('\0');
       string s(&strLit[0]);
-      tokList.push_back(new StrLit(s));
+      cs.addToken(new StrLit(s));
     }
-    else if(c == ''')
+    else if(c == '\'')
     {
       char charVal = cs.getNext();
       if(charVal == '\\')
       {
-        tokList.push_back(new CharLit(getEscapedChar(cs.getNext())));
+        cs.addToken(new CharLit(getEscapedChar(cs.getNext())));
       }
       else
       {
-        tokList.push_back(new CharLit(charVal));
+        cs.addToken(new CharLit(charVal));
       }
       //finally, expect closing quote
       if(cs.getNext() != '\'')
@@ -141,16 +161,149 @@ void lex(string& code, vector<Token*>& tokList)
       while(true)
       {
         char identChar = cs.getNext();
+        if(!isalpha(identChar) && !isdigit(identChar) && identChar != '_')
+        {
+          break;
+        }
+      }
+      int identEnd = cs.iter;
+      string ident = code.substr(identStart, identEnd - identStart);
+      //check if keyword
+      auto kwIter = keywordMap.find(ident);
+      if(kwIter == keywordMap.end())
+        cs.addToken(new Ident(ident));
+      else
+        cs.addToken(new Keyword(kwIter->second));
+    }
+    else if(c == '0' && tolower(cs.peek(1)) == 'x')
+    {
+      //hex int literal, OR int 0 followed by ??? (if not valid hex num)
+      if(!isxdigit(cs.peek(2)))
+      {
+        //treat the '0' as a whole token
+        cs.addToken(new IntLit(0));
+      }
+      else
+      {
+        cs.getNext();
+        char* numEnd;
+        unsigned long long val = strtoull(code.c_str(), &numEnd, 16);
+        cs.addToken(new IntLit(val));
+        for(char* i = code.c_str() + cs.iter; i < numEnd; i++)
+        {
+          cs.getNext();
+        }
       }
     }
+    else if(c == '0' && tolower(cs.peek(1)) == 'b')
     {
-      //???
-      cout << "Lexer iter is " << i << ", have " << code.length() << " bytes of input.\n";
-      cout << "Code byte at iter = " << (int) code[i] << '\n';
-      cout << "Last token was \"" << tokens.back()->getStr() << "\"\n";
-      string rem = code.substr(i, min<int>(10, code.length() - i));
-      errAndQuit(string("Error: lexer could not identify token at index ") +
-          to_string(i) + ", code: \"" + rem + "\"");
+      //binary int literal, OR int 0 followed by ??? (if not valid bin num)
+      if(cs.peek(2) != '0' && cs.peek(2) != '1')
+      {
+        //treat the '0' as a whole token
+        cs.addToken(new IntLit(0));
+      }
+      else
+      {
+        cs.getNext();
+        char* numEnd;
+        unsigned long long val = strtoull(code.c_str(), &numEnd, 2);
+        cs.addToken(new IntLit(val));
+        for(char* i = code.c_str() + cs.iter; i < numEnd; i++)
+        {
+          cs.getNext();
+        }
+      }
+    }
+    else if(isdigit(c))
+    {
+      //int (hex or dec) or float literal
+      if(c == '0' && tolower(cs.peek(1)) == 'x')
+      {
+        //hex int
+        cs.getNext();     //eat the 'x'
+        //now parse hex num (must succeed)
+        sscanf(code.c_str() + cs.iter, "%llx", &intVal);
+      }
+      else if(c == '0' && tolower(cs.peek(1)) == 'b')
+      {
+        //binary int
+        cs.getNext();     //eat the 'b'
+        int numStart = cs.iter;
+        while(cs.peek(0) == '0' || cs.peek(0) == '1')
+        {
+          cs.getNext();
+        }
+        int numEnd = cs.iter;
+        for(int i = 0; i < numEnd - numStart; i++)
+        {
+          uint64_t bit = code[numEnd - i - 1] == '0' ? 0 : 1;
+          intVal |= (bit << i);
+        }
+      }
+      else
+      {
+        //take the integer conversion, or the double conversion if it uses more chars
+        const char* numStart = cs.c_str() + cs.iter;
+        char* intEnd;
+        char* floatEnd;
+        //note: int/float literals are always positive (- handled as arithmetic operator)
+        //this means that IntLit holds unsigned value
+        unsigned long long intVal = strtoull(numStart, &intEnd, 10);
+        double floatVal = strtod(numStart, &floatEnd);
+        if(floatEnd > intEnd)
+        {
+          //use float
+          cs.addToken(new FloatLit(floatVal));
+          cs.iter = floatEnd - cs.c_str();
+        }
+        else
+        {
+          //use int
+          cs.addToken(new IntLit(intVal));
+          cs.iter = intEnd - cs.c_str();
+        }
+      }
+    }
+    else if(ispunct(c))
+    {
+      //check for punctuation first (only 1 char)
+      auto punctIter = punctMap.find(c);
+      if(punctIter == punctMap.end())
+      {
+        //operator, not punct
+        //some operators are 2 chars long, use them if valid, otherwise 1 char
+        string oper1 = string("") + c;
+        string oper2 = oper1 + cs.peek(1);
+        auto oper2Iter = operatorMap.find(oper2)
+        if(oper2Iter == operatorMap.end())
+        {
+          //must be 1-char operator
+          auto oper1Iter = operatorMap.find(oper1);
+          if(oper1Iter == operatorMap.end())
+          {
+            cs.err("symbol character neither valid operator nor punctuation.");
+          }
+          else
+          {
+            cs.addToken(new Oper(oper1Iter->second));
+          }
+        }
+        else
+        {
+          cs.addToken(new Oper(oper2Iter->second));
+          cs.getNext();
+        }
+      }
+      else
+      {
+        //c is punct char
+        cs.addToken(new Punct(punctIter->second));
+      }
+    }
+    else
+    {
+      cs.err("unexpected character");
     }
   }
   if(commentDepth != 0)
@@ -158,69 +311,6 @@ void lex(string& code, vector<Token*>& tokList)
     cs.err("/* without */");
   }
   return tokens;
-}
-
-void addToken(vector<Token*>& tokList, string token, int hint)
-{
-  if(hint == IDENTIFIER)
-  {
-    int kw = isKeyword(token);
-    if(kw != -1)
-    {
-      tokList.push_back(new Keyword(kw));
-    }
-    else
-    {
-      tokList.push_back(new Ident(token));
-    }
-  }
-  else if(hint == STRING_LITERAL)
-  {
-    string val = "";
-    for(size_t i = 1; i < token.size() - 1; i++)
-    {
-      if(token[i] == '\\')
-      {
-        if(i == token.size() - 1)
-        {
-          errAndQuit("String literal ends with backslash.");
-        }
-        val += getEscapedChar(token[i + 1]);
-        i++;
-      }
-      else
-        val += token[i];
-    }
-    tokList.push_back(new StrLit(val));
-  }
-  else if(hint == CHAR_LITERAL)
-  {
-    char val = token[1];
-    if(val == '\\')
-      val = getEscapedChar(token[2]);
-    tokList.push_back(new CharLit(val));
-  }
-  else if(hint == INT_LITERAL)
-  {
-    //token is a copy outside of code stream and is null-terminated
-    int val;
-    sscanf(&token[0], "%i\n", &val);
-    tokList.push_back(new IntLit(val));
-  }
-  else if(hint == PUNCTUATION)
-  {
-    char tok = token[0];
-    //Structure punctuation
-    auto it = punctMap.find(tok);
-    if(it != punctMap.end())
-    {
-      tokList.push_back(new Punct(it->second));
-    }
-    else
-    {
-      errAndQuit(string("Invalid or unknown punctuation token: \"") + token + "\"");
-    }
-  }
 }
 
 char getEscapedChar(char ident)

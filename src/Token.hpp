@@ -147,7 +147,7 @@ struct Token
   virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   int type;
-  int row;
+  int line;
   int col;
 };
 
@@ -213,7 +213,7 @@ struct IntLit : public Token
   int getType();
   string getStr();
   string getDesc();
-  int val;
+  uint64_t val;
 };
 
 //any float/double
