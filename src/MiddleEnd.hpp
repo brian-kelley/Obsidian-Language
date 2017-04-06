@@ -10,7 +10,7 @@
 
 namespace MiddleEnd
 {
-  AP(Scope) loadScopes(AP(Parser::ModuleDef)& ast);
+  AP(Scope) loadScopes(AP(Parser::Module)& ast);
   void loadBuiltinTypes(AP(Scope)& global);
   void semanticCheck(AP(Scope)& global);
   void checkEntryPoint(AP(Scope)& global);

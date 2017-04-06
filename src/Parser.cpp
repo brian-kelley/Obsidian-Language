@@ -20,7 +20,6 @@ namespace Parser
 
   //Need to forward-declare all parse() specializations
   template<> AP(Module) parse<Module>();
-  template<> AP(ModuleDef) parse<ModuleDef>();
   template<> AP(ScopedDecl) parse<ScopedDecl>();
   template<> AP(TypeNT) parse<TypeNT>();
   template<> AP(Statement) parse<Statement>();
@@ -84,11 +83,13 @@ namespace Parser
   template<> AP(Expr11) parse<Expr11>();
   template<> AP(Expr12) parse<Expr12>();
 
-  AP(ModuleDef) parseProgram(vector<Token*>& toks)
+  AP(Module) parseProgram(vector<Token*>& toks)
   {
     pos = 0;
     tokens = &toks;
-    AP(ModuleDef) prog = parse<ModuleDef>();
+    AP(Module) globalModule(new Module);
+    globalModule->name = "";
+    globalModule->decls = parseSome<ScopedDecl>();
     if(pos != tokens->size())
     {
       //If not all tokens were used, there was a parse error
@@ -114,23 +115,16 @@ namespace Parser
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    m->def = parse<ModuleDef>();
+    m->decls = parseSome<ScopedDecl>();
     expectPunct(RBRACE);
     return m;
-  }
-
-  template<>
-  AP(ModuleDef) parse<ModuleDef>()
-  {
-    AP(ModuleDef) md(new ModuleDef);
-    md->decls = parseSome<ScopedDecl>();
-    return md;
   }
 
   template<>
   AP(ScopedDecl) parse<ScopedDecl>()
   {
     AP(ScopedDecl) sd(new ScopedDecl);
+    enclosing = NULL;
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
         !(sd->decl = parseOptional<VarDecl>()) &&
@@ -154,6 +148,7 @@ namespace Parser
   AP(TypeNT) parse<TypeNT>()
   {
     AP(TypeNT) type(new TypeNT);
+    entry = NULL;
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
       if(type->t.which() == 0 && acceptKeyword(p)) { \

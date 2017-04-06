@@ -51,8 +51,8 @@ int main(int argc, const char** argv)
   }
   cout << '\n';
   */
-  //Parsing
-  AP(Parser::ModuleDef) ast = Parser::parseProgram(toks);
+  //Parse the global/root module
+  AP(Module) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";

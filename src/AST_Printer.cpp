@@ -2,15 +2,15 @@
 
 using namespace std;
 
-void printAST(AP(Parser::ModuleDef)& ast)
+void printAST(AP(Parser::Module)>& ast)
 {
   try
   {
-    AstPrinter::printModuleDef(ast, 0);
+    AstPrinter::printModule(ast, 0);
   }
   catch(exception& e)
   {
-    cout << "Error printing AST: " << e.what() << '\n';
+    cout << "Error while printing AST: " << e.what() << '\n';
   }
 }
 
@@ -31,19 +31,16 @@ namespace AstPrinter
   void printModule(AP(Module)& m, int ind)
   {
     indent(ind);
-    cout << "Module \"" << m->name << "\"\n";
-    printModuleDef(m->def, ind + indentLevel);
-  }
-
-  void printModuleDef(AP(ModuleDef)& m, int ind)
-  {
-    indent(ind);
-    cout << "ModuleDef\n";
-    for(auto& d : m->decls)
+    if(m->name.length())
     {
-      printScopedDecl(d, ind + indentLevel);
+      cout << "Module \"" << m->name << "\"\n";
+    }
+    for(auto& it : m->decls)
+    {
+      printScopedDecl(it, ind + indentLevel);
     }
   }
+
 
   void printScopedDecl(AP(ScopedDecl)& m, int ind)
   {

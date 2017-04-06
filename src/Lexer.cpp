@@ -55,7 +55,11 @@ struct CodeStream
   //bool value is "eof?"
   operator bool()
   {
-    return iter == src.length();
+    return iter < src.length();
+  }
+  bool operator!()
+  {
+    return iter >= src.length();
   }
   void err(string msg)
   {
@@ -73,7 +77,6 @@ struct CodeStream
 void lex(string& code, vector<Token*>& tokList)
 {
   CodeStream cs(code, tokList);
-  int commentDepth = 0;
   vector<Token*> tokens;
   //note: i is incremented various amounts depending on the tokens
   while(cs)
@@ -141,17 +144,28 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else if(c == '/' && cs.peek(1) == '*')
     {
-      commentDepth++;
+      int commentDepth = 1;
       cs.getNext();
-    }
-    else if(c == '*' && cs.peek(1) == '/')
-    {
-      commentDepth--;
-      if(commentDepth < 0)
+      while(cs && commentDepth)
       {
-        cs.err("*/ without /*");
+        //get next char
+        char next = cs.getNext();
+        if(next == '/' && cs.peek(1) == '*')
+        {
+          cs.getNext();
+          commentDepth++;
+        }
+        else if(next == '*' && cs.peek(1) == '/')
+        {
+          cs.getNext();
+          commentDepth--;
+        }
       }
-      cs.getNext();
+      //EOF with non-terminated block comment is an error
+      if(!cs && commentDepth)
+      {
+        cs.err("non-terminated block comment (missing */)");
+      }
     }
     else if(isalpha(c) || c == '_')
     {

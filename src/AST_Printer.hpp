@@ -5,7 +5,7 @@
 #include "Token.hpp"
 #include <iostream>
 
-void printAST(AP(Parser::ModuleDef)& ast);
+void printAST(AP(Parser::Module)>& ast);
 
 namespace AstPrinter
 {
@@ -15,7 +15,6 @@ namespace AstPrinter
   extern int indentLevel;
 
   void printModule(AP(Module)& m, int indent);
-  void printModuleDef(AP(ModuleDef)& md, int indent);
   void printScopedDecl(AP(ScopedDecl)& m, int indent);
   void printTypeNT(AP(Parser::TypeNT)& t, int indent);
   void printStatement(AP(Statement)& s, int indent);

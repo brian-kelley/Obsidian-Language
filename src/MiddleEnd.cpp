@@ -3,7 +3,7 @@
 using namespace std;
 using namespace Parser;
 
-AP(Scope) MiddleEnd::loadScopes(AP(Parser::ModuleDef)& ast)
+AP(Scope) MiddleEnd::loadScopes(AP(Parser::Module)& ast)
 {
   AP(Scope) global(new BlockScope(NULL));
   loadBuiltinTypes(global);

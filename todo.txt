@@ -15,6 +15,9 @@ Middle-end/Type checking
   -Rules for implicit conversion and promotion between primitives, in TypeSystem
   -Struct types: holds all semantic info (members, traits, composition)
   -Give function arguments and return values types
+-Make a hash function that mangles names longer than 31 chars to 31
+  -Convert last n chars to a base 62 number?
+  -Debugger will need to have demangling information available at runtime
 
 CORE LANGUAGE SUBSET:
 
@@ -51,16 +54,14 @@ CORE LANGUAGE SUBSET:
 
 C INTERFACE:
 
--Automatically wrap C header + library in a "module"
-  -Run C preprocessor on headers before use
+-Automatically wrap C header directory + library in a "module"
+  -Basically need to steal or make a C preprocessor + lexer + parser
   -Most decls very similar: global constants, structs, enums, global primitives
   -Pointers cause biggest issues:
     -As variable, pointer can be used as an alias or dynamically allocated data
     -As function argument, pointer can be input or output, and can be single or array (or NULL!)
   -Struct layout in memory should be the same as C (for now at least)
   -For C functions that take C strings, use Onyx strings instead
--Make a hash function that mangles names longer than 31 chars to 31
-  -Debugger will need to have demangling information available at runtime
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform):
   -OpenGL (and some more user-friendly utilties)
@@ -70,3 +71,4 @@ LANGUAGE BUILT-IN MODULES (all must be fully cross-platform):
   -zlib
   -Parsing (make parsing numbers, formatted strings, regexes very nice)
   -Sys (File I/O, directories, sockets)
+

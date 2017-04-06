@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void generateC(string outputStem, bool keep, AP(Parser::ModuleDef)& ast)
+void generateC(string outputStem, bool keep, AP(Parser::Module)& ast)
 {
   string cName = outputStem + ".c";
   string exeName = outputStem + ".exe";
@@ -29,7 +29,7 @@ void generateC(string outputStem, bool keep, AP(Parser::ModuleDef)& ast)
   }
 }
 
-void genHeader(FILE* c, AP(Parser::ModuleDef)& ast)
+void genHeader(FILE* c, AP(Parser::Module)& ast)
 {
   //Core language definitions (especially supporting primitives)
 

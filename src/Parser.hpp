@@ -18,9 +18,8 @@ typedef runtime_error ParseErr;
 
 namespace Parser
 {
-  struct ModuleDef;
   //Parse a program from token string (only function needed outside namespace)
-  AP(ModuleDef) parseProgram(vector<Token*>& toks);
+  AP(Module) parseProgram(vector<Token*>& toks);
 
   //Token stream & utilities
   extern size_t pos;                //token iterator
@@ -41,76 +40,7 @@ namespace Parser
   Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
   void err(string msg = "");
 
-  //the types of nonterminals
-  enum struct NodeType
-  {
-    MODULE,
-    MODULE_DEF,
-    SCOPED_DECL,
-    TYPE,
-    STATEMENT,
-    EMPTY_STATEMENT,
-    TYPEDEF,
-    RETURN,
-    CONTINUE,
-    BREAK,
-    SWITCH,
-    FOR,
-    WHILE,
-    IF,
-    USING,
-    ASSSERTION,
-    TEST_DECL,
-    ENUM,
-    BLOCK,
-    VAR_DECL,
-    VAR_ASSIGN,
-    PRINT,
-    EXPRESSION,
-    CALL,
-    ARG,
-    ARGS,
-    FUNC_DECL,
-    FUNC_DEF,
-    FUNC_TYPE,
-    PROC_DECL,
-    PROC_DEF,
-    PROC_TYPE,
-    STRUCT_DECL,
-    VARIANT_DECL,
-    TRAIT_DECL,
-    ARRAY_LIT,
-    STRUCT_LIT,
-    ERROR,
-    MEMBER,
-    TRAIT_TYPE,
-    BOOL_LIT,
-    EXPR_1,
-    EXPR_1_RHS,
-    EXPR_2,
-    EXPR_2_RHS,
-    EXPR_3,
-    EXPR_3_RHS,
-    EXPR_4,
-    EXPR_4_RHS,
-    EXPR_5,
-    EXPR_5_RHS,
-    EXPR_6,
-    EXPR_6_RHS,
-    EXPR_7,
-    EXPR_7_RHS,
-    EXPR_8,
-    EXPR_8_RHS,
-    EXPR_9,
-    EXPR_9_RHS,
-    EXPR_10,
-    EXPR_10_RHS,
-    EXPR_11,
-    EXPR_11_RHS,
-    EXPR_12
-  };
-  
-  //lots of mutual recursion in nonterminal structs so forward-declare all
+  //lots of mutual recursion in nonterminal structs so just forward-declare all of them
   struct Module;
   struct ScopedDecl;
   struct TypeNT;
@@ -179,17 +109,13 @@ namespace Parser
   struct Module
   {
     string name;
-    AP(ModuleDef) def;
-  };
-
-  struct ModuleDef
-  {
     vector<AP(ScopedDecl)> decls;
   };
 
   struct ScopedDecl
   {
     ScopedDecl();
+    Scope* enclosing;
     variant<
       None,
       AP(Module),
@@ -209,6 +135,7 @@ namespace Parser
   struct TypeNT
   {
     TypeNT();
+    Type* entry;        //TypeSystem type table entry for this
     enum struct Prim
     {
       BOOL,
@@ -367,6 +294,7 @@ namespace Parser
 
   struct Block
   {
+    AP(BlockScope) scope;
     vector<AP(Statement)> statements;
   };
 
@@ -477,6 +405,7 @@ namespace Parser
   struct StructDecl
   {
     string name;
+    AP(StructScope) scope;
     vector<AP(Member)> traits;
     vector<AP(StructMem)> members;
   };
