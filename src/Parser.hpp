@@ -228,7 +228,9 @@ namespace Parser
       None,
       Prim,
       AP(Member),
-      AP(TupleType)> t;
+      AP(TupleType),
+      AP(FuncType),
+      AP(ProcType)> t;
     int arrayDims;
   };
 

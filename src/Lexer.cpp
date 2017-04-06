@@ -161,7 +161,7 @@ void lex(string& code, vector<Token*>& tokList)
       while(true)
       {
         char identChar = cs.getNext();
-        if(!isalpha(identChar) && !isdigit(identChar) && identChar != '_')
+        if(!isalnum(identChar) && identChar != '_')
         {
           break;
         }

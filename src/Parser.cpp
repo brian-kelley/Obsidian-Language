@@ -175,12 +175,12 @@ namespace Parser
     #undef TRY_PRIMITIVE
     if(type->t.which() != 1)
     {
-      if(!(type->t = parseOptional<Member>()))
+      if(!(type->t = parseOptional<Member>()) &&
+          !(type->t = parseOptional<TupleType>()) &&
+          !(type->t = parseOptional<FuncType>()) &&
+          !(type->t = parseOptional<ProcType>()))
       {
-        if(!(type->t = parseOptional<TupleType>()))
-        {
-          err("Invalid type");
-        }
+        err("Invalid type");
       }
     }
     //check for square bracket pairs after, indicating array type
