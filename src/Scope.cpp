@@ -11,7 +11,7 @@ int BlockScope::nextBlockIndex = 0;
 string Scope::getFullPath()
 {
   if(parent)
-    return parent->getFullPath + '_' + getLocalName()
+    return parent->getFullPath() + '_' + getLocalName()
   else
     return getLocalName();
 }

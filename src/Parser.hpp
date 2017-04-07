@@ -110,6 +110,7 @@ namespace Parser
   {
     string name;
     vector<AP(ScopedDecl)> decls;
+    AP(ModuleScope) scope;
   };
 
   struct ScopedDecl
@@ -294,8 +295,8 @@ namespace Parser
 
   struct Block
   {
-    AP(BlockScope) scope;
     vector<AP(Statement)> statements;
+    AP(BlockScope) scope;
   };
 
   struct VarDecl
@@ -406,9 +407,9 @@ namespace Parser
   struct StructDecl
   {
     string name;
-    AP(StructScope) scope;
     vector<AP(Member)> traits;
     vector<AP(StructMem)> members;
+    AP(StructScope) scope;
   };
 
   struct VariantDecl

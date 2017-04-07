@@ -95,14 +95,6 @@ string IntegerType::getCName()
   }
 }
 
-ArrayType::ArrayType(Type* t, int dims)
-{
-}
-
-string ArrayType::getCName()
-{
-}
-
 FloatType::FloatType(string name, int size)
 {
   this->name = name;
@@ -121,13 +113,23 @@ string FloatType::getCName()
   }
   else
   {
-    //TODO (low-pri): support larger-precision software floats?
-    return "ERROR";
+    return "#error undefined type";
   }
 }
 
 string StringType::getCName()
 {
   return "string";
+}
+
+int UndefType::num = 0;
+
+UndefType::UndefType()
+{
+}
+
+string UndefType::getCName()
+{
+  return "#error undefined type";
 }
 

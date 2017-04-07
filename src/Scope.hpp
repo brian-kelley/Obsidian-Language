@@ -52,12 +52,14 @@ struct Scope
 {
   virtual ScopeType getType() = 0;
   virtual string getLocalName() = 0;
-  string getFullPath();
-  Scope* parent;
-  vector<AP(Scope)> children;
   Type* typeFromName(string name);
-  vector<AP(Type)> types;
-  vector<AP(Variable)> vars;
+  string getFullPath();                 //get full, unambiguous name of scope (for C type names)
+  Scope* parent;                        //parent of scope, or NULL for 
+  vector<AP(Scope)> children;           //owned scopes
+  vector<AP(Type)> types;               //types declared here
+  vector<AP(Variable)> vars;            //variables declared here
+  //funcs and procs are all declarations and/or definitions in scope
+  //definition can go in a parent scope, unless this is a Block
   vector<AP(FuncPrototype)> funcs;
   vector<AP(ProcPrototype)> procs;
 };

@@ -15,6 +15,7 @@ struct Scope;
 
 struct Type
 {
+  Type(Scope* enclosingScope, int arrayDims);
   //Get unique, mangled name for use in backend
   static void createBuiltinTypes();
   virtual string getCName() = 0;
@@ -28,7 +29,7 @@ struct Type
 
 struct StructType : public Type
 {
-  StructType(Parser::StructDecl& sd);
+  StructType(Parser::StructDecl& sd, Scope* enclosingScope);
   string getCName();
   string name;
   //check for member functions
@@ -42,6 +43,7 @@ struct StructType : public Type
 
 struct TupleType : public Type
 {
+  //TupleType has no scope, all are global
   TupleType(Parser::TupleType& tt);
   string getCName();
   vector<Type*> members;
@@ -49,15 +51,15 @@ struct TupleType : public Type
 
 struct AliasType : public Type
 {
-  AliasType(string newName, Type* t);
-  AliasType(Parser::Typedef& td);
+  AliasType(string newName, Type* t, Scope* enclosingScope);
+  AliasType(Parser::Typedef& td, Scope* enclosingScope);
   string getCName();
   Type* actual;
 };
 
 struct EnumType : public Type
 {
-  EnumType(Parser::Enum& e);
+  EnumType(Parser::Enum& e, Scope* enclosingScope);
   string getCName();
   string name;
   map<string, int> values;
@@ -73,17 +75,6 @@ struct IntegerType : public Type
   bool isSigned;
 };
 
-//A 1-dimensional array of underlying
-//Multidimensional arrays are nested
-//Makes semantic checking of indexing easier
-struct ArrayType : public Type
-{
-  //constructor also creates Types for all lower dimensions
-  ArrayType(Type* t, int dims);
-  string getCName();
-  Type* underlying;
-};
-
 struct FloatType : public Type
 {
   FloatType(string name, int size);
@@ -97,6 +88,15 @@ struct StringType : public Type
 {
   string getCName();
 };
+
+//An UndefType is a placeholder in Scope's type list.
+//Create one for
+struct UndefType : public Type
+{
+  UndefType();
+  string getCName();
+  static int num;
+}
 
 #endif
 
