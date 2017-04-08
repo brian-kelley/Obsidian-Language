@@ -48,6 +48,7 @@ namespace MiddleEnd
     void MiddleEnd::visitModule(Scope* current, AP(Module)& module)
     {
       //create new scope, add to current
+      AP(ModuleScope
       for(auto& decl : module->def->decls)
       {
       }
