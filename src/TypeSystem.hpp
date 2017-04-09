@@ -5,7 +5,9 @@
 #include <iostream>
 #include <vector>
 #include <map>
+
 #include "Parser.hpp"
+#include "Scope.hpp"
 
 /**************************
 *   Type System Structs   *
@@ -27,9 +29,32 @@ struct Type
   static vector<AP(Type)> table;
 };
 
+struct FuncPrototype
+{
+  FuncPrototype(Parser::FuncType& ft);
+  Type* retType;
+  vector<Type*> argTypes;
+};
+
+struct ProcPrototype
+{
+  ProcPrototype(Parser::ProcType& pt);
+  bool nonterm;
+  Type* retType;
+  vector<Type*> argTypes;
+};
+
+struct Trait
+{
+  Scope* name;
+  string name;
+  vector<FuncPrototype*> funcs;
+  vector<ProcPrototype*> procs;
+};
+
 struct StructType : public Type
 {
-  StructType(Parser::StructDecl& sd, Scope* enclosingScope);
+  StructType(string name, Scope* enclosingScope);
   string getCName();
   string name;
   //check for member functions

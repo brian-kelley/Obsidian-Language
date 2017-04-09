@@ -5,13 +5,12 @@
 #include "Utils.hpp"
 #include "Type.hpp"
 
-/*
-struct Var
+struct Variable
 {
-  TypeSystem::Type* type;
-  Scope* enclosingScope;
+  Scope* owner;
+  string name;
+  Type* type;
 };
-*/
 
 #endif
 

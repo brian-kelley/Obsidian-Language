@@ -2,16 +2,18 @@
 
 namespace MiddleEnd
 {
-  AP(Scope) MiddleEnd::loadScopes(AP(Module)& ast)
+  void MiddleEnd::load(AP(Module)& ast)
   {
-    AP(Scope) global(new BlockScope(NULL));
+    AP(Scope) global(new ModuleScope(NULL));
+    ast->scope = global.get();
     loadBuiltinTypes(global);
-    return global;
+    //build scope tree
+    visitModule(NULL, ast);
   }
 
   void MiddleEnd::loadBuiltinTypes(AP(Scope)& global)
   {
-    vector<Type>& table = global->types;
+    vector<Type*>& table = global->types;
     table.push_back(new IntegerType("char", 1, true));
     table.push_back(new AliasType("i8", &table.back()));
     table.push_back(new IntegerType("uchar", 1, false));
@@ -45,21 +47,57 @@ namespace MiddleEnd
 
   namespace TypeLoading
   {
-    void MiddleEnd::visitModule(Scope* current, AP(Module)& module)
+    void visitModule(Scope* current, AP(Module)& m)
     {
-      //create new scope, add to current
-      AP(ModuleScope
-      for(auto& decl : module->def->decls)
+      AP(Scope) mscope(new ModuleScope);
+      if(current)
       {
+        current->children.push_back(mscope);
+      }
+      mscope->name = m->name;
+      m->scope = mscope.get();
+      for(auto& it : m->decls)
+      {
+        visitScopedDecl(mscope.get(), it);
       }
     }
 
-    void MiddleEnd::visitBlock(Scope* current, AP(Block)& module)
+    void visitBlock(Scope* current, AP(Block)& b)
     {
+      AP(Scope) bscope(new BlockScope);
+      current->children.push_back(bscope);
+      bscope->index = BlockScope::nextBlockIndex++;
+      b->scope = bscope.get();
+      for(auto& st : b->statements)
+      {
+        if(st->s.which() == 1)
+        {
+          visitScopedDecl(bscope.get(), st->s.get<AP(ScopedDecl)>());
+        }
+      }
     }
 
-    void MiddleEnd::visitStruct(Scope* current, AP(StructDecl)& module)
+    void visitStruct(Scope* current, AP(StructDecl)& sd)
+    {
+      //must create a child scope and also a type
+      AP(Scope) sscope(new StructScope);
+      current->children.push_back(sscope);
+      sscope->name = sd->name;
+      sd->scope = sscope.get();
+      //create the type, but don't deal with traits and
+      //  members yet
+      AP(StructType) stype(new StructType(sd->name, current));
+      for(auto& it : sd->members)
+      {
+        auto& decl = it->sd;
+        //deal with typedefs, using, other structs, enums etc. inside struct
+        visitScopedDecl(sscope.get(), decl);
+      }
+    }
+
+    void visitScopedDecl(Scope* current, AP(ScopedDecl)& sd)
     {
     }
   }
 }
+

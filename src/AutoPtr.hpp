@@ -11,19 +11,23 @@ struct AutoPtr
   AutoPtr()
   {
     p = nullptr;
+    owns = true;
   }
   AutoPtr(T* newPtr)
   {
     p = newPtr;
+    owns = true;
   }
   AutoPtr(const AutoPtr& rhs)
   {
     p = rhs.p;
-    //rhs.p = nullptr;
+    owns = true;
+    rhs.owns = false;
   }
   AutoPtr(const AutoPtr&& rhs)
   {
     p = rhs.p;
+    owns = true;
   }
   T& operator*() const
   {
@@ -36,7 +40,8 @@ struct AutoPtr
   T* operator=(const AutoPtr& rhs)
   {
     p = rhs.p;
-    //rhs.p = nullptr;
+    owns = true;
+    rhs.owns = false;
     return p;
   }
   operator bool() const
@@ -53,12 +58,13 @@ struct AutoPtr
   }
   ~AutoPtr()
   {
-    if(p)
+    if(p && owns)
     {
-      //delete p;
+      delete p;
     }
   }
   mutable T* p;
+  mutable bool owns;
 };
 
 #endif

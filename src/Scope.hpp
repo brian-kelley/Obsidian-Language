@@ -8,38 +8,6 @@
 #include "AutoPtr.hpp"
 #include "TypeSystem.hpp"
 
-struct Scope;
-
-struct FuncPrototype
-{
-  FuncPrototype(Parser::FuncType& ft);
-  Type* retType;
-  vector<Type*> argTypes;
-};
-
-struct ProcPrototype
-{
-  ProcPrototype(Parser::ProcType& pt);
-  bool nonterm;
-  Type* retType;
-  vector<Type*> argTypes;
-};
-
-struct Trait
-{
-  Scope* name;
-  string name;
-  vector<FuncPrototype*> funcs;
-  vector<ProcPrototype*> procs;
-};
-
-struct Variable
-{
-  Scope* owner;
-  string name;
-  Type* type;
-};
-
 enum struct ScopeType
 {
   MODULE,

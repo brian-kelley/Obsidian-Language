@@ -203,15 +203,11 @@ namespace AstPrinter
         printIf(s->s.get<AP(If)>(), ind);
         break;
       case 13:
-        printUsing(s->s.get<AP(Using)>(), ind);
-        break;
-      case 14:
         printAssertion(s->s.get<AP(Assertion)>(), ind);
-        break;
-      case 15:
+      case 14:
         printEmptyStatement(ind);
         break;
-      case 16:
+      case 15:
         printVarDecl(s->s.get<AP(VarDecl)>(), ind);
       default:;
     }
@@ -385,13 +381,6 @@ namespace AstPrinter
       cout << "Else Body\n";
       printStatement(i->elseBody, ind + indentLevel);
     }
-  }
-
-  void printUsing(AP(Using)& u, int ind)
-  {
-    indent(ind);
-    cout << "Using\n";
-    printMember(u->mem, ind);
   }
 
   void printAssertion(AP(Assertion)& a, int ind)

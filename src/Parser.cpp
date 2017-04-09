@@ -34,7 +34,6 @@ namespace Parser
   template<> AP(For) parse<For>();
   template<> AP(While) parse<While>();
   template<> AP(If) parse<If>();
-  template<> AP(Using) parse<Using>();
   template<> AP(Assertion) parse<Assertion>();
   template<> AP(TestDecl) parse<TestDecl>();
   template<> AP(EnumItem) parse<EnumItem>();
@@ -205,7 +204,6 @@ namespace Parser
         (s->s = parseOptional<For>()) ||
         (s->s = parseOptional<While>()) ||
         (s->s = parseOptional<If>()) ||
-        (s->s = parseOptional<Using>()) ||
         (s->s = parseOptional<Assertion>()) ||
         (s->s = parseOptional<EmptyStatement>()))
     {
@@ -383,16 +381,6 @@ namespace Parser
     if(acceptKeyword(ELSE))
       i->elseBody = parse<Statement>();
     return i;
-  }
-
-  template<>
-  AP(Using) parse<Using>()
-  {
-    AP(Using) u(new Using);
-    expectKeyword(USING);
-    u->mem = parse<Member>();
-    expectPunct(SEMICOLON);
-    return u;
   }
 
   template<>

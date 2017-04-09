@@ -18,9 +18,10 @@ Type* Type::getType(Parser::Member& localName, Scope* usedScope)
 {
 }
 
-StructType::StructType(StructDecl& sd)
+StructType(string name, Scope* enclosingScope)
 {
-  name = sd.name;
+  this->name = name;
+  this->enclosing = enclosingScope;
 }
 
 string StructType::getCName()

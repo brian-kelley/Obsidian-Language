@@ -27,7 +27,6 @@ namespace AstPrinter
   void printFor(AP(For)& f, int indent);
   void printWhile(AP(While)& w, int indent);
   void printIf(AP(If)& i, int indent);
-  void printUsing(AP(Using)& u, int indent);
   void printAssertion(AP(Assertion)& a, int indent);
   void printTestDecl(AP(TestDecl)& td, int indent);
   void printEnum(AP(Enum)& e, int indent);
