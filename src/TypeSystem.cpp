@@ -16,6 +16,13 @@ Type* Type::getType(string localName, Scope* usedScope)
 
 Type* Type::getType(Parser::Member& localName, Scope* usedScope)
 {
+  //search up the scopes for this type
+  for(Scope* scopeIter = usedScope; scopeIter; scopeIter = scopeIter->parent)
+  {
+    for(auto& t : scopeIter->types)
+    {
+    }
+  }
 }
 
 StructType(string name, Scope* enclosingScope)
