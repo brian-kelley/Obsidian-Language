@@ -3,25 +3,90 @@
 using namespace std;
 using namespace Parser;
 
-vector<AP(Type)> Type::table;
-
 /***********************/
 /* Type and subclasses */
 /***********************/
 
-//Get the type table entry, given the local usage name and current scope
-Type* Type::getType(string localName, Scope* usedScope)
+vector<TupleType*> Type::tuples;
+vector<Type*> Type::primitives;
+
+Type::Type(Scope* enclosingScope)
 {
+  enclosing = enclosingScope;
 }
 
-Type* Type::getType(Parser::Member& localName, Scope* usedScope)
+static void Type::createBuiltinTypes(Scope* global)
 {
-  //search up the scopes for this type
-  for(Scope* scopeIter = usedScope; scopeIter; scopeIter = scopeIter->parent)
+#define ADD_PRIM primitives.push_back(&table.back())
+  vector<Type*>& table = global->types;
+  table.push_back(new BoolType);                          ADD_PRIM;
+  table.push_back(new IntegerType("char", 1, true));      ADD_PRIM;
+  table.push_back(new AliasType("i8", &table.back()));
+  table.push_back(new IntegerType("uchar", 1, false));    ADD_PRIM;
+  table.push_back(new AliasType("u8", &table.back()));
+  table.push_back(new IntegerType("short", 2, true));     ADD_PRIM;
+  table.push_back(new AliasType("i16", &table.back()));
+  table.push_back(new IntegerType("ushort", 2, false));   ADD_PRIM;
+  table.push_back(new AliasType("u16", &table.back()));
+  table.push_back(new IntegerType("int", 4, true));       ADD_PRIM;
+  table.push_back(new AliasType("i32", &table.back()));
+  table.push_back(new IntegerType("uint", 4, false));     ADD_PRIM;
+  table.push_back(new AliasType("u32", &table.back()));
+  table.push_back(new IntegerType("long", 8, true));      ADD_PRIM;
+  table.push_back(new AliasType("i64", &table.back()));
+  table.push_back(new IntegerType("ulong", 8, false));    ADD_PRIM;
+  table.push_back(new AliasType("u64", &table.back()));
+  table.push_back(new FloatType("float", 4));             ADD_PRIM;
+  table.push_back(new AliasType("f32", &table.back()));
+  table.push_back(new FloatType("double", 8));
+  table.push_back(new AliasType("f64", &table.back()));   ADD_PRIM;
+  table.push_back(new StringType);                        ADD_PRIM;
+#undef ADD_PRIM
+}
+
+//Get the type table entry, given the local usage name and current scope
+//If type not defined, return NULL
+Type* Type::getType(string localName, Scope* usedScope)
+{
+  Parser::Member mem;
+  mem.owner = localName;
+  mem.member = AP(Member)(nullptr);
+  return getType(&mem, usedScope, true);
+}
+
+Type* Type::getType(Parser::Member* localName, Scope* usedScope, bool searchUp)
+{
+  if(localName->member.get())
   {
-    for(auto& t : scopeIter->types)
+    //get scope with name localName->owner, then try there with tail of localName
+    for(auto& it : usedScope->children)
     {
+      if(it->getLocalName() == localName->owner)
+      {
+        //can only be one child scope with that name
+        //only need to search this one scope (it)
+        return getType(localName->member, it, false);
+      }
     }
+  }
+  else
+  {
+    //localName is just the type name, search for it in this scope
+    for(auto& it : usedScope->types)
+    {
+      if(it->getLocalName() == localName->owner)
+      {
+        return it;
+      }
+    }
+  }
+  if(searchUp && usedScope->parent)
+  {
+    return getType(localName, usedScope->parent, false);
+  }
+  else
+  {
+    return NULL;
   }
 }
 
@@ -130,14 +195,8 @@ string StringType::getCName()
   return "string";
 }
 
-int UndefType::num = 0;
-
-UndefType::UndefType()
+string BoolType::getCName()
 {
-}
-
-string UndefType::getCName()
-{
-  return "#error undefined type";
+  return "bool";
 }
 

@@ -20,8 +20,8 @@ struct Scope
 {
   virtual ScopeType getType() = 0;
   virtual string getLocalName() = 0;
-  Type* typeFromName(string name);
   string getFullPath();                 //get full, unambiguous name of scope (for C type names)
+  Type* typeFromName(string name);
   Scope* parent;                        //parent of scope, or NULL for 
   vector<AP(Scope)> children;           //owned scopes
   vector<AP(Type)> types;               //types declared here

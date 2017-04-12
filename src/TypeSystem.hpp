@@ -17,16 +17,28 @@ struct Scope;
 
 struct Type
 {
-  Type(Scope* enclosingScope, int arrayDims);
-  //Get unique, mangled name for use in backend
-  static void createBuiltinTypes();
+  Type(Scope* enclosingScope);
+  static void createBuiltinTypes(Scope* global);
+  //list of primitive Types corresponding 1-1 with TypeNT::Prim values
+  static vector<Type*> primitives;
+  //Get unique, possibly mangled C identifier for use in backend
   virtual string getCName() = 0;
   Scope* enclosing;
-  int dims;
-  //Functions used by semantic checking
+  //T.dimTypes[0] is for T[], T.dimTypes[1] is for T[][], etc.
+  vector<Type*> dimTypes;
+  //lazily create & return array type for given number of dimensions
+  Type* getArrayType(int dims);
+  //Whether this can be implicitly converted to other
+  virtual bool canConvert(Type* other);
+  static Type* getType(Parser::TypeNT* type, Scope* usedScope);
+  //Get non-array, non-tuple type with given name, used in usedScope
   static Type* getType(string localName, Scope* usedScope);
-  static Type* getType(Parser::Member& localName, Scope* usedScope);
-  static vector<AP(Type)> table;
+  //Get type by name (with or without scope specifiers)
+  //if searchUp, can search in usedScope and then all its parents for the full path of localName
+  //otherwise (internal use only): only look in usedScope for localName, not usedScope's parents
+  static Type* getType(Parser::Member* localName, Scope* usedScope, bool searchUp = true);
+  //all tuple types, can look up by directly comparing components' Type ptrs directly
+  static vector<TupleType*> tuples;
 };
 
 struct FuncPrototype
@@ -46,7 +58,7 @@ struct ProcPrototype
 
 struct Trait
 {
-  Scope* name;
+  Scope* scope;
   string name;
   vector<FuncPrototype*> funcs;
   vector<ProcPrototype*> procs;
@@ -64,6 +76,14 @@ struct StructType : public Type
   vector<AP(Trait)> traits;
   vector<AP(Type)> members;
   vector<bool> composed;  //1-1 correspondence with members
+};
+
+struct VariantType : public Type
+{
+  VariantType(string name, Scope* enclosingScope);
+  string getCName();
+  string name;
+  vector<AP(Type*)> options;
 };
 
 struct TupleType : public Type
@@ -114,14 +134,21 @@ struct StringType : public Type
   string getCName();
 };
 
-//An UndefType is a placeholder in Scope's type list.
-//Create one for
+struct BoolType : public Type
+{
+  string getCName();
+};
+
+//Undef type: need a placeholder for types not yet defined
 struct UndefType : public Type
 {
-  UndefType();
+  UndefType(string name, Scope* enclosing, Type* usage);
   string getCName();
-  static int num;
-}
+  string localName;
+  Type* usage;        //ptr to AliasType, StructType, VariantType or TupleType
+  //keep track of all known undefined types so they can be resolved more quickly
+  static vector<UndefType*> all;
+};
 
 #endif
 

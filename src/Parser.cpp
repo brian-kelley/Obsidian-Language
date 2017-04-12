@@ -150,7 +150,7 @@ namespace Parser
     entry = NULL;
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
-      if(type->t.which() == 0 && acceptKeyword(p)) { \
+      if(type->t.is<None>() && acceptKeyword(p)) { \
         type->t = TypeNT::Prim::p; \
       } \
     }
@@ -167,7 +167,7 @@ namespace Parser
     TRY_PRIMITIVE(DOUBLE);
     TRY_PRIMITIVE(STRING);
     #undef TRY_PRIMITIVE
-    if(type->t.which() != 1)
+    if(type->t.is<TypeNT::Prim>() != 1)
     {
       if(!(type->t = parseOptional<Member>()) &&
           !(type->t = parseOptional<TupleType>()) &&
@@ -997,7 +997,7 @@ namespace Parser
       e12->e = parse<Expresion>();
       expectPunct(RPAREN);
     }
-    if(e12->e.which() ||
+    if(!e12->e.is<None>() ||
         (e12->e = (IntLit*) accept(INT_LITERAL)) ||
         (e12->e = (CharLit*) accept(CHAR_LITERAL)) ||
         (e12->e = (StrLit*) accept(STRING_LITERAL)) ||

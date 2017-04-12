@@ -56,9 +56,16 @@ namespace MiddleEnd
       }
       mscope->name = m->name;
       m->scope = mscope.get();
+      //add all locally defined, non-scope types in first pass:
+      //typedefs, enums, variants
       for(auto& it : m->decls)
       {
-        visitScopedDecl(mscope.get(), it);
+        if(it->decl.is<AP(Typedef)>() ||
+            it->decl.is<AP(Enum)>() ||
+            it->decl.is<AP(VariantDecl)>())
+        {
+          visitScopedDecl(mscope.get(), it);
+        }
       }
     }
 
@@ -70,7 +77,7 @@ namespace MiddleEnd
       b->scope = bscope.get();
       for(auto& st : b->statements)
       {
-        if(st->s.which() == 1)
+        if(st->s.is<AP(ScopedDecl)>())
         {
           visitScopedDecl(bscope.get(), st->s.get<AP(ScopedDecl)>());
         }

@@ -138,6 +138,16 @@ public:
 			);
 		}
 	}
+
+  template<typename X>
+  bool is() {
+		static_assert(
+			impl::position<X, Types...>::pos != -1,
+			"Type not in variant."
+		);
+		return tag == impl::position<X, Types...>::pos;
+  }
+
 	template<typename X>
 	const X& get() const {
 		static_assert(
