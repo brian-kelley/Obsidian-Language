@@ -56,13 +56,13 @@ namespace MiddleEnd
       }
       mscope->name = m->name;
       m->scope = mscope.get();
-      //add all locally defined, non-scope types in first pass:
-      //typedefs, enums, variants
+      //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
         if(it->decl.is<AP(Typedef)>() ||
             it->decl.is<AP(Enum)>() ||
-            it->decl.is<AP(VariantDecl)>())
+            it->decl.is<AP(VariantDecl)>() ||
+            it->decl.is<AP(StructDecl)>())
         {
           visitScopedDecl(mscope.get(), it);
         }
@@ -91,19 +91,24 @@ namespace MiddleEnd
       current->children.push_back(sscope);
       sscope->name = sd->name;
       sd->scope = sscope.get();
-      //create the type, but don't deal with traits and
-      //  members yet
       AP(StructType) stype(new StructType(sd->name, current));
       for(auto& it : sd->members)
       {
         auto& decl = it->sd;
-        //deal with typedefs, using, other structs, enums etc. inside struct
         visitScopedDecl(sscope.get(), decl);
       }
     }
 
     void visitScopedDecl(Scope* current, AP(ScopedDecl)& sd)
     {
+      if(!sd->is<AP(Typedef)>() &&
+          !sd->is<AP(Enum)>() &&
+          !sd->is<AP(VariantDecl)>() &&
+          !sd->is<AP(StructDecl)>())
+      {
+        //not a type creation, nothing to be done
+        return;
+      }
     }
   }
 }

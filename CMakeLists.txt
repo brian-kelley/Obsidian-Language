@@ -10,7 +10,7 @@ add_executable (onyx
   src/Token.cpp
   src/MiddleEnd.cpp
   src/Variable.cpp
-  src/Type.cpp
+  src/TypeSystem.cpp
   src/Scope.cpp
   src/Lexer.cpp
   src/Parser.cpp

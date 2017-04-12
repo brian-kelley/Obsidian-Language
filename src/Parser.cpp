@@ -94,15 +94,6 @@ namespace Parser
       //If not all tokens were used, there was a parse error
       //print the deepest error message produced
       errAndQuit(deepestErr);
-      /*
-      cout << "Parse error: not all tokens accepted.\n";
-      cout << "Remaining tokens: ";
-      for(size_t i = pos; i < tokens->size(); i++)
-      {
-        cout << (*tokens)[i]->getStr() << " ";
-      }
-      cout << '\n';
-      */
     }
     return prog;
   }
