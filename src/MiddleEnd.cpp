@@ -59,13 +59,7 @@ namespace MiddleEnd
       //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
-        if(it->decl.is<AP(Typedef)>() ||
-            it->decl.is<AP(Enum)>() ||
-            it->decl.is<AP(VariantDecl)>() ||
-            it->decl.is<AP(StructDecl)>())
-        {
-          visitScopedDecl(mscope.get(), it);
-        }
+        visitScopedDecl(mscope.get(), it);
       }
     }
 
@@ -103,11 +97,25 @@ namespace MiddleEnd
     {
       if(!sd->is<AP(Typedef)>() &&
           !sd->is<AP(Enum)>() &&
-          !sd->is<AP(VariantDecl)>() &&
+          !sd->is<AP(UnionDecl)>() &&
           !sd->is<AP(StructDecl)>())
       {
-        //not a type creation, nothing to be done
+        //not a type creation, nothing to be done now
         return;
+      }
+      if(sd->is<AP(Enum)>())
+      {
+        AP(EnumType) et(new EnumType(sd->get<AP(Enum)>().get(), current));
+        current->types.push_back(et);
+      }
+      else if(sd->is<AP(Typedef)>())
+      {
+      }
+      else if(sd->is<AP(StructDecl)>())
+      {
+      }
+      else if(sd->is<AP(UnionDecl)>())
+      {
       }
     }
   }

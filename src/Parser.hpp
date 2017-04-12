@@ -76,7 +76,7 @@ namespace Parser
   struct ProcDef;
   struct ProcType;
   struct StructDecl;
-  struct VariantDecl;
+  struct UnionDecl;
   struct TraitDecl;
   struct StructLit;
   struct Member;
@@ -122,7 +122,7 @@ namespace Parser
       AP(Module),
       AP(VarDecl),
       AP(StructDecl),
-      AP(VariantDecl),
+      AP(UnionDecl),
       AP(TraitDecl),
       AP(Enum),
       AP(Typedef),
@@ -411,7 +411,7 @@ namespace Parser
     StructScope* scope;
   };
 
-  struct VariantDecl
+  struct UnionDecl
   {
     string name;
     vector<AP(TypeNT)> types;

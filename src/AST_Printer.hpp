@@ -44,7 +44,7 @@ namespace AstPrinter
   void printProcDef(AP(ProcDef)& pd, int indent);
   void printProcType(AP(ProcType)& pt, int indent);
   void printStructDecl(AP(StructDecl)& sd, int indent);
-  void printVariantDecl(AP(VariantDecl)& vd, int indent);
+  void printUnionDecl(AP(UnionDecl)& vd, int indent);
   void printTraitDecl(AP(TraitDecl)& td, int indent);
   void printStructLit(AP(StructLit)& sl, int indent);
   void printMember(AP(Member)& m, int indent);

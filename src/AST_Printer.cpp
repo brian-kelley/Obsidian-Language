@@ -58,7 +58,7 @@ namespace AstPrinter
         printStructDecl(m->decl.get<AP(StructDecl)>(), ind + indentLevel);
         break;
       case 4:
-        printVariantDecl(m->decl.get<AP(VariantDecl)>(), ind + indentLevel);
+        printUnionDecl(m->decl.get<AP(UnionDecl)>(), ind + indentLevel);
         break;
       case 5:
         printTraitDecl(m->decl.get<AP(TraitDecl)>(), ind + indentLevel);
@@ -684,10 +684,10 @@ namespace AstPrinter
     }
   }
 
-  void printVariantDecl(AP(VariantDecl)& vd, int ind)
+  void printUnionDecl(AP(UnionDecl)& vd, int ind)
   {
     indent(ind);
-    cout << "Variant \"" << vd->name << "\"\n";
+    cout << "Union \"" << vd->name << "\"\n";
     for(auto& it : vd->types)
     {
       printTypeNT(it, ind + indentLevel);

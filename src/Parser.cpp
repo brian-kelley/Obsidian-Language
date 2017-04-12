@@ -53,7 +53,7 @@ namespace Parser
   template<> AP(ProcType) parse<ProcType>();
   template<> AP(StructMem) parse<StructMem>();
   template<> AP(StructDecl) parse<StructDecl>();
-  template<> AP(VariantDecl) parse<VariantDecl>();
+  template<> AP(UnionDecl) parse<UnionDecl>();
   template<> AP(TraitDecl) parse<TraitDecl>();
   template<> AP(StructLit) parse<StructLit>();
   template<> AP(Member) parse<Member>();
@@ -119,7 +119,7 @@ namespace Parser
     if(!(sd->decl = parseOptional<Module>()) &&
         !(sd->decl = parseOptional<VarDecl>()) &&
         !(sd->decl = parseOptional<StructDecl>()) &&
-        !(sd->decl = parseOptional<VariantDecl>()) &&
+        !(sd->decl = parseOptional<UnionDecl>()) &&
         !(sd->decl = parseOptional<TraitDecl>()) &&
         !(sd->decl = parseOptional<Enum>()) &&
         !(sd->decl = parseOptional<Typedef>()) &&
@@ -655,9 +655,9 @@ namespace Parser
   }
 
   template<>
-  AP(VariantDecl) parse<VariantDecl>()
+  AP(UnionDecl) parse<UnionDecl>()
   {
-    AP(VariantDecl) vd(new VariantDecl);
+    AP(UnionDecl) vd(new UnionDecl);
     expectKeyword(VARIANT);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     vd->types = parseSomeCommaSeparated<TypeNT>();

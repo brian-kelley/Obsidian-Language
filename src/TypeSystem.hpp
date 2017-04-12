@@ -78,9 +78,9 @@ struct StructType : public Type
   vector<bool> composed;  //1-1 correspondence with members
 };
 
-struct VariantType : public Type
+struct UnionType : public Type
 {
-  VariantType(string name, Scope* enclosingScope);
+  UnionType(string name, Scope* enclosingScope);
   string getCName();
   string name;
   vector<AP(Type*)> options;
@@ -104,7 +104,7 @@ struct AliasType : public Type
 
 struct EnumType : public Type
 {
-  EnumType(Parser::Enum& e, Scope* enclosingScope);
+  EnumType(Parser::Enum* e, Scope* enclosingScope);
   string getCName();
   string name;
   map<string, int> values;
@@ -145,7 +145,7 @@ struct UndefType : public Type
   UndefType(string name, Scope* enclosing, Type* usage);
   string getCName();
   string localName;
-  Type* usage;        //ptr to AliasType, StructType, VariantType or TupleType
+  Type* usage;        //ptr to AliasType, StructType, UnionType or TupleType
   //keep track of all known undefined types so they can be resolved more quickly
   static vector<UndefType*> all;
 };
