@@ -110,12 +110,18 @@ namespace MiddleEnd
       }
       else if(sd->is<AP(Typedef)>())
       {
+        AP(AliasType) at(new AliasType(sd->get<AP(Typedef)>().get(), current));
+        current->types.push_back(at);
       }
       else if(sd->is<AP(StructDecl)>())
       {
+        AP(StructType) st(new StructType(sd->get<AP(StructDecl)>().get(), current));
+        current->types.push_back(st);
       }
       else if(sd->is<AP(UnionDecl)>())
       {
+        AP(UnionDecl) ud(new UnionType(sd->get<AP(UnionDecl)>().get(), current));
+        current->types.push_back(ud);
       }
     }
   }

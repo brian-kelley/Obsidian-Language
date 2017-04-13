@@ -15,7 +15,7 @@ Type::Type(Scope* enclosingScope)
   enclosing = enclosingScope;
 }
 
-static void Type::createBuiltinTypes(Scope* global)
+void Type::createBuiltinTypes(Scope* global)
 {
 #define ADD_PRIM primitives.push_back(&table.back())
   vector<Type*>& table = global->types;
@@ -87,6 +87,29 @@ Type* Type::getType(Parser::Member* localName, Scope* usedScope, bool searchUp)
   else
   {
     return NULL;
+  }
+}
+
+Type* Type::getArrayType(Parser::TypeNT* type, Scope* usedScope, int arrayDims)
+{
+  Type* underlying = getTypeOrUndef(type, usedScope);
+}
+
+Type* Type::getTupleType(Parser::TupleType* tt, Scope* usedScope)
+{
+}
+
+Type* Type::getTypeOrUndef(Parser::TypeNT* type, Scope* usedScope, Type* usage)
+{
+  Type* gotten = getType(type, usedScope);
+  if(!gotten)
+  {
+  UndefType(string name, Scope* enclosing, Type* usage);
+    UndefType ut = AP(new UndefType(name));
+  }
+  else
+  {
+    return gotten;
   }
 }
 
@@ -164,7 +187,7 @@ string IntegerType::getCName()
     return "ulong";
   else
   {
-    //todo: support larger-precision ints
+    //todo: support arbitrary-sized ints as builtin types
   }
 }
 
@@ -184,10 +207,6 @@ string FloatType::getCName()
   {
     return "double"
   }
-  else
-  {
-    return "#error undefined type";
-  }
 }
 
 string StringType::getCName()
@@ -198,5 +217,13 @@ string StringType::getCName()
 string BoolType::getCName()
 {
   return "bool";
+}
+
+UndefType(string name, Scope* enclosing, Type* usage)
+{
+}
+
+UndefType(Parser::TypeNT* t, Scope* enclosing, Type* usage)
+{
 }
 

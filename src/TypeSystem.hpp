@@ -31,6 +31,10 @@ struct Type
   //Whether this can be implicitly converted to other
   virtual bool canConvert(Type* other);
   static Type* getType(Parser::TypeNT* type, Scope* usedScope);
+  static Type* getArrayType(Parser::TypeNT* type, Scope* usedScope, int arrayDims);
+  //look up tuple type, or create if doesn't exist
+  static Type* getTupleType(Parser::TupleType* tt, Scope* usedScope);
+  static Type* getTypeOrUndef(Parser::TypeNT* type, Scope* usedScope, Type* usage);
   //Get non-array, non-tuple type with given name, used in usedScope
   static Type* getType(string localName, Scope* usedScope);
   //Get type by name (with or without scope specifiers)
@@ -67,6 +71,7 @@ struct Trait
 struct StructType : public Type
 {
   StructType(string name, Scope* enclosingScope);
+  StructType(Parser::StructDecl* sd, Scope* enclosingScope);
   string getCName();
   string name;
   //check for member functions
@@ -80,7 +85,7 @@ struct StructType : public Type
 
 struct UnionType : public Type
 {
-  UnionType(string name, Scope* enclosingScope);
+  UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
   string getCName();
   string name;
   vector<AP(Type*)> options;
@@ -89,7 +94,8 @@ struct UnionType : public Type
 struct TupleType : public Type
 {
   //TupleType has no scope, all are global
-  TupleType(Parser::TupleType& tt);
+  TupleType(vector<Type*> members);
+  TupleType(Parser::TupleType* tt);
   string getCName();
   vector<Type*> members;
 };
@@ -97,7 +103,7 @@ struct TupleType : public Type
 struct AliasType : public Type
 {
   AliasType(string newName, Type* t, Scope* enclosingScope);
-  AliasType(Parser::Typedef& td, Scope* enclosingScope);
+  AliasType(Parser::Typedef* td, Scope* enclosingScope);
   string getCName();
   Type* actual;
 };
@@ -142,10 +148,18 @@ struct BoolType : public Type
 //Undef type: need a placeholder for types not yet defined
 struct UndefType : public Type
 {
+  UndefType(Parser::TypeNT* t, Scope* enclosing, Type* usage);
   UndefType(string name, Scope* enclosing, Type* usage);
   string getCName();
   string localName;
-  Type* usage;        //ptr to AliasType, StructType, UnionType or TupleType
+  variant<StructType*, UnionType*, TupleType*, ArrayType*> 
+  enum UsageType
+  {
+    STRUCT,
+    UNION,
+    TUPLE,
+    ARRAY
+  };
   //keep track of all known undefined types so they can be resolved more quickly
   static vector<UndefType*> all;
 };

@@ -59,7 +59,7 @@ enum
   METAELSE,
   METAFOR,
   METAFUNC,
-  VARIANT,
+  UNION,
   ENUM,
   AUTO,
   MODULE,
