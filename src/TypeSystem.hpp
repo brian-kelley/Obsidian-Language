@@ -148,19 +148,18 @@ struct BoolType : public Type
 //Undef type: need a placeholder for types not yet defined
 struct UndefType : public Type
 {
-  UndefType(Parser::TypeNT* t, Scope* enclosing, Type* usage);
-  UndefType(string name, Scope* enclosing, Type* usage);
+  UndefType(Parser::TypeNT* t, Scope* enclosing);
   string getCName();
-  string localName;
-  variant<StructType*, UnionType*, TupleType*, ArrayType*> 
-  enum UsageType
-  {
-    STRUCT,
-    UNION,
-    TUPLE,
-    ARRAY
-  };
-  //keep track of all known undefined types so they can be resolved more quickly
+  Scope* usage;
+  Parser::Member localPath;
+  variant<None, StructType*, UnionType*, TupleType*, ArrayType*> usage;
+  void tryResolve();
+  void resolveStructUsage();
+  void resolveUnionUsage();
+  void resolveArrayUsage();
+  void resolveTupleUsage();
+  //keep track of all known undefined types so they can be resolved as quickly as possible
+  //also tells quickly whether all have been resolved
   static vector<UndefType*> all;
 };
 

@@ -81,15 +81,14 @@ Modules!
 -basically namespace:
 -don't do :: shit, just have definition also go inside the braces
 -access members with . instead of ::
--like namespace, things can be put inside a module in different files
--obviously, have the implicit global module
--modules can nest, and can access submodules like "using graphics.thing;"
+-have the implicit global module, name is empty string and is owned statically
+-modules can nest, and can access submodules like "graphics.draw.triangle()"
 
 module MyModule
 {
   func int getThing(int asdf);
   string val;
-  private proc setVal(int asdf);  //not accessible outside module?
+  proc setVal(int asdf);
 }
 
 Errors are an implicit variant called "error" of any type
@@ -104,4 +103,16 @@ BETTER METAPROGRAMMING
   -primitives are literals in the usage code
   -allow full arithmetic on meta primitives
 -parsing will effectively performs type checking on metafunctions
+
+TYPE RULES
+-No shadowing
+  -No redefinition of type, in same or child scopes
+  -scopes which are both not parents of the other can define the same type
+-By making shadowing illegal:
+  -types from above scope can be used directly
+  -types from different branch of an above scope can be used with minimal scope resolution searched from any parent, unambiguously
+  -types from a child scope can only be accessed with full scope resolution from current to the type
+-General rules: (as of 4-13)
+  -Can't necessarily resolve all types used in a scope until scope tree is fully built
+  -No ambiguity, current type resolution is correct, except that in worst case an UndefType issue might only be resolvable at very end of scope tree building
 
