@@ -20,7 +20,6 @@ struct Type
   Type(Scope* enclosingScope);
   static void createBuiltinTypes(Scope* global);
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
-  static vector<Type*> primitives;
   //Get unique, possibly mangled C identifier for use in backend
   virtual string getCName() = 0;
   Scope* enclosing;
@@ -28,21 +27,16 @@ struct Type
   vector<Type*> dimTypes;
   //lazily create & return array type for given number of dimensions
   Type* getArrayType(int dims);
-  //Whether this can be implicitly converted to other
+  //TODO: whether this can be implicitly converted to other
   virtual bool canConvert(Type* other);
+  //Use this getType() for scope tree building
   static Type* getType(Parser::TypeNT* type, Scope* usedScope);
-  static Type* getArrayType(Parser::TypeNT* type, Scope* usedScope, int arrayDims);
-  //look up tuple type, or create if doesn't exist
-  static Type* getTupleType(Parser::TupleType* tt, Scope* usedScope);
-  static Type* getTypeOrUndef(Parser::TypeNT* type, Scope* usedScope, Type* usage);
-  //Get non-array, non-tuple type with given name, used in usedScope
-  static Type* getType(string localName, Scope* usedScope);
-  //Get type by name (with or without scope specifiers)
-  //if searchUp, can search in usedScope and then all its parents for the full path of localName
-  //otherwise (internal use only): only look in usedScope for localName, not usedScope's parents
-  static Type* getType(Parser::Member* localName, Scope* usedScope, bool searchUp = true);
-  //all tuple types, can look up by directly comparing components' Type ptrs directly
+  //Other variations (so above getType() 
+  static TupleType* getTupleType(Parser::TupleType* 
+  //"primitives" maps TypeNT::Prim values to corresponding Type*
+  static vector<Type*> primitives;
   static vector<TupleType*> tuples;
+  static vector<ArrayType*> arrays;
 };
 
 struct FuncPrototype
@@ -164,4 +158,14 @@ struct UndefType : public Type
 };
 
 #endif
+
+/*
+Type System Rules
+-Types are available to the scopes where they are declared and all child scopes
+-Name can be just the local name or a name with a scope specifier
+-If a new type has a nonexistant type as a member/dependent, use an "UndefType" as placeholder
+-UndefType can be looked up just like other regular types
+-Whenever a new types is created, attempt to look it up
+-If exists as an UndefType, resolve the UndefType
+*/
 

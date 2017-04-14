@@ -8,7 +8,7 @@ using namespace Parser;
 /***********************/
 
 vector<TupleType*> Type::tuples;
-vector<Type*> Type::primitives;
+map<string, Type*> Type::primitives;
 
 Type::Type(Scope* enclosingScope)
 {
@@ -17,30 +17,42 @@ Type::Type(Scope* enclosingScope)
 
 void Type::createBuiltinTypes(Scope* global)
 {
-#define ADD_PRIM primitives.push_back(&table.back())
-  vector<Type*>& table = global->types;
-  table.push_back(new BoolType);                          ADD_PRIM;
-  table.push_back(new IntegerType("char", 1, true));      ADD_PRIM;
-  table.push_back(new AliasType("i8", &table.back()));
-  table.push_back(new IntegerType("uchar", 1, false));    ADD_PRIM;
-  table.push_back(new AliasType("u8", &table.back()));
-  table.push_back(new IntegerType("short", 2, true));     ADD_PRIM;
-  table.push_back(new AliasType("i16", &table.back()));
-  table.push_back(new IntegerType("ushort", 2, false));   ADD_PRIM;
-  table.push_back(new AliasType("u16", &table.back()));
-  table.push_back(new IntegerType("int", 4, true));       ADD_PRIM;
-  table.push_back(new AliasType("i32", &table.back()));
-  table.push_back(new IntegerType("uint", 4, false));     ADD_PRIM;
-  table.push_back(new AliasType("u32", &table.back()));
-  table.push_back(new IntegerType("long", 8, true));      ADD_PRIM;
-  table.push_back(new AliasType("i64", &table.back()));
-  table.push_back(new IntegerType("ulong", 8, false));    ADD_PRIM;
-  table.push_back(new AliasType("u64", &table.back()));
-  table.push_back(new FloatType("float", 4));             ADD_PRIM;
-  table.push_back(new AliasType("f32", &table.back()));
-  table.push_back(new FloatType("double", 8));
-  table.push_back(new AliasType("f64", &table.back()));   ADD_PRIM;
-  table.push_back(new StringType);                        ADD_PRIM;
+#define ADD_PRIM primitives.push_back(&table.back().get())
+  vector<AP(Type)>& table = global->types;
+  table.emplace_back(new BoolType);
+  ADD_PRIM;
+  table.emplace_back(new IntegerType("char", 1, true));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("i8", &table.back()));
+  table.emplace_back(new IntegerType("uchar", 1, false));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("u8", &table.back()));
+  table.emplace_back(new IntegerType("short", 2, true));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("i16", &table.back()));
+  table.emplace_back(new IntegerType("ushort", 2, false));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("u16", &table.back()));
+  table.emplace_back(new IntegerType("int", 4, true));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("i32", &table.back()));
+  table.emplace_back(new IntegerType("uint", 4, false));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("u32", &table.back()));
+  table.emplace_back(new IntegerType("long", 8, true));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("i64", &table.back()));
+  table.emplace_back(new IntegerType("ulong", 8, false));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("u64", &table.back()));
+  table.emplace_back(new FloatType("float", 4));
+  ADD_PRIM;
+  table.emplace_back(new AliasType("f32", &table.back()));
+  table.emplace_back(new FloatType("double", 8));
+  table.emplace_back(new AliasType("f64", &table.back()));
+  ADD_PRIM;
+  table.emplace_back(new StringType);
+  ADD_PRIM;
 #undef ADD_PRIM
 }
 
