@@ -144,28 +144,19 @@ struct UndefType : public Type
 {
   UndefType(Parser::TypeNT* t, Scope* enclosing);
   string getCName();
-  Scope* usage;
+  Type* usage;
   Parser::Member localPath;
+  //The reason for needing an UndefType: the owning type that has this as a member
   variant<None, StructType*, UnionType*, TupleType*, ArrayType*> usage;
-  void tryResolve();
+  //resolve() produces compiler error if it fails
+  void resolve();
+  void resolveAliasType();
   void resolveStructUsage();
   void resolveUnionUsage();
   void resolveArrayUsage();
   void resolveTupleUsage();
-  //keep track of all known undefined types so they can be resolved as quickly as possible
-  //also tells quickly whether all have been resolved
-  static vector<UndefType*> all;
+  static vector<UndefType*> instances;
 };
 
 #endif
-
-/*
-Type System Rules
--Types are available to the scopes where they are declared and all child scopes
--Name can be just the local name or a name with a scope specifier
--If a new type has a nonexistant type as a member/dependent, use an "UndefType" as placeholder
--UndefType can be looked up just like other regular types
--Whenever a new types is created, attempt to look it up
--If exists as an UndefType, resolve the UndefType
-*/
 

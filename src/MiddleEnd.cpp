@@ -1,17 +1,19 @@
 #include "MiddleEnd.hpp"
 
+AP(ModuleScope) global;
+
 namespace MiddleEnd
 {
   void MiddleEnd::load(AP(Module)& ast)
   {
-    AP(Scope) global(new ModuleScope(NULL));
+    global = AP(ModuleScope)(new ModuleScope(NULL));
     ast->scope = global.get();
-    loadBuiltinTypes(global);
+    loadBuiltinTypes();
     //build scope tree
     visitModule(NULL, ast);
   }
 
-  void MiddleEnd::loadBuiltinTypes(AP(Scope)& global)
+  void MiddleEnd::loadBuiltinTypes()
   {
     vector<Type*>& table = global->types;
     table.push_back(new IntegerType("char", 1, true));
@@ -35,14 +37,6 @@ namespace MiddleEnd
     table.push_back(new FloatType("double", 8));
     table.push_back(new AliasType("f64", &table.back()));
     table.push_back(new StringType);
-  }
-
-  void MiddleEnd::semanticCheck(AP(Scope)& global)
-  {
-  }
-
-  void MiddleEnd::checkEntryPoint(AP(Scope)& global)
-  {
   }
 
   namespace TypeLoading

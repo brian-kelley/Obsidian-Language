@@ -20,14 +20,14 @@ Middle-end processing has several steps:
   -Array/tuple types are created lazily, in special lists separate from scopes
 */
 
+extern AP(ModuleScope) global;
+
 namespace MiddleEnd
 {
   using namespace std;
   using namespace Parser;
   void load(AP(Module)& ast);
-  void loadBuiltinTypes(AP(Scope)& global);
-  void semanticCheck(AP(Scope)& global);
-  void checkEntryPoint(AP(Scope)& global);
+  void loadBuiltinTypes();
   //AST traversal functions for building scope tree
   namespace TypeLoading
   {

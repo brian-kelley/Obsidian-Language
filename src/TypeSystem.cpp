@@ -7,8 +7,11 @@ using namespace Parser;
 /* Type and subclasses */
 /***********************/
 
+extern AP(ModuleScope) global;
+
 vector<TupleType*> Type::tuples;
 map<string, Type*> Type::primitives;
+vector<UndefType*> UndefType::instances;
 
 Type::Type(Scope* enclosingScope)
 {
@@ -49,8 +52,8 @@ void Type::createBuiltinTypes(Scope* global)
   ADD_PRIM;
   table.emplace_back(new AliasType("f32", &table.back()));
   table.emplace_back(new FloatType("double", 8));
-  table.emplace_back(new AliasType("f64", &table.back()));
   ADD_PRIM;
+  table.emplace_back(new AliasType("f64", &table.back()));
   table.emplace_back(new StringType);
   ADD_PRIM;
 #undef ADD_PRIM
@@ -99,29 +102,6 @@ Type* Type::getType(Parser::Member* localName, Scope* usedScope, bool searchUp)
   else
   {
     return NULL;
-  }
-}
-
-Type* Type::getArrayType(Parser::TypeNT* type, Scope* usedScope, int arrayDims)
-{
-  Type* underlying = getTypeOrUndef(type, usedScope);
-}
-
-Type* Type::getTupleType(Parser::TupleType* tt, Scope* usedScope)
-{
-}
-
-Type* Type::getTypeOrUndef(Parser::TypeNT* type, Scope* usedScope, Type* usage)
-{
-  Type* gotten = getType(type, usedScope);
-  if(!gotten)
-  {
-  UndefType(string name, Scope* enclosing, Type* usage);
-    UndefType ut = AP(new UndefType(name));
-  }
-  else
-  {
-    return gotten;
   }
 }
 
