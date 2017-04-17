@@ -5,7 +5,7 @@
 #include "Token.hpp"
 #include <iostream>
 
-void printAST(AP(Parser::Module)>& ast);
+void printAST(AP(Parser::Module)& ast);
 
 namespace AstPrinter
 {

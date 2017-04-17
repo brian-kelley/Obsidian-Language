@@ -8,7 +8,7 @@
 
 #include <stdexcept>
 #include <memory>
-#include "variant.h"
+#include "variadic-variant/variant.h"
 
 using namespace std;
 
@@ -16,8 +16,15 @@ using namespace std;
 struct None{};
 typedef runtime_error ParseErr;
 
+struct Scope;
+struct ModuleScope;
+struct BlockScope;
+struct StructScope;
+struct Type;
+
 namespace Parser
 {
+  struct Module;
   //Parse a program from token string (only function needed outside namespace)
   AP(Module) parseProgram(vector<Token*>& toks);
 
@@ -41,7 +48,6 @@ namespace Parser
   void err(string msg = "");
 
   //lots of mutual recursion in nonterminal structs so just forward-declare all of them
-  struct Module;
   struct ScopedDecl;
   struct TypeNT;
   struct Statement;

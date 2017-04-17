@@ -7,13 +7,14 @@
 #include <map>
 
 #include "Parser.hpp"
-#include "Scope.hpp"
 
 /**************************
 *   Type System Structs   *
 **************************/
 
 struct Scope;
+struct TupleType;
+struct ArrayType;
 
 struct Type
 {
@@ -31,11 +32,11 @@ struct Type
   //Use this getType() for scope tree building
   static Type* getType(Parser::TypeNT* type, Scope* usedScope);
   //Other variations (so above getType() 
-  static TupleType* getTupleType(Parser::TupleType* 
   //"primitives" maps TypeNT::Prim values to corresponding Type*
   static vector<Type*> primitives;
   static vector<TupleType*> tuples;
   static vector<ArrayType*> arrays;
+  static vector<Type*> unresolvedTypes;
 };
 
 struct FuncPrototype
@@ -68,11 +69,13 @@ struct StructType : public Type
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
-  bool hasFunc(ProcType& type);
-  bool hasProc(ProcType& type);
+  bool hasFunc(FuncPrototype& type);
+  bool hasProc(ProcPrototype& type);
   vector<AP(Trait)> traits;
   vector<AP(Type)> members;
   vector<bool> composed;  //1-1 correspondence with members
+  //used to handle unresolved data members
+  Parser::StructDecl* decl;
 };
 
 struct UnionType : public Type
@@ -86,8 +89,10 @@ struct TupleType : public Type
 {
   //TupleType has no scope, all are global
   TupleType(vector<Type*> members);
-  TupleType(Parser::TupleType* tt);
+  TupleType(Parser::TupleTypeNT* tt);
   vector<Type*> members;
+  //this is used only when handling unresolved members
+  Parser::TupleTypeNT* decl;
 };
 
 struct AliasType : public Type
@@ -95,6 +100,7 @@ struct AliasType : public Type
   AliasType(Parser::Typedef* td, Scope* enclosingScope);
   string name;
   Type* actual;
+  Parser::Typedef* decl;
 };
 
 struct EnumType : public Type
@@ -127,25 +133,6 @@ struct StringType : public Type
 
 struct BoolType : public Type
 {
-};
-
-//Undef type: need a placeholder for types not yet defined
-struct UndefType : public Type
-{
-  UndefType(string name, Scope* enclosing, Type* usage);
-  UndefType(Member* mem, Scope* enclosing, Type* usage, int tupleIndex = 0);
-  //The reason for needing an UndefType: the owning type that has this as a member
-  variant<None, StructType*, UnionType*, TupleType*, ArrayType*> usage;
-  int tupleIndex;
-  vector<string> name;
-  //resolve() produces compiler error if it fails
-  void resolve();
-  void resolveAliasType();
-  void resolveStructUsage();
-  void resolveUnionUsage();
-  void resolveArrayUsage();
-  void resolveTupleUsage();
-  static vector<UndefType*> instances;
 };
 
 #endif

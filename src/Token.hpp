@@ -2,7 +2,7 @@
 #define TOKEN_H
 
 #include "Misc.hpp"
-#include "Type.hpp"
+#include "Utils.hpp"
 
 #include <map>
 #include <vector>

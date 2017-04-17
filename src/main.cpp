@@ -1,7 +1,6 @@
 #include "Misc.hpp"
 #include "Options.hpp"
 #include "Utils.hpp"
-#include "Preprocess.hpp"
 #include "CGen.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
@@ -36,10 +35,9 @@ int main(int argc, const char** argv)
   {
     cout << "Will emit C++ code to \"" << op.outputStem + ".c" << "\"\n";
   }
-  //Preprocessing
-  preprocess(code);
   //Lexing
-  vector<Token*> toks = lex(code);
+  vector<Token*> toks;
+  lex(code, toks);
   /*
   cout << "************************************\n";
   cout << "*            TOKENS                *\n";
@@ -52,7 +50,7 @@ int main(int argc, const char** argv)
   cout << '\n';
   */
   //Parse the global/root module
-  AP(Module) ast = Parser::parseProgram(toks);
+  AP(Parser::Module) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";

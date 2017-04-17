@@ -1,10 +1,13 @@
 #include "MiddleEnd.hpp"
 
+using namespace std;
+using namespace Parser;
+
 AP(ModuleScope) global;
 
 namespace MiddleEnd
 {
-  void MiddleEnd::load(AP(Module)& ast)
+  void load(AP(Module)& ast)
   {
     global = AP(ModuleScope)(new ModuleScope(NULL));
     ast->scope = global.get();
@@ -13,7 +16,7 @@ namespace MiddleEnd
     visitModule(NULL, ast);
   }
 
-  void MiddleEnd::loadBuiltinTypes()
+  void loadBuiltinTypes()
   {
     vector<Type*>& table = global->types;
     table.push_back(new IntegerType("char", 1, true));
@@ -74,12 +77,13 @@ namespace MiddleEnd
 
     void visitStruct(Scope* current, AP(StructDecl)& sd)
     {
-      //must create a child scope and also a type
+      //must create a child scope and then type
       AP(Scope) sscope(new StructScope);
       current->children.push_back(sscope);
       sscope->name = sd->name;
       sd->scope = sscope.get();
       AP(StructType) stype(new StructType(sd->name, current));
+      current->types.push_back(stype);
       for(auto& it : sd->members)
       {
         auto& decl = it->sd;
@@ -109,8 +113,7 @@ namespace MiddleEnd
       }
       else if(sd->is<AP(StructDecl)>())
       {
-        AP(StructType) st(new StructType(sd->get<AP(StructDecl)>().get(), current));
-        current->types.push_back(st);
+        visitStruct(current, sd->get<AP(StructDecl)>());
       }
       else if(sd->is<AP(UnionDecl)>())
       {

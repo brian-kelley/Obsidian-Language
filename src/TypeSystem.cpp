@@ -11,7 +11,7 @@ extern AP(ModuleScope) global;
 
 vector<TupleType*> Type::tuples;
 map<string, Type*> Type::primitives;
-vector<UndefType*> UndefType::instances;
+vector<Type*> Type::unresolvedTypes;
 
 Type::Type(Scope* enclosingScope)
 {
@@ -60,6 +60,40 @@ void Type::createBuiltinTypes(Scope* global)
 #undef ADD_PRIM
 }
 
+Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
+{
+  if(type->t.is<TypeNT::Prim>())
+  {
+  }
+        /*
+    TypeNT();
+    Type* entry;        //TypeSystem type table entry for this
+    enum struct Prim
+    {
+      BOOL,
+      CHAR,
+      UCHAR,
+      SHORT,
+      USHORT,
+      INT,
+      UINT,
+      LONG,
+      ULONG,
+      FLOAT,
+      DOUBLE,
+      STRING
+    };
+    variant<
+      None,
+      Prim,
+      AP(Member),
+      AP(TupleTypeNT),
+      AP(FuncType),
+      AP(ProcType)> t;
+    int arrayDims;
+    */
+}
+
 //Get the type table entry, given the local usage name and current scope
 //If type not defined, return NULL
 Type* Type::getType(string localName, Scope* usedScope)
@@ -106,10 +140,14 @@ Type* Type::getType(Parser::Member* localName, Scope* usedScope, bool searchUp)
   }
 }
 
-StructType(string name, Scope* enclosingScope)
+StructType(Parser::StructDecl* sd, Scope* enclosingScope) : Type(enclosingScope)
 {
-  this->name = name;
-  this->enclosing = enclosingScope;
+  this->name = sd->name;
+  //can't actually handle any members yet - need to visit this struct decl as a scope first
+  //but, this happens later
+  decl = sd;
+  //must assume there are unresolved members
+  unresolvedTypes.push_back(this);
 }
 
 bool StructType::hasFunc(FuncType* type)
@@ -122,12 +160,23 @@ bool StructType::hasProc(ProcType* type)
 
 TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(currentScope)
 {
+  bool unresolved = false;
   for(size_t i = 0; i < tt->members.size(); i++)
   {
     TypeNT* typeNT = tt->members[i];
-    Type* type = getTypeOrUndef(typeNT, currentScope, this, i);
+    Type* type = getType(typeNT, currentScope);
+    if(!type)
+    {
+      unresolved = true;
+    }
     members.push_back(type);
   }
+  if(unresolved)
+  {
+    unresolvedTypes.push_back(this);
+    //will visit this later and look up all NULL types again
+  }
+  decl = tt;
 }
 
 Type* Type::getTypeOrUndef(TypeNT* nt, Scope* currentScope, Type* usage, int tupleIndex)
@@ -150,7 +199,13 @@ Type* Type::getTypeOrUndef(TypeNT* nt, Scope* currentScope, Type* usage, int tup
 AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
 {
   name = td->ident;
-  actual = getTypeOrUndef(td->type, current, this);
+  Type* t = getType(td->type.get(), current);
+  actual = t;
+  if(!t)
+  {
+    unresolvedTypes.push_back(this);
+  }
+  decl = td;
 }
 
 EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
@@ -213,32 +268,4 @@ string FloatType::getCName()
   }
 }
 */
-
-UndefType::UndefType(Member* mem, Scope* enclosing, Type* usageType, int tupleIndex) : Type(enclosing)
-{
-  for(Member* iter = mem; iter; iter = iter->mem.get())
-  {
-    name.push_back(iter->owner);
-  }
-  //use short-circuit eval to set the usage variant correctly
-  (usage = dynamic_cast<StructType>()) ||
-    (usage = dynamic_cast<UnionType>()) ||
-    (usage = dynamic_cast<ArrayType>()) ||
-    (usage = dynamic_cast<TupleType>()) ||
-    (usage = dynamic_cast<AliasType>());
-  this->tupleIndex = tupleIndex;
-  instances.push_back(this);
-}
-
-UndefType::UndefType(string name, Scope* enclosing, Type* usageType) : Type(enclosing)
-{
-  this->name.push_back(iter->owner);
-  //use short-circuit eval to set the usage variant correctly
-  (usage = dynamic_cast<StructType>()) ||
-    (usage = dynamic_cast<UnionType>()) ||
-    (usage = dynamic_cast<ArrayType>()) ||
-    (usage = dynamic_cast<TupleType>()) ||
-    (usage = dynamic_cast<AliasType>());
-  instances.push_back(this);
-}
 
