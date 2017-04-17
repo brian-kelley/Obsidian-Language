@@ -62,8 +62,15 @@ void Type::createBuiltinTypes(Scope* global)
 
 Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
 {
+  //handle array immediately - just make an array and then handle singular type
+  if(type->arrayDims)
+  {
+    //look up element type
+
+  }
   if(type->t.is<TypeNT::Prim>())
   {
+    return primitives[type->t.get<TypeNT::Prim>()];
   }
         /*
     TypeNT();
