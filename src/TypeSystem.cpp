@@ -16,6 +16,7 @@ vector<UndefType*> UndefType::instances;
 Type::Type(Scope* enclosingScope)
 {
   enclosing = enclosingScope;
+  enclosingScope->types.push_back(this);
 }
 
 void Type::createBuiltinTypes(Scope* global)
@@ -111,45 +112,54 @@ StructType(string name, Scope* enclosingScope)
   this->enclosing = enclosingScope;
 }
 
-string StructType::getCName()
+bool StructType::hasFunc(FuncType* type)
 {
 }
 
-bool StructType::hasFunc(ProcType& type)
+bool StructType::hasProc(ProcType* type)
 {
 }
 
-bool StructType::hasProc(ProcType& type)
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(currentScope)
 {
+  for(size_t i = 0; i < tt->members.size(); i++)
+  {
+    TypeNT* typeNT = tt->members[i];
+    Type* type = getTypeOrUndef(typeNT, currentScope, this, i);
+    members.push_back(type);
+  }
 }
 
-TupleType::TupleType(TupleType& tt)
+Type* Type::getTypeOrUndef(TypeNT* nt, Scope* currentScope, Type* usage, int tupleIndex)
 {
+  Type* lookup = getType(td->type, currentScope);
+  if(!lookup)
+  {
+    //UndefType(string name, Scope* enclosing, Type* usageType) : Type(enclosing)
+    //Failed lookup: underlying parsed type must be a Member
+    //Must use member's full name for unambiguous aliased type
+    return new UndefType(nt->t.get<AP(Member)>().get(), currentScope, usage, tupleIndex);
+  }
+  else
+  {
+    //lookup successful so use known underlying type
+    return lookup;
+  }
 }
 
-string TupleType::getCName()
+AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
 {
+  name = td->ident;
+  actual = getTypeOrUndef(td->type, current, this);
 }
 
-AliasType::AliasType(string newName, Type* t)
+EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 {
-}
-
-AliasType::AliasType(Typedef& td)
-{
-}
-
-string AliasType::getCName()
-{
-  return actual->getCName();
-}
-
-EnumType::EnumType(Parser::Enum& e)
-{
-}
-
-string EnumType::getCName()
-{
+  name = e->name;
+  for(auto& it : e->items)
+  {
+    values[it->name] = it->value->val;
+  }
 }
 
 IntegerType::IntegerType(string name, int size, bool sign)
@@ -159,6 +169,7 @@ IntegerType::IntegerType(string name, int size, bool sign)
   this->isSigned = sign;
 }
 
+/*
 string IntegerType::getCName()
 {
   if(size == 1 && isSigned)
@@ -182,13 +193,14 @@ string IntegerType::getCName()
     //todo: support arbitrary-sized ints as builtin types
   }
 }
-
+*/
 FloatType::FloatType(string name, int size)
 {
   this->name = name;
   this->size = size;
 }
 
+/*
 string FloatType::getCName()
 {
   if(size == 4)
@@ -200,22 +212,33 @@ string FloatType::getCName()
     return "double"
   }
 }
+*/
 
-string StringType::getCName()
+UndefType::UndefType(Member* mem, Scope* enclosing, Type* usageType, int tupleIndex) : Type(enclosing)
 {
-  return "string";
+  for(Member* iter = mem; iter; iter = iter->mem.get())
+  {
+    name.push_back(iter->owner);
+  }
+  //use short-circuit eval to set the usage variant correctly
+  (usage = dynamic_cast<StructType>()) ||
+    (usage = dynamic_cast<UnionType>()) ||
+    (usage = dynamic_cast<ArrayType>()) ||
+    (usage = dynamic_cast<TupleType>()) ||
+    (usage = dynamic_cast<AliasType>());
+  this->tupleIndex = tupleIndex;
+  instances.push_back(this);
 }
 
-string BoolType::getCName()
+UndefType::UndefType(string name, Scope* enclosing, Type* usageType) : Type(enclosing)
 {
-  return "bool";
-}
-
-UndefType(string name, Scope* enclosing, Type* usage)
-{
-}
-
-UndefType(Parser::TypeNT* t, Scope* enclosing, Type* usage)
-{
+  this->name.push_back(iter->owner);
+  //use short-circuit eval to set the usage variant correctly
+  (usage = dynamic_cast<StructType>()) ||
+    (usage = dynamic_cast<UnionType>()) ||
+    (usage = dynamic_cast<ArrayType>()) ||
+    (usage = dynamic_cast<TupleType>()) ||
+    (usage = dynamic_cast<AliasType>());
+  instances.push_back(this);
 }
 

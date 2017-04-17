@@ -155,7 +155,7 @@ namespace AstPrinter
       case 3:
         //tuple type, print indented on next line
         cout << '\n';
-        printTupleType(t->t.get<AP(TupleType)>(), ind + indentLevel);
+        printTupleTypeNT(t->t.get<AP(TupleTypeNT)>(), ind + indentLevel);
         break;
       default:;
     }
@@ -738,7 +738,7 @@ namespace AstPrinter
     printMember(tt->traitName, ind + indentLevel);
   }
 
-  void printTupleType(AP(TupleType)& tt, int ind)
+  void printTupleTypeNT(AP(TupleTypeNT)& tt, int ind)
   {
     indent(ind);
     cout << "Tuple type, members:\n";

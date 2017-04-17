@@ -58,7 +58,7 @@ namespace Parser
   template<> AP(StructLit) parse<StructLit>();
   template<> AP(Member) parse<Member>();
   template<> AP(TraitType) parse<TraitType>();
-  template<> AP(TupleType) parse<TupleType>();
+  template<> AP(TupleTypeNT) parse<TupleTypeNT>();
   template<> AP(Expr1) parse<Expr1>();
   template<> AP(Expr1RHS) parse<Expr1RHS>();
   template<> AP(Expr2) parse<Expr2>();
@@ -161,7 +161,7 @@ namespace Parser
     if(type->t.is<TypeNT::Prim>() != 1)
     {
       if(!(type->t = parseOptional<Member>()) &&
-          !(type->t = parseOptional<TupleType>()) &&
+          !(type->t = parseOptional<TupleTypeNT>()) &&
           !(type->t = parseOptional<FuncType>()) &&
           !(type->t = parseOptional<ProcType>()))
       {
@@ -727,9 +727,9 @@ namespace Parser
   }
 
   template<>
-  AP(TupleType) parse<TupleType>()
+  AP(TupleTypeNT) parse<TupleTypeNT>()
   {
-    AP(TupleType) tt(new TupleType);
+    AP(TupleTypeNT) tt(new TupleTypeNT);
     expectPunct(LPAREN);
     tt->members = parseSomeCommaSeparated<TypeNT>();
     expectPunct(RPAREN);

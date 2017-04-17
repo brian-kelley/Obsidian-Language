@@ -81,7 +81,7 @@ namespace Parser
   struct StructLit;
   struct Member;
   struct TraitType;
-  struct TupleType;
+  struct TupleTypeNT;
   struct BoolLit;
   struct Expr1;
   struct Expr1RHS;
@@ -156,7 +156,7 @@ namespace Parser
       None,
       Prim,
       AP(Member),
-      AP(TupleType),
+      AP(TupleTypeNT),
       AP(FuncType),
       AP(ProcType)> t;
     int arrayDims;
@@ -445,7 +445,7 @@ namespace Parser
     AP(Member) traitName;
   };
 
-  struct TupleType
+  struct TupleTypeNT
   {
     //cannot be empty
     vector<AP(TypeNT)> members;

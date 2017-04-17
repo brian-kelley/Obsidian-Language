@@ -21,7 +21,6 @@ struct Type
   static void createBuiltinTypes(Scope* global);
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   //Get unique, possibly mangled C identifier for use in backend
-  virtual string getCName() = 0;
   Scope* enclosing;
   //T.dimTypes[0] is for T[], T.dimTypes[1] is for T[][], etc.
   vector<Type*> dimTypes;
@@ -66,7 +65,6 @@ struct StructType : public Type
 {
   StructType(string name, Scope* enclosingScope);
   StructType(Parser::StructDecl* sd, Scope* enclosingScope);
-  string getCName();
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
@@ -80,7 +78,6 @@ struct StructType : public Type
 struct UnionType : public Type
 {
   UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
-  string getCName();
   string name;
   vector<AP(Type*)> options;
 };
@@ -90,22 +87,19 @@ struct TupleType : public Type
   //TupleType has no scope, all are global
   TupleType(vector<Type*> members);
   TupleType(Parser::TupleType* tt);
-  string getCName();
   vector<Type*> members;
 };
 
 struct AliasType : public Type
 {
-  AliasType(string newName, Type* t, Scope* enclosingScope);
   AliasType(Parser::Typedef* td, Scope* enclosingScope);
-  string getCName();
+  string name;
   Type* actual;
 };
 
 struct EnumType : public Type
 {
   EnumType(Parser::Enum* e, Scope* enclosingScope);
-  string getCName();
   string name;
   map<string, int> values;
 };
@@ -113,7 +107,6 @@ struct EnumType : public Type
 struct IntegerType : public Type
 {
   IntegerType(string name, int size, bool sign);
-  string getCName();
   //Size in bytes
   string name;
   int size;
@@ -126,28 +119,25 @@ struct FloatType : public Type
   //4 or 8
   string name;
   int size;
-  string getCName();
 };
 
 struct StringType : public Type
 {
-  string getCName();
 };
 
 struct BoolType : public Type
 {
-  string getCName();
 };
 
 //Undef type: need a placeholder for types not yet defined
 struct UndefType : public Type
 {
-  UndefType(Parser::TypeNT* t, Scope* enclosing);
-  string getCName();
-  Type* usage;
-  Parser::Member localPath;
+  UndefType(string name, Scope* enclosing, Type* usage);
+  UndefType(Member* mem, Scope* enclosing, Type* usage, int tupleIndex = 0);
   //The reason for needing an UndefType: the owning type that has this as a member
   variant<None, StructType*, UnionType*, TupleType*, ArrayType*> usage;
+  int tupleIndex;
+  vector<string> name;
   //resolve() produces compiler error if it fails
   void resolve();
   void resolveAliasType();

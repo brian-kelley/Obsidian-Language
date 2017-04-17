@@ -11,5 +11,8 @@ void writeFile(string& text, string filename);
 //Print message and exit(EXIT_FAILURE)
 void errAndQuit(string message);
 
+#define INTERNAL_ERROR \
+  cout << "<!> Onyx internal error: " __FILE__ ", line " __LINE__ << '\n'
+
 #endif
 
