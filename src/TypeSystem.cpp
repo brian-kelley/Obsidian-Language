@@ -7,10 +7,13 @@ using namespace Parser;
 /* Type and subclasses */
 /***********************/
 
-extern AP(ModuleScope) global;
+struct ModuleScope;
 
+extern ModuleScope* global;
+
+vector<Type*> Type::primitives;
 vector<TupleType*> Type::tuples;
-map<string, Type*> Type::primitives;
+vector<ArrayType*> Type::arrays;
 vector<Type*> Type::unresolvedTypes;
 
 Type::Type(Scope* enclosingScope)
@@ -19,42 +22,42 @@ Type::Type(Scope* enclosingScope)
   enclosingScope->types.push_back(this);
 }
 
-void Type::createBuiltinTypes(Scope* global)
+void Type::createBuiltinTypes()
 {
-#define ADD_PRIM primitives.push_back(&table.back().get())
-  vector<AP(Type)>& table = global->types;
+#define ADD_PRIM primitives.push_back(table.back())
+  vector<Type*>& table = global->types;
   table.emplace_back(new BoolType);
   ADD_PRIM;
   table.emplace_back(new IntegerType("char", 1, true));
   ADD_PRIM;
-  table.emplace_back(new AliasType("i8", &table.back()));
+  table.emplace_back(new AliasType("i8", table.back(), global));
   table.emplace_back(new IntegerType("uchar", 1, false));
   ADD_PRIM;
-  table.emplace_back(new AliasType("u8", &table.back()));
+  table.emplace_back(new AliasType("u8", table.back(), global));
   table.emplace_back(new IntegerType("short", 2, true));
   ADD_PRIM;
-  table.emplace_back(new AliasType("i16", &table.back()));
+  table.emplace_back(new AliasType("i16", table.back(), global));
   table.emplace_back(new IntegerType("ushort", 2, false));
   ADD_PRIM;
-  table.emplace_back(new AliasType("u16", &table.back()));
+  table.emplace_back(new AliasType("u16", table.back(), global));
   table.emplace_back(new IntegerType("int", 4, true));
   ADD_PRIM;
-  table.emplace_back(new AliasType("i32", &table.back()));
+  table.emplace_back(new AliasType("i32", table.back(), global));
   table.emplace_back(new IntegerType("uint", 4, false));
   ADD_PRIM;
-  table.emplace_back(new AliasType("u32", &table.back()));
+  table.emplace_back(new AliasType("u32", table.back(), global));
   table.emplace_back(new IntegerType("long", 8, true));
   ADD_PRIM;
-  table.emplace_back(new AliasType("i64", &table.back()));
+  table.emplace_back(new AliasType("i64", table.back(), global));
   table.emplace_back(new IntegerType("ulong", 8, false));
   ADD_PRIM;
-  table.emplace_back(new AliasType("u64", &table.back()));
+  table.emplace_back(new AliasType("u64", table.back(), global));
   table.emplace_back(new FloatType("float", 4));
   ADD_PRIM;
-  table.emplace_back(new AliasType("f32", &table.back()));
+  table.emplace_back(new AliasType("f32", table.back(), global));
   table.emplace_back(new FloatType("double", 8));
   ADD_PRIM;
-  table.emplace_back(new AliasType("f64", &table.back()));
+  table.emplace_back(new AliasType("f64", table.back(), global));
   table.emplace_back(new StringType);
   ADD_PRIM;
 #undef ADD_PRIM
@@ -65,89 +68,127 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
   //handle array immediately - just make an array and then handle singular type
   if(type->arrayDims)
   {
-    //look up element type
-
+    size_t dims = type->arrayDims;
+    type->arrayDims = 0;
+    //now look up the type for the element type
+    Type* elemType = getType(type, usedScope);
+    //restore original type to preserve AST
+    type->arrayDims = dims;
+    if(elemType)
+    {
+      //lazily check & create array type
+      if(elemType->dimTypes.size() >= dims)
+      {
+        //already exists
+        return elemType->dimTypes[dims - 1];
+      }
+      else
+      {
+        //create + add
+        //size = 1 -> max dim = 1
+        for(size_t i = elemType->dimTypes.size(); i <= dims; i++)
+        {
+          arrays.push_back(new ArrayType(elemType, dims));
+          elemType->dimTypes.push_back(arrays.back());
+        }
+        //now return the needed type
+        return elemType->dimTypes.back();
+      }
+    }
+    else
+    {
+      //use undef type
+      ArrayType* t = new ArrayType(nullptr, dims);
+      arrays.push_back(t);
+      unresolvedTypes.push_back(t);
+      return t;
+    }
   }
   if(type->t.is<TypeNT::Prim>())
   {
-    return primitives[type->t.get<TypeNT::Prim>()];
+    return primitives[(int) type->t.get<TypeNT::Prim>()];
   }
-        /*
-    TypeNT();
-    Type* entry;        //TypeSystem type table entry for this
-    enum struct Prim
-    {
-      BOOL,
-      CHAR,
-      UCHAR,
-      SHORT,
-      USHORT,
-      INT,
-      UINT,
-      LONG,
-      ULONG,
-      FLOAT,
-      DOUBLE,
-      STRING
-    };
-    variant<
-      None,
-      Prim,
-      AP(Member),
-      AP(TupleTypeNT),
-      AP(FuncType),
-      AP(ProcType)> t;
-    int arrayDims;
-    */
-}
-
-//Get the type table entry, given the local usage name and current scope
-//If type not defined, return NULL
-Type* Type::getType(string localName, Scope* usedScope)
-{
-  Parser::Member mem;
-  mem.owner = localName;
-  mem.member = AP(Member)(nullptr);
-  return getType(&mem, usedScope, true);
-}
-
-Type* Type::getType(Parser::Member* localName, Scope* usedScope, bool searchUp)
-{
-  if(localName->member.get())
+  else if(type->t.is<AP(Member)>())
   {
-    //get scope with name localName->owner, then try there with tail of localName
-    for(auto& it : usedScope->children)
+    //search up scope tree for the member
+    //need to search for EnumType, AliasType, StructType or UnionType
+    for(Scope* iter = usedScope; iter; iter = iter->parent)
     {
-      if(it->getLocalName() == localName->owner)
+      Scope* memScope = iter;
+      //iter is the root of search (scan for child scopes, then the type)
+      for(Member* search = type->t.get<AP(Member)>().get();
+          search; search = search->mem.get())
       {
-        //can only be one child scope with that name
-        //only need to search this one scope (it)
-        return getType(localName->member, it, false);
+        bool foundNext = false;
+        if(search->mem)
+        {
+          //find scope with name mem->owner
+          for(auto& searchScope : memScope->children)
+          {
+            if(searchScope->getLocalName() == search->owner)
+            {
+              //found the next memScope for searching
+              foundNext = true;
+              memScope = searchScope;
+              break;
+            }
+          }
+          if(!foundNext)
+          {
+            //stop searching down this chain of scopes
+            break;
+          }
+        }
+        else
+        {
+          //find type with name mem->owner
+          for(auto& searchType : iter->types)
+          {
+            StructType* st = dynamic_cast<StructType*>(searchType);
+            if(st && st->name == search->owner)
+            {
+              return st;
+            }
+            UnionType* ut = dynamic_cast<UnionType*>(searchType);
+            if(ut && ut->name == search->owner)
+            {
+              return ut;
+            }
+            EnumType* et = dynamic_cast<EnumType*>(searchType);
+            if(et && et->name == search->owner)
+            {
+              return et;
+            }
+            AliasType* at = dynamic_cast<AliasType*>(searchType);
+            if(at && at->name == search->owner)
+            {
+              return at;
+            }
+          }
+        }
       }
     }
   }
   else
   {
-    //localName is just the type name, search for it in this scope
-    for(auto& it : usedScope->types)
-    {
-      if(it->getLocalName() == localName->owner)
-      {
-        return it;
-      }
-    }
+    //TODO: FuncPrototype, ProcPrototype
+    INTERNAL_ERROR;
   }
-  if(searchUp && usedScope->parent)
-  {
-    return getType(localName, usedScope->parent, false);
-  }
-  else
-  {
-    return NULL;
-  }
+  return NULL;
 }
 
-StructType(Parser::StructDecl* sd, Scope* enclosingScope) : Type(enclosingScope)
+/***************/
+/* Struct Type */
+/***************/
+
+StructType::StructType(string name, Scope* enclosingScope) : Type(enclosingScope)
+{
+  this->name = name;
+  decl = nullptr;
+  unresolvedTypes.push_back(this);
+}
+
+StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope) : Type(enclosingScope)
 {
   this->name = sd->name;
   //can't actually handle any members yet - need to visit this struct decl as a scope first
@@ -157,28 +198,87 @@ StructType(Parser::StructDecl* sd, Scope* enclosingScope) : Type(enclosingScope)
   unresolvedTypes.push_back(this);
 }
 
-bool StructType::hasFunc(FuncType* type)
+bool StructType::hasFunc(FuncPrototype* type)
 {
+  //TODO
+  return false;
 }
 
-bool StructType::hasProc(ProcType* type)
+bool StructType::hasProc(ProcPrototype* type)
 {
+  //TODO
+  return false;
 }
 
-TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(currentScope)
+bool StructType::canConvert(Type* other)
 {
-  bool unresolved = false;
+  //TODO
+  return false;
+}
+
+/**************/
+/* Union Type */
+/**************/
+
+UnionType::UnionType(Parser::UnionDecl* ud, Scope* enclosingScope) : Type(enclosingScope)
+{
+  bool resolved = true;
+  this->name = ud->name;
+  for(auto& it : ud->types)
+  {
+    Type* option = getType(it.get(), enclosingScope);
+    if(!option)
+    {
+      resolved = false;
+      options.push_back(option);
+    }
+  }
+  if(!resolved)
+  {
+    unresolvedTypes.push_back(this);
+  }
+}
+
+bool UnionType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
+/**************/
+/* Array Type */
+/**************/
+
+ArrayType::ArrayType(Type* elemType, int dims) : Type(global)
+{
+  this->elem = elemType;
+  this->dims = dims;
+}
+
+bool ArrayType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
+/**************/
+/* Tuple Type */
+/**************/
+
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
+{
+  bool resolved = true;
   for(size_t i = 0; i < tt->members.size(); i++)
   {
-    TypeNT* typeNT = tt->members[i];
+    TypeNT* typeNT = tt->members[i].get();
     Type* type = getType(typeNT, currentScope);
     if(!type)
     {
-      unresolved = true;
+      resolved = false;
     }
     members.push_back(type);
   }
-  if(unresolved)
+  if(!resolved)
   {
     unresolvedTypes.push_back(this);
     //will visit this later and look up all NULL types again
@@ -186,22 +286,15 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(currentScope)
   decl = tt;
 }
 
-Type* Type::getTypeOrUndef(TypeNT* nt, Scope* currentScope, Type* usage, int tupleIndex)
+bool TupleType::canConvert(Type* other)
 {
-  Type* lookup = getType(td->type, currentScope);
-  if(!lookup)
-  {
-    //UndefType(string name, Scope* enclosing, Type* usageType) : Type(enclosing)
-    //Failed lookup: underlying parsed type must be a Member
-    //Must use member's full name for unambiguous aliased type
-    return new UndefType(nt->t.get<AP(Member)>().get(), currentScope, usage, tupleIndex);
-  }
-  else
-  {
-    //lookup successful so use known underlying type
-    return lookup;
-  }
+  //TODO
+  return false;
 }
+
+/**************/
+/* Alias Type */
+/**************/
 
 AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
 {
@@ -215,6 +308,22 @@ AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
   decl = td;
 }
 
+AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type(currentScope)
+{
+  name = alias;
+  actual = underlying;
+  decl = nullptr;
+}
+
+bool AliasType::canConvert(Type* other)
+{
+  return actual->canConvert(other);
+}
+
+/*************/
+/* Enum Type */
+/*************/
+
 EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 {
   name = e->name;
@@ -224,11 +333,27 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
   }
 }
 
-IntegerType::IntegerType(string name, int size, bool sign)
+bool EnumType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
+/****************/
+/* Integer Type */
+/****************/
+
+IntegerType::IntegerType(string name, int size, bool sign) : Type(global)
 {
   this->name = name;
   this->size = size;
   this->isSigned = sign;
+}
+
+bool IntegerType::canConvert(Type* other)
+{
+  //TODO
+  return false;
 }
 
 /*
@@ -256,7 +381,12 @@ string IntegerType::getCName()
   }
 }
 */
-FloatType::FloatType(string name, int size)
+
+/**************/
+/* Float Type */
+/**************/
+
+FloatType::FloatType(string name, int size) : Type(global)
 {
   this->name = name;
   this->size = size;
@@ -275,4 +405,35 @@ string FloatType::getCName()
   }
 }
 */
+
+bool FloatType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
+/***************/
+/* String Type */
+/***************/
+
+StringType::StringType() : Type(global) {}
+
+bool StringType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
+/*************/
+/* Bool Type */
+/*************/
+
+BoolType::BoolType() : Type(global) {}
+
+bool BoolType::canConvert(Type* other)
+{
+  //TODO
+  return false;
+}
+
 

@@ -4,6 +4,10 @@
 #include "Misc.hpp"
 #include "Utils.hpp"
 #include "TypeSystem.hpp"
+#include "Scope.hpp"
+
+struct Scope;
+struct Type;
 
 struct Variable
 {

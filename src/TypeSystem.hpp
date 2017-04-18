@@ -7,6 +7,8 @@
 #include <map>
 
 #include "Parser.hpp"
+#include "Scope.hpp"
+#include "TypeSystem.hpp"
 
 /**************************
 *   Type System Structs   *
@@ -19,7 +21,7 @@ struct ArrayType;
 struct Type
 {
   Type(Scope* enclosingScope);
-  static void createBuiltinTypes(Scope* global);
+  static void createBuiltinTypes();
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   //Get unique, possibly mangled C identifier for use in backend
   Scope* enclosing;
@@ -28,7 +30,7 @@ struct Type
   //lazily create & return array type for given number of dimensions
   Type* getArrayType(int dims);
   //TODO: whether this can be implicitly converted to other
-  virtual bool canConvert(Type* other);
+  virtual bool canConvert(Type* other) = 0;
   //Use this getType() for scope tree building
   static Type* getType(Parser::TypeNT* type, Scope* usedScope);
   //Other variations (so above getType() 
@@ -69,38 +71,53 @@ struct StructType : public Type
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
-  bool hasFunc(FuncPrototype& type);
-  bool hasProc(ProcPrototype& type);
-  vector<AP(Trait)> traits;
-  vector<AP(Type)> members;
+  bool hasFunc(FuncPrototype* type);
+  bool hasProc(ProcPrototype* type);
+  vector<Trait*> traits;
+  vector<Type*> members;
   vector<bool> composed;  //1-1 correspondence with members
   //used to handle unresolved data members
   Parser::StructDecl* decl;
+  bool canConvert(Type* other);
 };
 
 struct UnionType : public Type
 {
   UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
   string name;
-  vector<AP(Type*)> options;
+  vector<Type*> options;
+  bool canConvert(Type* other);
+};
+
+struct ArrayType : public Type
+{
+  ArrayType(Type* elemType, int dims);
+  Type* elem;
+  int dims;
+  bool canConvert(Type* other);
 };
 
 struct TupleType : public Type
 {
   //TupleType has no scope, all are global
   TupleType(vector<Type*> members);
-  TupleType(Parser::TupleTypeNT* tt);
+  //Note: TupleType really owned by global scope,
+  //but need currentScope to search for member Type*s
+  TupleType(Parser::TupleTypeNT* tt, Scope* currentScope);
   vector<Type*> members;
   //this is used only when handling unresolved members
   Parser::TupleTypeNT* decl;
+  bool canConvert(Type* other);
 };
 
 struct AliasType : public Type
 {
   AliasType(Parser::Typedef* td, Scope* enclosingScope);
+  AliasType(string alias, Type* underlying, Scope* currentScope);
   string name;
   Type* actual;
   Parser::Typedef* decl;
+  bool canConvert(Type* other);
 };
 
 struct EnumType : public Type
@@ -108,6 +125,7 @@ struct EnumType : public Type
   EnumType(Parser::Enum* e, Scope* enclosingScope);
   string name;
   map<string, int> values;
+  bool canConvert(Type* other);
 };
 
 struct IntegerType : public Type
@@ -117,6 +135,7 @@ struct IntegerType : public Type
   string name;
   int size;
   bool isSigned;
+  bool canConvert(Type* other);
 };
 
 struct FloatType : public Type
@@ -125,14 +144,19 @@ struct FloatType : public Type
   //4 or 8
   string name;
   int size;
+  bool canConvert(Type* other);
 };
 
 struct StringType : public Type
 {
+  StringType();
+  bool canConvert(Type* other);
 };
 
 struct BoolType : public Type
 {
+  BoolType();
+  bool canConvert(Type* other);
 };
 
 #endif

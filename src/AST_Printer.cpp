@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void printAST(AP(Parser::Module)>& ast)
+void printAST(AP(Parser::Module)& ast)
 {
   try
   {

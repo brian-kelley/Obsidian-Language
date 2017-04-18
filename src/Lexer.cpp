@@ -31,6 +31,7 @@ struct CodeStream
     {
       col++;
     }
+    return c;
   }
   char peek(int ahead)
   {
@@ -69,7 +70,7 @@ struct CodeStream
   }
   string& src;
   vector<Token*>& toks;
-  int iter;
+  size_t iter;
   int line;
   int col;
 };
@@ -208,7 +209,7 @@ void lex(string& code, vector<Token*>& tokList)
         char* numEnd;
         unsigned long long val = strtoull(code.c_str(), &numEnd, 16);
         cs.addToken(new IntLit(val));
-        for(char* i = code.c_str() + cs.iter; i < numEnd; i++)
+        for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
         {
           cs.getNext();
         }
@@ -228,7 +229,7 @@ void lex(string& code, vector<Token*>& tokList)
         char* numEnd;
         unsigned long long val = strtoull(code.c_str(), &numEnd, 2);
         cs.addToken(new IntLit(val));
-        for(char* i = code.c_str() + cs.iter; i < numEnd; i++)
+        for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
         {
           cs.getNext();
         }
@@ -236,53 +237,50 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else if(isdigit(c))
     {
+      uint64_t intVal = 0;
       //int (hex or dec) or float literal
-      if(c == '0' && tolower(cs.peek(1)) == 'x')
+      if(c == '0' && tolower(cs.peek(1)) == 'x' && isxdigit(cs.peek(2)))
       {
-        //hex int
+        //definitely hex int
         cs.getNext();     //eat the 'x'
         //now parse hex num (must succeed)
-        sscanf(code.c_str() + cs.iter, "%llx", &intVal);
+        char* hexEnd;
+        intVal = strtoull(code.c_str() + cs.iter, &hexEnd, 16);
+        cs.iter = hexEnd - code.c_str();
       }
-      else if(c == '0' && tolower(cs.peek(1)) == 'b')
+      else if(c == '0' && tolower(cs.peek(1)) == 'b' &&
+          (cs.peek(2) == '0' || cs.peek(2) == '1'))
       {
         //binary int
         cs.getNext();     //eat the 'b'
-        int numStart = cs.iter;
-        while(cs.peek(0) == '0' || cs.peek(0) == '1')
-        {
-          cs.getNext();
-        }
-        int numEnd = cs.iter;
-        for(int i = 0; i < numEnd - numStart; i++)
-        {
-          uint64_t bit = code[numEnd - i - 1] == '0' ? 0 : 1;
-          intVal |= (bit << i);
-        }
+        char* binEnd;
+        intVal = strtoull(code.c_str() + cs.iter, &binEnd, 2);
+        cs.iter = binEnd - code.c_str();
       }
       else
       {
         //take the integer conversion, or the double conversion if it uses more chars
-        const char* numStart = cs.c_str() + cs.iter;
+        const char* numStart = code.c_str() + cs.iter;
         char* intEnd;
         char* floatEnd;
         //note: int/float literals are always positive (- handled as arithmetic operator)
         //this means that IntLit holds unsigned value
-        unsigned long long intVal = strtoull(numStart, &intEnd, 10);
+        intVal = strtoull(numStart, &intEnd, 10);
         double floatVal = strtod(numStart, &floatEnd);
         if(floatEnd > intEnd)
         {
           //use float
           cs.addToken(new FloatLit(floatVal));
-          cs.iter = floatEnd - cs.c_str();
+          cs.iter = floatEnd - code.c_str();
         }
         else
         {
           //use int
           cs.addToken(new IntLit(intVal));
-          cs.iter = intEnd - cs.c_str();
+          cs.iter = intEnd - code.c_str();
         }
       }
+
     }
     else if(ispunct(c))
     {
@@ -294,7 +292,7 @@ void lex(string& code, vector<Token*>& tokList)
         //some operators are 2 chars long, use them if valid, otherwise 1 char
         string oper1 = string("") + c;
         string oper2 = oper1 + cs.peek(1);
-        auto oper2Iter = operatorMap.find(oper2)
+        auto oper2Iter = operatorMap.find(oper2);
         if(oper2Iter == operatorMap.end())
         {
           //must be 1-char operator
@@ -325,11 +323,6 @@ void lex(string& code, vector<Token*>& tokList)
       cs.err("unexpected character");
     }
   }
-  if(commentDepth != 0)
-  {
-    cs.err("/* without */");
-  }
-  return tokens;
 }
 
 char getEscapedChar(char ident)

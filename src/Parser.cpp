@@ -95,7 +95,7 @@ namespace Parser
       //print the deepest error message produced
       errAndQuit(deepestErr);
     }
-    return prog;
+    return globalModule;
   }
 
   template<>
@@ -114,7 +114,6 @@ namespace Parser
   AP(ScopedDecl) parse<ScopedDecl>()
   {
     AP(ScopedDecl) sd(new ScopedDecl);
-    enclosing = NULL;
     //use short-circuit evaluation to find the pattern that parses successfully
     if(!(sd->decl = parseOptional<Module>()) &&
         !(sd->decl = parseOptional<VarDecl>()) &&
@@ -138,7 +137,6 @@ namespace Parser
   AP(TypeNT) parse<TypeNT>()
   {
     AP(TypeNT) type(new TypeNT);
-    entry = NULL;
     type->arrayDims = 0;
     #define TRY_PRIMITIVE(p) { \
       if(type->t.is<None>() && acceptKeyword(p)) { \
@@ -346,6 +344,7 @@ namespace Parser
     {
       err("invalid for loop");
     }
+    return f;
   }
 
   template<>
@@ -658,7 +657,7 @@ namespace Parser
   AP(UnionDecl) parse<UnionDecl>()
   {
     AP(UnionDecl) vd(new UnionDecl);
-    expectKeyword(VARIANT);
+    expectKeyword(UNION);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     vd->types = parseSomeCommaSeparated<TypeNT>();
     return vd;
@@ -985,7 +984,7 @@ namespace Parser
     AP(Expr12) e12(new Expr12);
     if(acceptPunct(LPAREN))
     {
-      e12->e = parse<Expresion>();
+      e12->e = parse<Expression>();
       expectPunct(RPAREN);
     }
     if(!e12->e.is<None>() ||
@@ -1114,7 +1113,7 @@ namespace Parser
 
   void err(string msg)
   {
-    string fullMsg = string("Parse error on line ") + to_string(getNext()->row) + ", col " + to_string(getNext()->col);
+    string fullMsg = string("Parse error on line ") + to_string(getNext()->line) + ", col " + to_string(getNext()->col);
     if(msg.length())
       fullMsg += string(": ") + msg;
     else

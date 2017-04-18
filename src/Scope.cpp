@@ -1,31 +1,33 @@
 #include "Scope.hpp"
 
+int BlockScope::nextBlockIndex = 0;
+
 /*******************************
 *   Scope & subclasses impl    *
 *******************************/
 
-int BlockScope::nextBlockIndex = 0;
-
-  Type* typeFromName(string name);
+Scope::Scope(Scope* parent)
+{
+  this->parent = parent;
+  if(parent)
+  {
+    parent->children.push_back(this);
+  }
+}
 
 string Scope::getFullPath()
 {
   if(parent)
-    return parent->getFullPath() + '_' + getLocalName()
+    return parent->getFullPath() + '_' + getLocalName();
   else
     return getLocalName();
 }
 
 /* ModuleScope */
 
-ModuleScope::ModuleScope(Scope* parent)
+ModuleScope::ModuleScope(string name, Scope* parent) : Scope(parent)
 {
-  this->parent = parent;
-}
-
-ScopeType ModuleScope::getType()
-{
-  return ScopeType::MODULE;
+  this->name = name;
 }
 
 string ModuleScope::getLocalName()
@@ -35,9 +37,9 @@ string ModuleScope::getLocalName()
 
 /* StructScope */
 
-ScopeType StructScope::getType()
+StructScope::StructScope(string name, Scope* parent) : Scope(parent)
 {
-  return ScopeType::STRUCT;
+  this->name = name;
 }
 
 string StructScope::getLocalName()
@@ -47,13 +49,13 @@ string StructScope::getLocalName()
 
 /* BlockScope */
 
-ScopeType BlockScope::getType()
+BlockScope::BlockScope(Scope* parent) : Scope(parent)
 {
-  return ScopeType::BLOCK;
+  index = nextBlockIndex++;
 }
 
 string BlockScope::getLocalName()
 {
-  return string("B") + to_string(index);
+  return string("_B") + to_string(index);
 }
 
