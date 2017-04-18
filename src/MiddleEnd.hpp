@@ -34,6 +34,7 @@ namespace MiddleEnd
     void visitBlock(Scope* current, AP(Parser::Block)& b);
     void visitStruct(Scope* current, AP(Parser::StructDecl)& sd);
     void visitScopedDecl(Scope* current, AP(Parser::ScopedDecl)& sd);
+    void resolveAll();
   }
 }
 

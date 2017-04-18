@@ -17,6 +17,9 @@
 struct Scope;
 struct TupleType;
 struct ArrayType;
+struct StructType;
+struct UnionType;
+struct AliasType;
 
 struct Type
 {
@@ -39,6 +42,11 @@ struct Type
   static vector<TupleType*> tuples;
   static vector<ArrayType*> arrays;
   static vector<Type*> unresolvedTypes;
+  static void resolveStruct(StructType* st);
+  static void resolveUnion(UnionType* ut);
+  static void resolveTuple(TupleType* tt);
+  static void resolveAlias(AliasType* at);
+  static void resolveArray(ArrayType* at);
 };
 
 struct FuncPrototype
@@ -66,8 +74,7 @@ struct Trait
 
 struct StructType : public Type
 {
-  StructType(string name, Scope* enclosingScope);
-  StructType(Parser::StructDecl* sd, Scope* enclosingScope);
+  StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* structScope);
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
@@ -75,9 +82,12 @@ struct StructType : public Type
   bool hasProc(ProcPrototype* type);
   vector<Trait*> traits;
   vector<Type*> members;
+  vector<string> memberNames;
   vector<bool> composed;  //1-1 correspondence with members
   //used to handle unresolved data members
   Parser::StructDecl* decl;
+  //member types must be searched from here (the scope inside the struct decl)
+  StructScope* structScope;
   bool canConvert(Type* other);
 };
 

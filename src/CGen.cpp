@@ -126,7 +126,14 @@ const char* header =
   "string disposeString_(string* s)\n"
   "{\n"
     "free(s->buf);\n"
-  "};\n";
+  "};\n"
+
+  //TESTING ONLY
+
+  "int main()\n"
+  "{\n"
+    "return 0;\n"
+  "}\n";
 
   fputs(header, c);
 }

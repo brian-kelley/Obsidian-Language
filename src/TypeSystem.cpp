@@ -169,6 +169,49 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
       }
     }
   }
+  else if(type->t.is<AP(TupleTypeNT)>())
+  {
+    auto& tt = type->t.get<AP(TupleTypeNT)>();
+    //search for each member individually
+    vector<Type*> types;
+    bool resolved = true;
+    for(auto& it : tt->members)
+    {
+      types.push_back(getType(it.get(), usedScope));
+      if(!types.back())
+      {
+        resolved = false;
+      }
+    }
+    if(resolved)
+    {
+      //look up tuple by pointers, create if doesn't exist
+      for(auto& existing : tuples)
+      {
+        if(existing->members.size() != types.size())
+        {
+          continue;
+        }
+        bool allMatch = true;
+        for(size_t i = 0; i < types.size(); i++)
+        {
+          if(existing->members[i] != types[i])
+          {
+            allMatch = false;
+            break;
+          }
+        }
+        if(!allMatch)
+        {
+          continue;
+        }
+        //tuples equivalent, use existing
+        return existing;
+      }
+    }
+    //need to create new tuple (ctor adds to unresolvedTypes)
+    return new TupleType(types);
+  }
   else
   {
     //TODO: FuncPrototype, ProcPrototype
@@ -177,25 +220,77 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
   return NULL;
 }
 
+/*******************/
+/* Type resolution */
+/*******************/
+
+void Type::resolveStruct(StructType* st)
+{
+  //load all data member types, should be available now
+  int memberNum = 0;
+  for(auto& mem : st->decl->members)
+  {
+    auto& sd = mem->sd;
+    if(sd->decl.is<AP(VarDecl)>())
+    {
+      //make sure this type was loaded correctly
+      if(!members[memberNum])
+      {
+        Type* loaded = getType(sd->decl.get<AP(VarDecl)>()->type.get(), structScope);
+        if(!loaded)
+        {
+          errAndQuit("Unknown type");
+        }
+      }
+      memberNum++;
+    }
+  }
+}
+
+void Type::resolveUnion(UnionType* ut)
+{
+}
+
+void Type::resolveTuple(TupleType* tt)
+{
+}
+
+void Type::resolveAlias(AliasType* at)
+{
+}
+
+void Type::resolveArray(ArrayType* at)
+{
+}
+
 /***************/
 /* Struct Type */
 /***************/
 
-StructType::StructType(string name, Scope* enclosingScope) : Type(enclosingScope)
-{
-  this->name = name;
-  decl = nullptr;
-  unresolvedTypes.push_back(this);
-}
-
-StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope) : Type(enclosingScope)
+StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* structScope) : Type(enclosingScope)
 {
   this->name = sd->name;
   //can't actually handle any members yet - need to visit this struct decl as a scope first
   //but, this happens later
   decl = sd;
   //must assume there are unresolved members
-  unresolvedTypes.push_back(this);
+  this->structScope = structScope;
+  bool resolved = true;
+  for(auto& it : sd->members)
+  {
+    ScopedDecl* decl = it->sd;
+    if(decl->is<AP(VarDecl)>())
+    {
+      VarDecl* data = decl->get<AP(VarDecl)>();
+      Type* dataType = getType(data->type, structScope);
+      if(!dataType)
+      {
+        resolved = false;
+      }
+      members.push_back(dataType);
+      memberNames.push_back(data->name);
+    }
+  }
 }
 
 bool StructType::hasFunc(FuncPrototype* type)
@@ -265,12 +360,26 @@ bool ArrayType::canConvert(Type* other)
 /* Tuple Type */
 /**************/
 
+TupleType::TupleType(vector<Type*> members) : Type(global)
+{
+  this->members = members;
+  tuples.push_back(this);
+  for(auto& it : members)
+  {
+    if(!it)
+    {
+      unresolvedTypes.push_back(this);
+      return;
+    }
+  }
+}
+
 TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
 {
   bool resolved = true;
-  for(size_t i = 0; i < tt->members.size(); i++)
+  for(auto& it : tt->members)
   {
-    TypeNT* typeNT = tt->members[i].get();
+    TypeNT* typeNT = it.get();
     Type* type = getType(typeNT, currentScope);
     if(!type)
     {
@@ -284,6 +393,7 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
     //will visit this later and look up all NULL types again
   }
   decl = tt;
+  tuples.push_back(this);
 }
 
 bool TupleType::canConvert(Type* other)
