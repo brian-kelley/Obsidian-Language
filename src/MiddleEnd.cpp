@@ -89,7 +89,7 @@ namespace MiddleEnd
           StructType* t = dynamic_cast<StructType*>(unres);
           if(t)
           {
-            resolveStruct(t);
+            Type::resolveStruct(t);
             continue;
           }
         }
@@ -97,31 +97,31 @@ namespace MiddleEnd
           UnionType* t = dynamic_cast<UnionType*>(unres);
           if(t)
           {
-            resolveStruct(t);
+            Type::resolveUnion(t);
             continue;
           }
         }
         {
-          TupleType* t = dynamic_cast<TupleType*>(unres):
+          TupleType* t = dynamic_cast<TupleType*>(unres);
           if(t)
           {
-            resolveStruct(t);
+            Type::resolveTuple(t);
             continue;
           }
         }
         {
-          AliasType* t = dynamic_cast<AliasType*>(unres):
+          AliasType* t = dynamic_cast<AliasType*>(unres);
           if(t)
           {
-            resolveAlias(t);
+            Type::resolveAlias(t);
             continue;
           }
         }
         {
-          ArrayType* t = dynamic_cast<ArrayType*>(unres):
+          ArrayType* t = dynamic_cast<ArrayType*>(unres);
           if(t)
           {
-            resolveArray(t);
+            Type::resolveArray(t);
             continue;
           }
         }

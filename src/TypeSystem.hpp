@@ -28,6 +28,8 @@ struct Type
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   //Get unique, possibly mangled C identifier for use in backend
   Scope* enclosing;
+  //resolve all types that were not found during construction
+  virtual void resolve();
   //T.dimTypes[0] is for T[], T.dimTypes[1] is for T[][], etc.
   vector<Type*> dimTypes;
   //lazily create & return array type for given number of dimensions
@@ -42,11 +44,6 @@ struct Type
   static vector<TupleType*> tuples;
   static vector<ArrayType*> arrays;
   static vector<Type*> unresolvedTypes;
-  static void resolveStruct(StructType* st);
-  static void resolveUnion(UnionType* ut);
-  static void resolveTuple(TupleType* tt);
-  static void resolveAlias(AliasType* at);
-  static void resolveArray(ArrayType* at);
 };
 
 struct FuncPrototype
@@ -88,6 +85,7 @@ struct StructType : public Type
   Parser::StructDecl* decl;
   //member types must be searched from here (the scope inside the struct decl)
   StructScope* structScope;
+  void resolve();
   bool canConvert(Type* other);
 };
 
@@ -96,14 +94,19 @@ struct UnionType : public Type
   UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
   string name;
   vector<Type*> options;
+  Parser::UnionDecl* dcel;
+  void resolve();
   bool canConvert(Type* other);
 };
 
 struct ArrayType : public Type
 {
-  ArrayType(Type* elemType, int dims);
+  //note: dims in type passed to ctor ignored
+  ArrayType(Parser::TypeNT* type, int dims);
   Type* elem;
+  Parser::TypeNT* elemNT;
   int dims;
+  void resolve();
   bool canConvert(Type* other);
 };
 
@@ -117,6 +120,7 @@ struct TupleType : public Type
   vector<Type*> members;
   //this is used only when handling unresolved members
   Parser::TupleTypeNT* decl;
+  void resolve();
   bool canConvert(Type* other);
 };
 
@@ -127,6 +131,7 @@ struct AliasType : public Type
   string name;
   Type* actual;
   Parser::Typedef* decl;
+  void resolve();
   bool canConvert(Type* other);
 };
 

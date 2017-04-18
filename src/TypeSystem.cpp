@@ -220,47 +220,10 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
   return NULL;
 }
 
-/*******************/
-/* Type resolution */
-/*******************/
-
-void Type::resolveStruct(StructType* st)
+//resolve() called on type that doesn't implement it: error
+void Type::resolve()
 {
-  //load all data member types, should be available now
-  int memberNum = 0;
-  for(auto& mem : st->decl->members)
-  {
-    auto& sd = mem->sd;
-    if(sd->decl.is<AP(VarDecl)>())
-    {
-      //make sure this type was loaded correctly
-      if(!members[memberNum])
-      {
-        Type* loaded = getType(sd->decl.get<AP(VarDecl)>()->type.get(), structScope);
-        if(!loaded)
-        {
-          errAndQuit("Unknown type");
-        }
-      }
-      memberNum++;
-    }
-  }
-}
-
-void Type::resolveUnion(UnionType* ut)
-{
-}
-
-void Type::resolveTuple(TupleType* tt)
-{
-}
-
-void Type::resolveAlias(AliasType* at)
-{
-}
-
-void Type::resolveArray(ArrayType* at)
-{
+  INTERNAL_ERROR;
 }
 
 /***************/
@@ -305,6 +268,31 @@ bool StructType::hasProc(ProcPrototype* type)
   return false;
 }
 
+void StructType::resolve()
+{
+  //load all data member types, should be available now
+  int memberNum = 0;
+  for(auto& mem : decl->members)
+  {
+    auto& sd = mem->sd;
+    if(sd->decl.is<AP(VarDecl)>())
+    {
+      //make sure this type was loaded correctly
+      if(!members[memberNum])
+      {
+        Type* loaded = getType(sd->decl.get<AP(VarDecl)>()->type.get(), structScope);
+        if(!loaded)
+        {
+          //TODO: decent error messages (Parser nonterms need to retain some token info (line/col))
+          errAndQuit("Unknown type as struct member.");
+        }
+        members[memberNum] = loaded;
+      }
+      memberNum++;
+    }
+  }
+}
+
 bool StructType::canConvert(Type* other)
 {
   //TODO
@@ -332,6 +320,25 @@ UnionType::UnionType(Parser::UnionDecl* ud, Scope* enclosingScope) : Type(enclos
   {
     unresolvedTypes.push_back(this);
   }
+  decl = ud;
+}
+
+void UnionType::resolve()
+{
+  //load all data member types, should be available now
+  for(size_t i = 0; i < options.size(); i++)
+  {
+    if(!types[i])
+    {
+      Type* lookup = getType(decl->types[i].get(), enclosing);
+      if(!lookup)
+      {
+        //TODO
+        errAndQuit("Unknown type as union option.");
+      }
+      types[i] = lookup;
+    }
+  }
 }
 
 bool UnionType::canConvert(Type* other)
@@ -344,10 +351,23 @@ bool UnionType::canConvert(Type* other)
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Type* elemType, int dims) : Type(global)
+ArrayType::ArrayType(Parser::TypeNT* type) : Type(global)
 {
-  this->elem = elemType;
+  //temporarily set dims to 0 while looking up element type
+  type->arrayDims = 0;
+  elem = getType(type);
+  type->arrayDims = dims;
+  if(!elem)
+  {
+  }
   this->dims = dims;
+}
+
+void ArrayType::resolve()
+{
+  if(!elem)
+  {
+  }
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -396,6 +416,10 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
   tuples.push_back(this);
 }
 
+void TupleType::resolve()
+{
+}
+
 bool TupleType::canConvert(Type* other)
 {
   //TODO
@@ -423,6 +447,10 @@ AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type
   name = alias;
   actual = underlying;
   decl = nullptr;
+}
+
+void AliasType::resolve()
+{
 }
 
 bool AliasType::canConvert(Type* other)
