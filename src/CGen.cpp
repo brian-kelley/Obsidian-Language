@@ -15,10 +15,9 @@ void generateC(string outputStem, bool keep, AP(Parser::Module)& ast)
   genHeader(c, ast);
   fclose(c);
   //! feed into gcc
-  string cmd = string("gcc ") + cName + " --std=c99 -o " + exeName;
-  FILE* ccProcess = popen(cmd.c_str(), "r");
+  string cmd = string("gcc") + " --std=c99 -o " + exeName + ' ' + cName + " &> /dev/null";
   //wait for cc to terminate
-  int exitStatus = pclose(ccProcess);
+  int exitStatus = system(cmd.c_str());
   if(!keep)
   {
     remove(cName.c_str());
@@ -38,6 +37,17 @@ const char* header =
   "#include \"stdio.h\"\n"
   "#include \"stdint.h\"\n"
   "#include \"string.h\"\n"
+
+  "typedef int8_t i8;\n"
+  "typedef uint8_t u8;\n"
+  "typedef int16_t i16;\n"
+  "typedef uint16_t u16;\n"
+  "typedef int32_t i32;\n"
+  "typedef uint32_t u32;\n"
+  "typedef int64_t i64;\n"
+  "typedef uint64_t u64;\n"
+  "typedef float f32;\n"
+  "typedef double f64;\n"
 
   "typedef struct\n"
   "{\n"

@@ -31,6 +31,7 @@ struct CodeStream
     {
       col++;
     }
+    iter++;
     return c;
   }
   char peek(int ahead)
@@ -56,11 +57,11 @@ struct CodeStream
   //bool value is "eof?"
   operator bool()
   {
-    return iter < src.length();
+    return iter < src.length() && src[iter];
   }
   bool operator!()
   {
-    return iter >= src.length();
+    return iter >= src.length() || !src[iter];
   }
   void err(string msg)
   {
@@ -90,7 +91,7 @@ void lex(string& code, vector<Token*>& tokList)
     else if(c == '"')
     {
       //string literal
-      int stringStart = cs.iter + 1;
+      int stringStart = cs.iter;
       while(true)
       {
         char c = cs.getNext();
@@ -106,7 +107,7 @@ void lex(string& code, vector<Token*>& tokList)
         }
       }
       //stringEnd is index of the closing quotations
-      int stringEnd = cs.iter;
+      int stringEnd = cs.iter - 1;
       //get string literal between stringStart and stringEnd
       vector<char> strLit;
       strLit.reserve(stringEnd - stringStart + 1);
@@ -126,6 +127,31 @@ void lex(string& code, vector<Token*>& tokList)
       string s(&strLit[0]);
       cs.addToken(new StrLit(s));
     }
+    else if(c == '/' && cs.peek(0) == '*')
+    {
+      int commentDepth = 1;
+      cs.getNext();
+      while(cs && commentDepth)
+      {
+        //get next char
+        char next = cs.getNext();
+        if(next == '/' && cs.peek(0) == '*')
+        {
+          cs.getNext();
+          commentDepth++;
+        }
+        else if(next == '*' && cs.peek(0) == '/')
+        {
+          cs.getNext();
+          commentDepth--;
+        }
+      }
+      //EOF with non-terminated block comment is an error
+      if(!cs && commentDepth)
+      {
+        cs.err("non-terminated block comment (missing */)");
+      }
+    }
     else if(c == '\'')
     {
       char charVal = cs.getNext();
@@ -143,32 +169,7 @@ void lex(string& code, vector<Token*>& tokList)
         cs.err("non-terminated character literal");
       }
     }
-    else if(c == '/' && cs.peek(1) == '*')
-    {
-      int commentDepth = 1;
-      cs.getNext();
-      while(cs && commentDepth)
-      {
-        //get next char
-        char next = cs.getNext();
-        if(next == '/' && cs.peek(1) == '*')
-        {
-          cs.getNext();
-          commentDepth++;
-        }
-        else if(next == '*' && cs.peek(1) == '/')
-        {
-          cs.getNext();
-          commentDepth--;
-        }
-      }
-      //EOF with non-terminated block comment is an error
-      if(!cs && commentDepth)
-      {
-        cs.err("non-terminated block comment (missing */)");
-      }
-    }
-    else if(c == '/' && cs.peek(1) == '/')
+    else if(c == '/' && cs.peek(0) == '/')
     {
       cs.getNext();
       while(cs.getNext() != '\n');
@@ -177,12 +178,13 @@ void lex(string& code, vector<Token*>& tokList)
     {
       //keyword or identifier
       //scan all following alphanumeric/underscore chars to classify
-      int identStart = cs.iter;
+      int identStart = cs.iter - 1;
       while(true)
       {
         char identChar = cs.getNext();
         if(!isalnum(identChar) && identChar != '_')
         {
+          cs.putback();
           break;
         }
       }
@@ -195,92 +197,64 @@ void lex(string& code, vector<Token*>& tokList)
       else
         cs.addToken(new Keyword(kwIter->second));
     }
-    else if(c == '0' && tolower(cs.peek(1)) == 'x')
+    else if(c == '0' && tolower(cs.peek(0)) == 'x' && isxdigit(cs.peek(1)))
     {
       //hex int literal, OR int 0 followed by ??? (if not valid hex num)
-      if(!isxdigit(cs.peek(2)))
-      {
-        //treat the '0' as a whole token
-        cs.addToken(new IntLit(0));
-      }
-      else
+      cs.getNext();
+      cs.getNext();
+      char* numEnd;
+      unsigned long long val = strtoull(code.c_str(), &numEnd, 16);
+      cs.addToken(new IntLit(val));
+      for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
       {
         cs.getNext();
-        char* numEnd;
-        unsigned long long val = strtoull(code.c_str(), &numEnd, 16);
-        cs.addToken(new IntLit(val));
-        for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
-        {
-          cs.getNext();
-        }
       }
     }
-    else if(c == '0' && tolower(cs.peek(1)) == 'b')
+    else if(c == '0' && tolower(cs.peek(0)) == 'b' &&
+        (cs.peek(1) == '0' || cs.peek(1) == '1'))
     {
       //binary int literal, OR int 0 followed by ??? (if not valid bin num)
-      if(cs.peek(2) != '0' && cs.peek(2) != '1')
-      {
-        //treat the '0' as a whole token
-        cs.addToken(new IntLit(0));
-      }
-      else
+      cs.getNext();
+      cs.getNext();
+      char* numEnd;
+      unsigned long long val = strtoull(code.c_str(), &numEnd, 2);
+      cs.addToken(new IntLit(val));
+      for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
       {
         cs.getNext();
-        char* numEnd;
-        unsigned long long val = strtoull(code.c_str(), &numEnd, 2);
-        cs.addToken(new IntLit(val));
-        for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
-        {
-          cs.getNext();
-        }
       }
     }
     else if(isdigit(c))
     {
       uint64_t intVal = 0;
       //int (hex or dec) or float literal
-      if(c == '0' && tolower(cs.peek(1)) == 'x' && isxdigit(cs.peek(2)))
+      //take the integer conversion, or the double conversion if it uses more chars
+      const char* numStart = code.c_str() + cs.iter;
+      char* intEnd;
+      char* floatEnd;
+      //note: int/float literals are always positive (- handled as arithmetic operator)
+      //this means that IntLit holds unsigned value
+      intVal = strtoull(numStart, &intEnd, 10);
+      double floatVal = strtod(numStart, &floatEnd);
+      if(floatEnd > intEnd)
       {
-        //definitely hex int
-        cs.getNext();     //eat the 'x'
-        //now parse hex num (must succeed)
-        char* hexEnd;
-        intVal = strtoull(code.c_str() + cs.iter, &hexEnd, 16);
-        cs.iter = hexEnd - code.c_str();
-      }
-      else if(c == '0' && tolower(cs.peek(1)) == 'b' &&
-          (cs.peek(2) == '0' || cs.peek(2) == '1'))
-      {
-        //binary int
-        cs.getNext();     //eat the 'b'
-        char* binEnd;
-        intVal = strtoull(code.c_str() + cs.iter, &binEnd, 2);
-        cs.iter = binEnd - code.c_str();
+        //use float
+        cs.addToken(new FloatLit(floatVal));
+        cs.iter = floatEnd - code.c_str();
+        for(const char* i = code.c_str() + cs.iter; i != floatEnd; i++)
+        {
+          cs.getNext();
+        }
       }
       else
       {
-        //take the integer conversion, or the double conversion if it uses more chars
-        const char* numStart = code.c_str() + cs.iter;
-        char* intEnd;
-        char* floatEnd;
-        //note: int/float literals are always positive (- handled as arithmetic operator)
-        //this means that IntLit holds unsigned value
-        intVal = strtoull(numStart, &intEnd, 10);
-        double floatVal = strtod(numStart, &floatEnd);
-        if(floatEnd > intEnd)
+        //use int
+        cs.addToken(new IntLit(intVal));
+        for(const char* i = code.c_str() + cs.iter; i != intEnd; i++)
         {
-          //use float
-          cs.addToken(new FloatLit(floatVal));
-          cs.iter = floatEnd - code.c_str();
-        }
-        else
-        {
-          //use int
-          cs.addToken(new IntLit(intVal));
-          cs.iter = intEnd - code.c_str();
+          cs.getNext();
         }
       }
-
     }
     else if(ispunct(c))
     {
@@ -320,7 +294,10 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else
     {
-      cs.err("unexpected character");
+      cout << "Note: cs iter is " << cs.iter << ", but code len is " << code.length() << '\n';
+      char temp[64];
+      sprintf(temp, "unexpected character: 0x%02hhx", c);
+      cs.err(temp);
     }
   }
 }

@@ -5,6 +5,7 @@
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "MiddleEnd.hpp"
 #include "AST_Printer.hpp"
 
 void init()
@@ -38,24 +39,21 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks;
   lex(code, toks);
-  /*
   cout << "************************************\n";
   cout << "*            TOKENS                *\n";
   cout << "************************************\n";
   for(auto& it : toks)
   {
     cout << it->getDesc() << " : " << it->getStr() << '\n';
-    //cout << it->getStr() << " ";
   }
   cout << '\n';
-  */
   //Parse the global/root module
   AP(Parser::Module) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";
   printAST(ast);
-
+  MiddleEnd::load(ast);
   //Code generation
   generateC(op.outputStem, op.emitC, ast);
   return 0;
