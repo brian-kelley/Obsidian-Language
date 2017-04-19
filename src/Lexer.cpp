@@ -229,7 +229,7 @@ void lex(string& code, vector<Token*>& tokList)
       uint64_t intVal = 0;
       //int (hex or dec) or float literal
       //take the integer conversion, or the double conversion if it uses more chars
-      const char* numStart = code.c_str() + cs.iter;
+      const char* numStart = code.c_str() + cs.iter - 1;
       char* intEnd;
       char* floatEnd;
       //note: int/float literals are always positive (- handled as arithmetic operator)
@@ -241,7 +241,7 @@ void lex(string& code, vector<Token*>& tokList)
         //use float
         cs.addToken(new FloatLit(floatVal));
         cs.iter = floatEnd - code.c_str();
-        for(const char* i = code.c_str() + cs.iter; i != floatEnd; i++)
+        for(const char* i = code.c_str() + cs.iter + 1; i != floatEnd; i++)
         {
           cs.getNext();
         }
@@ -249,6 +249,7 @@ void lex(string& code, vector<Token*>& tokList)
       else
       {
         //use int
+        cout << "Got decimal int literal: " << intVal << '\n';
         cs.addToken(new IntLit(intVal));
         for(const char* i = code.c_str() + cs.iter; i != intEnd; i++)
         {

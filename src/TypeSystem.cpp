@@ -26,9 +26,8 @@ void Type::createBuiltinTypes()
 {
 #define ADD_PRIM primitives.push_back(table.back())
   vector<Type*>& table = global->types;
-  table.emplace_back(new BoolType);
-  ADD_PRIM;
-  table.emplace_back(new IntegerType("char", 1, true));
+  primitives.push_back(new BoolType);
+  primitives.emplace_back(new IntegerType("char", 1, true));
   ADD_PRIM;
   table.emplace_back(new AliasType("i8", table.back(), global));
   table.emplace_back(new IntegerType("uchar", 1, false));
@@ -88,7 +87,7 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
         //size = 1 -> max dim = 1
         for(size_t i = elemType->dimTypes.size(); i <= dims; i++)
         {
-          arrays.push_back(new ArrayType(elemType, dims));
+          arrays.push_back(new ArrayType(type, usedScope, dims));
           elemType->dimTypes.push_back(arrays.back());
         }
         //now return the needed type
@@ -98,7 +97,7 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
     else
     {
       //use undef type
-      ArrayType* t = new ArrayType(nullptr, dims);
+      ArrayType* t = new ArrayType(nullptr, usedScope, dims);
       arrays.push_back(t);
       unresolvedTypes.push_back(t);
       return t;
@@ -230,7 +229,7 @@ void Type::resolve()
 /* Struct Type */
 /***************/
 
-StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* structScope) : Type(enclosingScope)
+StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope) : Type(enclosingScope)
 {
   this->name = sd->name;
   //can't actually handle any members yet - need to visit this struct decl as a scope first
@@ -241,11 +240,11 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* str
   bool resolved = true;
   for(auto& it : sd->members)
   {
-    ScopedDecl* decl = it->sd;
-    if(decl->is<AP(VarDecl)>())
+    ScopedDecl* decl = it->sd.get();
+    if(decl->decl.is<AP(VarDecl)>())
     {
-      VarDecl* data = decl->get<AP(VarDecl)>();
-      Type* dataType = getType(data->type, structScope);
+      VarDecl* data = decl->decl.get<AP(VarDecl)>().get();
+      Type* dataType = getType(data->type.get(), structScope);
       if(!dataType)
       {
         resolved = false;
@@ -253,6 +252,10 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* str
       members.push_back(dataType);
       memberNames.push_back(data->name);
     }
+  }
+  if(!resolved)
+  {
+    unresolvedTypes.push_back(this);
   }
 }
 
@@ -328,7 +331,7 @@ void UnionType::resolve()
   //load all data member types, should be available now
   for(size_t i = 0; i < options.size(); i++)
   {
-    if(!types[i])
+    if(!options[i])
     {
       Type* lookup = getType(decl->types[i].get(), enclosing);
       if(!lookup)
@@ -336,7 +339,7 @@ void UnionType::resolve()
         //TODO
         errAndQuit("Unknown type as union option.");
       }
-      types[i] = lookup;
+      options[i] = lookup;
     }
   }
 }
@@ -351,14 +354,15 @@ bool UnionType::canConvert(Type* other)
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Parser::TypeNT* type) : Type(global)
+ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(global)
 {
   //temporarily set dims to 0 while looking up element type
   type->arrayDims = 0;
-  elem = getType(type);
+  elem = getType(type, enclosing);
   type->arrayDims = dims;
   if(!elem)
   {
+    unresolvedTypes.push_back(this);
   }
   this->dims = dims;
 }
@@ -367,6 +371,14 @@ void ArrayType::resolve()
 {
   if(!elem)
   {
+    //temporarily set array type's AST node to 0 dimensions
+    elemNT->arrayDims = 0;
+    Type* lookup = getType(elemNT, enclosing);
+    elemNT->arrayDims = dims;
+    if(!lookup)
+    {
+      errAndQuit("Unknown type as array element.");
+    }
   }
 }
 
@@ -418,6 +430,18 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
 
 void TupleType::resolve()
 {
+  for(size_t i = 0; i < members.size(); i++)
+  {
+    if(!members[i])
+    {
+      Type* lookup = getType(decl->members[i].get(), enclosing);
+      if(!lookup)
+      {
+        errAndQuit("unknown type as member of tuple");
+      }
+      members[i] = lookup;
+    }
+  }
 }
 
 bool TupleType::canConvert(Type* other)

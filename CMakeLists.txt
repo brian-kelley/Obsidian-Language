@@ -9,6 +9,7 @@ add_executable (onyx
   src/Options.cpp
   src/Token.cpp
   src/MiddleEnd.cpp
+  src/MiddleEndDebug.cpp
   src/Variable.cpp
   src/TypeSystem.cpp
   src/Scope.cpp

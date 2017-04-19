@@ -12,8 +12,11 @@ namespace MiddleEnd
     global = new ModuleScope("", nullptr);
     Type::createBuiltinTypes();
     //build scope tree
+    cout << "Building scope tree...\n";
     TypeLoading::visitModule(NULL, ast);
+    cout << "Resolving undefined types...\n";
     TypeLoading::resolveAll();
+    cout << "Middle end done.\n";
   }
 
   namespace TypeLoading
@@ -43,7 +46,7 @@ namespace MiddleEnd
     void visitStruct(Scope* current, AP(StructDecl)& sd)
     {
       //must create a child scope first, and then type
-      Scope* sscope = new StructScope(sd->name, current);
+      StructScope* sscope = new StructScope(sd->name, current);
       //Visit the internal ScopedDecls that are types
       for(auto& it : sd->members)
       {
@@ -65,11 +68,11 @@ namespace MiddleEnd
       }
       if(sd->decl.is<AP(Enum)>())
       {
-        EnumType* et = new EnumType(sd->decl.get<AP(Enum)>().get(), current);
+        new EnumType(sd->decl.get<AP(Enum)>().get(), current);
       }
       else if(sd->decl.is<AP(Typedef)>())
       {
-        AliasType* at = new AliasType(sd->decl.get<AP(Typedef)>().get(), current);
+        new AliasType(sd->decl.get<AP(Typedef)>().get(), current);
       }
       else if(sd->decl.is<AP(StructDecl)>())
       {
@@ -77,7 +80,7 @@ namespace MiddleEnd
       }
       else if(sd->decl.is<AP(UnionDecl)>())
       {
-        UnionType* ud = new UnionType(sd->decl.get<AP(UnionDecl)>().get(), current);
+        new UnionType(sd->decl.get<AP(UnionDecl)>().get(), current);
       }
     }
 
@@ -85,46 +88,7 @@ namespace MiddleEnd
     {
       for(auto& unres : Type::unresolvedTypes)
       {
-        {
-          StructType* t = dynamic_cast<StructType*>(unres);
-          if(t)
-          {
-            Type::resolveStruct(t);
-            continue;
-          }
-        }
-        {
-          UnionType* t = dynamic_cast<UnionType*>(unres);
-          if(t)
-          {
-            Type::resolveUnion(t);
-            continue;
-          }
-        }
-        {
-          TupleType* t = dynamic_cast<TupleType*>(unres);
-          if(t)
-          {
-            Type::resolveTuple(t);
-            continue;
-          }
-        }
-        {
-          AliasType* t = dynamic_cast<AliasType*>(unres);
-          if(t)
-          {
-            Type::resolveAlias(t);
-            continue;
-          }
-        }
-        {
-          ArrayType* t = dynamic_cast<ArrayType*>(unres);
-          if(t)
-          {
-            Type::resolveArray(t);
-            continue;
-          }
-        }
+        unres->resolve();
       }
     }
   }

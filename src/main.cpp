@@ -7,6 +7,7 @@
 #include "Parser.hpp"
 #include "MiddleEnd.hpp"
 #include "AST_Printer.hpp"
+#include "MiddleEndDebug.hpp"
 
 void init()
 {
@@ -54,6 +55,10 @@ int main(int argc, const char** argv)
   cout << "************************************\n";
   printAST(ast);
   MiddleEnd::load(ast);
+  cout << "************************************\n";
+  cout << "*          Scopes/Types            *\n";
+  cout << "************************************\n";
+  MiddleEndDebug::printTypeTree();
   //Code generation
   generateC(op.outputStem, op.emitC, ast);
   return 0;

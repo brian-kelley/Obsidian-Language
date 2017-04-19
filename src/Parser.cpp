@@ -106,6 +106,7 @@ namespace Parser
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
     m->decls = parseSome<ScopedDecl>();
+    cout << "Module parse got " << m->decls.size() << " scoped decls.\n";
     expectPunct(RBRACE);
     return m;
   }

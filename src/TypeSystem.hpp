@@ -15,6 +15,7 @@
 **************************/
 
 struct Scope;
+struct StructScope;
 struct TupleType;
 struct ArrayType;
 struct StructType;
@@ -71,7 +72,7 @@ struct Trait
 
 struct StructType : public Type
 {
-  StructType(Parser::StructDecl* sd, Scope* enclosingScope, Scope* structScope);
+  StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
@@ -94,7 +95,7 @@ struct UnionType : public Type
   UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
   string name;
   vector<Type*> options;
-  Parser::UnionDecl* dcel;
+  Parser::UnionDecl* decl;
   void resolve();
   bool canConvert(Type* other);
 };
@@ -102,7 +103,7 @@ struct UnionType : public Type
 struct ArrayType : public Type
 {
   //note: dims in type passed to ctor ignored
-  ArrayType(Parser::TypeNT* type, int dims);
+  ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims);
   Type* elem;
   Parser::TypeNT* elemNT;
   int dims;
