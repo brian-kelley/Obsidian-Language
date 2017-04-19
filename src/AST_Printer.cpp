@@ -46,46 +46,30 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "ScopedDecl\n";
-    switch(m->decl.which())
-    {
-      case 1:
-        printModule(m->decl.get<AP(Module)>(), ind + indentLevel);
-        break;
-      case 2:
-        printVarDecl(m->decl.get<AP(VarDecl)>(), ind + indentLevel);
-        break;
-      case 3:
-        printStructDecl(m->decl.get<AP(StructDecl)>(), ind + indentLevel);
-        break;
-      case 4:
-        printUnionDecl(m->decl.get<AP(UnionDecl)>(), ind + indentLevel);
-        break;
-      case 5:
-        printTraitDecl(m->decl.get<AP(TraitDecl)>(), ind + indentLevel);
-        break;
-      case 6:
-        printEnum(m->decl.get<AP(Enum)>(), ind + indentLevel);
-        break;
-      case 7:
-        printTypedef(m->decl.get<AP(Typedef)>(), ind + indentLevel);
-        break;
-      case 8:
-        printFuncDecl(m->decl.get<AP(FuncDecl)>(), ind + indentLevel);
-        break;
-      case 9:
-        printFuncDef(m->decl.get<AP(FuncDef)>(), ind + indentLevel);
-        break;
-      case 10:
-        printProcDecl(m->decl.get<AP(ProcDecl)>(), ind + indentLevel);
-        break;
-      case 11:
-        printProcDef(m->decl.get<AP(ProcDef)>(), ind + indentLevel);
-        break;
-      case 12:
-        printTestDecl(m->decl.get<AP(TestDecl)>(), ind + indentLevel);
-        break;
-      default:;
-    }
+    if(m->decl.is<AP(Module)>())
+      printModule(m->decl.get<AP(Module)>(), ind + indentLevel);
+    else if(m->decl.is<AP(VarDecl)>())
+      printVarDecl(m->decl.get<AP(VarDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(StructDecl)>())
+      printStructDecl(m->decl.get<AP(StructDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(UnionDecl)>())
+      printUnionDecl(m->decl.get<AP(UnionDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(TraitDecl)>())
+      printTraitDecl(m->decl.get<AP(TraitDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(Enum)>())
+      printEnum(m->decl.get<AP(Enum)>(), ind + indentLevel);
+    else if(m->decl.is<AP(Typedef)>())
+      printTypedef(m->decl.get<AP(Typedef)>(), ind + indentLevel);
+    else if(m->decl.is<AP(FuncDecl)>())
+      printFuncDecl(m->decl.get<AP(FuncDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(FuncDef)>())
+      printFuncDef(m->decl.get<AP(FuncDef)>(), ind + indentLevel);
+    else if(m->decl.is<AP(ProcDecl)>())
+      printProcDecl(m->decl.get<AP(ProcDecl)>(), ind + indentLevel);
+    else if(m->decl.is<AP(ProcDef)>())
+      printProcDef(m->decl.get<AP(ProcDef)>(), ind + indentLevel);
+    else if(m->decl.is<AP(TestDecl)>())
+      printTestDecl(m->decl.get<AP(TestDecl)>(), ind + indentLevel);
   }
 
   void printTypeNT(AutoPtr<Parser::TypeNT>& t, int ind)
@@ -96,121 +80,101 @@ namespace AstPrinter
     {
       cout << t->arrayDims << "-dim array of ";
     }
-    switch(t->t.which())
+    if(t->t.is<TypeNT::Prim>())
     {
-      case 1:
+      //primitive
+      TypeNT::Prim p = t->t.get<TypeNT::Prim>();
+      cout << "primitive ";
+      switch(p)
       {
-        //primitive
-        TypeNT::Prim p = t->t.get<TypeNT::Prim>();
-        cout << "primitive ";
-        switch(p)
-        {
-          case TypeNT::Prim::BOOL:
-            cout << "bool";
-            break;
-          case TypeNT::Prim::CHAR:
-            cout << "char";
-            break;
-          case TypeNT::Prim::UCHAR:
-            cout << "uchar";
-            break;
-          case TypeNT::Prim::SHORT:
-            cout << "short";
-            break;
-          case TypeNT::Prim::USHORT:
-            cout << "ushort";
-            break;
-          case TypeNT::Prim::INT:
-            cout << "int";
-            break;
-          case TypeNT::Prim::UINT:
-            cout << "uint";
-            break;
-          case TypeNT::Prim::LONG:
-            cout << "long";
-            break;
-          case TypeNT::Prim::ULONG:
-            cout << "ulong";
-            break;
-          case TypeNT::Prim::FLOAT:
-            cout << "float";
-            break;
-          case TypeNT::Prim::DOUBLE:
-            cout << "double";
-            break;
-          case TypeNT::Prim::STRING:
-            cout << "string";
-            break;
-          default:
-            cout << "invalid primitive";
-        }
-        cout << '\n';
-        break;
+        case TypeNT::Prim::BOOL:
+          cout << "bool";
+          break;
+        case TypeNT::Prim::CHAR:
+          cout << "char";
+          break;
+        case TypeNT::Prim::UCHAR:
+          cout << "uchar";
+          break;
+        case TypeNT::Prim::SHORT:
+          cout << "short";
+          break;
+        case TypeNT::Prim::USHORT:
+          cout << "ushort";
+          break;
+        case TypeNT::Prim::INT:
+          cout << "int";
+          break;
+        case TypeNT::Prim::UINT:
+          cout << "uint";
+          break;
+        case TypeNT::Prim::LONG:
+          cout << "long";
+          break;
+        case TypeNT::Prim::ULONG:
+          cout << "ulong";
+          break;
+        case TypeNT::Prim::FLOAT:
+          cout << "float";
+          break;
+        case TypeNT::Prim::DOUBLE:
+          cout << "double";
+          break;
+        case TypeNT::Prim::STRING:
+          cout << "string";
+          break;
+        default:
+          cout << "invalid primitive";
       }
-      case 2:
-        //member, print indented on next line
-        cout << '\n';
-        printMember(t->t.get<AP(Member)>(), ind + indentLevel);
-        break;
-      case 3:
-        //tuple type, print indented on next line
-        cout << '\n';
-        printTupleTypeNT(t->t.get<AP(TupleTypeNT)>(), ind + indentLevel);
-        break;
-      default:;
+      cout << '\n';
+    }
+    else if(t->t.is<AP(Member)>())
+    {
+      //member, print indented on next line
+      cout << '\n';
+      printMember(t->t.get<AP(Member)>(), ind + indentLevel);
+    }
+    else if(t->t.is<AP(TupleTypeNT)>())
+    {
+      //tuple type, print indented on next line
+      cout << '\n';
+      printTupleTypeNT(t->t.get<AP(TupleTypeNT)>(), ind + indentLevel);
     }
   }
 
   void printStatement(AP(Statement)& s, int ind)
   {
     //statements don't need any extra printouts
-    switch(s->s.which())
-    {
-      case 1:
-        printScopedDecl(s->s.get<AP(ScopedDecl)>(), ind);
-        break;
-      case 2:
-        printVarAssign(s->s.get<AP(VarAssign)>(), ind);
-        break;
-      case 3:
-        printPrint(s->s.get<AP(Print)>(), ind);
-        break;
-      case 4:
-        printExpression(s->s.get<AP(Expression)>(), ind);
-        break;
-      case 5:
-        printBlock(s->s.get<AP(Block)>(), ind);
-        break;
-      case 6:
-        printReturn(s->s.get<AP(Return)>(), ind);
-        break;
-      case 7:
-        printContinue(ind);
-        break;
-      case 8:
-        printBreak(ind);
-        break;
-      case 9:
-        printSwitch(s->s.get<AP(Switch)>(), ind);
-        break;
-      case 10:
-        printFor(s->s.get<AP(For)>(), ind);
-        break;
-      case 11:
-        printWhile(s->s.get<AP(While)>(), ind);
-        break;
-      case 12:
-        printIf(s->s.get<AP(If)>(), ind);
-        break;
-      case 13:
-        printAssertion(s->s.get<AP(Assertion)>(), ind);
-      case 14:
-        printEmptyStatement(ind);
-        break;
-      case 15:
-        printVarDecl(s->s.get<AP(VarDecl)>(), ind);
-      default:;
-    }
+    if(s->s.is<AP(ScopedDecl)>())
+      printScopedDecl(s->s.get<AP(ScopedDecl)>(), ind);
+    else if(s->s.get<AP(VarAssign)>())
+      printVarAssign(s->s.get<AP(VarAssign)>(), ind);
+    else if(s->s.get<AP(Print)>())
+      printPrint(s->s.get<AP(Print)>(), ind);
+    else if(s->s.get<AP(Expression)>())
+      printExpression(s->s.get<AP(Expression)>(), ind);
+    else if(s->s.get<AP(Block)>())
+      printBlock(s->s.get<AP(Block)>(), ind);
+    else if(s->s.get<AP(Return)>())
+      printReturn(s->s.get<AP(Return)>(), ind);
+    else if(s->s.get<AP(Continue)>())
+      printContinue(ind);
+    else if(s->s.get<AP(Break)>())
+      printBreak(ind);
+    else if(s->s.get<AP(Switch)>())
+      printSwitch(s->s.get<AP(Switch)>(), ind);
+    else if(s->s.get<AP(For)>())
+      printFor(s->s.get<AP(For)>(), ind);
+    else if(s->s.get<AP(While)>())
+      printWhile(s->s.get<AP(While)>(), ind);
+    else if(s->s.get<AP(If)>())
+      printIf(s->s.get<AP(If)>(), ind);
+    else if(s->s.get<AP(Assertion)>())
+      printAssertion(s->s.get<AP(Assertion)>(), ind);
+    else if(s->s.get<AP(EmptyStatement)>())
+      printEmptyStatement(ind);
+    else if(s->s.get<AP(VarDecl)>())
+      printVarDecl(s->s.get<AP(VarDecl)>(), ind);
   }
 
   void printTypedef(AP(Typedef)& t, int ind)
@@ -276,77 +240,69 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "For ";
-    switch(f->f.which())
+    if(f->f.is<AP(ForC)>())
     {
-      case 1:
+      cout << "C-style\n";
+      auto& forC = f->f.get<AP(ForC)>();
+      indent(ind + indentLevel);
+      cout << "Initializer: ";
+      if(forC->decl)
       {
-        cout << "C-style\n";
-        auto& forC = f->f.get<AP(ForC)>();
-        indent(ind + indentLevel);
-        cout << "Initializer: ";
-        if(forC->decl)
-        {
-          cout << '\n';
-          printVarDecl(forC->decl, ind + indentLevel);
-        }
-        else
-        {
-          cout << "none\n";
-        }
-        indent(ind + indentLevel);
-        cout << "Condition: ";
-        if(forC->condition)
-        {
-          cout << '\n';
-          printExpression(forC->condition, ind + indentLevel);
-        }
-        else
-        {
-          cout << "none\n";
-        }
-        indent(ind + indentLevel);
-        cout << "Increment: ";
-        if(forC->incr)
-        {
-          cout << '\n';
-          printVarAssign(forC->incr, ind + indentLevel);
-        }
-        else
-        {
-          cout << "none\n";
-        }
-        break;
+        cout << '\n';
+        printVarDecl(forC->decl, ind + indentLevel);
       }
-      case 2:
+      else
       {
-        cout << "[0, n) range\n";
-        auto& forRange1 = f->f.get<AP(ForRange1)>();
-        indent(ind + indentLevel);
-        cout << "Upper bound:\n";
-        printExpression(forRange1->expr, ind + indentLevel);
-        break;
+        cout << "none\n";
       }
-      case 3:
+      indent(ind + indentLevel);
+      cout << "Condition: ";
+      if(forC->condition)
       {
-        cout << "[n1, n2) range\n";
-        auto& forRange2 = f->f.get<AP(ForRange2)>();
-        indent(ind + indentLevel);
-        cout << "Lower bound:\n";
-        printExpression(forRange2->start, ind + indentLevel);
-        cout << "Upper bound:\n";
-        printExpression(forRange2->end, ind + indentLevel);
-        break;
+        cout << '\n';
+        printExpression(forC->condition, ind + indentLevel);
       }
-      case 4:
+      else
       {
-        cout << "container\n";
-        auto& forArray = f->f.get<AP(ForArray)>();
-        indent(ind + indentLevel);
-        cout << "Container:\n";
-        printExpression(forArray->container, ind + indentLevel);
-        break;
+        cout << "none\n";
       }
-      default:;
+      indent(ind + indentLevel);
+      cout << "Increment: ";
+      if(forC->incr)
+      {
+        cout << '\n';
+        printVarAssign(forC->incr, ind + indentLevel);
+      }
+      else
+      {
+        cout << "none\n";
+      }
+    }
+    else if(f->f.is<AP(ForRange1)>())
+    {
+      cout << "[0, n) range\n";
+      auto& forRange1 = f->f.get<AP(ForRange1)>();
+      indent(ind + indentLevel);
+      cout << "Upper bound:\n";
+      printExpression(forRange1->expr, ind + indentLevel);
+    }
+    else if(f->f.is<AP(ForRange2)>())
+    {
+      cout << "[n1, n2) range\n";
+      auto& forRange2 = f->f.get<AP(ForRange2)>();
+      indent(ind + indentLevel);
+      cout << "Lower bound:\n";
+      printExpression(forRange2->start, ind + indentLevel);
+      cout << "Upper bound:\n";
+      printExpression(forRange2->end, ind + indentLevel);
+    }
+    else if(f->f.is<AP(ForArray)>())
+    {
+      cout << "container\n";
+      auto& forArray = f->f.get<AP(ForArray)>();
+      indent(ind + indentLevel);
+      cout << "Container:\n";
+      printExpression(forArray->container, ind + indentLevel);
     }
     indent(ind);
     cout << "Body:\n";
@@ -485,22 +441,12 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expression\n";
-    switch(e->e.which())
-    {
-      case 1:
-        //call
-        printCall(e->e.get<AP(Call)>(), ind + indentLevel);
-        break;
-      case 2:
-        //member
-        printMember(e->e.get<AP(Member)>(), ind + indentLevel);
-        break;
-      case 3:
-        //expr1
-        printExpr1(e->e.get<AP(Expr1)>(), ind + indentLevel);
-        break;
-      default:;
-    }
+    if(e->e.is<AP(Call)>())
+      printCall(e->e.get<AP(Call)>(), ind + indentLevel);
+    else if(e->e.is<AP(Member)>())
+      printMember(e->e.get<AP(Member)>(), ind + indentLevel);
+    else if(e->e.is<AP(Expr1)>())
+      printExpr1(e->e.get<AP(Expr1)>(), ind + indentLevel);
   }
 
   void printCall(AP(Call)& c, int ind)
@@ -530,14 +476,10 @@ namespace AstPrinter
     {
       cout << "unnamed\n";
     }
-    if(a->t.which() == 1)
-    {
+    if(a->t.is<AP(TypeNT)>())
       printTypeNT(a->t.get<AP(TypeNT)>(), ind + indentLevel);
-    }
-    else if(a->t.which() == 2)
-    {
+    else if(a->t.is<AP(TraitType)>())
       printTraitType(a->t.get<AP(TraitType)>(), ind + indentLevel);
-    }
   }
 
   void printFuncDecl(AP(FuncDecl)& fd, int ind)
@@ -700,14 +642,10 @@ namespace AstPrinter
     cout << "Trait \"" << td->name << "\"\n";
     for(auto& it : td->members)
     {
-      if(it.which() == 1)
-      {
+      if(it.is<AP(FuncDecl)>())
         printFuncDecl(it.get<AP(FuncDecl)>(), ind + indentLevel);
-      }
-      else if(it.which() == 2)
-      {
+      else if(it.is<AP(ProcDecl)>())
         printProcDecl(it.get<AP(ProcDecl)>(), ind + indentLevel);
-      }
     }
   }
 
@@ -994,15 +932,15 @@ namespace AstPrinter
 
   void printExpr11(AP(Expr11)& e, int ind)
   {
+    typedef Expr11::UnaryExpr UE;
     indent(ind);
     cout << "Expr11\n";
-    if(e->e.which() == 1)
+    if(e->e.is<AP(Expr12)>())
     {
       printExpr12(e->e.get<AP(Expr12)>(), ind + indentLevel);
     }
-    else if(e->e.which() == 2)
+    else if(e->e.is<UE>())
     {
-      typedef Expr11::UnaryExpr UE;
       UE& ue = e->e.get<UE>();
       indent(ind);
       cout << "Unary expr, op: " << operatorTable[ue.op] << "\n";
@@ -1013,40 +951,41 @@ namespace AstPrinter
   void printExpr12(AP(Expr12)& e, int ind)
   {
     indent(ind);
-    switch(e->e.which())
+    if(e->e.is<IntLit*>())
     {
-      indent(ind);
-      case 1:
-        cout << "Int literal: " << e->e.get<IntLit*>()->val << '\n';
-        break;
-      case 2:
-      {
-        char c = e->e.get<CharLit*>()->val;
-        if(isprint(c))
-          cout << "Char literal: " << c << '\n';
-        else
-          printf("Char literal: %#02hhx\n", c);
-        break;
-      }
-      case 3:
-        cout << "String literal: \"" << e->e.get<StrLit*>()->val << "\"\n";
-        break;
-      case 4:
-        printf("Float literal: %.3e\n", e->e.get<FloatLit*>()->val);
-        break;
-      case 5:
-        printBoolLit(e->e.get<AP(BoolLit)>(), 0);
-        break;
-      case 6:
-        printExpression(e->e.get<AP(Expression)>(), indentLevel);
-        break;
-      case 7:
-        printMember(e->e.get<AP(Member)>(), indentLevel);
-        break;
-      case 8:
-        printStructLit(e->e.get<AP(StructLit)>(), indentLevel);
-        break;
-      default:;
+      cout << "Int literal: " << e->e.get<IntLit*>()->val << '\n';
+    }
+    else if(e->e.get<CharLit*>())
+    {
+      char c = e->e.get<CharLit*>()->val;
+      if(isprint(c))
+        cout << "Char literal: " << c << '\n';
+      else
+        printf("Char literal: %#02hhx\n", c);
+    }
+    else if(e->e.is<StrLit*>())
+    {
+      cout << "String literal: \"" << e->e.get<StrLit*>()->val << "\"\n";
+    }
+    else if(e->e.is<FloatLit*>())
+    {
+      printf("Float literal: %.3e\n", e->e.get<FloatLit*>()->val);
+    }
+    else if(e->e.is<AP(BoolLit)>())
+    {
+      printBoolLit(e->e.get<AP(BoolLit)>(), 0);
+    }
+    else if(e->e.is<AP(Expression)>())
+    {
+      printExpression(e->e.get<AP(Expression)>(), indentLevel);
+    }
+    else if(e->e.is<AP(Member)>())
+    {
+      printMember(e->e.get<AP(Member)>(), indentLevel);
+    }
+    else if(e->e.is<AP(StructLit)>())
+    {
+      printStructLit(e->e.get<AP(StructLit)>(), indentLevel);
     }
   }
 }
