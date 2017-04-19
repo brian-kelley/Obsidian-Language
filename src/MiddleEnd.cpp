@@ -9,7 +9,6 @@ namespace MiddleEnd
 {
   void load(AP(Module)& ast)
   {
-    global = new ModuleScope("", nullptr);
     Type::createBuiltinTypes();
     //build scope tree
     cout << "Building scope tree...\n";
@@ -23,7 +22,12 @@ namespace MiddleEnd
   {
     void visitModule(Scope* current, AP(Module)& m)
     {
+      cout << "Visiting module \"" << m->name << "\"\n";
       Scope* mscope = new ModuleScope(m->name, current);
+      if(!current)
+      {
+        global = (ModuleScope*) mscope;
+      }
       //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
@@ -39,6 +43,10 @@ namespace MiddleEnd
         if(st->s.is<AP(ScopedDecl)>())
         {
           visitScopedDecl(bscope, st->s.get<AP(ScopedDecl)>());
+        }
+        else if(st->s.is<AP(Block)>())
+        {
+          visitBlock(bscope, st->s.get<AP(Block)>());
         }
       }
     }
@@ -58,14 +66,6 @@ namespace MiddleEnd
 
     void visitScopedDecl(Scope* current, AP(ScopedDecl)& sd)
     {
-      if(!sd->decl.is<AP(Typedef)>() &&
-          !sd->decl.is<AP(Enum)>() &&
-          !sd->decl.is<AP(UnionDecl)>() &&
-          !sd->decl.is<AP(StructDecl)>())
-      {
-        //not a type creation, nothing to be done now
-        return;
-      }
       if(sd->decl.is<AP(Enum)>())
       {
         new EnumType(sd->decl.get<AP(Enum)>().get(), current);
@@ -81,6 +81,18 @@ namespace MiddleEnd
       else if(sd->decl.is<AP(UnionDecl)>())
       {
         new UnionType(sd->decl.get<AP(UnionDecl)>().get(), current);
+      }
+      else if(sd->decl.is<AP(Module)>())
+      {
+        visitModule(current, sd->decl.get<AP(Module)>());
+      }
+      else if(sd->decl.is<AP(FuncDef)>())
+      {
+        visitBlock(current, sd->decl.get<AP(FuncDef)>()->body);
+      }
+      else if(sd->decl.is<AP(ProcDef)>())
+      {
+        visitBlock(current, sd->decl.get<AP(ProcDef)>()->body);
       }
     }
 

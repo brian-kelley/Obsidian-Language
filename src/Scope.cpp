@@ -27,6 +27,15 @@ string Scope::getFullPath()
 
 ModuleScope::ModuleScope(string name, Scope* parent) : Scope(parent)
 {
+  cout << "Making module scope \"" << name << "\"";
+  if(parent)
+  {
+    cout << " with parent \"" << parent->getLocalName() << "\"\n";
+  }
+  else
+  {
+    cout << " with no parent (global)\n";
+  }
   this->name = name;
 }
 

@@ -19,47 +19,47 @@ vector<Type*> Type::unresolvedTypes;
 Type::Type(Scope* enclosingScope)
 {
   enclosing = enclosingScope;
-  enclosingScope->types.push_back(this);
+  if(enclosing)
+  {
+    enclosing->types.push_back(this);
+  }
 }
 
 void Type::createBuiltinTypes()
 {
-#define ADD_PRIM primitives.push_back(table.back())
-  vector<Type*>& table = global->types;
   primitives.push_back(new BoolType);
+
   primitives.emplace_back(new IntegerType("char", 1, true));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("i8", table.back(), global));
-  table.emplace_back(new IntegerType("uchar", 1, false));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("u8", table.back(), global));
-  table.emplace_back(new IntegerType("short", 2, true));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("i16", table.back(), global));
-  table.emplace_back(new IntegerType("ushort", 2, false));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("u16", table.back(), global));
-  table.emplace_back(new IntegerType("int", 4, true));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("i32", table.back(), global));
-  table.emplace_back(new IntegerType("uint", 4, false));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("u32", table.back(), global));
-  table.emplace_back(new IntegerType("long", 8, true));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("i64", table.back(), global));
-  table.emplace_back(new IntegerType("ulong", 8, false));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("u64", table.back(), global));
-  table.emplace_back(new FloatType("float", 4));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("f32", table.back(), global));
-  table.emplace_back(new FloatType("double", 8));
-  ADD_PRIM;
-  table.emplace_back(new AliasType("f64", table.back(), global));
-  table.emplace_back(new StringType);
-  ADD_PRIM;
-#undef ADD_PRIM
+  new AliasType("i8", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("uchar", 1, false));
+  new AliasType("u8", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("short", 2, true));
+  new AliasType("i16", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("ushort", 2, false));
+  new AliasType("u16", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("int", 4, true));
+  new AliasType("i32", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("uint", 4, false));
+  new AliasType("u32", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("long", 8, true));
+  new AliasType("i64", primitives.back(), global);
+
+  primitives.emplace_back(new IntegerType("ulong", 8, false));
+  new AliasType("u64", primitives.back(), global);
+
+  primitives.emplace_back(new FloatType("float", 4));
+  new AliasType("f32", primitives.back(), global);
+
+  primitives.emplace_back(new FloatType("double", 8));
+  new AliasType("f64", primitives.back(), global);
+
+  primitives.emplace_back(new StringType);
 }
 
 Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
@@ -354,7 +354,7 @@ bool UnionType::canConvert(Type* other)
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(global)
+ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(nullptr)
 {
   //temporarily set dims to 0 while looking up element type
   type->arrayDims = 0;
@@ -392,7 +392,7 @@ bool ArrayType::canConvert(Type* other)
 /* Tuple Type */
 /**************/
 
-TupleType::TupleType(vector<Type*> members) : Type(global)
+TupleType::TupleType(vector<Type*> members) : Type(nullptr)
 {
   this->members = members;
   tuples.push_back(this);
@@ -406,7 +406,7 @@ TupleType::TupleType(vector<Type*> members) : Type(global)
   }
 }
 
-TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
 {
   bool resolved = true;
   for(auto& it : tt->members)
@@ -505,7 +505,7 @@ bool EnumType::canConvert(Type* other)
 /* Integer Type */
 /****************/
 
-IntegerType::IntegerType(string name, int size, bool sign) : Type(global)
+IntegerType::IntegerType(string name, int size, bool sign) : Type(nullptr)
 {
   this->name = name;
   this->size = size;
@@ -548,7 +548,7 @@ string IntegerType::getCName()
 /* Float Type */
 /**************/
 
-FloatType::FloatType(string name, int size) : Type(global)
+FloatType::FloatType(string name, int size) : Type(nullptr)
 {
   this->name = name;
   this->size = size;
@@ -578,7 +578,7 @@ bool FloatType::canConvert(Type* other)
 /* String Type */
 /***************/
 
-StringType::StringType() : Type(global) {}
+StringType::StringType() : Type(nullptr) {}
 
 bool StringType::canConvert(Type* other)
 {
@@ -590,7 +590,7 @@ bool StringType::canConvert(Type* other)
 /* Bool Type */
 /*************/
 
-BoolType::BoolType() : Type(global) {}
+BoolType::BoolType() : Type(nullptr) {}
 
 bool BoolType::canConvert(Type* other)
 {
