@@ -6,7 +6,7 @@ void printAST(AP(Parser::Module)& ast)
 {
   try
   {
-    AstPrinter::printModule(ast, 0);
+    AstPrinter::printModule(ast, -2);
   }
   catch(exception& e)
   {
@@ -680,8 +680,10 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Tuple type, members:\n";
+    cout << "()()() printing " << tt->members.size() << " tupel members\n";
     for(auto& it : tt->members)
     {
+      cout << "it which: " << it->t.which() << '\n';
       printTypeNT(it, ind + indentLevel);
     }
   }
