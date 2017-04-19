@@ -180,10 +180,8 @@ namespace AstPrinter
   void printTypedef(AP(Typedef)& t, int ind)
   {
     indent(ind);
-    cout << "Typedef\n";
+    cout << "Typedef \"" << t->ident << "\"\n";
     printTypeNT(t->type, ind + indentLevel);
-    indent(ind + indentLevel);
-    cout << "Name: " << t->ident << '\n';
   }
 
   void printReturn(AP(Return)& r, int ind)
@@ -680,10 +678,8 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Tuple type, members:\n";
-    cout << "()()() printing " << tt->members.size() << " tupel members\n";
     for(auto& it : tt->members)
     {
-      cout << "it which: " << it->t.which() << '\n';
       printTypeNT(it, ind + indentLevel);
     }
   }

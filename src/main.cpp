@@ -27,15 +27,9 @@ int main(int argc, const char** argv)
   string code = loadFile(op.input.c_str());
   cout << "Loaded " << code.size() << " bytes of source code.\n";
   cout << "Will compile executable \"" << op.outputStem + ".exe" << "\"\n";
-  /*
-  if(op.emitPreprocess)
-  {
-    cout << "Will emit preprocessed code to \"" << op.outputStem + ".obp" << "\"\n";
-  }
-  */
   if(op.emitC)
   {
-    cout << "Will emit C++ code to \"" << op.outputStem + ".c" << "\"\n";
+    cout << "Will emit C code to \"" << op.outputStem + ".c" << "\"\n";
   }
   //Lexing
   vector<Token*> toks;
@@ -45,7 +39,7 @@ int main(int argc, const char** argv)
   cout << "************************************\n";
   for(auto& it : toks)
   {
-    cout << it->getDesc() << " : " << it->getStr() << '\n';
+    cout << it->getDesc() << " : " << it->getStr() << "\n";
   }
   cout << '\n';
   //Parse the global/root module

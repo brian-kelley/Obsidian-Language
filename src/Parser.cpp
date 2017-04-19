@@ -731,6 +731,11 @@ namespace Parser
     AP(TupleTypeNT) tt(new TupleTypeNT);
     expectPunct(LPAREN);
     tt->members = parseSomeCommaSeparated<TypeNT>();
+    cout << "Parsed " << tt->members.size() << " tuple members.\n";
+    for(auto& it : tt->members)
+    {
+      cout << "  A member which = " << it->t.which() << '\n';
+    }
     expectPunct(RPAREN);
     return tt;
   }
