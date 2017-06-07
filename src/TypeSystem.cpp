@@ -358,7 +358,7 @@ ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(nu
 {
   //temporarily set dims to 0 while looking up element type
   type->arrayDims = 0;
-  elem = getType(type, enclosing);
+  lem = getType(type, enclosing);
   type->arrayDims = dims;
   if(!elem)
   {
