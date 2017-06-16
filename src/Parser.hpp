@@ -659,14 +659,20 @@ namespace Parser
       {
         AP(NT) nt = parseOptional<NT>();
         if(nt)
+        {
           nts.push_back(nt);
+        }
         else
+        {
           break;
+        }
       }
       else
       {
         if(!acceptPunct(COMMA))
+        {
           break;
+        }
         nts.push_back(parse<NT>());
       }
     }
@@ -675,3 +681,4 @@ namespace Parser
 }
 
 #endif
+

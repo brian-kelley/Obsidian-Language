@@ -1,4 +1,12 @@
 TODO:
+---------------------
+Highest priority:
+-Modules can contain meta-declarations
+-Meta-language simply extends off current parser, using '#' punctuation before all decls
+-Compiler will parse, syntax and semantic check all meta-decls into a separate IR before any non-meta code is parsed at all
+-Need to write a full, reasonably fast interpreter for the core language to process meta
+
+---------------------
 
 Ongoing work:
 -thoroughly test lexer and parser
@@ -63,12 +71,13 @@ C INTERFACE:
   -Struct layout in memory should be the same as C (for now at least)
   -For C functions that take C strings, use Onyx strings instead
 
-LANGUAGE BUILT-IN MODULES (all must be fully cross-platform):
+LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):
   -OpenGL (and some more user-friendly utilties)
     -Also include GLM-style math functions
-  -UI (nice libUI interface)
-  -OpenAL
-  -zlib
+  -Input (keyboard, mouse, gamepad - portable across all machines)
+  -UI (nice libUI interface, or something similar from scratch?)
+  -OpenAL (audio)
+  -zlib (compression)
   -Parsing (make parsing numbers, formatted strings, regexes very nice)
   -Sys (File I/O, directories, sockets)
 

@@ -358,7 +358,7 @@ ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(nu
 {
   //temporarily set dims to 0 while looking up element type
   type->arrayDims = 0;
-  lem = getType(type, enclosing);
+  elem = getType(type, enclosing);
   type->arrayDims = dims;
   if(!elem)
   {
@@ -489,9 +489,45 @@ bool AliasType::canConvert(Type* other)
 EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 {
   name = e->name;
-  for(auto& it : e->items)
+  set<int> usedVals;
+  vector<int> vals(e->items.size(), -1);
+  //first, process all specified values
+  for(size_t i = 0; i < e->items.size(); i++)
   {
-    values[it->name] = it->value->val;
+    auto& item = *e->items[i];
+    if(item.value)
+    {
+      vals[i] = item.value->val;
+      if(usedVals.find(vals[i]) == usedVals.end())
+      {
+        usedVals.insert(vals[i]);
+      }
+      else
+      {
+        string errMsg = "Enum \"";
+        errMsg += e->name + "\" has a duplicate value " + to_string(vals[i]) + " with key \"" + item.name + "\"";
+        errAndQuit(errMsg);
+      }
+    }
+  }
+  //now fill in remaining values automatically (start at 0)
+  int autoVal = 0;
+  for(size_t i = 0; i < e->items.size(); i++)
+  {
+    if(vals[i] < 0)
+    {
+      //need a value for this key, pick one that hasn't been used already
+      while(usedVals.find(autoVal) != usedVals.end())
+      {
+        autoVal++;
+      }
+      vals[i] = autoVal;
+      usedVals.insert(autoVal);
+    }
+  }
+  for(size_t i = 0; i < e->items.size(); i++)
+  {
+    values[e->items[i]->name] = vals[i];
   }
 }
 

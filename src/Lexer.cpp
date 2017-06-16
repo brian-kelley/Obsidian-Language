@@ -249,7 +249,6 @@ void lex(string& code, vector<Token*>& tokList)
       else
       {
         //use int
-        cout << "Got decimal int literal: " << intVal << '\n';
         cs.addToken(new IntLit(intVal));
         for(const char* i = code.c_str() + cs.iter; i != intEnd; i++)
         {

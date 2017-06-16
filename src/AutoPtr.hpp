@@ -1,33 +1,39 @@
 #ifndef AUTOPTR_H
 #define AUTOPTR_H
 
-#define AP(T) AutoPtr<T>
+#include <memory>
+
+#define AP(T) std::shared_ptr<T>
 
 //custom unique ptr
 //transfers ownership on assignment/move/copy
+/*
 template<typename T>
 struct AutoPtr
 {
   AutoPtr()
   {
     p = nullptr;
-    owns = true;
+    node = nullptr;
   }
   AutoPtr(T* newPtr)
   {
+    node = new int(1);
     p = newPtr;
-    owns = true;
   }
   AutoPtr(const AutoPtr& rhs)
   {
     p = rhs.p;
-    owns = true;
-    rhs.owns = false;
+    node = rhs.node;
+    if(node)
+      (*node)++;
   }
   AutoPtr(const AutoPtr&& rhs)
   {
     p = rhs.p;
-    owns = true;
+    node = rhs.node;
+    //don't need to increment reference count
+    (*node)++;
   }
   T& operator*() const
   {
@@ -39,9 +45,19 @@ struct AutoPtr
   }
   T* operator=(const AutoPtr& rhs)
   {
+    if(node)
+    {
+      (*node)--;
+      if(*node == 0)
+      {
+        delete node;
+        delete p;
+      }
+    }
     p = rhs.p;
-    owns = true;
-    rhs.owns = false;
+    node = rhs.node;
+    if(node)
+      (*node)++;
     return p;
   }
   operator bool() const
@@ -58,14 +74,21 @@ struct AutoPtr
   }
   ~AutoPtr()
   {
-    if(p && owns)
+    if(node)
     {
-      delete p;
+      (*node)--;
+      if(*node == 0)
+      {
+        //last reference to object has ended, so it can be deleted
+        delete node;
+        delete p;
+      }
     }
   }
-  mutable T* p;
-  mutable bool owns;
+  T* p;
+  int* node;
 };
+*/
 
 #endif
 

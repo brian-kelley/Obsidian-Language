@@ -72,7 +72,7 @@ namespace AstPrinter
       printTestDecl(m->decl.get<AP(TestDecl)>(), ind + indentLevel);
   }
 
-  void printTypeNT(AutoPtr<Parser::TypeNT>& t, int ind)
+  void printTypeNT(AP(Parser::TypeNT)& t, int ind)
   {
     indent(ind);
     cout << "Type: ";
@@ -355,10 +355,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Enum: \"" << e->name << "\":\n";
+    if(!e)
+    {
+      cout << "Error: trying to print null Parser::Enum\n";
+    }
     for(auto& item : e->items)
     {
       indent(ind + indentLevel);
-      cout << item->name  << ": ";
+      cout << item->name << ": ";
       if(item->value)
       {
         cout << item->value->val << '\n';
