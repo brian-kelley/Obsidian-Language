@@ -147,33 +147,33 @@ namespace AstPrinter
     //statements don't need any extra printouts
     if(s->s.is<AP(ScopedDecl)>())
       printScopedDecl(s->s.get<AP(ScopedDecl)>(), ind);
-    else if(s->s.get<AP(VarAssign)>())
+    else if(s->s.is<AP(VarAssign)>())
       printVarAssign(s->s.get<AP(VarAssign)>(), ind);
-    else if(s->s.get<AP(Print)>())
+    else if(s->s.is<AP(Print)>())
       printPrint(s->s.get<AP(Print)>(), ind);
-    else if(s->s.get<AP(Expression)>())
+    else if(s->s.is<AP(Expression)>())
       printExpression(s->s.get<AP(Expression)>(), ind);
-    else if(s->s.get<AP(Block)>())
+    else if(s->s.is<AP(Block)>())
       printBlock(s->s.get<AP(Block)>(), ind);
-    else if(s->s.get<AP(Return)>())
+    else if(s->s.is<AP(Return)>())
       printReturn(s->s.get<AP(Return)>(), ind);
-    else if(s->s.get<AP(Continue)>())
+    else if(s->s.is<AP(Continue)>())
       printContinue(ind);
-    else if(s->s.get<AP(Break)>())
+    else if(s->s.is<AP(Break)>())
       printBreak(ind);
-    else if(s->s.get<AP(Switch)>())
+    else if(s->s.is<AP(Switch)>())
       printSwitch(s->s.get<AP(Switch)>(), ind);
-    else if(s->s.get<AP(For)>())
+    else if(s->s.is<AP(For)>())
       printFor(s->s.get<AP(For)>(), ind);
-    else if(s->s.get<AP(While)>())
+    else if(s->s.is<AP(While)>())
       printWhile(s->s.get<AP(While)>(), ind);
-    else if(s->s.get<AP(If)>())
+    else if(s->s.is<AP(If)>())
       printIf(s->s.get<AP(If)>(), ind);
-    else if(s->s.get<AP(Assertion)>())
+    else if(s->s.is<AP(Assertion)>())
       printAssertion(s->s.get<AP(Assertion)>(), ind);
-    else if(s->s.get<AP(EmptyStatement)>())
+    else if(s->s.is<AP(EmptyStatement)>())
       printEmptyStatement(ind);
-    else if(s->s.get<AP(VarDecl)>())
+    else if(s->s.is<AP(VarDecl)>())
       printVarDecl(s->s.get<AP(VarDecl)>(), ind);
   }
 
@@ -957,7 +957,7 @@ namespace AstPrinter
     {
       cout << "Int literal: " << e->e.get<IntLit*>()->val << '\n';
     }
-    else if(e->e.get<CharLit*>())
+    else if(e->e.is<CharLit*>())
     {
       char c = e->e.get<CharLit*>()->val;
       if(isprint(c))

@@ -8,6 +8,7 @@
 #include "MiddleEnd.hpp"
 #include "AST_Printer.hpp"
 #include "MiddleEndDebug.hpp"
+#include <ctime>
 
 void init()
 {
@@ -17,6 +18,7 @@ void init()
 
 int main(int argc, const char** argv)
 {
+  auto startTime = clock();
   init();
   Options op = parseOptions(argc, argv);
   if(argc == 1)
@@ -55,6 +57,8 @@ int main(int argc, const char** argv)
   MiddleEndDebug::printTypeTree();
   //Code generation
   generateC(op.outputStem, op.emitC, ast);
+  auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
+  cout << "Compilation completed in " << elapsed << " seconds.\n";
   return 0;
 }
 

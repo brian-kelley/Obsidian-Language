@@ -16,7 +16,7 @@ Middle-end processing has several steps:
      traits declared there, then descend to child scopes
     -struct traits and members and variant types should be fully available
   -all types should be available from either in same scope or an above scope
-  -If type doesn't exist for variable, is a semantic error
+  -If type doesn't exist for variable and can't be found, is a semantic error
   -Array/tuple types are created lazily, in special lists separate from scopes
 */
 

@@ -225,6 +225,66 @@ void Type::resolve()
   INTERNAL_ERROR;
 }
 
+bool Type::isArray()
+{
+  return false;
+}
+
+bool Type::isStruct()
+{
+  return false;
+}
+
+bool Type::isUnion()
+{
+  return false;
+}
+
+bool Type::isTuple()
+{
+  return false;
+}
+
+bool Type::isEnum()
+{
+  return true;
+}
+
+bool Type::isCallable()
+{
+  return false;
+}
+
+bool Type::isProc()
+{
+  return false;
+}
+
+bool Type::isFunc()
+{
+  return false;
+}
+
+bool Type::isInteger()
+{
+  return false;
+}
+
+bool Type::isNumber()
+{
+  return false;
+}
+
+bool Type::isString()
+{
+  return false;
+}
+
+bool Type::isBool()
+{
+  return false;
+}
+
 /***************/
 /* Struct Type */
 /***************/
@@ -286,7 +346,7 @@ void StructType::resolve()
         Type* loaded = getType(sd->decl.get<AP(VarDecl)>()->type.get(), structScope);
         if(!loaded)
         {
-          //TODO: decent error messages (Parser nonterms need to retain some token info (line/col))
+          //TODO: decent error messages (Parser nonterms need to retain token info (line/col))
           errAndQuit("Unknown type as struct member.");
         }
         members[memberNum] = loaded;
@@ -298,8 +358,12 @@ void StructType::resolve()
 
 bool StructType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other == this;
+}
+
+bool StructType::isStruct()
+{
+  return true;
 }
 
 /**************/
@@ -346,8 +410,12 @@ void UnionType::resolve()
 
 bool UnionType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other == this;
+}
+
+bool UnionType::isUnion()
+{
+  return true;
 }
 
 /**************/
@@ -384,8 +452,17 @@ void ArrayType::resolve()
 
 bool ArrayType::canConvert(Type* other)
 {
-  //TODO
+  if(other->isArray())
+  {
+    ArrayType* at = (ArrayType*) other;
+    return dims == at->dims && elem->canConvert(at->elem);
+  }
   return false;
+}
+
+bool ArrayType::isArray()
+{
+  return true;
 }
 
 /**************/
@@ -446,8 +523,12 @@ void TupleType::resolve()
 
 bool TupleType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return this == other;
+}
+
+bool TupleType::isTuple()
+{
+  return true;
 }
 
 /**************/
@@ -475,6 +556,12 @@ AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type
 
 void AliasType::resolve()
 {
+  Type* lookup = getType(decl->type.get(), enclosing);
+  if(!lookup)
+  {
+    errAndQuit("unknown type used in typedef");
+  }
+  actual = lookup;
 }
 
 bool AliasType::canConvert(Type* other)
@@ -490,7 +577,8 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 {
   name = e->name;
   set<int> usedVals;
-  vector<int> vals(e->items.size(), -1);
+  vector<int> vals(e->items.size(), 0);
+  vector<bool> valsSet(e->items.size(), false);
   //first, process all specified values
   for(size_t i = 0; i < e->items.size(); i++)
   {
@@ -498,6 +586,7 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
     if(item.value)
     {
       vals[i] = item.value->val;
+      valsSet[i] = true;
       if(usedVals.find(vals[i]) == usedVals.end())
       {
         usedVals.insert(vals[i]);
@@ -514,7 +603,7 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
   int autoVal = 0;
   for(size_t i = 0; i < e->items.size(); i++)
   {
-    if(vals[i] < 0)
+    if(!valsSet[i])
     {
       //need a value for this key, pick one that hasn't been used already
       while(usedVals.find(autoVal) != usedVals.end())
@@ -533,8 +622,22 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 
 bool EnumType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other->isInteger();
+}
+
+bool EnumType::isEnum()
+{
+  return true;
+}
+
+bool EnumType::isInteger()
+{
+  return true;
+}
+
+bool EnumType::isNumber()
+{
+  return true;
 }
 
 /****************/
@@ -550,35 +653,18 @@ IntegerType::IntegerType(string name, int size, bool sign) : Type(nullptr)
 
 bool IntegerType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other->isEnum() || other->isInteger();
 }
 
-/*
-string IntegerType::getCName()
+bool IntegerType::isInteger()
 {
-  if(size == 1 && isSigned)
-    return "char";
-  else if(size == 1)
-    return "uchar";
-  else if(size == 2 && isSigned)
-    return "short";
-  else if(size == 2)
-    return "ushort";
-  else if(size == 4 && isSigned)
-    return "int";
-  else if(size == 4)
-    return "uint";
-  else if(size == 8 && isSigned)
-    return "long";
-  else if(size == 8)
-    return "ulong";
-  else
-  {
-    //todo: support arbitrary-sized ints as builtin types
-  }
+  return true;
 }
-*/
+
+bool IntegerType::isNumber()
+{
+  return true;
+}
 
 /**************/
 /* Float Type */
@@ -590,24 +676,14 @@ FloatType::FloatType(string name, int size) : Type(nullptr)
   this->size = size;
 }
 
-/*
-string FloatType::getCName()
-{
-  if(size == 4)
-  {
-    return "float";
-  }
-  else if(size == 8)
-  {
-    return "double"
-  }
-}
-*/
-
 bool FloatType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other->isNumber();
+}
+
+bool FloatType::isNumber()
+{
+  return true;
 }
 
 /***************/
@@ -618,8 +694,12 @@ StringType::StringType() : Type(nullptr) {}
 
 bool StringType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other->isString();
+}
+
+bool StringType::isString()
+{
+  return true;
 }
 
 /*************/
@@ -630,8 +710,11 @@ BoolType::BoolType() : Type(nullptr) {}
 
 bool BoolType::canConvert(Type* other)
 {
-  //TODO
-  return false;
+  return other->isBool();
 }
 
+bool BoolType::isBool()
+{
+  return true;
+}
 

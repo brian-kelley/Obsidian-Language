@@ -46,6 +46,18 @@ struct Type
   static vector<TupleType*> tuples;
   static vector<ArrayType*> arrays;
   static vector<Type*> unresolvedTypes;
+  virtual bool isArray();
+  virtual bool isStruct();
+  virtual bool isUnion();
+  virtual bool isTuple();
+  virtual bool isEnum();
+  virtual bool isCallable();
+  virtual bool isProc();
+  virtual bool isFunc();
+  virtual bool isInteger();
+  virtual bool isNumber();
+  virtual bool isString();
+  virtual bool isBool();
 };
 
 struct FuncPrototype
@@ -89,6 +101,7 @@ struct StructType : public Type
   StructScope* structScope;
   void resolve();
   bool canConvert(Type* other);
+  bool isStruct();
 };
 
 struct UnionType : public Type
@@ -99,6 +112,7 @@ struct UnionType : public Type
   Parser::UnionDecl* decl;
   void resolve();
   bool canConvert(Type* other);
+  bool isUnion();
 };
 
 struct ArrayType : public Type
@@ -110,6 +124,7 @@ struct ArrayType : public Type
   int dims;
   void resolve();
   bool canConvert(Type* other);
+  bool isArray();
 };
 
 struct TupleType : public Type
@@ -124,6 +139,7 @@ struct TupleType : public Type
   Parser::TupleTypeNT* decl;
   void resolve();
   bool canConvert(Type* other);
+  bool isTuple();
 };
 
 struct AliasType : public Type
@@ -143,6 +159,9 @@ struct EnumType : public Type
   string name;
   map<string, int> values;
   bool canConvert(Type* other);
+  bool isEnum();
+  bool isInteger();
+  bool isNumber();
 };
 
 struct IntegerType : public Type
@@ -153,6 +172,8 @@ struct IntegerType : public Type
   int size;
   bool isSigned;
   bool canConvert(Type* other);
+  bool isInteger();
+  bool isNumber();
 };
 
 struct FloatType : public Type
@@ -162,18 +183,21 @@ struct FloatType : public Type
   string name;
   int size;
   bool canConvert(Type* other);
+  bool isNumber();
 };
 
 struct StringType : public Type
 {
   StringType();
   bool canConvert(Type* other);
+  bool isString();
 };
 
 struct BoolType : public Type
 {
   BoolType();
   bool canConvert(Type* other);
+  bool isBool();
 };
 
 #endif
