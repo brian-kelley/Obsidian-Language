@@ -3,12 +3,14 @@
 using namespace std;
 using namespace Parser;
 
-ModuleScope* global;
+ModuleScope* global = NULL;
 
 namespace MiddleEnd
 {
   void load(AP(Module)& ast)
   {
+    //create global scope - no name and no parent
+    global = new ModuleScope("", NULL);
     Type::createBuiltinTypes();
     //build scope tree
     cout << "Building scope tree...\n";
@@ -22,12 +24,7 @@ namespace MiddleEnd
   {
     void visitModule(Scope* current, AP(Module)& m)
     {
-      cout << "Visiting module \"" << m->name << "\"\n";
       Scope* mscope = new ModuleScope(m->name, current);
-      if(!current)
-      {
-        global = (ModuleScope*) mscope;
-      }
       //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
@@ -72,6 +69,9 @@ namespace MiddleEnd
       }
       else if(sd->decl.is<AP(Typedef)>())
       {
+        cout << "Adding an alias type. Typedef was: \n";
+        AstPrinter::printTypedef(sd->decl.get<AP(Typedef)>().get(), 0);
+        cout << "\n\n\n";
         new AliasType(sd->decl.get<AP(Typedef)>().get(), current);
       }
       else if(sd->decl.is<AP(StructDecl)>())

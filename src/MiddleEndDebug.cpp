@@ -116,6 +116,10 @@ namespace MiddleEndDebug
 
   void printType(Type* t, int ind)
   {
+    if(!t)
+    {
+      errAndQuit("Tried to print a null Type!\n");
+    }
     if(dynamic_cast<StructType*>(t))
     {
       printStructType((StructType*) t, ind);

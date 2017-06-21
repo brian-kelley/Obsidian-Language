@@ -18,54 +18,42 @@ vector<Type*> Type::unresolvedTypes;
 
 Type::Type(Scope* enclosingScope)
 {
-  enclosing = enclosingScope;
-  if(enclosing)
+  if(!enclosingScope)
   {
-    enclosing->types.push_back(this);
+    cout << "Error: type without a scope\n";
   }
+  enclosing = enclosingScope;
+  enclosing->types.push_back(this);
 }
 
 void Type::createBuiltinTypes()
 {
   primitives.push_back(new BoolType);
-
   primitives.emplace_back(new IntegerType("char", 1, true));
   new AliasType("i8", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("uchar", 1, false));
   new AliasType("u8", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("short", 2, true));
   new AliasType("i16", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("ushort", 2, false));
   new AliasType("u16", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("int", 4, true));
   new AliasType("i32", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("uint", 4, false));
   new AliasType("u32", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("long", 8, true));
   new AliasType("i64", primitives.back(), global);
-
   primitives.emplace_back(new IntegerType("ulong", 8, false));
   new AliasType("u64", primitives.back(), global);
-
   primitives.emplace_back(new FloatType("float", 4));
   new AliasType("f32", primitives.back(), global);
-
   primitives.emplace_back(new FloatType("double", 8));
   new AliasType("f64", primitives.back(), global);
-
   primitives.emplace_back(new StringType);
 }
 
 Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
 {
-  std::cout << "Type::getType(): looking up type for NT:\n";
-  AstPrinter::printTypeNT(type, 0);
   //handle array immediately - just make an array and then handle singular type
   if(type->arrayDims)
   {
@@ -216,7 +204,7 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
   else
   {
     //TODO: FuncPrototype, ProcPrototype
-    INTERNAL_ERROR;
+    //INTERNAL_ERROR;
   }
   return NULL;
 }
@@ -424,7 +412,7 @@ bool UnionType::isUnion()
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(nullptr)
+ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(global)
 {
   this->dims = dims;
   if(type)
@@ -475,7 +463,7 @@ bool ArrayType::isArray()
 /* Tuple Type */
 /**************/
 
-TupleType::TupleType(vector<Type*> members) : Type(nullptr)
+TupleType::TupleType(vector<Type*> members) : Type(global)
 {
   this->members = members;
   tuples.push_back(this);
@@ -489,7 +477,7 @@ TupleType::TupleType(vector<Type*> members) : Type(nullptr)
   }
 }
 
-TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
 {
   bool resolved = true;
   for(auto& it : tt->members)
@@ -541,12 +529,20 @@ bool TupleType::isTuple()
 /* Alias Type */
 /**************/
 
-AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
+//AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
+AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
 {
+  cout << "Adding an alias with name " << td->ident << '\n';
   name = td->ident;
-  cout << "In AliasType constructor, looking up type for typedef: ";
-  AstPrinter::printTypedef(td, 0);
   Type* t = getType(td->type.get(), current);
+  if(t)
+    cout << "  got type\n";
+  else
+    cout << "  DID NOT got type\n";
+  if(current == global)
+    cout << "  Note: global scope\n";
+  else
+    cout << "  Note: scope is " << current << "\n";
   actual = t;
   if(!t)
   {
@@ -652,7 +648,7 @@ bool EnumType::isNumber()
 /* Integer Type */
 /****************/
 
-IntegerType::IntegerType(string name, int size, bool sign) : Type(nullptr)
+IntegerType::IntegerType(string name, int size, bool sign) : Type(global)
 {
   this->name = name;
   this->size = size;
@@ -678,7 +674,7 @@ bool IntegerType::isNumber()
 /* Float Type */
 /**************/
 
-FloatType::FloatType(string name, int size) : Type(nullptr)
+FloatType::FloatType(string name, int size) : Type(global)
 {
   this->name = name;
   this->size = size;
@@ -698,7 +694,7 @@ bool FloatType::isNumber()
 /* String Type */
 /***************/
 
-StringType::StringType() : Type(nullptr) {}
+StringType::StringType() : Type(global) {}
 
 bool StringType::canConvert(Type* other)
 {
@@ -714,7 +710,7 @@ bool StringType::isString()
 /* Bool Type */
 /*************/
 
-BoolType::BoolType() : Type(nullptr) {}
+BoolType::BoolType() : Type(global) {}
 
 bool BoolType::canConvert(Type* other)
 {
