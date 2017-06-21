@@ -529,8 +529,8 @@ bool TupleType::isTuple()
 /* Alias Type */
 /**************/
 
-//AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
-AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
+//AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
+AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
 {
   cout << "Adding an alias with name " << td->ident << '\n';
   name = td->ident;

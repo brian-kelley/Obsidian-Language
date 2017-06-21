@@ -13,8 +13,11 @@ namespace MiddleEnd
     global = new ModuleScope("", NULL);
     Type::createBuiltinTypes();
     //build scope tree
-    cout << "Building scope tree...\n";
-    TypeLoading::visitModule(NULL, ast);
+    cout << "Building scope tree and creating types...\n";
+    for(auto& it : ast->decls)
+    {
+      TypeLoading::visitScopedDecl(global, it);
+    }
     cout << "Resolving undefined types...\n";
     TypeLoading::resolveAll();
     cout << "Middle end done.\n";
