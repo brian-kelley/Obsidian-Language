@@ -64,6 +64,8 @@ void Type::createBuiltinTypes()
 
 Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
 {
+  std::cout << "Type::getType(): looking up type for NT:\n";
+  AstPrinter::printTypeNT(type, 0);
   //handle array immediately - just make an array and then handle singular type
   if(type->arrayDims)
   {
@@ -424,15 +426,18 @@ bool UnionType::isUnion()
 
 ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(nullptr)
 {
-  //temporarily set dims to 0 while looking up element type
-  type->arrayDims = 0;
-  elem = getType(type, enclosing);
-  type->arrayDims = dims;
-  if(!elem)
-  {
-    unresolvedTypes.push_back(this);
-  }
   this->dims = dims;
+  if(type)
+  {
+    //temporarily set dims to 0 while looking up element type
+    type->arrayDims = 0;
+    elem = getType(type, enclosing);
+    type->arrayDims = dims;
+    if(elem)
+      return;
+  }
+  //will need to look up elem later
+  unresolvedTypes.push_back(this);
 }
 
 void ArrayType::resolve()
@@ -447,6 +452,7 @@ void ArrayType::resolve()
     {
       errAndQuit("Unknown type as array element.");
     }
+    elem = lookup;
   }
 }
 
@@ -538,6 +544,8 @@ bool TupleType::isTuple()
 AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
 {
   name = td->ident;
+  cout << "In AliasType constructor, looking up type for typedef: ";
+  AstPrinter::printTypedef(td, 0);
   Type* t = getType(td->type.get(), current);
   actual = t;
   if(!t)

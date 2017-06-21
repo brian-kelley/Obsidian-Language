@@ -10,6 +10,7 @@
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
+#include "AST_Printer.hpp"
 
 /**************************
 *   Type System Structs   *
