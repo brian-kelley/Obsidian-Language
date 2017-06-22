@@ -29,7 +29,6 @@ struct Type
   Type(Scope* enclosingScope);
   static void createBuiltinTypes();
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
-  //Get unique, possibly mangled C identifier for use in backend
   Scope* enclosing;
   //resolve all types that were not found during construction
   virtual void resolve();

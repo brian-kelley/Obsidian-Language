@@ -54,7 +54,7 @@ void Type::createBuiltinTypes()
 
 Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
 {
-  //handle array immediately - just make an array and then handle singular type
+  //handle array immediately - just make an array and then handle the singular element type
   if(type->arrayDims)
   {
     size_t dims = type->arrayDims;
@@ -75,9 +75,9 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
       {
         //create + add
         //size = 1 -> max dim = 1
-        for(size_t i = elemType->dimTypes.size(); i <= dims; i++)
+        for(size_t i = elemType->dimTypes.size() + 1; i <= dims; i++)
         {
-          arrays.push_back(new ArrayType(type, usedScope, dims));
+          arrays.push_back(new ArrayType(type, usedScope, i));
           elemType->dimTypes.push_back(arrays.back());
         }
         //now return the needed type
@@ -87,6 +87,7 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
     else
     {
       //use undef type
+      cout << "Need array type but elem type is undefined now.\n";
       ArrayType* t = new ArrayType(nullptr, usedScope, dims);
       arrays.push_back(t);
       unresolvedTypes.push_back(t);
@@ -415,17 +416,16 @@ bool UnionType::isUnion()
 ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(global)
 {
   this->dims = dims;
-  if(type)
+  elemNT = type;
+  //temporarily set dims to 0 while looking up element type
+  type->arrayDims = 0;
+  elem = getType(type, enclosing);
+  type->arrayDims = dims;
+  if(!elem)
   {
-    //temporarily set dims to 0 while looking up element type
-    type->arrayDims = 0;
-    elem = getType(type, enclosing);
-    type->arrayDims = dims;
-    if(elem)
-      return;
+    //will need to look up elem later
+    unresolvedTypes.push_back(this);
   }
-  //will need to look up elem later
-  unresolvedTypes.push_back(this);
 }
 
 void ArrayType::resolve()
@@ -449,6 +449,7 @@ bool ArrayType::canConvert(Type* other)
   if(other->isArray())
   {
     ArrayType* at = (ArrayType*) other;
+    //unlike C, allow implicit conversion of elements
     return dims == at->dims && elem->canConvert(at->elem);
   }
   return false;
@@ -529,20 +530,10 @@ bool TupleType::isTuple()
 /* Alias Type */
 /**************/
 
-//AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
-AliasType::AliasType(Typedef* td, Scope* current) : Type(current)
+AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
 {
-  cout << "Adding an alias with name " << td->ident << '\n';
   name = td->ident;
   Type* t = getType(td->type.get(), current);
-  if(t)
-    cout << "  got type\n";
-  else
-    cout << "  DID NOT got type\n";
-  if(current == global)
-    cout << "  Note: global scope\n";
-  else
-    cout << "  Note: scope is " << current << "\n";
   actual = t;
   if(!t)
   {
