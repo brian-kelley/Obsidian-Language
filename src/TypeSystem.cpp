@@ -88,10 +88,13 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
     {
       //use undef type
       cout << "Need array type but elem type is undefined now.\n";
-      ArrayType* t = new ArrayType(nullptr, usedScope, dims);
-      arrays.push_back(t);
-      unresolvedTypes.push_back(t);
-      return t;
+      for(size_t i = 1; i <= dims; i++)
+      {
+        arrays.push_back(new ArrayType(type, usedScope, i));
+        unresolvedTypes.push_back(arrays.back());
+      }
+      cout << "Done creating unresolved array\n";
+      return arrays.back();
     }
   }
   if(type->t.is<TypeNT::Prim>())
