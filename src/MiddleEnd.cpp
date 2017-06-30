@@ -19,7 +19,7 @@ namespace MiddleEnd
       TypeLoading::visitScopedDecl(global, it);
     }
     cout << "Resolving undefined types...\n";
-    TypeLoading::resolveAll();
+    Type::resolveAll();
     cout << "Middle end done.\n";
   }
 
@@ -72,9 +72,6 @@ namespace MiddleEnd
       }
       else if(sd->decl.is<AP(Typedef)>())
       {
-        cout << "Adding an alias type. Typedef was: \n";
-        AstPrinter::printTypedef(sd->decl.get<AP(Typedef)>().get(), 0);
-        cout << "\n\n\n";
         new AliasType(sd->decl.get<AP(Typedef)>().get(), current);
       }
       else if(sd->decl.is<AP(StructDecl)>())
@@ -96,14 +93,6 @@ namespace MiddleEnd
       else if(sd->decl.is<AP(ProcDef)>())
       {
         visitBlock(current, sd->decl.get<AP(ProcDef)>()->body);
-      }
-    }
-
-    void resolveAll()
-    {
-      for(auto& unres : Type::unresolvedTypes)
-      {
-        unres->resolve();
       }
     }
   }

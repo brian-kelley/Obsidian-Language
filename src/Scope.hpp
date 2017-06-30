@@ -22,10 +22,10 @@ struct Scope
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
-  vector<Type*> types;                //types declared here
+  vector<Type*> types;              //types declared here
   vector<Variable*> vars;             //variables declared here
-  //funcs and procs are all declarations and/or definitions in scope
-  //definition can go in a parent scope, unless this is a Block
+  //funcs and procs are all fully implemented functions in a scope
+  //Struct member funcs/procs can be declared before defined but then they must be defined in parent scope
   vector<FuncPrototype*> funcs;
   vector<ProcPrototype*> procs;
 };

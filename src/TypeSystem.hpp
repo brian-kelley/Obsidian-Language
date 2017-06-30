@@ -6,11 +6,27 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <cassert>
 
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
 #include "AST_Printer.hpp"
+
+/* Type system: 3 main categories of types
+ *  -Primitives
+ *    -belong to global scope
+ *    -names are keywords
+ *    -created before all other scope/type loading
+ *  -Named types: struct, union, enum, typedef, func, proc
+ *    -created immediately when encountered in scope tree loading
+ *    -If dependent on any unavailable type, remember to resolve later
+ *  -Unnamed (syntactic) types: array and tuple
+ *    -Created last, as necessary, to resolve all named types
+ *    -Belong to global scope
+ *    -Never duplicated, to save memory and speed up comparison (e.g. at most one int[] or (int, int) type defined in whole program)
+ *    -For aliases: always trace back to underlying type (i32[][] becomes int[][])
+ */
 
 /**************************
 *   Type System Structs   *
@@ -23,6 +39,21 @@ struct ArrayType;
 struct StructType;
 struct UnionType;
 struct AliasType;
+struct Type;
+
+//  UnresolvedType is used to remember an instance of a type (used in another type)
+//  that cannot be resolved during the first pass
+//
+//  -Parsed is the original AST node that represents the type that couldn't be looked up
+//  -Usage is where the type ID is needed by some other dependent type
+struct UnresolvedType
+{
+  //UnresolvedType() : parsed(NULL), usage(NULL) {}
+  UnresolvedType(Parser::TypeNT* t, Scope* s, Type** u) : parsed(t), scope(s), usage(u) {}
+  Parser::TypeNT* parsed;
+  Scope* scope;
+  Type** usage;
+};
 
 struct Type
 {
@@ -30,22 +61,26 @@ struct Type
   static void createBuiltinTypes();
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   Scope* enclosing;
-  //resolve all types that were not found during construction
-  virtual void resolve();
-  //T.dimTypes[0] is for T[], T.dimTypes[1] is for T[][], etc.
+  //resolve all types that couldn't be found during first pass
+  static void resolveAll();
+  //dimTypes[0] is for T[], dimTypes[1] is for T[][], etc.
   vector<Type*> dimTypes;
-  //lazily create & return array type for given number of dimensions
+  // [lazily create and] return array type for given number of dimensions of *this
   Type* getArrayType(int dims);
   //TODO: whether this can be implicitly converted to other
   virtual bool canConvert(Type* other) = 0;
   //Use this getType() for scope tree building
-  static Type* getType(Parser::TypeNT* type, Scope* usedScope);
+  //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
+  static Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
   //Other variations (so above getType() 
   //"primitives" maps TypeNT::Prim values to corresponding Type*
   static vector<Type*> primitives;
+  //quickly lookup (or create) unique TupleType for given members
+  TupleType* lookupTuple(vector<Type*>& members);
+  //Note: the set stores TupleType pointers, but compares them by operator< on the dereferenced values
   static vector<TupleType*> tuples;
   static vector<ArrayType*> arrays;
-  static vector<Type*> unresolvedTypes;
+  static vector<UnresolvedType> unresolved;
   virtual bool isArray();
   virtual bool isStruct();
   virtual bool isUnion();
@@ -60,14 +95,14 @@ struct Type
   virtual bool isBool();
 };
 
-struct FuncPrototype
+struct FuncPrototype : public Type
 {
   FuncPrototype(Parser::FuncType& ft);
   Type* retType;
   vector<Type*> argTypes;
 };
 
-struct ProcPrototype
+struct ProcPrototype : public Type
 {
   ProcPrototype(Parser::ProcType& pt);
   bool nonterm;
@@ -99,7 +134,6 @@ struct StructType : public Type
   Parser::StructDecl* decl;
   //member types must be searched from here (the scope inside the struct decl)
   StructScope* structScope;
-  void resolve();
   bool canConvert(Type* other);
   bool isStruct();
 };
@@ -110,7 +144,6 @@ struct UnionType : public Type
   string name;
   vector<Type*> options;
   Parser::UnionDecl* decl;
-  void resolve();
   bool canConvert(Type* other);
   bool isUnion();
 };
@@ -118,11 +151,10 @@ struct UnionType : public Type
 struct ArrayType : public Type
 {
   //note: dims in type passed to ctor ignored
-  ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims);
+  ArrayType(Type* elemType, int dims);
   Type* elem;
   Parser::TypeNT* elemNT;
   int dims;
-  void resolve();
   bool canConvert(Type* other);
   bool isArray();
 };
@@ -137,9 +169,14 @@ struct TupleType : public Type
   vector<Type*> members;
   //this is used only when handling unresolved members
   Parser::TupleTypeNT* decl;
-  void resolve();
   bool canConvert(Type* other);
   bool isTuple();
+  //Whether this->members exactly matches types
+  bool matchesTypes(vector<Type*>& types);
+  bool operator<(const TupleType& rhs)
+  {
+    return lexicographical_compare(members.begin(), members.end(), rhs.members.begin(), rhs.members.end());
+  }
 };
 
 struct AliasType : public Type
@@ -149,7 +186,6 @@ struct AliasType : public Type
   string name;
   Type* actual;
   Parser::Typedef* decl;
-  void resolve();
   bool canConvert(Type* other);
 };
 

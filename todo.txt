@@ -13,6 +13,16 @@ Ongoing work:
 -Type system
   -Type struct (primitive, array, tuple, struct, variant)
 
+***************
+: Type system :
+***************
+
+-Need to support arrays and tuples that contain unresolved types
+-New approach:
+  -sweep 1 creates all named types
+    -types dependent on unresolved types get added to a list (this list only needs to contain TypeNT* and Type** usage)
+  -sweep 2 resolves all unresolved types in order (now, type lookup failure is an error)
+
 IMMEDIATE SMALL TASKS:
 
 Middle-end/Type checking
@@ -72,12 +82,17 @@ C INTERFACE:
   -For C functions that take C strings, use Onyx strings instead
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):
-  -OpenGL (and some more user-friendly utilties)
-    -Also include GLM-style math functions
+  -Term (stdin/stdout/formatting/parsing)
+  -Sys (File I/O, directories, sockets)
+  -Modern OpenGL, plus some nice utilties, like:
+    -GLM-style math
+    -OBJ model loading
+    -Shader utilities
+    -Mesh utilities (loading, saving, refinement, decimation)
+  -Font rendering (full TrueType/Unicode support)
   -Input (keyboard, mouse, gamepad - portable across all machines)
   -UI (nice libUI interface, or something similar from scratch?)
   -OpenAL (audio)
   -zlib (compression)
-  -Parsing (make parsing numbers, formatted strings, regexes very nice)
-  -Sys (File I/O, directories, sockets)
+  -Graphs (nice data structure, shortest path, finding cycles, reachability, etc)
 

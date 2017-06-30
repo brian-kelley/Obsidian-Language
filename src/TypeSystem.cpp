@@ -14,16 +14,16 @@ extern ModuleScope* global;
 vector<Type*> Type::primitives;
 vector<TupleType*> Type::tuples;
 vector<ArrayType*> Type::arrays;
-vector<Type*> Type::unresolvedTypes;
+vector<UnresolvedType> Type::unresolved;
 
 Type::Type(Scope* enclosingScope)
 {
-  if(!enclosingScope)
+  //ArrayTypes and TupleTypes have no scope, so enclosingScope can be null
+  if(enclosingScope)
   {
-    cout << "Error: type without a scope\n";
+    enclosing = enclosingScope;
+    enclosing->types.push_back(this);
   }
-  enclosing = enclosingScope;
-  enclosing->types.push_back(this);
 }
 
 void Type::createBuiltinTypes()
@@ -52,7 +52,7 @@ void Type::createBuiltinTypes()
   primitives.emplace_back(new StringType);
 }
 
-Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
+Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
 {
   //handle array immediately - just make an array and then handle the singular element type
   if(type->arrayDims)
@@ -60,7 +60,7 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
     size_t dims = type->arrayDims;
     type->arrayDims = 0;
     //now look up the type for the element type
-    Type* elemType = getType(type, usedScope);
+    Type* elemType = getType(type, usedScope, nullptr, false);
     //restore original type to preserve AST
     type->arrayDims = dims;
     if(elemType)
@@ -77,27 +77,23 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
         //size = 1 -> max dim = 1
         for(size_t i = elemType->dimTypes.size() + 1; i <= dims; i++)
         {
-          arrays.push_back(new ArrayType(type, usedScope, i));
-          elemType->dimTypes.push_back(arrays.back());
+          new ArrayType(elemType, i);
         }
         //now return the needed type
         return elemType->dimTypes.back();
       }
     }
+    else if(failureIsError || !usage)
+    {
+      errAndQuit("Required ArrayType but its element type could not be resolved.");
+    }
     else
     {
-      //use undef type
-      cout << "Need array type but elem type is undefined now.\n";
-      for(size_t i = 1; i <= dims; i++)
-      {
-        arrays.push_back(new ArrayType(type, usedScope, i));
-        unresolvedTypes.push_back(arrays.back());
-      }
-      cout << "Done creating unresolved array\n";
-      return arrays.back();
+      unresolved.emplace_back(type, usedScope, usage);
+      return nullptr;
     }
   }
-  if(type->t.is<TypeNT::Prim>())
+  else if(type->t.is<TypeNT::Prim>())
   {
     return primitives[(int) type->t.get<TypeNT::Prim>()];
   }
@@ -161,62 +157,81 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope)
         }
       }
     }
+    //couldn't find type, mark as unresolved
+    //If usage is null (meaning this is during the resolving pass), is fatal error
+    if(failureIsError)
+    {
+      string msg = "Could not resolve type: \"";
+      auto mem = type->t.get<AP(Member)>();
+      //walk down the member chain (print owner, then '.', then remainder)
+      Parser::Member* it = mem.get();
+      for(; it->mem; it = it->mem.get())
+      {
+        cout << "MemberNT owner: \"" << it->owner << "\"\n";
+        msg += it->owner;
+        msg += '.';
+      }
+      msg += it->owner;
+      msg += "\" required from scope \"";
+      msg += usedScope->getLocalName();
+      msg += "\"";
+      errAndQuit(msg);
+    }
+    if(usage)
+      unresolved.emplace_back(type, usedScope, usage);
   }
   else if(type->t.is<AP(TupleTypeNT)>())
   {
     auto& tt = type->t.get<AP(TupleTypeNT)>();
     //search for each member individually
-    vector<Type*> types;
     bool resolved = true;
-    for(auto& it : tt->members)
+    //TupleTypes can have unresolved arrays/tuples as members, so is necessary to pass usage ptr for each member
+    vector<Type*> types(tt->members.size(), nullptr);
+    TupleType* tup = new TupleType(types);
+    for(size_t i = 0; i < tt->members.size(); i++)
     {
-      types.push_back(getType(it.get(), usedScope));
-      if(!types.back())
-      {
+      auto& mem = tt->members[i];
+      types[i] = getType(mem.get(), usedScope, nullptr, false);
+      if(!types[i])
         resolved = false;
-      }
     }
-    if(resolved)
+    if(!resolved)
     {
-      //look up tuple by pointers, create if doesn't exist
-      for(auto& existing : tuples)
+      if(failureIsError || !usage)
       {
-        if(existing->members.size() != types.size())
-        {
-          continue;
-        }
-        bool allMatch = true;
-        for(size_t i = 0; i < types.size(); i++)
-        {
-          if(existing->members[i] != types[i])
-          {
-            allMatch = false;
-            break;
-          }
-        }
-        if(!allMatch)
-        {
-          continue;
-        }
-        //tuples equivalent, use existing
+        INTERNAL_ERROR;
+      }
+      unresolved.emplace_back(type, usedScope, usage);
+    }
+    for(auto& existing : tuples)
+    {
+      if(existing->matchesTypes(types))
+      {
         return existing;
       }
     }
-    //need to create new tuple (ctor adds to unresolvedTypes)
-    return new TupleType(types);
+    return tup;
   }
   else
   {
     //TODO: FuncPrototype, ProcPrototype
-    //INTERNAL_ERROR;
+    INTERNAL_ERROR;
   }
-  return NULL;
+  return nullptr;
 }
 
-//resolve() called on type that doesn't implement it: error
-void Type::resolve()
+void Type::resolveAll()
 {
-  INTERNAL_ERROR;
+  for(auto& ut : unresolved)
+  {
+    //note: failureIsError is true because all named types should be available now
+    Type* t = getType(ut.parsed, ut.scope, nullptr, true);
+    if(!t)
+    {
+      errAndQuit("Type could not be resolved.");
+    }
+    *(ut.usage) = t;
+  }
 }
 
 bool Type::isArray()
@@ -291,25 +306,28 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   decl = sd;
   //must assume there are unresolved members
   this->structScope = structScope;
-  bool resolved = true;
+  //Need to size members immediately (so the vector is never reallocated again)
+  //Count the struct members which are VarDecls
+  size_t numMemberVars = 0;
   for(auto& it : sd->members)
   {
-    ScopedDecl* decl = it->sd.get();
-    if(decl->decl.is<AP(VarDecl)>())
-    {
-      VarDecl* data = decl->decl.get<AP(VarDecl)>().get();
-      Type* dataType = getType(data->type.get(), structScope);
-      if(!dataType)
-      {
-        resolved = false;
-      }
-      members.push_back(dataType);
-      memberNames.push_back(data->name);
-    }
+    if(it->sd->decl.is<AP(VarDecl)>())
+      numMemberVars++;
   }
-  if(!resolved)
+  members.resize(numMemberVars);
+  memberNames.resize(numMemberVars);
+  //TODO: actually handle the struct's traits here as well (also use 2nd pass for resolution)
+  size_t membersAdded = 0;
+  for(auto& it : sd->members)
   {
-    unresolvedTypes.push_back(this);
+    if(it->sd->decl.is<AP(VarDecl)>())
+    {
+      VarDecl* data = it->sd->decl.get<AP(VarDecl)>().get();
+      Type* dataType = getType(data->type.get(), structScope, &members[membersAdded], false);
+      members[membersAdded] = dataType;
+      memberNames[membersAdded] = data->name;
+      membersAdded++;
+    }
   }
 }
 
@@ -323,31 +341,6 @@ bool StructType::hasProc(ProcPrototype* type)
 {
   //TODO
   return false;
-}
-
-void StructType::resolve()
-{
-  //load all data member types, should be available now
-  int memberNum = 0;
-  for(auto& mem : decl->members)
-  {
-    auto& sd = mem->sd;
-    if(sd->decl.is<AP(VarDecl)>())
-    {
-      //make sure this type was loaded correctly
-      if(!members[memberNum])
-      {
-        Type* loaded = getType(sd->decl.get<AP(VarDecl)>()->type.get(), structScope);
-        if(!loaded)
-        {
-          //TODO: decent error messages (Parser nonterms need to retain token info (line/col))
-          errAndQuit("Unknown type as struct member.");
-        }
-        members[memberNum] = loaded;
-      }
-      memberNum++;
-    }
-  }
 }
 
 bool StructType::canConvert(Type* other)
@@ -366,39 +359,18 @@ bool StructType::isStruct()
 
 UnionType::UnionType(Parser::UnionDecl* ud, Scope* enclosingScope) : Type(enclosingScope)
 {
+  decl = ud;
+  name = ud->name;
   bool resolved = true;
-  this->name = ud->name;
-  for(auto& it : ud->types)
+  options.resize(ud->types.size());
+  for(size_t i = 0; i < ud->types.size(); i++)
   {
-    Type* option = getType(it.get(), enclosingScope);
+    Type* option = getType(ud->types[i].get(), enclosingScope, &options[i], false);
     if(!option)
     {
       resolved = false;
-      options.push_back(option);
     }
-  }
-  if(!resolved)
-  {
-    unresolvedTypes.push_back(this);
-  }
-  decl = ud;
-}
-
-void UnionType::resolve()
-{
-  //load all data member types, should be available now
-  for(size_t i = 0; i < options.size(); i++)
-  {
-    if(!options[i])
-    {
-      Type* lookup = getType(decl->types[i].get(), enclosing);
-      if(!lookup)
-      {
-        //TODO
-        errAndQuit("Unknown type as union option.");
-      }
-      options[i] = lookup;
-    }
+    options[i] = option;
   }
 }
 
@@ -416,35 +388,14 @@ bool UnionType::isUnion()
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Parser::TypeNT* type, Scope* enclosing, int dims) : Type(global)
+ArrayType::ArrayType(Type* elemType, int dims) : Type(nullptr)
 {
+  assert(elemType);
   this->dims = dims;
-  elemNT = type;
-  //temporarily set dims to 0 while looking up element type
-  type->arrayDims = 0;
-  elem = getType(type, enclosing);
-  type->arrayDims = dims;
-  if(!elem)
-  {
-    //will need to look up elem later
-    unresolvedTypes.push_back(this);
-  }
-}
-
-void ArrayType::resolve()
-{
-  if(!elem)
-  {
-    //temporarily set array type's AST node to 0 dimensions
-    elemNT->arrayDims = 0;
-    Type* lookup = getType(elemNT, enclosing);
-    elemNT->arrayDims = dims;
-    if(!lookup)
-    {
-      errAndQuit("Unknown type as array element.");
-    }
-    elem = lookup;
-  }
+  this->elem = elemType;
+  //If an ArrayType is being constructed, it must be the next dimension for elemType
+  assert(elemType->dimTypes.size() == dims - 1);
+  elemType->dimTypes.push_back(this);
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -467,56 +418,29 @@ bool ArrayType::isArray()
 /* Tuple Type */
 /**************/
 
-TupleType::TupleType(vector<Type*> members) : Type(global)
+TupleType::TupleType(vector<Type*> members) : Type(nullptr)
 {
   this->members = members;
   tuples.push_back(this);
-  for(auto& it : members)
-  {
-    if(!it)
-    {
-      unresolvedTypes.push_back(this);
-      return;
-    }
-  }
 }
 
-TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(global)
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
 {
+  decl = tt;
+  //Note: this constructor being called means that Type::getType
+  //already successfully looked up all the members
   bool resolved = true;
   for(auto& it : tt->members)
   {
     TypeNT* typeNT = it.get();
-    Type* type = getType(typeNT, currentScope);
+    Type* type = getType(typeNT, currentScope, nullptr, false);
     if(!type)
     {
       resolved = false;
     }
     members.push_back(type);
   }
-  if(!resolved)
-  {
-    unresolvedTypes.push_back(this);
-    //will visit this later and look up all NULL types again
-  }
-  decl = tt;
   tuples.push_back(this);
-}
-
-void TupleType::resolve()
-{
-  for(size_t i = 0; i < members.size(); i++)
-  {
-    if(!members[i])
-    {
-      Type* lookup = getType(decl->members[i].get(), enclosing);
-      if(!lookup)
-      {
-        errAndQuit("unknown type as member of tuple");
-      }
-      members[i] = lookup;
-    }
-  }
 }
 
 bool TupleType::canConvert(Type* other)
@@ -529,6 +453,11 @@ bool TupleType::isTuple()
   return true;
 }
 
+bool TupleType::matchesTypes(vector<Type*>& types)
+{
+  return members.size() == types.size() && std::equal(types.begin(), types.end(), members.begin());
+}
+
 /**************/
 /* Alias Type */
 /**************/
@@ -536,13 +465,9 @@ bool TupleType::isTuple()
 AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
 {
   name = td->ident;
-  Type* t = getType(td->type.get(), current);
-  actual = t;
-  if(!t)
-  {
-    unresolvedTypes.push_back(this);
-  }
   decl = td;
+  Type* t = getType(td->type.get(), current, &actual, false);
+  actual = t;
 }
 
 AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type(currentScope)
@@ -550,16 +475,6 @@ AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type
   name = alias;
   actual = underlying;
   decl = nullptr;
-}
-
-void AliasType::resolve()
-{
-  Type* lookup = getType(decl->type.get(), enclosing);
-  if(!lookup)
-  {
-    errAndQuit("unknown type used in typedef");
-  }
-  actual = lookup;
 }
 
 bool AliasType::canConvert(Type* other)
