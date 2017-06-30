@@ -83,14 +83,14 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
         return elemType->dimTypes.back();
       }
     }
-    else if(failureIsError || !usage)
-    {
-      errAndQuit("Required ArrayType but its element type could not be resolved.");
-    }
-    else
+    else if(usage)
     {
       unresolved.emplace_back(type, usedScope, usage);
       return nullptr;
+    }
+    else if(failureIsError)
+    {
+      errAndQuit("Required ArrayType but its element type could not be resolved.");
     }
   }
   else if(type->t.is<TypeNT::Prim>())
@@ -187,8 +187,8 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
     bool resolved = true;
     //TupleTypes can have unresolved arrays/tuples as members, so is necessary to pass usage ptr for each member
     vector<Type*> types(tt->members.size(), nullptr);
-    TupleType* tup = new TupleType(types);
-    for(size_t i = 0; i < tt->members.size(); i++)
+    size_t i;
+    for(i = 0; i < tt->members.size(); i++)
     {
       auto& mem = tt->members[i];
       types[i] = getType(mem.get(), usedScope, nullptr, false);
@@ -197,11 +197,15 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
     }
     if(!resolved)
     {
-      if(failureIsError || !usage)
+      if(failureIsError)
       {
-        INTERNAL_ERROR;
+        errAndQuit(string("Required TupleType but member ") + to_string(i) + " could not be resolved.");
       }
-      unresolved.emplace_back(type, usedScope, usage);
+      else if(usage)
+      {
+        unresolved.emplace_back(type, usedScope, usage);
+        return nullptr;
+      }
     }
     for(auto& existing : tuples)
     {
@@ -210,7 +214,8 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
         return existing;
       }
     }
-    return tup;
+    //must create new type
+    return new TupleType(types);
   }
   else
   {
