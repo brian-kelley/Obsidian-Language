@@ -565,7 +565,6 @@ namespace Parser
     AP(FuncType) ft(new FuncType);
     expectKeyword(FUNCTYPE);
     ft->retType = parse<TypeNT>();
-    ft->name = parse<Member>();
     expectPunct(LPAREN);
     ft->args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -612,7 +611,6 @@ namespace Parser
       pt->nonterm = true;
     expectKeyword(PROCTYPE);
     pt->retType = parse<TypeNT>();
-    pt->name = parse<Member>();
     expectPunct(LPAREN);
     pt->args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);

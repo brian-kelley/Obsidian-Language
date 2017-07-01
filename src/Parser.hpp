@@ -362,7 +362,6 @@ namespace Parser
   struct FuncType
   {
     AP(TypeNT) retType;
-    AP(Member) name;
     vector<AP(Arg)> args;
   };
 
@@ -387,7 +386,6 @@ namespace Parser
   {
     bool nonterm;
     AP(TypeNT) retType;
-    AP(Member) name;
     vector<AP(Arg)> args;
   };
 

@@ -18,7 +18,7 @@ vector<UnresolvedType> Type::unresolved;
 
 Type::Type(Scope* enclosingScope)
 {
-  //ArrayTypes and TupleTypes have no scope, so enclosingScope can be null
+  //Syntactic types (arrays, tuples, functions, procedures) have no scope, so enclosingScope can be null
   if(enclosingScope)
   {
     enclosing = enclosingScope;
@@ -217,10 +217,13 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
     //must create new type
     return new TupleType(types);
   }
-  else
+  else if(type->t.is<AP(FuncType)>())
   {
-    //TODO: FuncPrototype, ProcPrototype
-    INTERNAL_ERROR;
+    return new FuncPrototype(type->t.get<AP(FuncType)>().get(), usedScope);
+  }
+  else if(type->t.is<AP(ProcType)>())
+  {
+    return new ProcPrototype(type->t.get<AP(ProcType)>().get(), usedScope);
   }
   return nullptr;
 }
@@ -296,6 +299,122 @@ bool Type::isString()
 
 bool Type::isBool()
 {
+  return false;
+}
+
+/*****************/
+/* Function Type */
+/*****************/
+
+FuncPrototype::FuncPrototype(Parser::FuncType* ft, Scope* scope) : Type(nullptr)
+{
+  retType = getType(ft->retType.get(), scope, &retType, false);
+  for(size_t i = 0; i < ft->args.size(); i++)
+  {
+    if(ft->args[i]->t.is<AP(TypeNT)>())
+    {
+      argTypes.push_back(getType(ft->args[i]->t.get<AP(TypeNT)>().get(), scope, &argTypes[i], false));
+    }
+    else
+    {
+      argTypes.push_back(nullptr);
+    }
+  }
+}
+
+bool FuncPrototype::isCallable()
+{
+  return true;
+}
+
+bool FuncPrototype::isFunc()
+{
+  return true;
+}
+
+bool FuncPrototype::canConvert(Type* other)
+{
+  //True if other is also a function and has ret type and arg types that can be converted
+  FuncPrototype* fp = dynamic_cast<FuncPrototype*>(other);
+  if(fp == nullptr)
+    return false;
+  if(!retType->canConvert(fp->retType))
+    return false;
+  if(argTypes.size() != fp->argTypes.size())
+    return false;
+  for(size_t i = 0; i < argTypes.size(); i++)
+  {
+    if(!argTypes[i]->canConvert(fp->argTypes[i]))
+      return false;
+  }
+  return true;
+}
+
+/******************/
+/* Procedure Type */
+/******************/
+
+ProcPrototype::ProcPrototype(Parser::ProcType* pt, Scope* scope) : Type(nullptr)
+{
+  retType = getType(pt->retType.get(), scope, &retType, false);
+  for(size_t i = 0; i < pt->args.size(); i++)
+  {
+    if(pt->args[i]->t.is<AP(TypeNT)>())
+    {
+      argTypes.push_back(getType(pt->args[i]->t.get<AP(TypeNT)>().get(), scope, &argTypes[i], false));
+    }
+    else
+    {
+      argTypes.push_back(nullptr);
+    }
+  }
+  nonterm = pt->nonterm;
+}
+
+bool ProcPrototype::isCallable()
+{
+  return true;
+}
+
+bool ProcPrototype::isProc()
+{
+  return true;
+}
+
+bool ProcPrototype::canConvert(Type* other)
+{
+  //True if other is a callable and has ret type and arg types that can be converted
+  FuncPrototype* f = dynamic_cast<FuncPrototype*>(other);
+  ProcPrototype* p = dynamic_cast<ProcPrototype*>(other);
+  if(f)
+  {
+    if(!retType->canConvert(f->retType))
+      return false;
+    if(argTypes.size() != f->argTypes.size())
+      return false;
+    for(size_t i = 0; i < argTypes.size(); i++)
+    {
+      if(!argTypes[i]->canConvert(f->argTypes[i]))
+        return false;
+    }
+    return true;
+  }
+  else if(p)
+  {
+    //terminating procedures are a subset of the non-terminating procedures
+    if(p->nonterm && !nonterm)
+      return false;
+    if(!retType->canConvert(p->retType))
+      return false;
+    if(argTypes.size() != p->argTypes.size())
+      return false;
+    for(size_t i = 0; i < argTypes.size(); i++)
+    {
+      if(!argTypes[i]->canConvert(p->argTypes[i]))
+        return false;
+    }
+    return true;
+  }
   return false;
 }
 

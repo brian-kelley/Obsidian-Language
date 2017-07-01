@@ -97,17 +97,23 @@ struct Type
 
 struct FuncPrototype : public Type
 {
-  FuncPrototype(Parser::FuncType& ft);
+  FuncPrototype(Parser::FuncType* ft, Scope* usedScope);
   Type* retType;
   vector<Type*> argTypes;
+  bool isCallable();
+  bool isFunc();
+  bool canConvert(Type* other);
 };
 
 struct ProcPrototype : public Type
 {
-  ProcPrototype(Parser::ProcType& pt);
+  ProcPrototype(Parser::ProcType* pt, Scope* usedScope);
   bool nonterm;
   Type* retType;
   vector<Type*> argTypes;
+  bool isCallable();
+  bool isProc();
+  bool canConvert(Type* other);
 };
 
 struct Trait

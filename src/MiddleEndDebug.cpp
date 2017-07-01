@@ -118,7 +118,8 @@ namespace MiddleEndDebug
   {
     if(!t)
     {
-      errAndQuit("Tried to print a null Type!\n");
+      indent(ind);
+      cout << "Warning: null Type!\n";
     }
     if(dynamic_cast<StructType*>(t))
     {
@@ -170,6 +171,14 @@ namespace MiddleEndDebug
     {
       indent(ind);
       cout << "bool\n";
+    }
+    else if(dynamic_cast<FuncPrototype*>(t))
+    {
+      printFuncType((FuncPrototype*) t, ind);
+    }
+    else if(dynamic_cast<ProcPrototype*>(t))
+    {
+      printProcType((ProcPrototype*) t, ind);
     }
   }
 
@@ -227,6 +236,47 @@ namespace MiddleEndDebug
     for(auto& it : t->members)
     {
       printType(it, ind + 1);
+    }
+  }
+
+  void printFuncType(FuncPrototype* t, int ind)
+  {
+    indent(ind);
+    cout << "Function type:\n";
+    indent(ind);
+    cout << "Return type:\n";
+    printType(t->retType, ind + 1);
+    indent(ind);
+    for(size_t i = 0; i < t->argTypes.size(); i++)
+    {
+      indent(ind);
+      cout << "Arg " << i << ":\n";
+      printType(t->argTypes[i], ind + 1);
+    }
+  }
+
+  void printProcType(ProcPrototype* t, int ind)
+  {
+    indent(ind);
+    cout << "Procedure type:\n";
+    indent(ind);
+    if(t->nonterm)
+    {
+      cout << "Non-terminating.\n";
+    }
+    else
+    {
+      cout << "Terminating\n";
+    }
+    indent(ind);
+    cout << "Return type:\n";
+    printType(t->retType, ind + 1);
+    indent(ind);
+    for(size_t i = 0; i < t->argTypes.size(); i++)
+    {
+      indent(ind);
+      cout << "Arg " << i << ":\n";
+      printType(t->argTypes[i], ind + 1);
     }
   }
 }

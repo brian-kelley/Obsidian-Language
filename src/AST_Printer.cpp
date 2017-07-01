@@ -528,7 +528,6 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Func type:\n";
-    printMember(ft->name.get(), ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
     printTypeNT(ft->retType.get(), ind + indentLevel);
@@ -586,8 +585,7 @@ namespace AstPrinter
   void printProcType(ProcType* pt, int ind)
   {
     indent(ind);
-    cout << "Func type:\n";
-    printMember(pt->name.get(), ind + indentLevel);
+    cout << "Proc type:\n";
     indent(ind);
     cout << "Return type:\n";
     printTypeNT(pt->retType.get(), ind + indentLevel);

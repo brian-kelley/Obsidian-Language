@@ -9,21 +9,23 @@ namespace MiddleEndDebug
   void printTypeTree();
 
   //General scope - calls one of the 3 specializations below
-  void printScope(Scope* s, int indent);
+  void printScope(Scope* s, int ind);
 
-  void printModuleScope(ModuleScope* s, int indent);
-  void printStructScope(StructScope* s, int indent);
-  void printBlockScope(BlockScope* s, int indent);
+  void printModuleScope(ModuleScope* s, int ind);
+  void printStructScope(StructScope* s, int ind);
+  void printBlockScope(BlockScope* s, int ind);
 
   //General type - calls one of the 6 specializations below
-  void printType(Type* t, int indent);
+  void printType(Type* t, int ind);
 
-  void printStructType(StructType* t, int indent);
-  void printUnionType(UnionType* t, int indent);
-  void printAliasType(AliasType* t, int indent);
-  void printEnumType(EnumType* t, int indent);
-  void printArrayType(ArrayType* t, int indent);
-  void printTupleType(TupleType* t, int indent);
+  void printStructType(StructType* t, int ind);
+  void printUnionType(UnionType* t, int ind);
+  void printAliasType(AliasType* t, int ind);
+  void printEnumType(EnumType* t, int ind);
+  void printArrayType(ArrayType* t, int ind);
+  void printTupleType(TupleType* t, int ind);
+  void printFuncType(FuncPrototype* t, int ind);
+  void printProcType(ProcPrototype* t, int ind);
 }
 
 #endif
