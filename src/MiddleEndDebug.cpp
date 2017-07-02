@@ -2,6 +2,8 @@
 
 #define INDENT 2
 
+using namespace TypeSystem;
+
 namespace MiddleEndDebug
 {
   static void indent(int level)
@@ -172,13 +174,13 @@ namespace MiddleEndDebug
       indent(ind);
       cout << "bool\n";
     }
-    else if(dynamic_cast<FuncPrototype*>(t))
+    else if(dynamic_cast<FuncType*>(t))
     {
-      printFuncType((FuncPrototype*) t, ind);
+      printFuncType((FuncType*) t, ind);
     }
-    else if(dynamic_cast<ProcPrototype*>(t))
+    else if(dynamic_cast<ProcType*>(t))
     {
-      printProcType((ProcPrototype*) t, ind);
+      printProcType((ProcType*) t, ind);
     }
   }
 
@@ -239,7 +241,7 @@ namespace MiddleEndDebug
     }
   }
 
-  void printFuncType(FuncPrototype* t, int ind)
+  void printFuncType(FuncType* t, int ind)
   {
     indent(ind);
     cout << "Function type:\n";
@@ -255,7 +257,7 @@ namespace MiddleEndDebug
     }
   }
 
-  void printProcType(ProcPrototype* t, int ind)
+  void printProcType(ProcType* t, int ind)
   {
     indent(ind);
     cout << "Procedure type:\n";

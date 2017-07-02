@@ -7,13 +7,17 @@
 #include "Scope.hpp"
 
 struct Scope;
-struct Type;
+
+namespace TypeSystem
+{
+  struct Type;
+}
 
 struct Variable
 {
   Scope* owner;
   string name;
-  Type* type;
+  TypeSystem::Type* type;
 };
 
 #endif

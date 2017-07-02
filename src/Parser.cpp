@@ -47,10 +47,10 @@ namespace Parser
   template<> AP(Arg) parse<Arg>();
   template<> AP(FuncDecl) parse<FuncDecl>();
   template<> AP(FuncDef) parse<FuncDef>();
-  template<> AP(FuncType) parse<FuncType>();
+  template<> AP(FuncTypeNT) parse<FuncTypeNT>();
   template<> AP(ProcDecl) parse<ProcDecl>();
   template<> AP(ProcDef) parse<ProcDef>();
-  template<> AP(ProcType) parse<ProcType>();
+  template<> AP(ProcTypeNT) parse<ProcTypeNT>();
   template<> AP(StructMem) parse<StructMem>();
   template<> AP(StructDecl) parse<StructDecl>();
   template<> AP(UnionDecl) parse<UnionDecl>();
@@ -160,8 +160,8 @@ namespace Parser
     {
       if(!(type->t = parseOptional<Member>()) &&
           !(type->t = parseOptional<TupleTypeNT>()) &&
-          !(type->t = parseOptional<FuncType>()) &&
-          !(type->t = parseOptional<ProcType>()))
+          !(type->t = parseOptional<FuncTypeNT>()) &&
+          !(type->t = parseOptional<ProcTypeNT>()))
       {
         err("Invalid type");
       }
@@ -536,10 +536,10 @@ namespace Parser
   {
     AP(FuncDecl) fd(new FuncDecl);
     expectKeyword(FUNC);
-    fd->retType = parse<TypeNT>();
+    fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    fd->args = parseSomeCommaSeparated<Arg>();
+    fd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return fd;
@@ -550,19 +550,19 @@ namespace Parser
   {
     AP(FuncDef) fd(new FuncDef);
     expectKeyword(FUNC);
-    fd->retType = parse<TypeNT>();
+    fd->type.retType = parse<TypeNT>();
     fd->name = parse<Member>();
     expectPunct(LPAREN);
-    fd->args = parseSomeCommaSeparated<Arg>();
+    fd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
     fd->body = parse<Block>();
     return fd;
   }
 
   template<>
-  AP(FuncType) parse<FuncType>()
+  AP(FuncTypeNT) parse<FuncTypeNT>()
   {
-    AP(FuncType) ft(new FuncType);
+    AP(FuncTypeNT) ft(new FuncTypeNT);
     expectKeyword(FUNCTYPE);
     ft->retType = parse<TypeNT>();
     expectPunct(LPAREN);
@@ -576,12 +576,12 @@ namespace Parser
   {
     AP(ProcDecl) pd(new ProcDecl);
     if(acceptKeyword(NONTERM))
-      pd->nonterm = true;
+      pd->type.nonterm = true;
     expectKeyword(PROC);
-    pd->retType = parse<TypeNT>();
+    pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    pd->args = parseSomeCommaSeparated<Arg>();
+    pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return pd;
@@ -592,21 +592,21 @@ namespace Parser
   {
     AP(ProcDef) pd(new ProcDef);
     if(acceptKeyword(NONTERM))
-      pd->nonterm = true;
+      pd->type.nonterm = true;
     expectKeyword(PROC);
-    pd->retType = parse<TypeNT>();
+    pd->type.retType = parse<TypeNT>();
     pd->name = parse<Member>();
     expectPunct(LPAREN);
-    pd->args = parseSomeCommaSeparated<Arg>();
+    pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
     pd->body = parse<Block>();
     return pd;
   }
 
   template<>
-  AP(ProcType) parse<ProcType>()
+  AP(ProcTypeNT) parse<ProcTypeNT>()
   {
-    AP(ProcType) pt(new ProcType);
+    AP(ProcTypeNT) pt(new ProcTypeNT);
     if(acceptKeyword(NONTERM))
       pt->nonterm = true;
     expectKeyword(PROCTYPE);
@@ -719,7 +719,7 @@ namespace Parser
     AP(TraitType) tt(new TraitType);
     tt->localName = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
-    tt->traitName = parse<Member>();
+    tt->traits = parseSomeCommaSeparated<Member>();
     return tt;
   }
 

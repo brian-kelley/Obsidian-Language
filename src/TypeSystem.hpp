@@ -34,35 +34,82 @@
 
 struct Scope;
 struct StructScope;
+
+namespace TypeSystem
+{
+
+struct Type;
 struct TupleType;
 struct ArrayType;
 struct StructType;
 struct UnionType;
 struct AliasType;
-struct Type;
+struct FuncType;
+struct ProcType;
+struct Trait;
 
 //  UnresolvedType is used to remember an instance of a type (used in another type)
 //  that cannot be resolved during the first pass
 //
-//  -Parsed is the original AST node that represents the type that couldn't be looked up
+//  -parsed[...] is the original AST node that represents the type that couldn't be looked up
 //  -Usage is where the type ID is needed by some other dependent type
 struct UnresolvedType
 {
   //UnresolvedType() : parsed(NULL), usage(NULL) {}
-  UnresolvedType(Parser::TypeNT* t, Scope* s, Type** u) : parsed(t), scope(s), usage(u) {}
-  Parser::TypeNT* parsed;
+  UnresolvedType(Parser::TypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
+  {
+    parsedType = t;
+    parsedFunc = nullptr;
+    parsedProc = nullptr;
+  }
+  UnresolvedType(Parser::FuncTypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
+  {
+    parsedType = nullptr;
+    parsedFunc = t;
+    parsedProc = nullptr;
+  }
+  UnresolvedType(Parser::ProcTypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
+  {
+    parsedType = nullptr;
+    parsedFunc = nullptr;
+    parsedProc = t;
+  }
+  Parser::TypeNT* parsedType;
+  Parser::FuncTypeNT* parsedFunc;
+  Parser::ProcTypeNT* parsedProc;
   Scope* scope;
   Type** usage;
 };
 
+struct UnresolvedTrait
+{
+  //UnresolvedType() : parsed(NULL), usage(NULL) {}
+  UnresolvedTrait(Parser::Member* t, Scope* s, Trait** u) : parsed(t), scope(s), usage(u) {}
+  Parser::Member* parsed;
+  Scope* scope;
+  Trait** usage;
+};
+
+Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
+FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
+ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
+Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
+void resolveAllTypes();
+void resolveAllTraits();
+void createBuiltinTypes();
+
+extern vector<TupleType*> tuples;
+extern vector<ArrayType*> arrays;
+extern vector<UnresolvedType> unresolved;
+extern vector<UnresolvedTrait> unresolvedTraits;
+extern vector<Type*> primitives;
+
 struct Type
 {
   Type(Scope* enclosingScope);
-  static void createBuiltinTypes();
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   Scope* enclosing;
   //resolve all types that couldn't be found during first pass
-  static void resolveAll();
   //dimTypes[0] is for T[], dimTypes[1] is for T[][], etc.
   vector<Type*> dimTypes;
   // [lazily create and] return array type for given number of dimensions of *this
@@ -71,33 +118,29 @@ struct Type
   virtual bool canConvert(Type* other) = 0;
   //Use this getType() for scope tree building
   //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
-  static Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
   //Other variations (so above getType() 
   //"primitives" maps TypeNT::Prim values to corresponding Type*
-  static vector<Type*> primitives;
   //quickly lookup (or create) unique TupleType for given members
   TupleType* lookupTuple(vector<Type*>& members);
   //Note: the set stores TupleType pointers, but compares them by operator< on the dereferenced values
-  static vector<TupleType*> tuples;
-  static vector<ArrayType*> arrays;
-  static vector<UnresolvedType> unresolved;
-  virtual bool isArray();
-  virtual bool isStruct();
-  virtual bool isUnion();
-  virtual bool isTuple();
-  virtual bool isEnum();
-  virtual bool isCallable();
-  virtual bool isProc();
-  virtual bool isFunc();
-  virtual bool isInteger();
-  virtual bool isNumber();
-  virtual bool isString();
-  virtual bool isBool();
+  virtual bool isArray()    {return false;}
+  virtual bool isStruct()   {return false;}
+  virtual bool isUnion()    {return false;}
+  virtual bool isTuple()    {return false;}
+  virtual bool isEnum()     {return false;}
+  virtual bool isCallable() {return false;}
+  virtual bool isProc()     {return false;}
+  virtual bool isFunc()     {return false;}
+  virtual bool isInteger()  {return false;}
+  virtual bool isNumber()   {return false;}
+  virtual bool isString()   {return false;}
+  virtual bool isBool()     {return false;}
+  virtual bool isConcrete() {return true;}
 };
 
-struct FuncPrototype : public Type
+struct FuncType : public Type
 {
-  FuncPrototype(Parser::FuncType* ft, Scope* usedScope);
+  FuncType(Parser::FuncTypeNT* ft, Scope* usedScope);
   Type* retType;
   vector<Type*> argTypes;
   bool isCallable();
@@ -105,9 +148,9 @@ struct FuncPrototype : public Type
   bool canConvert(Type* other);
 };
 
-struct ProcPrototype : public Type
+struct ProcType : public Type
 {
-  ProcPrototype(Parser::ProcType* pt, Scope* usedScope);
+  ProcType(Parser::ProcTypeNT* pt, Scope* usedScope);
   bool nonterm;
   Type* retType;
   vector<Type*> argTypes;
@@ -118,10 +161,29 @@ struct ProcPrototype : public Type
 
 struct Trait
 {
+  Trait(Parser::TraitDecl* td, Scope* s);
   Scope* scope;
   string name;
-  vector<FuncPrototype*> funcs;
-  vector<ProcPrototype*> procs;
+  //Trait is a set of named function and procedure types
+  vector<FuncType*> funcs;
+  vector<string> funcNames;
+  vector<ProcType*> procs;
+  vector<string> procNames;
+};
+
+//Bounded type: a set of traits that define a polymorphic argument type (like Java)
+//Can only be used in argument lists.
+//When polymorphic callable is instantiated,
+//the BoundedType becomes an alias type within the function
+struct BoundedType : public Type
+{
+  //a bounded type is called TraitType in the parser
+  BoundedType(Parser::TraitType* tt, Scope* s);
+  vector<Trait*> traits;
+  bool isConcrete()
+  {
+    return false;
+  }
 };
 
 struct StructType : public Type
@@ -130,8 +192,8 @@ struct StructType : public Type
   string name;
   //check for member functions
   //note: self doesn't count as an argument but it is the 1st arg internally
-  bool hasFunc(FuncPrototype* type);
-  bool hasProc(ProcPrototype* type);
+  bool hasFunc(FuncType* type);
+  bool hasProc(ProcType* type);
   vector<Trait*> traits;
   vector<Type*> members;
   vector<string> memberNames;
@@ -241,6 +303,8 @@ struct BoolType : public Type
   bool canConvert(Type* other);
   bool isBool();
 };
+
+} //namespace TypeSystem
 
 #endif
 

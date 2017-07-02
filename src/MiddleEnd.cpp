@@ -2,6 +2,7 @@
 
 using namespace std;
 using namespace Parser;
+using namespace TypeSystem;
 
 ModuleScope* global = NULL;
 
@@ -11,7 +12,7 @@ namespace MiddleEnd
   {
     //create global scope - no name and no parent
     global = new ModuleScope("", NULL);
-    Type::createBuiltinTypes();
+    TypeSystem::createBuiltinTypes();
     //build scope tree
     cout << "Building scope tree and creating types...\n";
     for(auto& it : ast->decls)
@@ -19,7 +20,8 @@ namespace MiddleEnd
       TypeLoading::visitScopedDecl(global, it);
     }
     cout << "Resolving undefined types...\n";
-    Type::resolveAll();
+    resolveAllTraits();
+    resolveAllTypes();
     cout << "Middle end done.\n";
   }
 
@@ -93,6 +95,10 @@ namespace MiddleEnd
       else if(sd->decl.is<AP(ProcDef)>())
       {
         visitBlock(current, sd->decl.get<AP(ProcDef)>()->body);
+      }
+      else if(sd->decl.is<AP(TraitDecl)>())
+      {
+        new Trait(sd->decl.get<AP(TraitDecl)>().get(), current);
       }
     }
   }

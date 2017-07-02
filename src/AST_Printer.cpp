@@ -490,13 +490,13 @@ namespace AstPrinter
     cout << "Func declaration: \"" << fd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(fd->retType.get(), ind + indentLevel);
+    printTypeNT(fd->type.retType.get(), ind + indentLevel);
     indent(ind);
-    if(fd->args.size() == 0)
+    if(fd->type.args.size() == 0)
       cout << "No args\n";
     else
       cout << "Args:\n";
-    for(auto& it : fd->args)
+    for(auto& it : fd->type.args)
     {
       printArg(it.get(), ind + indentLevel);
     }
@@ -509,13 +509,13 @@ namespace AstPrinter
     printMember(fd->name.get(), ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(fd->retType.get(), ind + indentLevel);
+    printTypeNT(fd->type.retType.get(), ind + indentLevel);
     indent(ind);
-    if(fd->args.size() == 0)
+    if(fd->type.args.size() == 0)
       cout << "No args\n";
     else
       cout << "Args:\n";
-    for(auto& it : fd->args)
+    for(auto& it : fd->type.args)
     {
       printArg(it.get(), ind + indentLevel);
     }
@@ -524,7 +524,7 @@ namespace AstPrinter
     printBlock(fd->body.get(), ind + indentLevel);
   }
 
-  void printFuncType(FuncType* ft, int ind)
+  void printFuncTypeNT(FuncTypeNT* ft, int ind)
   {
     indent(ind);
     cout << "Func type:\n";
@@ -548,13 +548,13 @@ namespace AstPrinter
     cout << "Proc declaration: \"" << pd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(pd->retType.get(), ind + indentLevel);
+    printTypeNT(pd->type.retType.get(), ind + indentLevel);
     indent(ind);
-    if(pd->args.size() == 0)
+    if(pd->type.args.size() == 0)
       cout << "No args\n";
     else
       cout << "Args:\n";
-    for(auto& it : pd->args)
+    for(auto& it : pd->type.args)
     {
       printArg(it.get(), ind + indentLevel);
     }
@@ -567,13 +567,13 @@ namespace AstPrinter
     printMember(pd->name.get(), ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(pd->retType.get(), ind + indentLevel);
+    printTypeNT(pd->type.retType.get(), ind + indentLevel);
     indent(ind);
-    if(pd->args.size() == 0)
+    if(pd->type.args.size() == 0)
       cout << "No args\n";
     else
       cout << "Args:\n";
-    for(auto& it : pd->args)
+    for(auto& it : pd->type.args)
     {
       printArg(it.get(), ind + indentLevel);
     }
@@ -582,7 +582,7 @@ namespace AstPrinter
     printBlock(pd->body.get(), ind + indentLevel);
   }
 
-  void printProcType(ProcType* pt, int ind)
+  void printProcTypeNT(ProcTypeNT* pt, int ind)
   {
     indent(ind);
     cout << "Proc type:\n";
@@ -672,8 +672,11 @@ namespace AstPrinter
   void printTraitType(TraitType* tt, int ind)
   {
     indent(ind);
-    cout << "TraitType \"" << tt->localName << "\", underlying:\n";
-    printMember(tt->traitName.get(), ind + indentLevel);
+    cout << "TraitType \"" << tt->localName << "\", traits:\n";
+    for(auto& mem : tt->traits)
+    {
+      printMember(mem.get(), ind + indentLevel);
+    }
   }
 
   void printTupleTypeNT(TupleTypeNT* tt, int ind)

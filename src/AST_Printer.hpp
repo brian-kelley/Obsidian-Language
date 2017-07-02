@@ -39,10 +39,10 @@ namespace AstPrinter
   void printArg(Arg* a, int indent);
   void printFuncDecl(FuncDecl* fd, int indent);
   void printFuncDef(FuncDef* fd, int indent);
-  void printFuncType(FuncType* ft, int indent);
+  void printFuncTypeNT(FuncTypeNT* ft, int indent);
   void printProcDecl(ProcDecl* pd, int indent);
   void printProcDef(ProcDef* pd, int indent);
-  void printProcType(ProcType* pt, int indent);
+  void printProcTypeNT(ProcTypeNT* pt, int indent);
   void printStructDecl(StructDecl* sd, int indent);
   void printUnionDecl(UnionDecl* vd, int indent);
   void printTraitDecl(TraitDecl* td, int indent);

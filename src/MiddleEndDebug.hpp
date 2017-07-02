@@ -16,16 +16,16 @@ namespace MiddleEndDebug
   void printBlockScope(BlockScope* s, int ind);
 
   //General type - calls one of the 6 specializations below
-  void printType(Type* t, int ind);
+  void printType(TypeSystem::Type* t, int ind);
 
-  void printStructType(StructType* t, int ind);
-  void printUnionType(UnionType* t, int ind);
-  void printAliasType(AliasType* t, int ind);
-  void printEnumType(EnumType* t, int ind);
-  void printArrayType(ArrayType* t, int ind);
-  void printTupleType(TupleType* t, int ind);
-  void printFuncType(FuncPrototype* t, int ind);
-  void printProcType(ProcPrototype* t, int ind);
+  void printStructType(TypeSystem::StructType* t, int ind);
+  void printUnionType(TypeSystem::UnionType* t, int ind);
+  void printAliasType(TypeSystem::AliasType* t, int ind);
+  void printEnumType(TypeSystem::EnumType* t, int ind);
+  void printArrayType(TypeSystem::ArrayType* t, int ind);
+  void printTupleType(TypeSystem::TupleType* t, int ind);
+  void printFuncType(TypeSystem::FuncType* t, int ind);
+  void printProcType(TypeSystem::ProcType* t, int ind);
 }
 
 #endif

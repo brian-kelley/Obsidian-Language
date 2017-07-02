@@ -71,10 +71,10 @@ namespace Parser
   struct Arg;
   struct FuncDecl;
   struct FuncDef;
-  struct FuncType;
+  struct FuncTypeNT;
   struct ProcDecl;
   struct ProcDef;
-  struct ProcType;
+  struct ProcTypeNT;
   struct StructDecl;
   struct UnionDecl;
   struct TraitDecl;
@@ -154,8 +154,8 @@ namespace Parser
       Prim,
       AP(Member),
       AP(TupleTypeNT),
-      AP(FuncType),
-      AP(ProcType)> t;
+      AP(FuncTypeNT),
+      AP(ProcTypeNT)> t;
     int arrayDims;
   };
 
@@ -344,49 +344,43 @@ namespace Parser
     string name;
   };
 
-  struct FuncDecl
+  struct FuncTypeNT
   {
     AP(TypeNT) retType;
-    string name;
     vector<AP(Arg)> args;
+  };
+
+  struct FuncDecl
+  {
+    string name;
+    FuncTypeNT type;
   };
 
   struct FuncDef
   {
-    AP(TypeNT) retType;
     AP(Member) name;
-    vector<AP(Arg)> args;
+    FuncTypeNT type;
     AP(Block) body;
   };
 
-  struct FuncType
+  struct ProcTypeNT
   {
+    bool nonterm;
     AP(TypeNT) retType;
     vector<AP(Arg)> args;
   };
 
   struct ProcDecl
   {
-    bool nonterm;
-    AP(TypeNT) retType;
     string name;
-    vector<AP(Arg)> args;
+    ProcTypeNT type;
   };
 
   struct ProcDef
   {
-    bool nonterm;
-    AP(TypeNT) retType;
     AP(Member) name;
-    vector<AP(Arg)> args;
+    ProcTypeNT type;
     AP(Block) body;
-  };
-
-  struct ProcType
-  {
-    bool nonterm;
-    AP(TypeNT) retType;
-    vector<AP(Arg)> args;
   };
 
   struct StructMem
@@ -432,9 +426,10 @@ namespace Parser
 
   struct TraitType
   {
-    //trait types of the form "<localName> : <traitName>"
+    //trait types of the form "<localName>: <traitNames> <argName>"
+    //i.e.: int f(T: Num, IO.Printable value)
     string localName;
-    AP(Member) traitName;
+    vector<AP(Member)> traits;
   };
 
   struct TupleTypeNT

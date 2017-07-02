@@ -9,9 +9,14 @@
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
 
-struct Type;
-struct FuncPrototype;
-struct ProcPrototype;
+namespace TypeSystem
+{
+  struct Type;
+  struct FuncType;
+  struct ProcType;
+  struct Trait;
+}
+
 struct Variable;
 
 //Scopes own all funcs/structs/traits/etc
@@ -22,12 +27,13 @@ struct Scope
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
-  vector<Type*> types;              //types declared here
+  vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
+  vector<TypeSystem::Trait*> traits;  //traits declared here
   vector<Variable*> vars;             //variables declared here
   //funcs and procs are all fully implemented functions in a scope
   //Struct member funcs/procs can be declared before defined but then they must be defined in parent scope
-  vector<FuncPrototype*> funcs;
-  vector<ProcPrototype*> procs;
+  vector<TypeSystem::FuncType*> funcs;
+  vector<TypeSystem::ProcType*> procs;
 };
 
 struct ModuleScope : public Scope

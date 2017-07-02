@@ -11,10 +11,14 @@ struct ModuleScope;
 
 extern ModuleScope* global;
 
-vector<Type*> Type::primitives;
-vector<TupleType*> Type::tuples;
-vector<ArrayType*> Type::arrays;
-vector<UnresolvedType> Type::unresolved;
+namespace TypeSystem
+{
+
+vector<Type*> primitives;
+vector<TupleType*> tuples;
+vector<ArrayType*> arrays;
+vector<UnresolvedType> unresolved;
+vector<UnresolvedTrait> unresolvedTraits;
 
 Type::Type(Scope* enclosingScope)
 {
@@ -26,7 +30,7 @@ Type::Type(Scope* enclosingScope)
   }
 }
 
-void Type::createBuiltinTypes()
+void createBuiltinTypes()
 {
   primitives.push_back(new BoolType);
   primitives.emplace_back(new IntegerType("char", 1, true));
@@ -52,7 +56,7 @@ void Type::createBuiltinTypes()
   primitives.emplace_back(new StringType);
 }
 
-Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
+Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
 {
   //handle array immediately - just make an array and then handle the singular element type
   if(type->arrayDims)
@@ -167,7 +171,6 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
       Parser::Member* it = mem.get();
       for(; it->mem; it = it->mem.get())
       {
-        cout << "MemberNT owner: \"" << it->owner << "\"\n";
         msg += it->owner;
         msg += '.';
       }
@@ -217,23 +220,107 @@ Type* Type::getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool f
     //must create new type
     return new TupleType(types);
   }
-  else if(type->t.is<AP(FuncType)>())
+  else if(type->t.is<AP(FuncTypeNT)>())
   {
-    return new FuncPrototype(type->t.get<AP(FuncType)>().get(), usedScope);
+    return getFuncType(type->t.get<AP(FuncTypeNT)>().get(), usedScope, usage, failureIsError);
   }
-  else if(type->t.is<AP(ProcType)>())
+  else if(type->t.is<AP(ProcTypeNT)>())
   {
-    return new ProcPrototype(type->t.get<AP(ProcType)>().get(), usedScope);
+    return getProcType(type->t.get<AP(ProcTypeNT)>().get(), usedScope, usage, failureIsError);
   }
   return nullptr;
 }
 
-void Type::resolveAll()
+FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
 {
-  for(auto& ut : unresolved)
+  //TODO: cache these and check for existing type before creating new one
+  return new FuncType(type, usedScope);
+}
+
+ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
+{
+  return new ProcType(type, usedScope);
+}
+
+Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError)
+{
+  //search up scope tree for the member
+  //need to search for EnumType, AliasType, StructType or UnionType
+  for(Scope* iter = usedScope; iter; iter = iter->parent)
   {
+    Scope* memScope = iter;
+    //iter is the root of search (scan for child scopes, then the type)
+    for(Member* search = name;
+        search; search = search->mem.get())
+    {
+      bool foundNext = false;
+      if(search->mem)
+      {
+        //find scope with name mem->owner
+        for(auto& searchScope : memScope->children)
+        {
+          if(searchScope->getLocalName() == search->owner)
+          {
+            //found the next memScope for searching
+            foundNext = true;
+            memScope = searchScope;
+            break;
+          }
+        }
+        if(!foundNext)
+        {
+          //stop searching down this chain of scopes
+          break;
+        }
+      }
+      else
+      {
+        for(auto searchTrait : iter->traits)
+        {
+          if(searchTrait->name == search->owner)
+            return searchTrait;
+        }
+      }
+    }
+  }
+  //couldn't find type, mark as unresolved
+  //If usage is null (meaning this is during the resolving pass), is fatal error
+  if(failureIsError)
+  {
+    string msg = "Could not resolve trait: \"";
+    auto mem = name;
+    //walk down the member chain (print owner, then '.', then remainder)
+    Parser::Member* it = mem;
+    for(; it->mem; it = it->mem.get())
+    {
+      msg += it->owner;
+      msg += '.';
+    }
+    msg += it->owner;
+    msg += "\" required from scope \"";
+    msg += usedScope->getLocalName();
+    msg += "\"";
+    errAndQuit(msg);
+  }
+  if(usage)
+    unresolvedTraits.emplace_back(name, usedScope, usage);
+  return nullptr;
+}
+
+void resolveAllTypes()
+{
+  //is faster to resolve types in reverse order because long dependency chains can form
+  for(int i = unresolved.size() - 1; i >= 0; i--)
+  {
+    auto& ut = unresolved[i];
     //note: failureIsError is true because all named types should be available now
-    Type* t = getType(ut.parsed, ut.scope, nullptr, true);
+    Type* t = nullptr;
+    if(ut.parsedType)
+      t = getType(ut.parsedType, ut.scope, nullptr, true);
+    else if(ut.parsedFunc)
+      t = getFuncType(ut.parsedFunc, ut.scope, nullptr, true);
+    else
+      t = getProcType(ut.parsedProc, ut.scope, nullptr, true);
     if(!t)
     {
       errAndQuit("Type could not be resolved.");
@@ -242,71 +329,26 @@ void Type::resolveAll()
   }
 }
 
-bool Type::isArray()
+void resolveAllTraits()
 {
-  return false;
-}
-
-bool Type::isStruct()
-{
-  return false;
-}
-
-bool Type::isUnion()
-{
-  return false;
-}
-
-bool Type::isTuple()
-{
-  return false;
-}
-
-bool Type::isEnum()
-{
-  return true;
-}
-
-bool Type::isCallable()
-{
-  return false;
-}
-
-bool Type::isProc()
-{
-  return false;
-}
-
-bool Type::isFunc()
-{
-  return false;
-}
-
-bool Type::isInteger()
-{
-  return false;
-}
-
-bool Type::isNumber()
-{
-  return false;
-}
-
-bool Type::isString()
-{
-  return false;
-}
-
-bool Type::isBool()
-{
-  return false;
+  for(auto& ut : unresolvedTraits)
+  {
+    //note: failureIsError is true because all named types should be available now
+    Trait* t = getTrait(ut.parsed, ut.scope, nullptr, true);
+Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
+    if(!t)
+    {
+      errAndQuit("Trait could not be resolved.");
+    }
+    *(ut.usage) = t;
+  }
 }
 
 /*****************/
 /* Function Type */
 /*****************/
 
-FuncPrototype::FuncPrototype(Parser::FuncType* ft, Scope* scope) : Type(nullptr)
+FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(nullptr)
 {
   retType = getType(ft->retType.get(), scope, &retType, false);
   for(size_t i = 0; i < ft->args.size(); i++)
@@ -322,20 +364,20 @@ FuncPrototype::FuncPrototype(Parser::FuncType* ft, Scope* scope) : Type(nullptr)
   }
 }
 
-bool FuncPrototype::isCallable()
+bool FuncType::isCallable()
 {
   return true;
 }
 
-bool FuncPrototype::isFunc()
+bool FuncType::isFunc()
 {
   return true;
 }
 
-bool FuncPrototype::canConvert(Type* other)
+bool FuncType::canConvert(Type* other)
 {
   //True if other is also a function and has ret type and arg types that can be converted
-  FuncPrototype* fp = dynamic_cast<FuncPrototype*>(other);
+  FuncType* fp = dynamic_cast<FuncType*>(other);
   if(fp == nullptr)
     return false;
   if(!retType->canConvert(fp->retType))
@@ -354,7 +396,7 @@ bool FuncPrototype::canConvert(Type* other)
 /* Procedure Type */
 /******************/
 
-ProcPrototype::ProcPrototype(Parser::ProcType* pt, Scope* scope) : Type(nullptr)
+ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(nullptr)
 {
   retType = getType(pt->retType.get(), scope, &retType, false);
   for(size_t i = 0; i < pt->args.size(); i++)
@@ -371,21 +413,21 @@ ProcPrototype::ProcPrototype(Parser::ProcType* pt, Scope* scope) : Type(nullptr)
   nonterm = pt->nonterm;
 }
 
-bool ProcPrototype::isCallable()
+bool ProcType::isCallable()
 {
   return true;
 }
 
-bool ProcPrototype::isProc()
+bool ProcType::isProc()
 {
   return true;
 }
 
-bool ProcPrototype::canConvert(Type* other)
+bool ProcType::canConvert(Type* other)
 {
   //True if other is a callable and has ret type and arg types that can be converted
-  FuncPrototype* f = dynamic_cast<FuncPrototype*>(other);
-  ProcPrototype* p = dynamic_cast<ProcPrototype*>(other);
+  FuncType* f = dynamic_cast<FuncType*>(other);
+  ProcType* p = dynamic_cast<ProcType*>(other);
   if(f)
   {
     if(!retType->canConvert(f->retType))
@@ -416,6 +458,61 @@ bool ProcPrototype::canConvert(Type* other)
     return true;
   }
   return false;
+}
+
+/****************/
+/* Bounded Type */
+/****************/
+
+BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(nullptr)
+{
+  traits.resize(tt->traits.size());
+  for(size_t i = 0; i < tt->traits.size(); i++)
+  {
+    traits[i] = getTrait(tt->traits[i].get(), s, &traits[i], false);
+  }
+}
+
+/***********/
+/*  Trait  */
+/***********/
+
+Trait::Trait(Parser::TraitDecl* td, Scope* s)
+{
+  //pre-allocate func and proc list (and their names)
+  int numFuncs = 0;
+  int numProcs = 0;
+  for(auto& callable : td->members)
+  {
+    if(callable.is<AP(FuncDecl)>())
+      numFuncs++;
+    else
+      numProcs++;
+  }
+  funcs.resize(numFuncs);
+  funcNames.resize(numFuncs);
+  procs.resize(numProcs);
+  procNames.resize(numProcs);
+  int funcIndex = 0;
+  int procIndex = 0;
+  //now, look up
+  for(auto& callable : td->members)
+  {
+    if(callable.is<AP(FuncDecl)>())
+    {
+      auto fdecl = callable.get<AP(FuncDecl)>();
+      funcs[funcIndex] = getFuncType(&fdecl->type, s, (Type**) &funcs[funcIndex], false);
+      funcNames[funcIndex] = fdecl->name;
+      funcIndex++;
+    }
+    else
+    {
+      auto pdecl = callable.get<AP(ProcDecl)>();
+      procs[procIndex] = getProcType(&pdecl->type, s, (Type**) &procs[funcIndex], false);
+      procNames[procIndex] = pdecl->name;
+      procIndex++;
+    }
+  }
 }
 
 /***************/
@@ -455,13 +552,13 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   }
 }
 
-bool StructType::hasFunc(FuncPrototype* type)
+bool StructType::hasFunc(FuncType* type)
 {
   //TODO
   return false;
 }
 
-bool StructType::hasProc(ProcPrototype* type)
+bool StructType::hasProc(ProcType* type)
 {
   //TODO
   return false;
@@ -754,4 +851,6 @@ bool BoolType::isBool()
 {
   return true;
 }
+
+} //namespace TypeSystem
 
