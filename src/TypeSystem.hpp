@@ -180,6 +180,10 @@ struct BoundedType : public Type
   //a bounded type is called TraitType in the parser
   BoundedType(Parser::TraitType* tt, Scope* s);
   vector<Trait*> traits;
+  bool canConvert(Type* other)
+  {
+    return false;
+  }
   bool isConcrete()
   {
     return false;

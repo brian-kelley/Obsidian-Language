@@ -121,6 +121,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
             if(searchScope->getLocalName() == search->owner)
             {
               //found the next memScope for searching
+
               foundNext = true;
               memScope = searchScope;
               break;
@@ -227,6 +228,10 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
   else if(type->t.is<AP(ProcTypeNT)>())
   {
     return getProcType(type->t.get<AP(ProcTypeNT)>().get(), usedScope, usage, failureIsError);
+  }
+  else if(type->t.is<AP(TraitType)>())
+  {
+    return new BoundedType(type->t.get<AP(TraitType)>().get(), usedScope);
   }
   return nullptr;
 }
@@ -353,14 +358,7 @@ FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(nullptr)
   retType = getType(ft->retType.get(), scope, &retType, false);
   for(size_t i = 0; i < ft->args.size(); i++)
   {
-    if(ft->args[i]->t.is<AP(TypeNT)>())
-    {
-      argTypes.push_back(getType(ft->args[i]->t.get<AP(TypeNT)>().get(), scope, &argTypes[i], false));
-    }
-    else
-    {
-      argTypes.push_back(nullptr);
-    }
+    argTypes.push_back(getType(ft->args[i]->type.get(), scope, &argTypes[i], false));
   }
 }
 
@@ -401,14 +399,7 @@ ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(nullptr)
   retType = getType(pt->retType.get(), scope, &retType, false);
   for(size_t i = 0; i < pt->args.size(); i++)
   {
-    if(pt->args[i]->t.is<AP(TypeNT)>())
-    {
-      argTypes.push_back(getType(pt->args[i]->t.get<AP(TypeNT)>().get(), scope, &argTypes[i], false));
-    }
-    else
-    {
-      argTypes.push_back(nullptr);
-    }
+    argTypes.push_back(getType(pt->args[i]->type.get(), scope, &argTypes[i], false));
   }
   nonterm = pt->nonterm;
 }
@@ -513,6 +504,7 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
       procIndex++;
     }
   }
+  s->traits.push_back(this);
 }
 
 /***************/

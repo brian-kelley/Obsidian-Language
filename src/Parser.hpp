@@ -155,7 +155,8 @@ namespace Parser
       AP(Member),
       AP(TupleTypeNT),
       AP(FuncTypeNT),
-      AP(ProcTypeNT)> t;
+      AP(ProcTypeNT),
+      AP(TraitType)> t;
     int arrayDims;
   };
 
@@ -335,11 +336,8 @@ namespace Parser
 
   struct Arg
   {
-    Arg();
-    variant<
-      None,
-      AP(TypeNT),
-      AP(TraitType)> t;
+    AP(TypeNT) type;
+    //arg name is optional in some contexts
     bool haveName;
     string name;
   };

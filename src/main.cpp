@@ -28,14 +28,17 @@ int main(int argc, const char** argv)
   }
   string code = loadFile(op.input.c_str());
   cout << "Loaded " << code.size() << " bytes of source code.\n";
+  /*
   cout << "Will compile executable \"" << op.outputStem + ".exe" << "\"\n";
   if(op.emitC)
   {
     cout << "Will emit C code to \"" << op.outputStem + ".c" << "\"\n";
   }
+  */
   //Lexing
   vector<Token*> toks;
   lex(code, toks);
+  /*
   cout << "************************************\n";
   cout << "*            TOKENS                *\n";
   cout << "************************************\n";
@@ -44,6 +47,7 @@ int main(int argc, const char** argv)
     cout << it->getDesc() << " : " << it->getStr() << "\n";
   }
   cout << '\n';
+  */
   //Parse the global/root module
   AP(Parser::Module) ast = Parser::parseProgram(toks);
   cout << "************************************\n";
@@ -56,7 +60,7 @@ int main(int argc, const char** argv)
   cout << "************************************\n";
   MiddleEndDebug::printTypeTree();
   //Code generation
-  generateC(op.outputStem, op.emitC, ast);
+  //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
   return 0;

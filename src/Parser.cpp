@@ -161,7 +161,8 @@ namespace Parser
       if(!(type->t = parseOptional<Member>()) &&
           !(type->t = parseOptional<TupleTypeNT>()) &&
           !(type->t = parseOptional<FuncTypeNT>()) &&
-          !(type->t = parseOptional<ProcTypeNT>()))
+          !(type->t = parseOptional<ProcTypeNT>()) &&
+          !(type->t = parseOptional<TraitType>()))
       {
         err("Invalid type");
       }
@@ -512,22 +513,17 @@ namespace Parser
   AP(Arg) parse<Arg>()
   {
     AP(Arg) a(new Arg);
-    if((a->t = parseOptional<TypeNT>()) ||
-        (a->t = parseOptional<TraitType>()))
+    a->type = parse<TypeNT>();
+    Ident* name = (Ident*) accept(IDENTIFIER);
+    if(name)
     {
-      Ident* name = (Ident*) accept(IDENTIFIER);
-      if(name)
-      {
-        a->haveName = true;
-        a->name = name->name;
-      }
-      else
-      {
-        a->haveName = false;
-      }
-      return a;
+      a->haveName = true;
+      a->name = name->name;
     }
-    err("invalid argument");
+    else
+    {
+      a->haveName = false;
+    }
     return a;
   }
 
@@ -638,9 +634,7 @@ namespace Parser
   {
     AP(StructDecl) sd(new StructDecl);
     expectKeyword(STRUCT);
-    cout << "Parsing struct decl\n";
     sd->name = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "got name: " << sd->name << '\n';
     if(acceptPunct(COLON))
     {
       sd->traits = parseSomeCommaSeparated<Member>();
@@ -667,6 +661,7 @@ namespace Parser
     AP(TraitDecl) td(new TraitDecl);
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
+    expectPunct(LBRACE);
     while(true)
     {
       AP(FuncDecl) fd;
@@ -688,6 +683,7 @@ namespace Parser
         break;
       }
     }
+    expectPunct(RBRACE);
     return td;
   }
 
@@ -729,11 +725,6 @@ namespace Parser
     AP(TupleTypeNT) tt(new TupleTypeNT);
     expectPunct(LPAREN);
     tt->members = parseSomeCommaSeparated<TypeNT>();
-    cout << "Parsed " << tt->members.size() << " tuple members.\n";
-    for(auto& it : tt->members)
-    {
-      cout << "  A member which = " << it->t.which() << '\n';
-    }
     expectPunct(RPAREN);
     return tt;
   }
@@ -1134,7 +1125,6 @@ namespace Parser
   Statement::Statement() : s(none) {}
   For::For() : f(none) {}
   Expression::Expression() : e(none) {}
-  Arg::Arg() : t(none) {}
   Expr11::Expr11() : e(none) {}
   Expr12::Expr12() : e(none) {}
 }

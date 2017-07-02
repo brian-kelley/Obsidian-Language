@@ -140,6 +140,18 @@ namespace AstPrinter
       cout << '\n';
       printTupleTypeNT(t->t.get<AP(TupleTypeNT)>().get(), ind + indentLevel);
     }
+    else if(t->t.is<AP(FuncTypeNT)>())
+    {
+      printFuncTypeNT(t->t.get<AP(FuncTypeNT)>().get(), ind + indentLevel);
+    }
+    else if(t->t.is<AP(ProcTypeNT)>())
+    {
+      printProcTypeNT(t->t.get<AP(ProcTypeNT)>().get(), ind + indentLevel);
+    }
+    else if(t->t.is<AP(TraitType)>())
+    {
+      printTraitType(t->t.get<AP(TraitType)>().get(), ind + indentLevel);
+    }
   }
 
   void printStatement(Statement* s, int ind)
@@ -478,10 +490,7 @@ namespace AstPrinter
     {
       cout << "unnamed\n";
     }
-    if(a->t.is<AP(TypeNT)>())
-      printTypeNT(a->t.get<AP(TypeNT)>().get(), ind + indentLevel);
-    else if(a->t.is<AP(TraitType)>())
-      printTraitType(a->t.get<AP(TraitType)>().get(), ind + indentLevel);
+    printTypeNT(a->type.get(), ind + indentLevel);
   }
 
   void printFuncDecl(FuncDecl* fd, int ind)

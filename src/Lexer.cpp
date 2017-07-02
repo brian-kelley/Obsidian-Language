@@ -10,8 +10,8 @@ struct CodeStream
   CodeStream(string& srcIn, vector<Token*>& toksIn) : src(srcIn), toks(toksIn)
   {
     iter = 0;
-    line = 0;
-    col = 0;
+    line = 1;
+    col = 1;
   }
   char getNext()
   {
