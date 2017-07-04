@@ -481,9 +481,7 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
       numProcs++;
   }
   funcs.resize(numFuncs);
-  funcNames.resize(numFuncs);
   procs.resize(numProcs);
-  procNames.resize(numProcs);
   int funcIndex = 0;
   int procIndex = 0;
   //now, look up
@@ -492,15 +490,15 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
     if(callable.is<AP(FuncDecl)>())
     {
       auto fdecl = callable.get<AP(FuncDecl)>();
-      funcs[funcIndex] = getFuncType(&fdecl->type, s, (Type**) &funcs[funcIndex], false);
-      funcNames[funcIndex] = fdecl->name;
+      funcs[funcIndex].type = getFuncType(&fdecl->type, s, (Type**) &funcs[funcIndex].type, false);
+      funcs[funcIndex].name = fdecl->name;
       funcIndex++;
     }
     else
     {
       auto pdecl = callable.get<AP(ProcDecl)>();
-      procs[procIndex] = getProcType(&pdecl->type, s, (Type**) &procs[funcIndex], false);
-      procNames[procIndex] = pdecl->name;
+      procs[procIndex].type = getProcType(&pdecl->type, s, (Type**) &procs[procIndex].type, false);
+      procs[procIndex].name = pdecl->name;
       procIndex++;
     }
   }

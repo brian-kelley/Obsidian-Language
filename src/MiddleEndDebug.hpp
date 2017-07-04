@@ -10,10 +10,7 @@ namespace MiddleEndDebug
 
   //General scope - calls one of the 3 specializations below
   void printScope(Scope* s, int ind);
-
-  void printModuleScope(ModuleScope* s, int ind);
-  void printStructScope(StructScope* s, int ind);
-  void printBlockScope(BlockScope* s, int ind);
+  void printScopeBody(Scope* s, int ind);
 
   //General type - calls one of the 6 specializations below
   void printType(TypeSystem::Type* t, int ind);
@@ -26,6 +23,8 @@ namespace MiddleEndDebug
   void printTupleType(TypeSystem::TupleType* t, int ind);
   void printFuncType(TypeSystem::FuncType* t, int ind);
   void printProcType(TypeSystem::ProcType* t, int ind);
+  
+  void printTrait(TypeSystem::Trait* t, int ind);
 }
 
 #endif

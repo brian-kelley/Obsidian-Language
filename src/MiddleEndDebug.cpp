@@ -1,5 +1,4 @@
-#include "MiddleEndDebug.hpp"
-
+#include "MiddleEndDebug.hpp" 
 #define INDENT 2
 
 using namespace TypeSystem;
@@ -17,7 +16,7 @@ namespace MiddleEndDebug
   void printTypeTree()
   {
     cout << ">>> Global (root) scope:\n";
-    printModuleScope(global, 0);
+    printScope(global, 0);
   }
 
   /******************/
@@ -26,24 +25,30 @@ namespace MiddleEndDebug
 
   void printScope(Scope* s, int ind)
   {
+    //First, handle features of base scopes (permanent scoped decls)
     if(dynamic_cast<ModuleScope*>(s))
     {
-      printModuleScope((ModuleScope*) s, ind);
+      ModuleScope* m = (ModuleScope*) s;
+      indent(ind);
+      cout << "Module scope: " << m->name << '\n';
     }
     else if(dynamic_cast<StructScope*>(s))
     {
-      printStructScope((StructScope*) s, ind);
+      StructScope* ss = (StructScope*) s;
+      indent(ind);
+      cout << "Struct scope: " << ss->name << '\n';
     }
     else if(dynamic_cast<BlockScope*>(s))
     {
-      printBlockScope((BlockScope*) s, ind);
+      BlockScope* b = (BlockScope*) s;
+      indent(ind);
+      cout << "Block scope #" << b->index << '\n';
     }
+    printScopeBody(s, ind);
   }
 
-  void printModuleScope(ModuleScope* s, int ind)
+  void printScopeBody(Scope* s, int ind)
   {
-    indent(ind);
-    cout << "Module scope: " << s->name << '\n';
     if(s->types.size())
     {
       indent(ind);  
@@ -53,52 +58,13 @@ namespace MiddleEndDebug
         printType(it, ind + 1);
       }
     }
-    if(s->children.size())
+    if(s->traits.size())
     {
       indent(ind);
-      cout << "<> Child scopes:\n";
-      for(auto& it : s->children)
+      cout << "<> Traits:\n";
+      for(auto& it : s->traits)
       {
-        printScope(it, ind + 1);
-      }
-    }
-  }
-
-  void printStructScope(StructScope* s, int ind)
-  {
-    indent(ind);
-    cout << "Struct scope: " << s->name << '\n';
-    if(s->types.size())
-    {
-      indent(ind);  
-      cout << "<> Types:\n";
-      for(auto& it : s->types)
-      {
-        printType(it, ind + 1);
-      }
-    }
-    if(s->children.size())
-    {
-      indent(ind);
-      cout << "<> Child scopes:\n";
-      for(auto& it : s->children)
-      {
-        printScope(it, ind + 1);
-      }
-    }
-  }
-
-  void printBlockScope(BlockScope* s, int ind)
-  {
-    indent(ind);
-    cout << "Block scope #" << s->index << '\n';
-    if(s->types.size())
-    {
-      indent(ind);  
-      cout << "<> Types:\n";
-      for(auto& it : s->types)
-      {
-        printType(it, ind + 1);
+        printTrait(it, ind + 1);
       }
     }
     if(s->children.size())
@@ -279,6 +245,30 @@ namespace MiddleEndDebug
       indent(ind);
       cout << "Arg " << i << ":\n";
       printType(t->argTypes[i], ind + 1);
+    }
+  }
+
+  void printTrait(TypeSystem::Trait* t, int ind)
+  {
+    indent(ind);
+    cout << "Trait " << t->name << '\n';
+    if(t->funcs.size())
+    {
+      for(auto f : t->funcs)
+      {
+        indent(ind + 1);
+        cout << "Function \"" << f.name << "\":\n";
+        printFuncType(f.type, ind + 2);
+      }
+    }
+    if(t->procs.size())
+    {
+      for(auto p : t->procs)
+      {
+        indent(ind + 1);
+        cout << "Procedure \"" << p.name << "\":\n";
+        printProcType(p.type, ind + 2);
+      }
     }
   }
 }

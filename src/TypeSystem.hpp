@@ -159,16 +159,27 @@ struct ProcType : public Type
   bool canConvert(Type* other);
 };
 
+//Function/Prod
+struct FunctionDecl
+{
+  FuncType* type;
+  string name;
+};
+
+struct ProcedureDecl
+{
+  ProcType* type;
+  string name;
+};
+
 struct Trait
 {
   Trait(Parser::TraitDecl* td, Scope* s);
   Scope* scope;
   string name;
   //Trait is a set of named function and procedure types
-  vector<FuncType*> funcs;
-  vector<string> funcNames;
-  vector<ProcType*> procs;
-  vector<string> procNames;
+  vector<FunctionDecl> funcs;
+  vector<ProcedureDecl> procs;
 };
 
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)

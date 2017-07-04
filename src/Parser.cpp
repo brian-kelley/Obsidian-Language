@@ -532,8 +532,10 @@ namespace Parser
   {
     AP(FuncDecl) fd(new FuncDecl);
     expectKeyword(FUNC);
+    cout << "Parsing funcdecl\n";
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "Parsing func decl " << fd->name << '\n';
     expectPunct(LPAREN);
     fd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -576,6 +578,7 @@ namespace Parser
     expectKeyword(PROC);
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "Parsing proc decl: " << pd->name << '\n';
     expectPunct(LPAREN);
     pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -592,6 +595,7 @@ namespace Parser
     expectKeyword(PROC);
     pd->type.retType = parse<TypeNT>();
     pd->name = parse<Member>();
+    cout << "Parsing proc def: " << pd->name << '\n';
     expectPunct(LPAREN);
     pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -661,6 +665,7 @@ namespace Parser
     AP(TraitDecl) td(new TraitDecl);
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
+    cout << "Parsing trait " << td->name << '\n';
     expectPunct(LBRACE);
     while(true)
     {
@@ -684,6 +689,7 @@ namespace Parser
       }
     }
     expectPunct(RBRACE);
+    std::cout << "Done parsing trait.\n";
     return td;
   }
 
@@ -1117,7 +1123,7 @@ namespace Parser
       deepest = pos;
       deepestErr = fullMsg;
     }
-    throw ParseErr(fullMsg);
+    throw ParseErr(deepestErr);
   }
 
   ScopedDecl::ScopedDecl() : decl(none) {}
