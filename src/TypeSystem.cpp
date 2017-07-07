@@ -121,7 +121,6 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
             if(searchScope->getLocalName() == search->owner)
             {
               //found the next memScope for searching
-
               foundNext = true;
               memScope = searchScope;
               break;
@@ -236,6 +235,20 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
   return nullptr;
 }
 
+Type* getTypeWithinTrait(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
+{
+  //Check if type is "T"
+  if(type->t.is<AP(Member)>())
+  {
+    auto mem = type->t.get<AP(Member)>();
+    if(mem->owner == "T" && mem->mem.get() == nullptr)
+    {
+      return new TType;
+    }
+  }
+  return getTypeWithinTrait(type, usedScope, usage, failureIsError);
+}
+
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
 {
   //TODO: cache these and check for existing type before creating new one
@@ -321,11 +334,17 @@ void resolveAllTypes()
     //note: failureIsError is true because all named types should be available now
     Type* t = nullptr;
     if(ut.parsedType)
+    {
       t = getType(ut.parsedType, ut.scope, nullptr, true);
+    }
     else if(ut.parsedFunc)
+    {
       t = getFuncType(ut.parsedFunc, ut.scope, nullptr, true);
+    }
     else
+    {
       t = getProcType(ut.parsedProc, ut.scope, nullptr, true);
+    }
     if(!t)
     {
       errAndQuit("Type could not be resolved.");
@@ -340,7 +359,6 @@ void resolveAllTraits()
   {
     //note: failureIsError is true because all named types should be available now
     Trait* t = getTrait(ut.parsed, ut.scope, nullptr, true);
-Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
     if(!t)
     {
       errAndQuit("Trait could not be resolved.");
@@ -539,6 +557,12 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
       memberNames[membersAdded] = data->name;
       membersAdded++;
     }
+  }
+  //Load traits
+  traits.resize(sd->traits.size());
+  for(size_t i = 0; i < sd->traits.size(); i++)
+  {
+    traits[i] = getTrait(sd->traits[i].get(), enclosingScope, &traits[i], false);
   }
 }
 
@@ -840,6 +864,18 @@ bool BoolType::canConvert(Type* other)
 bool BoolType::isBool()
 {
   return true;
+}
+
+/**********/
+/* T Type */
+/**********/
+
+TType::TType() : Type(nullptr) {}
+
+bool TType::canConvert(Type* other)
+{
+  //All TTypes are equivalent before instantiation
+  return dynamic_cast<TType*>(other);
 }
 
 } //namespace TypeSystem

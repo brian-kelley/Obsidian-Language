@@ -45,10 +45,6 @@ void initTokens()
   SET_KEY("default", DEFAULT)
   SET_KEY("break", BREAK)
   SET_KEY("continue", CONTINUE)
-  SET_KEY("metaif", METAIF)
-  SET_KEY("metaelse", METAELSE)
-  SET_KEY("metafor", METAFOR)
-  SET_KEY("metafunc", METAFUNC)
   SET_KEY("union", UNION)
   SET_KEY("auto", AUTO)
   SET_KEY("module", MODULE)
@@ -126,6 +122,7 @@ void initTokens()
   punctMap['.'] = DOT;
   punctMap[','] = COMMA;
   punctMap['$'] = DOLLAR;
+  punctMap['?'] = QUESTION;
   punctTable.resize(punctMap.size());
   for(auto& it : punctMap)
   {

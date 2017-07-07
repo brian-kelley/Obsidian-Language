@@ -55,10 +55,6 @@ enum
   DEFAULT,
   BREAK,
   CONTINUE,
-  METAIF,
-  METAELSE,
-  METAFOR,
-  METAFUNC,
   UNION,
   ENUM,
   AUTO,
@@ -122,7 +118,8 @@ enum
   RBRACKET,
   DOT,
   COMMA,
-  DOLLAR
+  DOLLAR,
+  QUESTION
 };
 
 enum

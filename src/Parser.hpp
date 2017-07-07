@@ -149,6 +149,7 @@ namespace Parser
       DOUBLE,
       STRING
     };
+    struct Wildcard {};
     variant<
       None,
       Prim,

@@ -148,12 +148,30 @@ namespace MiddleEndDebug
     {
       printProcType((ProcType*) t, ind);
     }
+    else if(dynamic_cast<TType*>(t))
+    {
+      indent(ind);
+      cout << "T (in trait)\n";
+    }
   }
 
   void printStructType(StructType* t, int ind)
   {
     indent(ind);
-    cout << "Struct type: " << t->name << ", members:\n";
+    cout << "Struct type: " << t->name << '\n';
+    if(t->traits.size())
+    {
+      indent(ind);
+      cout << "Traits:\n";
+      for(size_t i = 0; i < t->traits.size(); i++)
+      {
+        //just print trait names for brevity
+        indent(ind + 1);
+        cout << t->traits[i]->name << 'n';
+      }
+    }
+    indent(ind);
+    cout << "Members:\n";
     for(size_t i = 0; i < t->members.size(); i++)
     {
       indent(ind + 1);

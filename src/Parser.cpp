@@ -156,7 +156,7 @@ namespace Parser
     TRY_PRIMITIVE(DOUBLE);
     TRY_PRIMITIVE(STRING);
     #undef TRY_PRIMITIVE
-    if(type->t.is<TypeNT::Prim>() != 1)
+    if(type->t.is<None>())
     {
       if(!(type->t = parseOptional<Member>()) &&
           !(type->t = parseOptional<TupleTypeNT>()) &&

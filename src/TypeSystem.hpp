@@ -90,7 +90,8 @@ struct UnresolvedTrait
   Trait** usage;
 };
 
-Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
+//If inTrait, "T" refers to TType
+Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true, bool inTrait = false);
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
@@ -103,6 +104,7 @@ extern vector<ArrayType*> arrays;
 extern vector<UnresolvedType> unresolved;
 extern vector<UnresolvedTrait> unresolvedTraits;
 extern vector<Type*> primitives;
+extern Type* self;
 
 struct Type
 {
@@ -183,6 +185,7 @@ struct Trait
 };
 
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
+//  ex: func string doThing(T: Printable val);
 //Can only be used in argument lists.
 //When polymorphic callable is instantiated,
 //the BoundedType becomes an alias type within the function
@@ -191,6 +194,7 @@ struct BoundedType : public Type
   //a bounded type is called TraitType in the parser
   BoundedType(Parser::TraitType* tt, Scope* s);
   vector<Trait*> traits;
+  string name;
   bool canConvert(Type* other)
   {
     return false;
@@ -298,8 +302,8 @@ struct IntegerType : public Type
 struct FloatType : public Type
 {
   FloatType(string name, int size);
-  //4 or 8
   string name;
+  //4 or 8 (bytes, not bits)
   int size;
   bool canConvert(Type* other);
   bool isNumber();
@@ -317,6 +321,12 @@ struct BoolType : public Type
   BoolType();
   bool canConvert(Type* other);
   bool isBool();
+};
+
+struct TType : public Type
+{
+  TType();
+  bool canConvert(Type* other);
 };
 
 } //namespace TypeSystem
