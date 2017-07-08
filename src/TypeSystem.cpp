@@ -19,6 +19,7 @@ vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
 vector<UnresolvedType> unresolved;
 vector<UnresolvedTrait> unresolvedTraits;
+TType TType::inst;
 
 Type::Type(Scope* enclosingScope)
 {
@@ -231,6 +232,10 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
   else if(type->t.is<AP(TraitType)>())
   {
     return new BoundedType(type->t.get<AP(TraitType)>().get(), usedScope);
+  }
+  else if(type->t.is<TypeNT::Wildcard>())
+  {
+    return &TType::inst;
   }
   return nullptr;
 }

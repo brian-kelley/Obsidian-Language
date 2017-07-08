@@ -66,7 +66,8 @@ enum
   PROCTYPE,
   NONTERM,
   TEST,
-  ASSERT
+  ASSERT,
+  T_TYPE
 };
 
 enum

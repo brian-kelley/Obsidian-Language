@@ -158,7 +158,11 @@ namespace Parser
     #undef TRY_PRIMITIVE
     if(type->t.is<None>())
     {
-      if(!(type->t = parseOptional<Member>()) &&
+      if(acceptKeyword(T_TYPE))
+      {
+        type->t = TypeNT::Wildcard();
+      }
+      else if(!(type->t = parseOptional<Member>()) &&
           !(type->t = parseOptional<TupleTypeNT>()) &&
           !(type->t = parseOptional<FuncTypeNT>()) &&
           !(type->t = parseOptional<ProcTypeNT>()) &&

@@ -157,7 +157,8 @@ namespace Parser
       AP(TupleTypeNT),
       AP(FuncTypeNT),
       AP(ProcTypeNT),
-      AP(TraitType)> t;
+      AP(TraitType),
+      Wildcard> t;
     int arrayDims;
   };
 

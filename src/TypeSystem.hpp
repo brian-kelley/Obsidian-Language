@@ -91,7 +91,7 @@ struct UnresolvedTrait
 };
 
 //If inTrait, "T" refers to TType
-Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true, bool inTrait = false);
+Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
@@ -326,6 +326,7 @@ struct BoolType : public Type
 struct TType : public Type
 {
   TType();
+  static TType inst;
   bool canConvert(Type* other);
 };
 
