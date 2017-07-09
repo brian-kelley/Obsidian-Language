@@ -211,7 +211,7 @@ namespace MiddleEndDebug
   void printArrayType(ArrayType* t, int ind)
   {
     indent(ind);
-    cout << "Array type, " << t->dims << "-dimensional array of:\n";
+    cout << t->dims << "-dimensional array of:\n";
     printType(t->elem, ind + 1);
   }
 

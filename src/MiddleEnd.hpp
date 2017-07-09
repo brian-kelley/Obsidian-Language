@@ -7,6 +7,7 @@
 #include "Parser.hpp"
 #include "TypeSystem.hpp"
 #include "Scope.hpp"
+#include "Expression.hpp"
 
 /*
 Middle-end processing has several steps:

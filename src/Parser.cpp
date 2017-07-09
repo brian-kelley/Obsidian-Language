@@ -1,4 +1,5 @@
 #include "Parser.hpp"
+#include "AST_Printer.hpp"
 
 namespace Parser
 {
@@ -42,7 +43,7 @@ namespace Parser
   template<> AP(VarDecl) parse<VarDecl>();
   template<> AP(VarAssign) parse<VarAssign>();
   template<> AP(Print) parse<Print>();
-  template<> AP(Expression) parse<Expression>();
+  template<> AP(ExpressionNT) parse<ExpressionNT>();
   template<> AP(Call) parse<Call>();
   template<> AP(Arg) parse<Arg>();
   template<> AP(FuncDecl) parse<FuncDecl>();
@@ -249,7 +250,7 @@ namespace Parser
   {
     AP(Return) r(new Return);
     expectKeyword(RETURN);
-    r->ex = parseOptional<Expression>();
+    r->ex = parseOptional<ExpressionNT>();
     expectPunct(SEMICOLON);
     return r;
   }
@@ -258,7 +259,7 @@ namespace Parser
   AP(SwitchCase) parse<SwitchCase>()
   {
     AP(SwitchCase) sc(new SwitchCase);
-    sc->matchVal = parse<Expression>();
+    sc->matchVal = parse<ExpressionNT>();
     expectPunct(COLON);
     sc->s = parse<Statement>();
     return sc;
@@ -270,7 +271,7 @@ namespace Parser
     AP(Switch) sw(new Switch);
     expectKeyword(SWITCH);
     expectPunct(LPAREN);
-    sw->sw = parse<Expression>();
+    sw->sw = parse<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
     sw->cases = parseSome<SwitchCase>();
@@ -297,7 +298,7 @@ namespace Parser
     {
       expectPunct(SEMICOLON);
     }
-    forC->condition = parseOptional<Expression>();
+    forC->condition = parseOptional<ExpressionNT>();
     expectPunct(SEMICOLON);
     forC->incr = parseOptional<VarAssign>();
     expectPunct(RPAREN);
@@ -310,7 +311,7 @@ namespace Parser
   {
     AP(ForRange1) fr1(new ForRange1);
     expectKeyword(FOR);
-    fr1->expr = parse<Expression>();
+    fr1->expr = parse<ExpressionNT>();
     return fr1;
   }
 
@@ -319,9 +320,9 @@ namespace Parser
   {
     AP(ForRange2) fr2(new ForRange2);
     expectKeyword(FOR);
-    fr2->start = parse<Expression>();
+    fr2->start = parse<ExpressionNT>();
     expectPunct(COLON);
-    fr2->end = parse<Expression>();
+    fr2->end = parse<ExpressionNT>();
     return fr2;
   }
 
@@ -329,7 +330,7 @@ namespace Parser
   AP(ForArray) parse<ForArray>()
   {
     AP(ForArray) fa(new ForArray);
-    fa->container = parse<Expression>();
+    fa->container = parse<ExpressionNT>();
     return fa;
   }
 
@@ -358,7 +359,7 @@ namespace Parser
     AP(While) w(new While);
     expectKeyword(WHILE);
     expectPunct(LPAREN);
-    w->cond = parse<Expression>();
+    w->cond = parse<ExpressionNT>();
     expectPunct(RPAREN);
     w->body = parse<Statement>();
     return w;
@@ -370,7 +371,7 @@ namespace Parser
     AP(If) i(new If);
     expectKeyword(IF);
     expectPunct(LPAREN);
-    i->cond = parse<Expression>();
+    i->cond = parse<ExpressionNT>();
     expectPunct(RPAREN);
     i->ifBody = parse<Statement>();
     if(acceptKeyword(ELSE))
@@ -383,7 +384,7 @@ namespace Parser
   {
     AP(Assertion) a(new Assertion);
     expectKeyword(ASSERT);
-    a->expr = parse<Expression>();
+    a->expr = parse<ExpressionNT>();
     expectPunct(SEMICOLON);
     return a;
   }
@@ -443,7 +444,7 @@ namespace Parser
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptOper(ASSIGN))
     {
-      vd->val = parse<Expression>();
+      vd->val = parse<ExpressionNT>();
     }
     expectPunct(SEMICOLON);
     if(!vd->type && !vd->val)
@@ -457,21 +458,22 @@ namespace Parser
   AP(VarAssign) parse<VarAssign>()
   {
     AP(VarAssign) va(new VarAssign);
-    va->target = parse<Member>();
+    va->target = parse<ExpressionNT>();
     va->op = (Oper*) expect(OPERATOR);
     //unary assign operators don't have rhs
     int otype = va->op->op;
     if(otype != INC && otype != DEC)
     {
-      va->rhs = parse<Expression>();
+      va->rhs = parse<ExpressionNT>();
     }
-    expectPunct(SEMICOLON);
-    if(otype != INC && otype != DEC &&
+    if(
+        otype != ASSIGN &&
+        otype != INC && otype != DEC &&
         otype != PLUSEQ && otype != SUBEQ && otype != MULEQ &&
         otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
         otype != BANDEQ && otype != BXOREQ)
     {
-      err("invalid operator for variable assignment/update");
+      err("invalid operator for variable assignment/update: " + operatorTable[otype]);
     }
     return va;
   }
@@ -482,24 +484,10 @@ namespace Parser
     AP(Print) p(new Print);
     expectKeyword(PRINT);
     expectPunct(LPAREN);
-    p->exprs = parseSomeCommaSeparated<Expression>();
+    p->exprs = parseSomeCommaSeparated<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return p;
-  }
-
-  template<>
-  AP(Expression) parse<Expression>()
-  {
-    AP(Expression) e(new Expression);
-    if((e->e = parseOptional<Call>()) ||
-        (e->e = parseOptional<Member>()) ||
-        (e->e = parseOptional<Expr1>()))
-    {
-      return e;
-    }
-    err("invalid expression");
-    return e;
   }
 
   template<>
@@ -508,7 +496,7 @@ namespace Parser
     AP(Call) c(new Call);
     c->callable = parse<Member>();
     expectPunct(LPAREN);
-    c->args = parseSomeCommaSeparated<Expression>();
+    c->args = parseSomeCommaSeparated<ExpressionNT>();
     expectPunct(RPAREN);
     return c;
   }
@@ -536,10 +524,8 @@ namespace Parser
   {
     AP(FuncDecl) fd(new FuncDecl);
     expectKeyword(FUNC);
-    cout << "Parsing funcdecl\n";
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "Parsing func decl " << fd->name << '\n';
     expectPunct(LPAREN);
     fd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -582,7 +568,6 @@ namespace Parser
     expectKeyword(PROC);
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "Parsing proc decl: " << pd->name << '\n';
     expectPunct(LPAREN);
     pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -599,7 +584,6 @@ namespace Parser
     expectKeyword(PROC);
     pd->type.retType = parse<TypeNT>();
     pd->name = parse<Member>();
-    cout << "Parsing proc def: " << pd->name << '\n';
     expectPunct(LPAREN);
     pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -669,7 +653,6 @@ namespace Parser
     AP(TraitDecl) td(new TraitDecl);
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
-    cout << "Parsing trait " << td->name << '\n';
     expectPunct(LBRACE);
     while(true)
     {
@@ -693,7 +676,6 @@ namespace Parser
       }
     }
     expectPunct(RBRACE);
-    std::cout << "Done parsing trait.\n";
     return td;
   }
 
@@ -702,7 +684,7 @@ namespace Parser
   {
     AP(StructLit) sl(new StructLit);
     expectPunct(LBRACE);
-    sl->vals = parseSomeCommaSeparated<Expression>();
+    sl->vals = parseSomeCommaSeparated<ExpressionNT>();
     expectPunct(RBRACE);
     return sl;
   }
@@ -940,9 +922,13 @@ namespace Parser
   template<>
   AP(Expr10) parse<Expr10>()
   {
+    cout << "Parsing Expr10...\n";
     AP(Expr10) e10(new Expr10);
     e10->head = parse<Expr11>();
+    cout << "Parsed Expr10 head (Expr11):\n";
+    AstPrinter::printExpr11(e10->head.get(), 0);
     e10->tail = parseSome<Expr10RHS>();
+    cout << "Parsed " << e10->tail.size() << " tail expressions\n";
     return e10;
   }
 
@@ -953,7 +939,7 @@ namespace Parser
     e10r->op = ((Oper*) expect(OPERATOR))->op;
     if(e10r->op != MUL && e10r->op != DIV && e10r->op != MOD)
     {
-      err("expected * / %");
+      err("expected * / % but got " + operatorTable[e10r->op]);
     }
     e10r->rhs = parse<Expr11>();
     return e10r;
@@ -988,29 +974,31 @@ namespace Parser
     AP(Expr12) e12(new Expr12);
     if(acceptPunct(LPAREN))
     {
-      e12->e = parse<Expression>();
+      //any expression inside parentheses
+      e12->e = parse<ExpressionNT>();
       expectPunct(RPAREN);
     }
-    if(!e12->e.is<None>() ||
-        (e12->e = (IntLit*) accept(INT_LITERAL)) ||
-        (e12->e = (CharLit*) accept(CHAR_LITERAL)) ||
-        (e12->e = (StrLit*) accept(STRING_LITERAL)) ||
-        (e12->e = (FloatLit*) accept(FLOAT_LITERAL)) ||
-        (e12->e = parseOptional<BoolLit>()) ||
-        (e12->e = parseOptional<Member>()) ||
-        (e12->e = parseOptional<StructLit>()))
+    else if(
+        !(e12->e = (IntLit*) accept(INT_LITERAL)) &&
+        !(e12->e = (CharLit*) accept(CHAR_LITERAL)) &&
+        !(e12->e = (StrLit*) accept(STRING_LITERAL)) &&
+        !(e12->e = (FloatLit*) accept(FLOAT_LITERAL)) &&
+        !(e12->e = parseOptional<BoolLit>()) &&
+        !(e12->e = parseOptional<Member>()) &&
+        !(e12->e = parseOptional<StructLit>()) &&
+        !(e12->e = parseOptional<Call>()))
     {
-      //check for array indexing
-      if(acceptPunct(LBRACKET))
-      {
-        Expr12::ArrayIndex ai;
-        ai.arr = e12;
-        ai.index = parse<Expression>();
-        expectPunct(RBRACKET);
-      }
-      return e12;
+      err("invalid expression");
     }
-    err("invalid expression.");
+    //check for array indexing
+    if(acceptPunct(LBRACKET))
+    {
+      Expr12::ArrayIndex ai;
+      //previously parsed expr12 is the array/tuple expression
+      ai.arr = e12;
+      ai.index = parse<ExpressionNT>();
+      expectPunct(RBRACKET);
+    }
     return e12;
   }
 
@@ -1134,7 +1122,6 @@ namespace Parser
   TypeNT::TypeNT() : t(none) {}
   Statement::Statement() : s(none) {}
   For::For() : f(none) {}
-  Expression::Expression() : e(none) {}
   Expr11::Expr11() : e(none) {}
   Expr12::Expr12() : e(none) {}
 }

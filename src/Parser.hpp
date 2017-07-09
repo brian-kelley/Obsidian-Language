@@ -66,7 +66,6 @@ namespace Parser
   struct VarDecl;
   struct VarAssign;
   struct Print;
-  struct Expression;
   struct Call;
   struct Arg;
   struct FuncDecl;
@@ -84,6 +83,7 @@ namespace Parser
   struct TupleTypeNT;
   struct BoolLit;
   struct Expr1;
+  typedef Expr1 ExpressionNT;
   struct Expr1RHS;
   struct Expr2;
   struct Expr2RHS;
@@ -170,7 +170,7 @@ namespace Parser
       AP(ScopedDecl),
       AP(VarAssign),
       AP(Print),
-      AP(Expression),
+      AP(ExpressionNT),
       AP(Block),
       AP(Return),
       AP(Continue),
@@ -193,18 +193,18 @@ namespace Parser
   struct Return
   {
     //optional returned expression (NULL if unused)
-    AP(Expression) ex;
+    AP(ExpressionNT) ex;
   };
 
   struct SwitchCase
   {
-    AP(Expression) matchVal;
+    AP(ExpressionNT) matchVal;
     AP(Statement) s;
   };
 
   struct Switch
   {
-    AP(Expression) sw;
+    AP(ExpressionNT) sw;
     vector<AP(SwitchCase)> cases;
     //optional default: statement, NULL if unused
     AP(Statement) defaultStatement;
@@ -229,35 +229,35 @@ namespace Parser
   struct ForC
   {
     AP(VarDecl) decl;
-    AP(Expression) condition;
+    AP(ExpressionNT) condition;
     AP(VarAssign) incr;
   };
 
   struct ForRange1
   {
-    AP(Expression) expr;
+    AP(ExpressionNT) expr;
   };
 
   struct ForRange2
   {
-    AP(Expression) start;
-    AP(Expression) end;
+    AP(ExpressionNT) start;
+    AP(ExpressionNT) end;
   };
 
   struct ForArray
   {
-    AP(Expression) container;
+    AP(ExpressionNT) container;
   };
 
   struct While
   {
-    AP(Expression) cond;
+    AP(ExpressionNT) cond;
     AP(Statement) body;
   };
 
   struct If
   {
-    AP(Expression) cond;
+    AP(ExpressionNT) cond;
     AP(Statement) ifBody;
     //elseBody NULL if there is no else clause
     AP(Statement) elseBody;
@@ -270,7 +270,7 @@ namespace Parser
 
   struct Assertion
   {
-    AP(Expression) expr;
+    AP(ExpressionNT) expr;
   };
 
   struct TestDecl
@@ -303,37 +303,28 @@ namespace Parser
     AP(TypeNT) type;
     string name;
     //NULL if not initialization, but required if auto
-    AP(Expression) val;
+    AP(ExpressionNT) val;
   };
 
   struct VarAssign
   {
-    AP(Member) target;
+    //note: target must be an lvalue (this is checked in middle end)
+    AP(ExpressionNT) target;
     Oper* op;
     //NULL if ++ or --
-    AP(Expression) rhs;
+    AP(ExpressionNT) rhs;
   };
 
   struct Print
   {
-    vector<AP(Expression)> exprs;
-  };
-
-  struct Expression
-  {
-    Expression();
-    variant<
-      None,
-      AP(Call),
-      AP(Member),
-      AP(Expr1)> e;
+    vector<AP(ExpressionNT)> exprs;
   };
 
   struct Call
   {
     //name of func/proc
     AP(Member) callable;
-    vector<AP(Expression)> args;
+    vector<AP(ExpressionNT)> args;
   };
 
   struct Arg
@@ -414,7 +405,7 @@ namespace Parser
 
   struct StructLit
   {
-    vector<AP(Expression)> vals;
+    vector<AP(ExpressionNT)> vals;
   };
 
   struct Member
@@ -584,7 +575,7 @@ namespace Parser
     {
       //arr[index]
       AP(Expr12) arr;
-      AP(Expression) index;
+      AP(ExpressionNT) index;
     };
     variant<
       None,
@@ -593,9 +584,10 @@ namespace Parser
       StrLit*,
       FloatLit*,
       AP(BoolLit),
-      AP(Expression),
+      AP(ExpressionNT),
       AP(Member),
       AP(StructLit),
+      AP(Call),
       ArrayIndex> e;
   }; 
 
