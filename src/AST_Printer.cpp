@@ -431,14 +431,14 @@ namespace AstPrinter
     indent(ind);
     cout << "Variable assignment\n";
     indent(ind + indentLevel);
-    cout << "Variable:\n";
+    cout << "L-value:\n";
     printExpressionNT(va->target.get(), ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Operator: " << va->op->getStr() << '\n';
     if(va->rhs)
     {
       indent(ind + indentLevel);
-      cout << "Right-hand side:\n";
+      cout << "Assigned value:\n";
       printExpressionNT(va->rhs.get(), ind + indentLevel);
     }
   }
@@ -1006,6 +1006,7 @@ namespace AstPrinter
       indent(ind);
       cout << "Array or tuple expression:\n";
       printExpr12(ai.arr.get(), ind + 1);
+      indent(ind);
       cout << "Index:\n";
       printExpressionNT(ai.index.get(), ind + 1);
     }

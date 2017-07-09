@@ -922,13 +922,9 @@ namespace Parser
   template<>
   AP(Expr10) parse<Expr10>()
   {
-    cout << "Parsing Expr10...\n";
     AP(Expr10) e10(new Expr10);
     e10->head = parse<Expr11>();
-    cout << "Parsed Expr10 head (Expr11):\n";
-    AstPrinter::printExpr11(e10->head.get(), 0);
     e10->tail = parseSome<Expr10RHS>();
-    cout << "Parsed " << e10->tail.size() << " tail expressions\n";
     return e10;
   }
 
@@ -997,7 +993,10 @@ namespace Parser
       //previously parsed expr12 is the array/tuple expression
       ai.arr = e12;
       ai.index = parse<ExpressionNT>();
+      AP(Expr12) outer(new Expr12);
+      outer->e = ai;
       expectPunct(RBRACKET);
+      return outer;
     }
     return e12;
   }
