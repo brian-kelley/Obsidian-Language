@@ -25,7 +25,7 @@ string Scope::getFullPath()
 
 /* ModuleScope */
 
-ModuleScope::ModuleScope(string nameIn, Scope* parent) : Scope(parent), name(nameIn) {}
+ModuleScope::ModuleScope(string nameIn, Scope* parent, Parser::Module* astIn) : Scope(parent), name(nameIn), ast(astIn) {}
 
 string ModuleScope::getLocalName()
 {
@@ -34,10 +34,7 @@ string ModuleScope::getLocalName()
 
 /* StructScope */
 
-StructScope::StructScope(string name, Scope* parent) : Scope(parent)
-{
-  this->name = name;
-}
+StructScope::StructScope(string nameIn, Scope* parent, Parser::StructDecl* astIn) : Scope(parent), ast(astIn), name(nameIn) {}
 
 string StructScope::getLocalName()
 {
@@ -46,13 +43,11 @@ string StructScope::getLocalName()
 
 /* BlockScope */
 
-BlockScope::BlockScope(Scope* parent) : Scope(parent)
-{
-  index = nextBlockIndex++;
-}
+BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++) {}
 
 string BlockScope::getLocalName()
 {
+  //TODO: prevent all other identifiers from having a name which could be confused as a block name
   return string("_B") + to_string(index);
 }
 

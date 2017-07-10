@@ -27,8 +27,8 @@ namespace MiddleEnd
 {
   using namespace std;
   void load(AP(Parser::Module)& ast);
-  //AST traversal functions for building scope tree
-  namespace TypeLoading
+  //AST traversal functions for building scope tree and loading all type decls
+  namespace ScopeTypeLoading
   {
     //Types can only come from scoped decls
     void visitModule(Scope* current, AP(Parser::Module)& m);
@@ -36,6 +36,11 @@ namespace MiddleEnd
     void visitStruct(Scope* current, AP(Parser::StructDecl)& sd);
     void visitScopedDecl(Scope* current, AP(Parser::ScopedDecl)& sd);
     void resolveAll();
+  }
+  namespace VarLoading
+  {
+    void visitScope(Scope* s);
+    void visitVarDecl(Scope* s, AP(Parser::VarDecl)& vd);
   }
 }
 

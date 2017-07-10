@@ -3,6 +3,7 @@
 
 #include "Misc.hpp"
 #include "Utils.hpp"
+#include "Parser.hpp"
 #include "TypeSystem.hpp"
 #include "Scope.hpp"
 
@@ -15,9 +16,13 @@ namespace TypeSystem
 
 struct Variable
 {
-  Scope* owner;
+  Variable(Scope* s, Parser::VarDecl* astIn);
+  Scope* scope;
   string name;
   TypeSystem::Type* type;
+  Parser::TypeNT* ast;
+  unsigned id;
+  static unsigned nextID;
 };
 
 #endif

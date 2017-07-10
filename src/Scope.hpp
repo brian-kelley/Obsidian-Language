@@ -38,23 +38,26 @@ struct Scope
 
 struct ModuleScope : public Scope
 {
-  ModuleScope(string name, Scope* parent);
+  ModuleScope(string name, Scope* parent, Parser::Module* astIn);
   string getLocalName();
+  Parser::Module* ast;
   string name;  //local name
 };
 
 struct StructScope : public Scope
 {
-  StructScope(string name, Scope* parent);
+  StructScope(string name, Scope* parent, Parser::StructDecl* astIn);
   string getLocalName();
+  Parser::StructDecl* ast;
   string name;  //local name
 };
 
 struct BlockScope : public Scope
 {
   //constructor sets index automatically
-  BlockScope(Scope* parent);
+  BlockScope(Scope* parent, Parser::Block* astIn);
   string getLocalName();
+  Parser::Block* ast;
   int index;
   static int nextBlockIndex;
 };

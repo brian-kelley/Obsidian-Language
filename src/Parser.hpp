@@ -301,6 +301,7 @@ namespace Parser
   {
     //NULL if "auto"
     AP(TypeNT) type;
+    //var decl's name can only be a single identifier (but variables can be referenced via compound idents)
     string name;
     //NULL if not initialization, but required if auto
     AP(ExpressionNT) val;

@@ -17,7 +17,7 @@ namespace MiddleEnd
     cout << "Building scope tree and creating types...\n";
     for(auto& it : ast->decls)
     {
-      TypeLoading::visitScopedDecl(global, it);
+      ScopeTypeLoading::visitScopedDecl(global, it);
     }
     cout << "Resolving undefined types...\n";
     resolveAllTraits();
@@ -25,11 +25,11 @@ namespace MiddleEnd
     cout << "Middle end done.\n";
   }
 
-  namespace TypeLoading
+  namespace ScopeTypeLoading
   {
     void visitModule(Scope* current, AP(Module)& m)
     {
-      Scope* mscope = new ModuleScope(m->name, current);
+      Scope* mscope = new ModuleScope(m->name, current, m.get());
       //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
@@ -39,7 +39,7 @@ namespace MiddleEnd
 
     void visitBlock(Scope* current, AP(Block)& b)
     {
-      Scope* bscope = new BlockScope(current);
+      Scope* bscope = new BlockScope(current, b.get());
       for(auto& st : b->statements)
       {
         if(st->s.is<AP(ScopedDecl)>())
@@ -56,7 +56,7 @@ namespace MiddleEnd
     void visitStruct(Scope* current, AP(StructDecl)& sd)
     {
       //must create a child scope first, and then type
-      StructScope* sscope = new StructScope(sd->name, current);
+      StructScope* sscope = new StructScope(sd->name, current, sd.get());
       //Visit the internal ScopedDecls that are types
       for(auto& it : sd->members)
       {
@@ -102,5 +102,42 @@ namespace MiddleEnd
       }
     }
   }
+
+  namespace VarLoading
+  {
+    void visitScope(Scope* s)
+    {
+      //find all var decls (in line order)
+      //scan through all statements and/or scoped decls in scope
+      //Note: BlockScope can have Statements which are ScopedDecls which are VarDecls
+      //ModuleScope and StructScope can only have ScopedDecls which are VarDecls
+      //Will search through the stored AST node corresponding to Scope
+      auto bs = dynamic_cast<BlockScope*>(s);
+      auto ss = dynamic_cast<StructScope*>(s);
+      auto ms = dynamic_cast<ModuleScope*>(s);
+      if(bs)
+      {
+        for(auto& it : bs->statements)
+        {
+          if(it->s.is<AP(VarDecl)>())
+          {
+            bs->vars.push_back(new Variable(s, it->s.get<AP(VarDecl)>().get()));
+          }
+        }
+      }
+      else if(ss)
+      {
+      }
+      else if(ms)
+      {
+      }
+    }
+
+    void visitVarDecl(Scope* s, AP(Parser::VarDecl)& vd)
+    {
+    }
+  }
 }
+
+
 

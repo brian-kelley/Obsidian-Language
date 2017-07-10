@@ -13,8 +13,17 @@ Ongoing work:
 -Type system
   -Type struct (primitive, array, tuple, struct, variant)
 
+***********************
+| Middle end sequence |
+***********************
+
+-Create scope tree and all types and traits defined inside scopes
+-For each scope, create ordered lists of variable declarations
+  -search all ScopedDecls and Statements for VarDecls
+-Type check: determine type of right-hand sides of all vardecls and varassigns and make sure they can be converted with canConvert()
+
 ***************
-: Type system :
+| Type system |
 ***************
 
 -Need to support arrays and tuples that contain unresolved types

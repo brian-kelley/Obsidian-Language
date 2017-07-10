@@ -7,7 +7,6 @@
 namespace Expression
 {
 
-  /*
 enum struct Operation
 {
   ADD,
@@ -21,7 +20,6 @@ enum struct Operation
   LAND,
   LXOR
 };
-*/
 
 struct Expression
 {
