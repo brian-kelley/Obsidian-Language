@@ -58,6 +58,7 @@ void initTokens()
   SET_KEY("proctype", PROCTYPE)
   SET_KEY("nonterm", NONTERM)
   SET_KEY("T", T_TYPE);
+  SET_KEY("static", STATIC);
   keywordTable.resize(keywordMap.size());
   for(auto& it : keywordMap)
   {

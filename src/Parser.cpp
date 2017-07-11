@@ -437,6 +437,7 @@ namespace Parser
   AP(VarDecl) parse<VarDecl>()
   {
     AP(VarDecl) vd(new VarDecl);
+    vd->isStatic = acceptKeyword(STATIC);
     if(!acceptKeyword(AUTO))
     {
       vd->type = parse<TypeNT>();

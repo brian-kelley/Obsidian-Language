@@ -67,7 +67,8 @@ enum
   NONTERM,
   TEST,
   ASSERT,
-  T_TYPE
+  T_TYPE,
+  STATIC
 };
 
 enum

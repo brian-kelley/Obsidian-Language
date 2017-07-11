@@ -127,9 +127,24 @@ namespace MiddleEnd
       }
       else if(ss)
       {
+        //only process static vars here
+        for(auto& it : ss->ast->members)
+        {
+          if(it->sd->decl.is<AP(VarDecl)>())
+          {
+            ss->vars.push_back(new Variable(s, it->sd->decl.get<AP(VarDecl)>().get()));
+          }
+        }
       }
       else if(ms)
       {
+        for(auto& it : ms->ast->decls)
+        {
+          if(it->decl.is<AP(VarDecl)>())
+          {
+            ms->vars.push_back(new Variable(s, it->decl.get<AP(VarDecl)>().get()));
+          }
+        }
       }
     }
 

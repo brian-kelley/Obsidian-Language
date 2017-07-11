@@ -616,10 +616,21 @@ namespace AstPrinter
     cout << "Members:\n";
     for(auto it : sd->members)
     {
-      if(it->compose)
+      bool staticData = it->sd->decl.is<AP(VarDecl)>() && it->sd->decl.get<AP(VarDecl)>()->isStatic;
+      if(it->compose || staticData)
       {
         indent(ind + indentLevel);
-        cout << "(Composed)\n";
+        //note: a semantically valid program can't have any member be both
+        //composed and static, but semantics haven't been checked yet
+        if(it->compose)
+        {
+          cout << "(Composed) ";
+        }
+        if(staticData)
+        {
+          cout << "(Static)";
+        }
+        cout << '\n';
       }
       printScopedDecl(it->sd.get(), ind + indentLevel);
     }

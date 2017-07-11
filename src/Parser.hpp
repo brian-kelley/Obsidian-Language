@@ -305,6 +305,9 @@ namespace Parser
     string name;
     //NULL if not initialization, but required if auto
     AP(ExpressionNT) val;
+    //true if static, false otherwise
+    //if true, only has valid semantics if inside a struct decl
+    bool isStatic;
   };
 
   struct VarAssign

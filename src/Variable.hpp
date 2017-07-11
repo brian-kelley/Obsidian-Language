@@ -21,6 +21,7 @@ struct Variable
   string name;
   TypeSystem::Type* type;
   Parser::VarDecl* ast;
+  bool isStatic;
   unsigned id;
   static unsigned nextID;
 };

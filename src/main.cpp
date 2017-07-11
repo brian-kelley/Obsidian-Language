@@ -28,13 +28,6 @@ int main(int argc, const char** argv)
   }
   string code = loadFile(op.input.c_str());
   cout << "Loaded " << code.size() << " bytes of source code.\n";
-  /*
-  cout << "Will compile executable \"" << op.outputStem + ".exe" << "\"\n";
-  if(op.emitC)
-  {
-    cout << "Will emit C code to \"" << op.outputStem + ".c" << "\"\n";
-  }
-  */
   //Lexing
   vector<Token*> toks;
   lex(code, toks);
