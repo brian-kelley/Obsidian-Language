@@ -11,7 +11,7 @@ namespace MiddleEnd
   void load(AP(Module)& ast)
   {
     //create global scope - no name and no parent
-    global = new ModuleScope("", NULL);
+    global = new ModuleScope("", NULL, ast.get());
     TypeSystem::createBuiltinTypes();
     //build scope tree
     cout << "Building scope tree and creating types...\n";
@@ -117,7 +117,7 @@ namespace MiddleEnd
       auto ms = dynamic_cast<ModuleScope*>(s);
       if(bs)
       {
-        for(auto& it : bs->statements)
+        for(auto& it : bs->ast->statements)
         {
           if(it->s.is<AP(VarDecl)>())
           {

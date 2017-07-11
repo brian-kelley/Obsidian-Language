@@ -20,7 +20,7 @@ struct Variable
   Scope* scope;
   string name;
   TypeSystem::Type* type;
-  Parser::TypeNT* ast;
+  Parser::VarDecl* ast;
   unsigned id;
   static unsigned nextID;
 };

@@ -25,7 +25,11 @@ string Scope::getFullPath()
 
 /* ModuleScope */
 
-ModuleScope::ModuleScope(string nameIn, Scope* parent, Parser::Module* astIn) : Scope(parent), name(nameIn), ast(astIn) {}
+ModuleScope::ModuleScope(string nameIn, Scope* parent, Parser::Module* astIn) : Scope(parent)
+{
+  name = nameIn;
+  ast = astIn;
+}
 
 string ModuleScope::getLocalName()
 {
