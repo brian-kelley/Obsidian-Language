@@ -22,6 +22,8 @@ namespace MiddleEnd
     cout << "Resolving undefined types...\n";
     resolveAllTraits();
     resolveAllTypes();
+    cout << "Builing list of variable declarations...\n";
+    VarLoading::visitScope(global);
     cout << "Middle end done.\n";
   }
 
@@ -107,7 +109,8 @@ namespace MiddleEnd
   {
     void visitScope(Scope* s)
     {
-      //find all var decls (in line order)
+      //find all var decls in program, depth-first thru scope tree
+      //vars are in line order (within scope)
       //scan through all statements and/or scoped decls in scope
       //Note: BlockScope can have Statements which are ScopedDecls which are VarDecls
       //ModuleScope and StructScope can only have ScopedDecls which are VarDecls
@@ -146,10 +149,11 @@ namespace MiddleEnd
           }
         }
       }
-    }
-
-    void visitVarDecl(Scope* s, AP(Parser::VarDecl)& vd)
-    {
+      //visit all child scopes
+      for(auto child : s->children)
+      {
+        visitScope(child);
+      }
     }
   }
 }

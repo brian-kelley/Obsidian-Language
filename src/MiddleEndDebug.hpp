@@ -25,6 +25,7 @@ namespace MiddleEndDebug
   void printProcType(TypeSystem::ProcType* t, int ind);
   
   void printTrait(TypeSystem::Trait* t, int ind);
+  void printVariable(Variable* v, int ind);
 }
 
 #endif

@@ -67,6 +67,15 @@ namespace MiddleEndDebug
         printTrait(it, ind + 1);
       }
     }
+    if(s->vars.size())
+    {
+      indent(ind);
+      cout << "<> Variables:\n";
+      for(auto it : s->vars)
+      {
+        printVariable(it, ind + 1);
+      }
+    }
     if(s->children.size())
     {
       indent(ind);
@@ -288,6 +297,15 @@ namespace MiddleEndDebug
         printProcType(p.type, ind + 2);
       }
     }
+  }
+
+  void printVariable(Variable* v, int ind)
+  {
+    indent(ind);
+    cout << "Variable \"" << v->name << "\":\n";
+    indent(ind);
+    cout << "Type:\n";
+    printType(v->type, ind + 1);
   }
 }
 
