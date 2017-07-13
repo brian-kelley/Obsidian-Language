@@ -1,3 +1,6 @@
+#ifndef VARIANT_H
+#define VARIANT_H
+
 #include <stdexcept>
 #include <typeinfo>
 
@@ -174,3 +177,6 @@ template<typename Result>
 struct visitor {
 	typedef Result result_type;
 };
+
+#endif
+
