@@ -33,9 +33,11 @@ struct Expression
 {
   //Expression constructor will determine the type (implemented in subclasses)
   Expression(Scope* s);
-  bool lvalue();    //possible to assign to this?
   Scope* scope;
+  //note: can't get type directly from CompoundLiteral, leave it null
+  //TODO: throw if any var decl with "auto" as type has an untyped RHS
   TypeSystem::Type* type;
+  virtual bool assignable() = 0;
 };
 
 struct UnaryArith : public Expression
@@ -43,6 +45,10 @@ struct UnaryArith : public Expression
   UnaryArith(Scope* s, Oper* oper, Parser::Expr11* ast);
   UnaryOp op;
   AP(Expression) expr;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 struct BinaryArith : public Expression
@@ -60,6 +66,10 @@ struct BinaryArith : public Expression
   BinaryOp op;
   AP(Expression) lhs;
   AP(Expression) rhs;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 struct PrimitiveLiteral : public Expression
@@ -71,12 +81,53 @@ struct PrimitiveLiteral : public Expression
     StrLit*,
     CharLit*,
     Parser::BoolLit*> lit;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(Scope* s, Parser::StructLit* ast);
   Parser::StructLit* ast;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+struct Indexed : public Expression
+{
+  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
+  AP(Expression) array;
+  AP(Expression) index;
+  Parser::Expr12::ArrayIndex ast;
+  bool assignable()
+  {
+    //can assign to any subscript of lvalue array or tuple
+    return array->assignable();
+  }
+};
+
+struct Call : public Expression
+{
+  Call(Scope* s, Parser::Call* ast);
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+struct Var : public Expression
+{
+  Var(Scope* s, Parser::Member* ast);
+  Variable* var;  //var must be looked up from current scope
+  bool assignable()
+  {
+    //all variables are lvalues (no const)
+    return true;
+  }
 };
 
 }
