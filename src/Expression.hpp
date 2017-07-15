@@ -5,46 +5,39 @@
 #include "TypeSystem.hpp"
 #include "variant.h"
 
-namespace Expression
+namespace MiddleEndExpr
 {
-
-enum struct UnaryOp
-{
-  BNOT,
-  LNOT,
-  MINUS
-};
-
-enum struct BinaryOp
-{
-  ADD,
-  SUB,
-  MUL,
-  DIV,
-  BOR,
-  BAND,
-  BXOR,
-  LOR,
-  LAND,
-  LXOR
-};
 
 struct Expression
 {
   //Expression constructor will determine the type (implemented in subclasses)
   Expression(Scope* s);
   Scope* scope;
-  //note: can't get type directly from CompoundLiteral, leave it null
   //TODO: throw if any var decl with "auto" as type has an untyped RHS
   TypeSystem::Type* type;
   virtual bool assignable() = 0;
 };
 
+//Create a new Expression given one of the ExprN nonterminals
+Expression* getExpression(Parser::Expr1* expr):
+Expression* getExpression(Parser::Expr2* expr):
+Expression* getExpression(Parser::Expr3* expr):
+Expression* getExpression(Parser::Expr4* expr):
+Expression* getExpression(Parser::Expr5* expr):
+Expression* getExpression(Parser::Expr6* expr):
+Expression* getExpression(Parser::Expr7* expr):
+Expression* getExpression(Parser::Expr8* expr):
+Expression* getExpression(Parser::Expr9* expr):
+Expression* getExpression(Parser::Expr10* expr):
+Expression* getExpression(Parser::Expr11* expr):
+Expression* getExpression(Parser::Expr12* expr):
+
 struct UnaryArith : public Expression
 {
-  UnaryArith(Scope* s, Oper* oper, Parser::Expr11* ast);
-  UnaryOp op;
-  AP(Expression) expr;
+  //Precondition: ast->e is an Expr11::UnaryExpr
+  UnaryArith(Scope* s, int op, Expression* expr);
+  int op;
+  Expression* expr;
   bool assignable()
   {
     return false;
@@ -53,17 +46,8 @@ struct UnaryArith : public Expression
 
 struct BinaryArith : public Expression
 {
-  BinaryArith(Scope* s, Parser::Expr1* ast);
-  BinaryArith(Scope* s, Parser::Expr2* ast);
-  BinaryArith(Scope* s, Parser::Expr3* ast);
-  BinaryArith(Scope* s, Parser::Expr4* ast);
-  BinaryArith(Scope* s, Parser::Expr5* ast);
-  BinaryArith(Scope* s, Parser::Expr6* ast);
-  BinaryArith(Scope* s, Parser::Expr7* ast);
-  BinaryArith(Scope* s, Parser::Expr8* ast);
-  BinaryArith(Scope* s, Parser::Expr9* ast);
-  BinaryArith(Scope* s, Parser::Expr10* ast);
-  BinaryOp op;
+  BinaryArith(Expression* lhs, int op, Expression* rhs);
+  int op;
   AP(Expression) lhs;
   AP(Expression) rhs;
   bool assignable()
@@ -80,13 +64,15 @@ struct PrimitiveLiteral : public Expression
     FloatLit*,
     StrLit*,
     CharLit*,
-    Parser::BoolLit*> lit;
+    Parser::BoolLit*> value;
   bool assignable()
   {
     return false;
   }
 };
 
+//it is impossible to determine the type of a CompoundLiteral by itself
+//CompoundLiteral covers both array and struct literals
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(Scope* s, Parser::StructLit* ast);
@@ -95,6 +81,14 @@ struct CompoundLiteral : public Expression
   {
     return false;
   }
+  vector<Expression*> members;
+};
+
+//Unlike CompoundLiteral, can get the type of TupleLiteral by itself
+//as long as all members' types are known, so
+//"auto tup = (1, 2, 3, 4.5, "hello");" is valid
+struct TupleLiteral : public Expression
+{
 };
 
 struct Indexed : public Expression
