@@ -57,6 +57,7 @@ namespace Parser
   template<> AP(UnionDecl) parse<UnionDecl>();
   template<> AP(TraitDecl) parse<TraitDecl>();
   template<> AP(StructLit) parse<StructLit>();
+  template<> AP(TupleLit) parse<TupleLit>();
   template<> AP(Member) parse<Member>();
   template<> AP(TraitType) parse<TraitType>();
   template<> AP(TupleTypeNT) parse<TupleTypeNT>();
@@ -691,6 +692,22 @@ namespace Parser
   }
 
   template<>
+  AP(TupleLit) parse<TupleLit>()
+  {
+    AP(TupleLit) sl(new TupleLit);
+    expectPunct(LPAREN);
+    sl->vals = parseSomeCommaSeparated<ExpressionNT>();
+    //this check avoids ambiguity with the "Expr12 := ( Expression )" rule
+    if(sl->vals.size() < 2)
+    {
+      err("Tuple literal must have at least 2 values (a singleton "
+          "is exactly equivalent to its value without parentheses)");
+    }
+    expectPunct(RPAREN);
+    return sl;
+  }
+
+  template<>
   AP(Member) parse<Member>()
   {
     AP(Member) m(new Member);
@@ -969,6 +986,7 @@ namespace Parser
   AP(Expr12) parse<Expr12>()
   {
     AP(Expr12) e12(new Expr12);
+    e12->e = parseOptional<TupleLit>();
     if(acceptPunct(LPAREN))
     {
       //any expression inside parentheses

@@ -19,18 +19,8 @@ struct Expression
 };
 
 //Create a new Expression given one of the ExprN nonterminals
-Expression* getExpression(Parser::Expr1* expr):
-Expression* getExpression(Parser::Expr2* expr):
-Expression* getExpression(Parser::Expr3* expr):
-Expression* getExpression(Parser::Expr4* expr):
-Expression* getExpression(Parser::Expr5* expr):
-Expression* getExpression(Parser::Expr6* expr):
-Expression* getExpression(Parser::Expr7* expr):
-Expression* getExpression(Parser::Expr8* expr):
-Expression* getExpression(Parser::Expr9* expr):
-Expression* getExpression(Parser::Expr10* expr):
-Expression* getExpression(Parser::Expr11* expr):
-Expression* getExpression(Parser::Expr12* expr):
+template<typename NT>
+Expression* getExpression(Scope* s, NT* expr);
 
 struct UnaryArith : public Expression
 {
@@ -56,15 +46,55 @@ struct BinaryArith : public Expression
   }
 };
 
-struct PrimitiveLiteral : public Expression
+struct IntLiteral : public Expression
 {
-  PrimitiveLiteral(Scope* s, Parser::Expr12* ast);
-  variant<None,
-    IntLit*,
-    FloatLit*,
-    StrLit*,
-    CharLit*,
-    Parser::BoolLit*> value;
+  IntLiteral(IntLit* ast);
+  IntLit* ast;
+  long long value;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+strcut FloatLiteral : public Expression
+{
+  FloatLiteral(FloatLit* ast);
+  FloatLit* ast;
+  double value;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+struct StringLiteral : public Expression
+{
+  StringLiteral(StringLit* ast);
+  StringLit* ast;
+  string value;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+struct CharLit : public Expression
+{
+  CharLiteral(CharLit* ast);
+  CharLit* ast;
+  char value; //TODO: unicode...
+  bool assignable()
+  {
+    return false;
+  }
+};
+
+struct BoolLit : public Expression
+{
+  BoolLiteral(BoolLit* ast);
+  BoolLit* ast;
+  bool value;
   bool assignable()
   {
     return false;
@@ -89,18 +119,32 @@ struct CompoundLiteral : public Expression
 //"auto tup = (1, 2, 3, 4.5, "hello");" is valid
 struct TupleLiteral : public Expression
 {
+  TupleLiteral(Scope* s, Parser::TupleLit* ast);
+  Parser::TupleLit* ast;
+  bool assignable()
+  {
+    //a tuple expr is assignable as a whole only if all its members are
+    for(auto m : members)
+    {
+      if(!m->assignable())
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  vector(Expression*> members;
 };
 
 struct Indexed : public Expression
 {
   Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
-  AP(Expression) array;
+  AP(Expression) group; //the array or tuple being subscripted
   AP(Expression) index;
   Parser::Expr12::ArrayIndex ast;
   bool assignable()
   {
-    //can assign to any subscript of lvalue array or tuple
-    return array->assignable();
+    return group->assignable();
   }
 };
 
@@ -119,7 +163,7 @@ struct Var : public Expression
   Variable* var;  //var must be looked up from current scope
   bool assignable()
   {
-    //all variables are lvalues (no const)
+    //all variables are lvalues (there is no const)
     return true;
   }
 };

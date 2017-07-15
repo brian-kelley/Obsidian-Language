@@ -685,7 +685,8 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
 
 bool TupleType::canConvert(Type* other)
 {
-  return this == other;
+  //true if other is identical or if this is a singleton and other can be converted to this's only member 
+  return (this == other) || (members.size() == 1 && members[0]->canConvert(other));
 }
 
 bool TupleType::isTuple()

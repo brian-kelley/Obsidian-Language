@@ -78,6 +78,7 @@ namespace Parser
   struct UnionDecl;
   struct TraitDecl;
   struct StructLit;
+  struct TupleLit;
   struct Member;
   struct TraitType;
   struct TupleTypeNT;
@@ -412,6 +413,11 @@ namespace Parser
     vector<AP(ExpressionNT)> vals;
   };
 
+  struct TupleLit
+  {
+    vector<AP(ExpressionNT)> vals;
+  };
+
   struct Member
   {
     string owner;
@@ -591,6 +597,7 @@ namespace Parser
       AP(ExpressionNT),
       AP(Member),
       AP(StructLit),
+      AP(TupleLit),
       AP(Call),
       ArrayIndex> e;
   }; 

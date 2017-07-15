@@ -7,14 +7,28 @@ namespace MiddleEndExpr
  * Expression loading *
  **********************/
 
-Expression* getExpression(Parser::Expr1* expr)
+template<> Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* ast);
+template<> Expression* getExpression<Parser::Expr2>(Scope* s, Parser::Expr2* ast);
+template<> Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* ast);
+template<> Expression* getExpression<Parser::Expr4>(Scope* s, Parser::Expr4* ast);
+template<> Expression* getExpression<Parser::Expr5>(Scope* s, Parser::Expr5* ast);
+template<> Expression* getExpression<Parser::Expr6>(Scope* s, Parser::Expr6* ast);
+template<> Expression* getExpression<Parser::Expr7>(Scope* s, Parser::Expr7* ast);
+template<> Expression* getExpression<Parser::Expr8>(Scope* s, Parser::Expr8* ast);
+template<> Expression* getExpression<Parser::Expr9>(Scope* s, Parser::Expr9* ast);
+template<> Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* ast);
+template<> Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* ast);
+template<> Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* ast);
+
+template<>
+Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
 {
   //Get a list of the Expr2s
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -33,13 +47,14 @@ Expression* getExpression(Parser::Expr1* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr2* expr)
+template<>
+Expression* getExpression<Parser::Expr2>(Scope* s, Parser::Expr2* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -58,13 +73,14 @@ Expression* getExpression(Parser::Expr2* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr3* expr)
+template<>
+Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -83,13 +99,14 @@ Expression* getExpression(Parser::Expr3* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr4* expr)
+template<>
+Expression* getExpression<Parser::Expr4>(Scope* s, Parser::Expr4* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -108,13 +125,14 @@ Expression* getExpression(Parser::Expr4* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr5* expr)
+template<>
+Expression* getExpression<Parser::Expr5>(Scope* s, Parser::Expr5* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -133,13 +151,14 @@ Expression* getExpression(Parser::Expr5* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr6* expr)
+template<>
+Expression* getExpression<Parser::Expr6>(Scope* s, Parser::Expr6* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -158,13 +177,14 @@ Expression* getExpression(Parser::Expr6* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr7* expr)
+template<>
+Expression* getExpression<Parser::Expr7>(Scope* s, Parser::Expr7* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -183,13 +203,14 @@ Expression* getExpression(Parser::Expr7* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr8* expr)
+template<>
+Expression* getExpression<Parser::Expr8>(Scope* s, Parser::Expr8* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -208,13 +229,14 @@ Expression* getExpression(Parser::Expr8* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr9* expr)
+template<>
+Expression* getExpression<Parser::Expr9>(Scope* s, Parser::Expr9* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -233,13 +255,14 @@ Expression* getExpression(Parser::Expr9* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr10* expr)
+template<>
+Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(expr->head));
+  leaves.push_back(getExpression(s, expr->head));
   for(auto e : expr->tail)
   {
-    leaves.push_back(getExpression(e->rhs.get()));
+    leaves.push_back(getExpression(s, e->rhs.get()));
   }
   if(leaves.size() == 1)
   {
@@ -258,22 +281,24 @@ Expression* getExpression(Parser::Expr10* expr)
   }
 }
 
-Expression* getExpression(Parser::Expr11* expr)
+template<>
+Expression* getExpression<Parser::Expr11>(Parser::Expr11* expr)
 {
   if(expr->e.is<AP(Parser::Expr12))
   {
-    return getExpression(expr->e.get<AP(Parser::Expr12)>().get());
+    return getExpression(s, expr->e.get<AP(Parser::Expr12)>().get());
   }
   else
   {
     //unary expression, with a single Expr11 as the operand
     auto unary = expr->e.get<Parser::Expr11::UnaryExpr>();
-    Expression* operand = getExpression(unary->rhs.get());
+    Expression* operand = getExpression(s, unary->rhs.get());
     return new UnaryArith(unary->op, operand);
   }
 }
 
-Expression* getExpression(Parser::Expr12* expr)
+template<>
+Expression* getExpression<Parser::Expr12>(Parser::Expr12* expr)
 {
   if(expr->e.is<IntLit*>())
   {
@@ -298,6 +323,7 @@ Expression* getExpression(Parser::Expr12* expr)
       AP(ExpressionNT),
       AP(Member),
       AP(StructLit),
+      AP(TupleLit),
       AP(Call),
       ArrayIndex> e;
   }; 
