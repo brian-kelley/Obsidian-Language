@@ -282,7 +282,7 @@ Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* expr)
 }
 
 template<>
-Expression* getExpression<Parser::Expr11>(Parser::Expr11* expr)
+Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* expr)
 {
   if(expr->e.is<AP(Parser::Expr12))
   {
@@ -298,36 +298,52 @@ Expression* getExpression<Parser::Expr11>(Parser::Expr11* expr)
 }
 
 template<>
-Expression* getExpression<Parser::Expr12>(Parser::Expr12* expr)
+Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
 {
   if(expr->e.is<IntLit*>())
   {
-    return 
+    return new IntLiteral(expr->e.get<IntLit*>());
   }
-  /*
-   * Expr12:
+  else if(expr->e.is<CharLit*>())
   {
-    struct ArrayIndex
-    {
-      //arr[index]
-      AP(Expr12) arr;
-      AP(ExpressionNT) index;
-    };
-    variant<
-      None,
-      IntLit*,
-      CharLit*,
-      StrLit*,
-      FloatLit*,
-      AP(BoolLit),
-      AP(ExpressionNT),
-      AP(Member),
-      AP(StructLit),
-      AP(TupleLit),
-      AP(Call),
-      ArrayIndex> e;
-  }; 
-  */
+    return new CharLiteral(expr->e.get<CharLit*>());
+  }
+  else if(expr->e.is<StrLit*>())
+  {
+    return new StringLiteral(expr->e.get<StrLit*>());
+  }
+  else if(expr->e.is<AP(Parser::BoolLit)>())
+  {
+    return new BoolLiteral(expr->e.get<AP(Parser::BoolLit)>().get());
+  }
+  else if(expr->e.is<AP(Parser::ExpressionNT)>())
+  {
+    return getExpression(s, expr->e.get<AP(Parser::ExpressionNT)>().get());
+  }
+  else if(expr->e.is<AP(Parser::Member)>())
+  {
+    return new Var(s, expr->e.get<AP(Parser::Member)>().get());
+  }
+  else if(expr->e.is<AP(Parser::StructLit)>())
+  {
+    return new CompoundLiteral(s, expr->e.get<AP(Parser::StructLit)>().get());
+  }
+  else if(expr->e.is<AP(Parser::TupleLit)>())
+  {
+    return new TupleLiteral(s, expr->e.get<AP(Parser::TupleLit)>());
+  }
+  else if(expr->e.is<AP(Parser::Call)>())
+  {
+    return new Call(s, expr->e.get<AP(Parser::Call)>().get());
+  }
+  else if(expr->e.is<Parser::Expr12::ArrayIndex>())
+  {
+    return new Indexed(s, expr->e.get<Parser::Expr12::ArrayIndex>());
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
 }
 
 /**************
@@ -344,61 +360,59 @@ Expression::Expression(Scope* s)
  * UnaryArith *
  **************/
 
-UnaryArith::UnaryArith(Scope* s, Parser::Expr11* ast) : Expression(s)
+UnaryArith::UnaryArith(Scope* s, int op, Expression* expr)
 {
-  this->ast = ast;
 }
 
 /***************
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr1* ast) : Expression(s)
+BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs)
 {
 }
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr2* ast) : Expression(s)
+/**********************
+ * Primitive Literals *
+ **********************/
+
+IntLiteral::IntLiteral(IntLit* ast) : Expression(nullptr)
 {
+  this->ast = ast;
+  //if value fits in a signed int, use that as the type
+  //when in doubt, don't use auto
+  if(value() > 0x7FFFFFFF)
+  {
+    type = TypeSystem::primitives[Parser::TypeNT::Prim::ULONG];
+  }
+  else
+  {
+    type = TypeSystem::primitives[Parser::TypeNT::Prim::UINT];
+  }
 }
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr3* ast) : Expression(s)
+FloatLiteral::FloatLiteral(FloatLit* ast) : Expression(nullptr)
 {
+  this->ast = ast;
+  type = TypeSystem::primitives[Parser::TypeNT::Prim::DOUBLE];
 }
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr4* ast) : Expression(s)
+StringLiteral::StringLiteral(StringLit* ast) : Expression(nullptr)
 {
+  this->ast = ast;
+  type = TypeSystem::primitives[Parser::TypeNT::Prim::STRING];
 }
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr5* ast) : Expression(s)
+CharLiteral::CharLiteral(CharLit* ast) : Expression(nullptr)
 {
+  this->ast = ast;
+  type = TypeSystem::primitives[Parser::TypeNT::Prim::CHAR];
 }
 
-BinaryArith::BinaryArith(Scope* s, Parser::Expr6* ast) : Expression(s)
+BoolLiteral::BoolLiteral(Parser::BoolLit* ast) : Expression(nullptr)
 {
-}
-
-BinaryArith::BinaryArith(Scope* s, Parser::Expr7* ast) : Expression(s)
-{
-}
-
-BinaryArith::BinaryArith(Scope* s, Parser::Expr8* ast) : Expression(s)
-{
-}
-
-BinaryArith::BinaryArith(Scope* s, Parser::Expr9* ast) : Expression(s)
-{
-}
-
-BinaryArith::BinaryArith(Scope* s, Parser::Expr10* ast) : Expression(s)
-{
-}
-
-/********************
- * PrimitiveLiteral *
- ********************/
-
-PrimitiveLiteral::PrimitiveLiteral(Scope* s, Parser::Expr12* ast) : Expression(s)
-{
+  this->ast = ast;
+  type = TypeSystem::primitives[Parser::TypeNT::Prim::BOOL];
 }
 
 /*******************
@@ -407,6 +421,7 @@ PrimitiveLiteral::PrimitiveLiteral(Scope* s, Parser::Expr12* ast) : Expression(s
 
 CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(s)
 {
+  this->st = 
 }
 
 /***********

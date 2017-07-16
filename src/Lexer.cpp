@@ -304,7 +304,6 @@ void lex(string& code, vector<Token*>& tokList)
 
 char getEscapedChar(char ident)
 {
-  //TODO: are there more that should be supported?
   if(ident == 'n')
     return '\n';
   if(ident == 't')
@@ -313,6 +312,8 @@ char getEscapedChar(char ident)
     return 0;
   if(ident == '\\')
     return '\\';
+  if(ident == 'r')
+    return '\r';
   errAndQuit(string("Unknown escape sequence: \\") + ident);
   return ' ';
 }

@@ -50,18 +50,24 @@ struct IntLiteral : public Expression
 {
   IntLiteral(IntLit* ast);
   IntLit* ast;
-  long long value;
+  uint64_t value()
+  {
+    return ast->value();
+  }
   bool assignable()
   {
     return false;
   }
 };
 
-strcut FloatLiteral : public Expression
+struct FloatLiteral : public Expression
 {
   FloatLiteral(FloatLit* ast);
   FloatLit* ast;
-  double value;
+  double value()
+  {
+    return ast->val;
+  }
   bool assignable()
   {
     return false;
@@ -72,7 +78,10 @@ struct StringLiteral : public Expression
 {
   StringLiteral(StringLit* ast);
   StringLit* ast;
-  string value;
+  string value()
+  {
+    return ast->val;
+  }
   bool assignable()
   {
     return false;
@@ -83,18 +92,24 @@ struct CharLit : public Expression
 {
   CharLiteral(CharLit* ast);
   CharLit* ast;
-  char value; //TODO: unicode...
+  char value()
+  {
+    return ast->value;
+  }
   bool assignable()
   {
     return false;
   }
 };
 
-struct BoolLit : public Expression
+struct BoolLiteral : public Expression
 {
-  BoolLiteral(BoolLit* ast);
-  BoolLit* ast;
-  bool value;
+  BoolLiteral(Parser::BoolLit* ast);
+  Parser::BoolLit* ast;
+  bool value()
+  {
+    return ast->val;
+  }
   bool assignable()
   {
     return false;
@@ -138,7 +153,7 @@ struct TupleLiteral : public Expression
 
 struct Indexed : public Expression
 {
-  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
+  Indexed(Scope* s, Parser::Expr12::ArrayIndex ast);
   AP(Expression) group; //the array or tuple being subscripted
   AP(Expression) index;
   Parser::Expr12::ArrayIndex ast;

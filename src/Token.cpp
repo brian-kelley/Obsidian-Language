@@ -309,7 +309,7 @@ IntLit::IntLit()
   type = INT_LITERAL;
 }
 
-IntLit::IntLit(int val)
+IntLit::IntLit(uint64_t val)
 {
   type = INT_LITERAL;
   this->val = val;

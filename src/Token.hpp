@@ -202,16 +202,17 @@ struct CharLit : public Token
   char val;
 };
 
-//[-]0123456789
+//[-]{0123456789}+
 struct IntLit : public Token
 {
   IntLit();
-  IntLit(int val);
+  IntLit(uint64_t val);
   bool compareTo(Token* rhs);
   bool operator==(IntLit& rhs);
   int getType();
   string getStr();
   string getDesc();
+  //note: val is always positive because any minus sign is read in as operator -
   uint64_t val;
 };
 
@@ -225,6 +226,7 @@ struct FloatLit : public Token
   int getType();
   string getStr();
   string getDesc();
+  //note: val is always positive
   double val;
 };
 
