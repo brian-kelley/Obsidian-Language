@@ -673,15 +673,11 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Compound identifier: ";
-    for(auto it = m; it; it = it->mem.get())
+    for(auto s : m->scopes)
     {
-      cout << it->owner;
-      if(it->mem.get())
-      {
-        cout << '.';
-      }
+      cout << s << '.';
     }
-    cout << '\n';
+    cout << m->ident << '\n';
   }
 
   void printTraitType(TraitType* tt, int ind)

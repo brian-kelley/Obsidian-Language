@@ -23,16 +23,19 @@ string Scope::getFullPath()
     return getLocalName();
 }
 
-static void findSubImpl(vector<string>& names, vector<Scope*>& matches)
+void Scope::findSubImpl(vector<string>& names, vector<Scope*>& matches)
 {
   if(names.size() == 0)
-    return this;
+  {
+    matches.push_back(this);
+    return;
+  }
   //does this contain a scope chain with path given by names?
   Scope* next = this;
   bool found = false;
   for(auto n : names)
   {
-    for(auto child : next)
+    for(auto child : next->children)
     {
       if(child->getLocalName() == n)
       {
@@ -55,7 +58,7 @@ static void findSubImpl(vector<string>& names, vector<Scope*>& matches)
   else
   {
     //append any matches found in parent scopes
-    parent->findSub(names, matches);
+    parent->findSubImpl(names, matches);
   }
 }
 

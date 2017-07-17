@@ -114,22 +114,22 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
       for(auto t : s->types)
       {
         StructType* st = dynamic_cast<StructType*>(t);
-        if(st && st->name == search->owner)
+        if(st && st->name == mem->ident)
         {
           return st;
         }
         UnionType* ut = dynamic_cast<UnionType*>(t);
-        if(ut && ut->name == search->owner)
+        if(ut && ut->name == mem->ident)
         {
           return ut;
         }
         EnumType* et = dynamic_cast<EnumType*>(t);
-        if(et && et->name == search->owner)
+        if(et && et->name == mem->ident)
         {
           return et;
         }
         AliasType* at = dynamic_cast<AliasType*>(t);
-        if(at && at->name == search->owner)
+        if(at && at->name == mem->ident)
         {
           return at;
         }
@@ -142,13 +142,12 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
       string msg = "Could not resolve type: \"";
       auto mem = type->t.get<AP(Member)>();
       //walk down the member chain (print owner, then '.', then remainder)
-      Parser::Member* it = mem.get();
-      for(; it->mem; it = it->mem.get())
+      for(auto s : mem->scopes)
       {
-        msg += it->owner;
+        msg += s;
         msg += '.';
       }
-      msg += it->owner;
+      msg += mem->ident;
       msg += "\" required from scope \"";
       msg += usedScope->getLocalName();
       msg += "\"";
@@ -228,41 +227,13 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
 {
   //search up scope tree for the member
   //need to search for EnumType, AliasType, StructType or UnionType
-  for(Scope* iter = usedScope; iter; iter = iter->parent)
+  auto search = usedScope->findSub(name->scopes);
+  for(auto s : search)
   {
-    Scope* memScope = iter;
-    //iter is the root of search (scan for child scopes, then the type)
-    for(Member* search = name;
-        search; search = search->mem.get())
+    for(auto searchTrait : s->traits)
     {
-      bool foundNext = false;
-      if(search->mem)
-      {
-        //find scope with name mem->owner
-        for(auto& searchScope : memScope->children)
-        {
-          if(searchScope->getLocalName() == search->owner)
-          {
-            //found the next memScope for searching
-            foundNext = true;
-            memScope = searchScope;
-            break;
-          }
-        }
-        if(!foundNext)
-        {
-          //stop searching down this chain of scopes
-          break;
-        }
-      }
-      else
-      {
-        for(auto searchTrait : iter->traits)
-        {
-          if(searchTrait->name == search->owner)
-            return searchTrait;
-        }
-      }
+      if(searchTrait->name == name->ident)
+        return searchTrait;
     }
   }
   //couldn't find type, mark as unresolved
@@ -272,13 +243,12 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
     string msg = "Could not resolve trait: \"";
     auto mem = name;
     //walk down the member chain (print owner, then '.', then remainder)
-    Parser::Member* it = mem;
-    for(; it->mem; it = it->mem.get())
+    for(auto s : mem->scopes)
     {
-      msg += it->owner;
+      msg += s;
       msg += '.';
     }
-    msg += it->owner;
+    msg += mem->ident;
     msg += "\" required from scope \"";
     msg += usedScope->getLocalName();
     msg += "\"";

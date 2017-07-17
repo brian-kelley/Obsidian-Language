@@ -37,6 +37,8 @@ struct Scope
   //Find a sub scope of this (or a parent) with given relative "path"
   //"names" will probably come from Parser::Member::scopes
   vector<Scope*> findSub(vector<string>& names);
+  private:
+  void findSubImpl(vector<string>& names, vector<Scope*>& matches);
 };
 
 struct ModuleScope : public Scope
