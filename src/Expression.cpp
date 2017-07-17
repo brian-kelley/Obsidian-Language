@@ -25,7 +25,7 @@ Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
 {
   //Get a list of the Expr2s
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -37,7 +37,7 @@ Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
   else
   {
     //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], BinaryOp::LOR, leaves[1]);
+    BinaryArith* chain = new BinaryArith(leaves[0], LOR, leaves[1]);
     for(size_t i = 2; i < leaves.size(); i++)
     {
       //form another BinaryArith with root and expr2[i] as operands
@@ -51,7 +51,7 @@ template<>
 Expression* getExpression<Parser::Expr2>(Scope* s, Parser::Expr2* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -77,7 +77,7 @@ template<>
 Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -103,7 +103,7 @@ template<>
 Expression* getExpression<Parser::Expr4>(Scope* s, Parser::Expr4* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -129,7 +129,7 @@ template<>
 Expression* getExpression<Parser::Expr5>(Scope* s, Parser::Expr5* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -155,7 +155,7 @@ template<>
 Expression* getExpression<Parser::Expr6>(Scope* s, Parser::Expr6* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -181,7 +181,7 @@ template<>
 Expression* getExpression<Parser::Expr7>(Scope* s, Parser::Expr7* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -207,7 +207,7 @@ template<>
 Expression* getExpression<Parser::Expr8>(Scope* s, Parser::Expr8* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -233,7 +233,7 @@ template<>
 Expression* getExpression<Parser::Expr9>(Scope* s, Parser::Expr9* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -259,7 +259,7 @@ template<>
 Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* expr)
 {
   vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
+  leaves.push_back(getExpression(s, expr->head.get()));
   for(auto e : expr->tail)
   {
     leaves.push_back(getExpression(s, e->rhs.get()));
@@ -284,7 +284,7 @@ Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* expr)
 template<>
 Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* expr)
 {
-  if(expr->e.is<AP(Parser::Expr12))
+  if(expr->e.is<AP(Parser::Expr12)>())
   {
     return getExpression(s, expr->e.get<AP(Parser::Expr12)>().get());
   }
@@ -292,8 +292,8 @@ Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* expr)
   {
     //unary expression, with a single Expr11 as the operand
     auto unary = expr->e.get<Parser::Expr11::UnaryExpr>();
-    Expression* operand = getExpression(s, unary->rhs.get());
-    return new UnaryArith(unary->op, operand);
+    Expression* operand = getExpression(s, unary.rhs.get());
+    return new UnaryArith(unary.op, operand);
   }
 }
 
@@ -330,7 +330,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<AP(Parser::TupleLit)>())
   {
-    return new TupleLiteral(s, expr->e.get<AP(Parser::TupleLit)>());
+    return new TupleLiteral(s, expr->e.get<AP(Parser::TupleLit)>().get());
   }
   else if(expr->e.is<AP(Parser::Call)>())
   {
@@ -338,11 +338,12 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::Expr12::ArrayIndex>())
   {
-    return new Indexed(s, expr->e.get<Parser::Expr12::ArrayIndex>());
+    return new Indexed(s, &(expr->e.get<Parser::Expr12::ArrayIndex>()));
   }
   else
   {
     INTERNAL_ERROR;
+    return nullptr;
   }
 }
 
@@ -360,7 +361,7 @@ Expression::Expression(Scope* s)
  * UnaryArith *
  **************/
 
-UnaryArith::UnaryArith(Scope* s, int op, Expression* expr)
+UnaryArith::UnaryArith(int op, Expression* expr) : Expression(nullptr)
 {
 }
 
@@ -368,7 +369,7 @@ UnaryArith::UnaryArith(Scope* s, int op, Expression* expr)
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs)
+BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(nullptr)
 {
 }
 
@@ -383,36 +384,36 @@ IntLiteral::IntLiteral(IntLit* ast) : Expression(nullptr)
   //when in doubt, don't use auto
   if(value() > 0x7FFFFFFF)
   {
-    type = TypeSystem::primitives[Parser::TypeNT::Prim::ULONG];
+    type = TypeSystem::primitives[Parser::TypeNT::ULONG];
   }
   else
   {
-    type = TypeSystem::primitives[Parser::TypeNT::Prim::UINT];
+    type = TypeSystem::primitives[Parser::TypeNT::UINT];
   }
 }
 
 FloatLiteral::FloatLiteral(FloatLit* ast) : Expression(nullptr)
 {
   this->ast = ast;
-  type = TypeSystem::primitives[Parser::TypeNT::Prim::DOUBLE];
+  type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
 }
 
-StringLiteral::StringLiteral(StringLit* ast) : Expression(nullptr)
+StringLiteral::StringLiteral(StrLit* ast) : Expression(nullptr)
 {
   this->ast = ast;
-  type = TypeSystem::primitives[Parser::TypeNT::Prim::STRING];
+  type = TypeSystem::primitives[Parser::TypeNT::STRING];
 }
 
 CharLiteral::CharLiteral(CharLit* ast) : Expression(nullptr)
 {
   this->ast = ast;
-  type = TypeSystem::primitives[Parser::TypeNT::Prim::CHAR];
+  type = TypeSystem::primitives[Parser::TypeNT::CHAR];
 }
 
 BoolLiteral::BoolLiteral(Parser::BoolLit* ast) : Expression(nullptr)
 {
   this->ast = ast;
-  type = TypeSystem::primitives[Parser::TypeNT::Prim::BOOL];
+  type = TypeSystem::primitives[Parser::TypeNT::BOOL];
 }
 
 /*******************
@@ -421,7 +422,22 @@ BoolLiteral::BoolLiteral(Parser::BoolLit* ast) : Expression(nullptr)
 
 CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(s)
 {
-  this->st = 
+  this->ast = ast;
+  //type cannot be determined for a compound literal
+  type = nullptr;
+  for(auto v : ast->vals)
+  {
+    //add member expression
+    members.push_back(getExpression(s, v.get()));
+  }
+}
+
+/****************
+ * TupleLiteral *
+ ****************/
+
+TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* ast) : Expression(s)
+{
 }
 
 /***********
@@ -430,6 +446,57 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(
 
 Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast) : Expression(s)
 {
+  this->ast = ast;
+  //get expressions for the index and the indexed object
+  group = getExpression(s, ast->arr.get());
+  index = getExpression(s, ast->index.get());
+  //Indexing a CompoundLiteral is not allowed at all
+  //Indexing a Tuple (literal, variable or call) requires the index to be an IntLit
+  //Anything else is assumed to be an array and then the index can be any integer expression
+  if(dynamic_cast<CompoundLiteral*>(group))
+  {
+    errAndQuit("Can't index a compound literal - assign it to an array first.");
+  }
+  //note: ok if this is null
+  auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type);
+  //in all other cases, group must have a type now
+  if(!group->type)
+  {
+    errAndQuit("Expression type couldn't be determined.");
+  }
+  else if(tt)
+  {
+    //group's type is a Tuple, whether group is a literal, var or call
+    //make sure the index is an IntLit
+    auto intIndex = dynamic_cast<IntLiteral*>(index);
+    if(intIndex)
+    {
+      //val is unsigned and so always positive
+      auto val = intIndex->value();
+      if(val >= tt->members.size())
+      {
+        errAndQuit(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));
+      }
+      type = tt->members[val];
+    }
+    else
+    {
+      errAndQuit("Tuple subscript must be an integer constant.");
+    }
+  }
+  else
+  {
+    //group must be an array
+    auto at = dynamic_cast<TypeSystem::ArrayType*>(group->type);
+    if(at)
+    {
+      type = at->elem;
+    }
+    else
+    {
+      errAndQuit("Expression can't be subscripted.");
+    }
+  }
 }
 
 /********
@@ -446,6 +513,12 @@ Call::Call(Scope* s, Parser::Call* ast) : Expression(s)
 
 Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
 {
+  //To get type and Variable ptr, look up the variable in scope tree
+  for(auto scope = s; s; s = s->parent)
+  {
+    //for each scope, find an exact match of ast
+    type = nullptr;
+  }
 }
 
 }

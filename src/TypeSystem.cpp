@@ -33,31 +33,31 @@ Type::Type(Scope* enclosingScope)
 
 void createBuiltinTypes()
 {
-  using Parser::TypeNT::Prim;
+  using Parser::TypeNT;
   //primitives has same size as the enum Parser::TypeNT::Prim
   primitives.resize(12);
-  primitives[Prim::BOOL] = AP(BoolType)(new BoolType);
-  primitives[Prim::CHAR] = AP(IntegerType)(new IntegerType("char", 1, true));
-  primitives[Prim::UCHAR] = AP(IntegerType)(new IntegerType("uchar", 1, false));
-  primitives[Prim::SHORT] = AP(IntegerType)(new IntegerType("short", 2, true));
-  primitives[Prim::USHORT] = AP(IntegerType)(new IntegerType("ushort", 2, false));
-  primitives[Prim::INT] = AP(IntegerType)(new IntegerType("int", 4, true));
-  primitives[Prim::UINT] = AP(IntegerType)(new IntegerType("uint", 4, false));
-  primitives[Prim::LONG] = AP(IntegerType)(new IntegerType("long", 8, true));
-  primitives[Prim::ULONG] = AP(IntegerType)(new IntegerType("ulong", 8, false));
-  primitives[Prim::FLOAT] = AP(IntegerType)(new FloatType("float", 4));
-  primitives[Prim::DOUBLE] = AP(IntegerType)(new FloatType("double", 8));
-  primitives[Prim::STRING] = AP(StringType)(new StringType);
-  new AliasType("i8", primitives[Prim::CHAR], global);
-  new AliasType("u8", primitives[Prim::UCHAR], global);
-  new AliasType("i16", primitives[Prim::SHORT], global);
-  new AliasType("u16", primitives[Prim::USHORT], global);
-  new AliasType("i32", primitives[Prim::INT], global);
-  new AliasType("u32", primitives[Prim::UINT], global);
-  new AliasType("i64", primitives[Prim::LONG], global);
-  new AliasType("u64", primitives[Prim::ULONG], global);
-  new AliasType("f32", primitives[Prim::FLOAT], global);
-  new AliasType("f64", primitives[Prim::DOUBLE], global);
+  primitives[TypeNT::BOOL] = new BoolType;
+  primitives[TypeNT::CHAR] = new IntegerType("char", 1, true);
+  primitives[TypeNT::UCHAR] = new IntegerType("uchar", 1, false);
+  primitives[TypeNT::SHORT] = new IntegerType("short", 2, true);
+  primitives[TypeNT::USHORT] = new IntegerType("ushort", 2, false);
+  primitives[TypeNT::INT] = new IntegerType("int", 4, true);
+  primitives[TypeNT::UINT] = new IntegerType("uint", 4, false);
+  primitives[TypeNT::LONG] = new IntegerType("long", 8, true);
+  primitives[TypeNT::ULONG] = new IntegerType("ulong", 8, false);
+  primitives[TypeNT::FLOAT] = new FloatType("float", 4);
+  primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
+  primitives[TypeNT::STRING] = new StringType;
+  new AliasType("i8", primitives[TypeNT::CHAR], global);
+  new AliasType("u8", primitives[TypeNT::UCHAR], global);
+  new AliasType("i16", primitives[TypeNT::SHORT], global);
+  new AliasType("u16", primitives[TypeNT::USHORT], global);
+  new AliasType("i32", primitives[TypeNT::INT], global);
+  new AliasType("u32", primitives[TypeNT::UINT], global);
+  new AliasType("i64", primitives[TypeNT::LONG], global);
+  new AliasType("u64", primitives[TypeNT::ULONG], global);
+  new AliasType("f32", primitives[TypeNT::FLOAT], global);
+  new AliasType("f64", primitives[TypeNT::DOUBLE], global);
 }
 
 Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)

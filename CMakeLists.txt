@@ -12,6 +12,7 @@ add_executable (onyx
   src/MiddleEnd.cpp
   src/MiddleEndDebug.cpp
   src/Variable.cpp
+  src/Expression.cpp
   src/TypeSystem.cpp
   src/Scope.cpp
   src/Lexer.cpp

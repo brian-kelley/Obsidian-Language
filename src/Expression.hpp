@@ -25,7 +25,7 @@ Expression* getExpression(Scope* s, NT* expr);
 struct UnaryArith : public Expression
 {
   //Precondition: ast->e is an Expr11::UnaryExpr
-  UnaryArith(Scope* s, int op, Expression* expr);
+  UnaryArith(int op, Expression* expr);
   int op;
   Expression* expr;
   bool assignable()
@@ -52,7 +52,7 @@ struct IntLiteral : public Expression
   IntLit* ast;
   uint64_t value()
   {
-    return ast->value();
+    return ast->val;
   }
   bool assignable()
   {
@@ -76,8 +76,8 @@ struct FloatLiteral : public Expression
 
 struct StringLiteral : public Expression
 {
-  StringLiteral(StringLit* ast);
-  StringLit* ast;
+  StringLiteral(StrLit* ast);
+  StrLit* ast;
   string value()
   {
     return ast->val;
@@ -88,13 +88,13 @@ struct StringLiteral : public Expression
   }
 };
 
-struct CharLit : public Expression
+struct CharLiteral : public Expression
 {
   CharLiteral(CharLit* ast);
   CharLit* ast;
   char value()
   {
-    return ast->value;
+    return ast->val;
   }
   bool assignable()
   {
@@ -148,15 +148,15 @@ struct TupleLiteral : public Expression
     }
     return true;
   }
-  vector(Expression*> members;
+  vector<Expression*> members;
 };
 
 struct Indexed : public Expression
 {
-  Indexed(Scope* s, Parser::Expr12::ArrayIndex ast);
-  AP(Expression) group; //the array or tuple being subscripted
-  AP(Expression) index;
-  Parser::Expr12::ArrayIndex ast;
+  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
+  Expression* group; //the array or tuple being subscripted
+  Expression* index;
+  Parser::Expr12::ArrayIndex* ast;
   bool assignable()
   {
     return group->assignable();

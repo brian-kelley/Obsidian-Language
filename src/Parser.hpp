@@ -135,7 +135,7 @@ namespace Parser
   struct TypeNT
   {
     TypeNT();
-    enum struct Prim
+    enum Prim
     {
       BOOL,
       CHAR,
