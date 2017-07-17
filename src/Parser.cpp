@@ -711,11 +711,20 @@ namespace Parser
   AP(Member) parse<Member>()
   {
     AP(Member) m(new Member);
-    m->owner = ((Ident*) expect(IDENTIFIER))->name;
-    if(acceptPunct(DOT))
+    /*
+    vector<string> scopes;
+    string ident;
+    */
+    //get a list of all strings separated by dots
+    m->scopes.push_back(((Ident*) expect(IDENTIFIER))->name);
+    while(acceptPunct(DOT))
     {
-      m->mem = parse<Member>();
+      m->scopes.push_back(((Ident*) expect(IDENTIFIER))->name);
     }
+    //the last item in scopes is the ident
+    //scopes must have size >= 1
+    m->ident = m->scopes.back();
+    m->scopes.pop_back();
     return m;
   }
 

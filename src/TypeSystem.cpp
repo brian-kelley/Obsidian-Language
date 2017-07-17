@@ -107,61 +107,31 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
   }
   else if(type->t.is<AP(Member)>())
   {
-    //search up scope tree for the member
-    //need to search for EnumType, AliasType, StructType or UnionType
-    for(Scope* iter = usedScope; iter; iter = iter->parent)
+    auto mem = type->t.get<AP(Member)>().get();
+    auto typeSearch = usedScope->findSub(mem->scopes);
+    for(auto s : typeSearch)
     {
-      Scope* memScope = iter;
-      //iter is the root of search (scan for child scopes, then the type)
-      for(Member* search = type->t.get<AP(Member)>().get();
-          search; search = search->mem.get())
+      for(auto t : s->types)
       {
-        bool foundNext = false;
-        if(search->mem)
+        StructType* st = dynamic_cast<StructType*>(t);
+        if(st && st->name == search->owner)
         {
-          //find scope with name mem->owner
-          for(auto& searchScope : memScope->children)
-          {
-            if(searchScope->getLocalName() == search->owner)
-            {
-              //found the next memScope for searching
-              foundNext = true;
-              memScope = searchScope;
-              break;
-            }
-          }
-          if(!foundNext)
-          {
-            //stop searching down this chain of scopes
-            break;
-          }
+          return st;
         }
-        else
+        UnionType* ut = dynamic_cast<UnionType*>(t);
+        if(ut && ut->name == search->owner)
         {
-          //find type with name mem->owner
-          for(auto& searchType : iter->types)
-          {
-            StructType* st = dynamic_cast<StructType*>(searchType);
-            if(st && st->name == search->owner)
-            {
-              return st;
-            }
-            UnionType* ut = dynamic_cast<UnionType*>(searchType);
-            if(ut && ut->name == search->owner)
-            {
-              return ut;
-            }
-            EnumType* et = dynamic_cast<EnumType*>(searchType);
-            if(et && et->name == search->owner)
-            {
-              return et;
-            }
-            AliasType* at = dynamic_cast<AliasType*>(searchType);
-            if(at && at->name == search->owner)
-            {
-              return at;
-            }
-          }
+          return ut;
+        }
+        EnumType* et = dynamic_cast<EnumType*>(t);
+        if(et && et->name == search->owner)
+        {
+          return et;
+        }
+        AliasType* at = dynamic_cast<AliasType*>(t);
+        if(at && at->name == search->owner)
+        {
+          return at;
         }
       }
     }
@@ -241,20 +211,6 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     return &TType::inst;
   }
   return nullptr;
-}
-
-Type* getTypeWithinTrait(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
-{
-  //Check if type is "T"
-  if(type->t.is<AP(Member)>())
-  {
-    auto mem = type->t.get<AP(Member)>();
-    if(mem->owner == "T" && mem->mem.get() == nullptr)
-    {
-      return new TType;
-    }
-  }
-  return getTypeWithinTrait(type, usedScope, usage, failureIsError);
 }
 
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)

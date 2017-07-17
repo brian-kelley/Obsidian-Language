@@ -420,9 +420,8 @@ namespace Parser
 
   struct Member
   {
-    string owner;
-    //mem is optional
-    AP(Member) mem;
+    vector<string> scopes;
+    string ident;
   };
 
   struct TraitType

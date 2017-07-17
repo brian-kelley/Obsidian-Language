@@ -34,6 +34,9 @@ struct Scope
   //Struct member funcs/procs can be declared before defined but then they must be defined in parent scope
   vector<TypeSystem::FuncType*> funcs;
   vector<TypeSystem::ProcType*> procs;
+  //Find a sub scope of this (or a parent) with given relative "path"
+  //"names" will probably come from Parser::Member::scopes
+  vector<Scope*> findSub(vector<string>& names);
 };
 
 struct ModuleScope : public Scope

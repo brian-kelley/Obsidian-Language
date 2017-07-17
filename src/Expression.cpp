@@ -438,6 +438,23 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(
 
 TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* ast) : Expression(s)
 {
+  this->ast = ast;
+  vector<TypeSystem::Type*> memTypes;
+  bool typeResolved = true;
+  for(auto it : ast->vals)
+  {
+    members.push_back(getExpression(s, it.get()));
+    memTypes.push_back(members.back()->type);
+    if(!memTypes.back())
+    {
+      typeResolved = false;
+    }
+  }
+  //if all members' types are known, can get this type also (otherwise leave it null)
+  if(typeResolved)
+  {
+    type = new TypeSystem::TupleType(memTypes);
+  }
 }
 
 /***********
@@ -460,11 +477,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast) : Expression(s)
   //note: ok if this is null
   auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type);
   //in all other cases, group must have a type now
-  if(!group->type)
-  {
-    errAndQuit("Expression type couldn't be determined.");
-  }
-  else if(tt)
+  if(tt)
   {
     //group's type is a Tuple, whether group is a literal, var or call
     //make sure the index is an IntLit
@@ -514,11 +527,6 @@ Call::Call(Scope* s, Parser::Call* ast) : Expression(s)
 Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
 {
   //To get type and Variable ptr, look up the variable in scope tree
-  for(auto scope = s; s; s = s->parent)
-  {
-    //for each scope, find an exact match of ast
-    type = nullptr;
-  }
 }
 
 }

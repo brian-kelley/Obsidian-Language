@@ -23,6 +23,49 @@ string Scope::getFullPath()
     return getLocalName();
 }
 
+static void findSubImpl(vector<string>& names, vector<Scope*>& matches)
+{
+  if(names.size() == 0)
+    return this;
+  //does this contain a scope chain with path given by names?
+  Scope* next = this;
+  bool found = false;
+  for(auto n : names)
+  {
+    for(auto child : next)
+    {
+      if(child->getLocalName() == n)
+      {
+        found = true;
+        next = child;
+        break;
+      }
+    }
+    if(!found)
+      break;
+  }
+  //if out of the loop with found == true, next is the requested child scope
+  if(found)
+    matches.push_back(next);
+  if(!parent)
+  {
+    //no more scopes to seach, so done
+    return;
+  }
+  else
+  {
+    //append any matches found in parent scopes
+    parent->findSub(names, matches);
+  }
+}
+
+vector<Scope*> Scope::findSub(vector<string>& names)
+{
+  vector<Scope*> matches;
+  findSubImpl(names, matches);
+  return matches;
+}
+
 /* ModuleScope */
 
 ModuleScope::ModuleScope(string nameIn, Scope* parent, Parser::Module* astIn) : Scope(parent)
