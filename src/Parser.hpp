@@ -675,5 +675,8 @@ namespace Parser
   }
 }
 
+//Utils
+ostream& operator<<(ostream& os, const Parser::Member& mem);
+
 #endif
 

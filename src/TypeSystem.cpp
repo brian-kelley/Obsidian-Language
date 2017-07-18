@@ -139,19 +139,10 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     //If usage is null (meaning this is during the resolving pass), is fatal error
     if(failureIsError)
     {
-      string msg = "Could not resolve type: \"";
       auto mem = type->t.get<AP(Member)>();
-      //walk down the member chain (print owner, then '.', then remainder)
-      for(auto s : mem->scopes)
-      {
-        msg += s;
-        msg += '.';
-      }
-      msg += mem->ident;
-      msg += "\" required from scope \"";
-      msg += usedScope->getLocalName();
-      msg += "\"";
-      errAndQuit(msg);
+      ostringstream oss;
+      oss << "Could not resolve type: \"" << *mem << "\" required from scope \"" << usedScope->getLocalName() << '\"';
+      errAndQuit(oss.str());
     }
     if(usage)
       unresolved.emplace_back(type, usedScope, usage);
@@ -240,19 +231,9 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
   //If usage is null (meaning this is during the resolving pass), is fatal error
   if(failureIsError)
   {
-    string msg = "Could not resolve trait: \"";
-    auto mem = name;
-    //walk down the member chain (print owner, then '.', then remainder)
-    for(auto s : mem->scopes)
-    {
-      msg += s;
-      msg += '.';
-    }
-    msg += mem->ident;
-    msg += "\" required from scope \"";
-    msg += usedScope->getLocalName();
-    msg += "\"";
-    errAndQuit(msg);
+    ostringstream oss;
+    oss << "Could not resolve trait: \"" << *name << "\" required from scope \"" << usedScope->getLocalName() << '\"';
+    errAndQuit(oss.str());
   }
   if(usage)
     unresolvedTraits.emplace_back(name, usedScope, usage);

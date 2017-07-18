@@ -672,12 +672,7 @@ namespace AstPrinter
   void printMember(Member* m, int ind)
   {
     indent(ind);
-    cout << "Compound identifier: ";
-    for(auto s : m->scopes)
-    {
-      cout << s << '.';
-    }
-    cout << m->ident << '\n';
+    cout << "Compound identifier: " << *m << '\n';
   }
 
   void printTraitType(TraitType* tt, int ind)

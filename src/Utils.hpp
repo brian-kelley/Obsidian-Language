@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include "Misc.hpp"
+#include <sstream>
 
 //Read string from file, and append \n
 string loadFile(string filename);

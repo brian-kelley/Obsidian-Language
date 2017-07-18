@@ -15,8 +15,8 @@ Variable::Variable(Scope* s, Parser::VarDecl* astIn)
     errAndQuit("Tried to declare var \"" + name + "\" in scope \"" +
         s->getLocalName() + "\" static, but scope is not a struct.");
   }
-  //find type (this must succeed or is an error)
-  //failureIsError true, so TypeSystem will do the error
+  //find type (this must succeed)
+  //failureIsError true, so TypeSystem will produce the error
   type = TypeSystem::getType(ast->type.get(), scope, nullptr, true);
 }
 

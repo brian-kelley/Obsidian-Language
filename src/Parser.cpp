@@ -1153,3 +1153,13 @@ namespace Parser
   Expr12::Expr12() : e(none) {}
 }
 
+ostream& operator<<(ostream& os, const Parser::Member& mem)
+{
+  for(auto s : mem.scopes)
+  {
+    os << s << '.';
+  }
+  os << mem.ident;
+  return os;
+}
+

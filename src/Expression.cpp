@@ -526,7 +526,30 @@ Call::Call(Scope* s, Parser::Call* ast) : Expression(s)
 
 Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
 {
-  //To get type and Variable ptr, look up the variable in scope tree
+  //To get type and var (Variable*), look up the variable in scope tree
+  auto searchScopes = s->findSub(ast->scopes);
+  var = nullptr;
+  for(auto search : searchScopes)
+  {
+    for(auto v : search->vars)
+    {
+      if(ast->ident == v->name)
+      {
+        var = v;
+        break;
+      }
+    }
+    if(var)
+      break;
+  }
+  if(!var)
+  {
+    ostringstream oss;
+    oss << "Use of undeclared variable " << *ast;
+    errAndQuit(oss.str());
+  }
+  //type of variable must be known
+  this->type = var->type;
 }
 
 }
