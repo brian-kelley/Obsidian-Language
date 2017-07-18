@@ -27,7 +27,9 @@ void Scope::findSubImpl(vector<string>& names, vector<Scope*>& matches)
 {
   if(names.size() == 0)
   {
-    matches.push_back(this);
+    //search this scope and then all parents
+    for(Scope* iter = this; iter; iter = iter->parent)
+      matches.push_back(iter);
     return;
   }
   //does this contain a scope chain with path given by names?
