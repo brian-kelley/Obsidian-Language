@@ -139,7 +139,6 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     //If usage is null (meaning this is during the resolving pass), is fatal error
     if(failureIsError)
     {
-      auto mem = type->t.get<AP(Member)>();
       ostringstream oss;
       oss << "Could not resolve type: \"" << *mem << "\" required from scope \"" << usedScope->getLocalName() << '\"';
       errAndQuit(oss.str());
@@ -289,9 +288,10 @@ void resolveAllTraits()
 FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(nullptr)
 {
   retType = getType(ft->retType.get(), scope, &retType, false);
+  argTypes.resize(ft->args.size());
   for(size_t i = 0; i < ft->args.size(); i++)
   {
-    argTypes.push_back(getType(ft->args[i]->type.get(), scope, &argTypes[i], false));
+    argTypes[i] = getType(ft->args[i]->type.get(), scope, &argTypes[i], false);
   }
 }
 
@@ -330,9 +330,10 @@ bool FuncType::canConvert(Type* other)
 ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(nullptr)
 {
   retType = getType(pt->retType.get(), scope, &retType, false);
+  argTypes.resize(pt->args.size());
   for(size_t i = 0; i < pt->args.size(); i++)
   {
-    argTypes.push_back(getType(pt->args[i]->type.get(), scope, &argTypes[i], false));
+    argTypes[i] = getType(pt->args[i]->type.get(), scope, &argTypes[i], false);
   }
   nonterm = pt->nonterm;
 }
@@ -442,14 +443,14 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
 /* Struct Type */
 /***************/
 
-StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope) : Type(enclosingScope)
+StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* sscope) : Type(enclosingScope)
 {
   this->name = sd->name;
   //can't actually handle any members yet - need to visit this struct decl as a scope first
   //but, this happens later
   decl = sd;
   //must assume there are unresolved members
-  this->structScope = structScope;
+  this->structScope = sscope;
   //Need to size members immediately (so the vector is never reallocated again)
   //Count the struct members which are VarDecls
   size_t numMemberVars = 0;
@@ -467,6 +468,7 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
     if(it->sd->decl.is<AP(VarDecl)>())
     {
       VarDecl* data = it->sd->decl.get<AP(VarDecl)>().get();
+      //Start search for struct member types inside the struct's scope
       Type* dataType = getType(data->type.get(), structScope, &members[membersAdded], false);
       members[membersAdded] = dataType;
       memberNames[membersAdded] = data->name;
@@ -538,13 +540,13 @@ bool UnionType::isUnion()
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Type* elemType, int dims) : Type(nullptr)
+ArrayType::ArrayType(Type* elemType, int ndims) : Type(nullptr)
 {
   assert(elemType);
-  this->dims = dims;
+  this->dims = ndims;
   this->elem = elemType;
   //If an ArrayType is being constructed, it must be the next dimension for elemType
-  assert(elemType->dimTypes.size() == dims - 1);
+  assert(elemType->dimTypes.size() == ndims - 1);
   elemType->dimTypes.push_back(this);
 }
 
@@ -568,9 +570,9 @@ bool ArrayType::isArray()
 /* Tuple Type */
 /**************/
 
-TupleType::TupleType(vector<Type*> members) : Type(nullptr)
+TupleType::TupleType(vector<Type*> mems) : Type(nullptr)
 {
-  this->members = members;
+  this->members = mems;
   tuples.push_back(this);
 }
 
@@ -708,10 +710,10 @@ bool EnumType::isNumber()
 /* Integer Type */
 /****************/
 
-IntegerType::IntegerType(string name, int size, bool sign) : Type(global)
+IntegerType::IntegerType(string typeName, int sz, bool sign) : Type(global)
 {
-  this->name = name;
-  this->size = size;
+  this->name = typeName;
+  this->size = sz;
   this->isSigned = sign;
 }
 
@@ -734,10 +736,10 @@ bool IntegerType::isNumber()
 /* Float Type */
 /**************/
 
-FloatType::FloatType(string name, int size) : Type(global)
+FloatType::FloatType(string typeName, int sz) : Type(global)
 {
-  this->name = name;
-  this->size = size;
+  this->name = typeName;
+  this->size = sz;
 }
 
 bool FloatType::canConvert(Type* other)

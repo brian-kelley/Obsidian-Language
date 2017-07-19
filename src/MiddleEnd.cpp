@@ -135,7 +135,11 @@ namespace MiddleEnd
         {
           if(it->sd->decl.is<AP(VarDecl)>())
           {
-            ss->vars.push_back(new Variable(s, it->sd->decl.get<AP(VarDecl)>().get()));
+            auto vd = it->sd->decl.get<AP(VarDecl)>().get();
+            if(vd->isStatic)
+            {
+              ss->vars.push_back(new Variable(s, vd));
+            }
           }
         }
       }

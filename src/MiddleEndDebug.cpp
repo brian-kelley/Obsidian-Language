@@ -185,7 +185,7 @@ namespace MiddleEndDebug
     {
       indent(ind + 1);
       cout << t->memberNames[i] << ":\n";
-      printType(t->members[i], ind + 1);
+      printType(t->members[i], ind + 2);
     }
   }
 
