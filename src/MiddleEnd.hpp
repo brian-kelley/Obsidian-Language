@@ -26,21 +26,21 @@ extern ModuleScope* global;
 namespace MiddleEnd
 {
   using namespace std;
-  void load(AP(Parser::Module)& ast);
+  void load(Parser::Module* ast);
   //AST traversal functions for building scope tree and loading all type decls
   namespace ScopeTypeLoading
   {
     //Types can only come from scoped decls
-    void visitModule(Scope* current, AP(Parser::Module)& m);
-    void visitBlock(Scope* current, AP(Parser::Block)& b);
-    void visitStruct(Scope* current, AP(Parser::StructDecl)& sd);
-    void visitScopedDecl(Scope* current, AP(Parser::ScopedDecl)& sd);
+    void visitModule(Scope* current, Parser::Module* m);
+    void visitBlock(Scope* current, Parser::Block* b);
+    void visitStruct(Scope* current, Parser::StructDecl* sd);
+    void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
     void resolveAll();
   }
   namespace VarLoading
   {
     void visitScope(Scope* s);
-    void visitVarDecl(Scope* s, AP(Parser::VarDecl)& vd);
+    void visitVarDecl(Scope* s, Parser::VarDecl* vd);
   }
 }
 

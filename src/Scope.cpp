@@ -6,9 +6,9 @@ int BlockScope::nextBlockIndex = 0;
 *   Scope & subclasses impl    *
 *******************************/
 
-Scope::Scope(Scope* parent)
+Scope::Scope(Scope* parentIn)
 {
-  this->parent = parent;
+  parent = parentIn;
   if(parent)
   {
     parent->children.push_back(this);

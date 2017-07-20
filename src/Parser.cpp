@@ -189,7 +189,6 @@ namespace Parser
   {
     AP(Statement) s(new Statement);
     if((s->s = parseOptional<ScopedDecl>()) ||
-        (s->s = parseOptional<VarDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
         (s->s = parseOptional<Print>()) ||
         (s->s = parseOptional<Block>()) ||
@@ -477,6 +476,8 @@ namespace Parser
     {
       err("invalid operator for variable assignment/update: " + operatorTable[otype]);
     }
+    //like all statements, must be terminated with semicolon
+    expectPunct(SEMICOLON);
     return va;
   }
 

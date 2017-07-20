@@ -47,7 +47,7 @@ int main(int argc, const char** argv)
   cout << "*             AST                  *\n";
   cout << "************************************\n";
   printAST(ast.get());
-  MiddleEnd::load(ast);
+  MiddleEnd::load(ast.get());
   cout << "************************************\n";
   cout << "*          Scopes/Types            *\n";
   cout << "************************************\n";

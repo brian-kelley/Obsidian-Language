@@ -30,19 +30,20 @@ namespace MiddleEndDebug
     {
       ModuleScope* m = (ModuleScope*) s;
       indent(ind);
-      cout << "Module scope: " << m->name << '\n';
+      if(m->name.length())
+        cout << "(*) Module scope: " << m->name << '\n';
     }
     else if(dynamic_cast<StructScope*>(s))
     {
       StructScope* ss = (StructScope*) s;
       indent(ind);
-      cout << "Struct scope: " << ss->name << '\n';
+      cout << "(*) Struct scope: " << ss->name << '\n';
     }
     else if(dynamic_cast<BlockScope*>(s))
     {
       BlockScope* b = (BlockScope*) s;
       indent(ind);
-      cout << "Block scope #" << b->index << '\n';
+      cout << "(*) Block scope #" << b->index << '\n';
     }
     printScopeBody(s, ind);
   }
@@ -241,7 +242,6 @@ namespace MiddleEndDebug
     indent(ind);
     cout << "Return type:\n";
     printType(t->retType, ind + 1);
-    indent(ind);
     for(size_t i = 0; i < t->argTypes.size(); i++)
     {
       indent(ind);
@@ -266,7 +266,6 @@ namespace MiddleEndDebug
     indent(ind);
     cout << "Return type:\n";
     printType(t->retType, ind + 1);
-    indent(ind);
     for(size_t i = 0; i < t->argTypes.size(); i++)
     {
       indent(ind);
