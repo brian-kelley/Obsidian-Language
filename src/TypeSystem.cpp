@@ -1,4 +1,5 @@
 #include "TypeSystem.hpp"
+#include "Expression.hpp"
 
 using namespace std;
 using namespace Parser;
@@ -236,6 +237,31 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
   }
   if(usage)
     unresolvedTraits.emplace_back(name, usedScope, usage);
+  return nullptr;
+}
+
+Type* getIntegerType(int bytes, bool isSigned)
+{
+  using Parser::TypeNT;
+  //TODO: arbitrary fixed-size integer types available on-demand
+  switch(bytes)
+  {
+    case 1:
+      if(isSigned)  return primitives[TypeNT::CHAR];
+      else          return primitives[TypeNT::UCHAR];
+    case 2:
+      if(isSigned)  return primitives[TypeNT::SHORT];
+      else          return primitives[TypeNT::USHORT];
+    case 4:
+      if(isSigned)  return primitives[TypeNT::INT];
+      else          return primitives[TypeNT::UINT];
+    case 8:
+      if(isSigned)  return primitives[TypeNT::LONG];
+      else          return primitives[TypeNT::ULONG];
+    default:;
+  }
+  cout << "<!> Error: requested integer type but size is out of range or is not a power of 2.\n";
+  INTERNAL_ERROR;
   return nullptr;
 }
 

@@ -35,6 +35,12 @@
 struct Scope;
 struct StructScope;
 
+//need to forward-declare this to resolve mutual dependency
+namespace MiddleEndExpr
+{
+  struct Expression;
+}
+
 namespace TypeSystem
 {
 
@@ -47,6 +53,8 @@ struct AliasType;
 struct FuncType;
 struct ProcType;
 struct Trait;
+
+using MiddleEndExpr::Expression;
 
 //  UnresolvedType is used to remember an instance of a type (used in another type)
 //  that cannot be resolved during the first pass
@@ -95,6 +103,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
+Type* getIntegerType(int bytes, bool isSigned);
 void resolveAllTypes();
 void resolveAllTraits();
 void createBuiltinTypes();
@@ -116,8 +125,9 @@ struct Type
   vector<Type*> dimTypes;
   // [lazily create and] return array type for given number of dimensions of *this
   Type* getArrayType(int dims);
-  //TODO: whether this can be implicitly converted to other
+  //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
+  virtual bool canConvert(Expression* other) = 0;
   //Use this getType() for scope tree building
   //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
   //Other variations (so above getType() 

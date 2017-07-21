@@ -90,6 +90,14 @@ Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* expr)
   {
     //build chain of BinaryAriths that evaluates left to right
     BinaryArith* chain = new BinaryArith(leaves[0], BOR, leaves[1]);
+    //all expressions in a chain of logical AND must be bools
+    for(auto e : leaves)
+    {
+      if(e->type == nullptr || !e->type->isInteger())
+      {
+        errAndQuit("operands to && must both be booleans.");
+      }
+    }
     for(size_t i = 2; i < leaves.size(); i++)
     {
       //form another BinaryArith with root and expr2[i] as operands
@@ -371,6 +379,120 @@ UnaryArith::UnaryArith(int op, Expression* expr) : Expression(nullptr)
 
 BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(nullptr)
 {
+  using Parser::TypeNT;
+  //Type check the operation
+  auto ltype = lhs->type;
+  auto rtype = rhs->type;
+  bool typesNull = ltype == nullptr || rtype == nullptr;
+  switch(op)
+  {
+    case LOR:
+    case LAND:
+    {
+      if(ltype != TypeSystem::primitives[TypeNT::BOOL] ||
+         rtype != TypeSystem::primitives[TypeNT::BOOL])
+      {
+        errAndQuit("operands to || and && must both be booleans.");
+      }
+      //type of expression is always bool
+      this->type = TypeSystem::primitives[TypeNT::BOOL];
+      break;
+    }
+    case BOR:
+    case BAND:
+    case BXOR:
+    {
+      //both operands must be integers
+      if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
+      {
+        errAndQuit("operands to bitwise operators must be integers.");
+      }
+      //the resulting type is the wider of the two integers, favoring unsigned
+      typedef TypeSystem::IntegerType IT;
+      IT* lhsInt = dynamic_cast<IT*>(ltype);
+      IT* rhsInt = dynamic_cast<IT*>(rtype);
+      int size = std::max(lhsInt->size, rhsInt->size);
+      bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
+      //now look up the integer type with given size and signedness
+      this->type = TypeSystem::getIntegerType(size, isSigned);
+      break;
+    }
+    case PLUS:
+    case SUB:
+    case MUL:
+    case DIV:
+    {
+      //TODO: warn on div by 0
+      if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
+      {
+        errAndQuit("operands to arithmetic operators must be numbers.");
+      }
+      //get type of result as the "most promoted" of ltype and rtype
+      //double > float, float > integers, unsigned > signed, wider integer > narrower integer
+      if(ltype->isInteger() && rtype->isInteger())
+      {
+        auto lhsInt = dynamic_cast<TypeSystem::IntegerType*>(ltype);
+        auto rhsInt = dynamic_cast<TypeSystem::IntegerType*>(rtype);
+        int size = std::max(lhsInt->size, rhsInt->size);
+        bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
+        //now look up the integer type with given size and signedness
+        this->type = TypeSystem::getIntegerType(size, isSigned);
+      }
+      else if(ltype->isInteger())
+      {
+        //rtype is floating point, so use that
+        this->type = rtype;
+      }
+      else if(rtype->isInteger())
+      {
+        this->type = ltype;
+      }
+      else
+      {
+        //both floats, so pick the bigger one
+        auto lhsFloat = dynamic_cast<TypeSystem::FloatType*>(ltype);
+        auto rhsFloat = dynamic_cast<TypeSystem::FloatType*>(rtype);
+        if(lhsFloat->size >= rhsFloat->size)
+        {
+          this->type = ltype;
+        }
+        else
+        {
+          this->type = rtype;
+        }
+      }
+      break;
+    }
+    case SHL:
+    case SHR:
+    {
+      //TODO: if rhs is a constant, warn if evaluates to negative or greater than the width of the lhs type.
+      if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
+      {
+        errAndQuit("operands to bit shifting operators must be integers.");
+      }
+      break;
+    }
+    case CMPEQ:
+    case CMPNEQ:
+    {
+      //Can't directly compare two compound literals (and no reason to)
+      //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
+      if(typesNull)
+      {
+        errAndQuit("can't compare two compound literals for equality.");
+      }
+      else if(ltype == nullptr)
+      {
+        //lhs must be convertible to rhs->type
+        if(!(ltype->canConvert(rhs)))
+        {
+
+        }
+      }
+      break;
+    }
+  }
 }
 
 /**********************
