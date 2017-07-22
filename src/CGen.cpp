@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void generateC(string outputStem, bool keep, AP(Parser::Module)& ast)
+void generateC(string outputStem, bool keep, Parser::Module* ast)
 {
   string cName = outputStem + ".c";
   string exeName = outputStem + ".exe";
@@ -28,10 +28,8 @@ void generateC(string outputStem, bool keep, AP(Parser::Module)& ast)
   }
 }
 
-void genHeader(FILE* c, AP(Parser::Module)& ast)
+void genHeader(FILE* c, Parser::Module* ast)
 {
-  //Core language definitions (especially supporting primitives)
-
 const char* header = 
   "#include \"stdlib.h\"\n"
   "#include \"stdio.h\"\n"

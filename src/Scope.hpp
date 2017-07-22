@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "AutoPtr.hpp"
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
 

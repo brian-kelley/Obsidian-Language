@@ -7,8 +7,8 @@
 #include <cstdio>
 #include <cstring>
 
-void genHeader(FILE* c, AP(Parser::Module)& ast);
-void generateC(string outputStem, bool keep, AP(Parser::Module)& ast);
+void genHeader(FILE* c, Parser::Module* ast);
+void generateC(string outputStem, bool keep, Parser::Module* ast);
 
 #endif
 

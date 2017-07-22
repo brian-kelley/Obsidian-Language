@@ -17,6 +17,6 @@ Variable::Variable(Scope* s, Parser::VarDecl* astIn)
   }
   //find type (this must succeed)
   //failureIsError true, so TypeSystem will produce the error
-  type = TypeSystem::getType(ast->type.get(), scope, nullptr, true);
+  type = TypeSystem::getType(ast->type, scope, NULL, true);
 }
 

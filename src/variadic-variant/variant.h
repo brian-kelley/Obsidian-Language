@@ -98,7 +98,7 @@ class variant {
 	int tag;
 	char storage[impl::type_info<Types...>::size];
 	
-	variant() = delete;
+	variant() : tag(0) {}
 	
 	template<typename X>
 	void init(const X& x) {

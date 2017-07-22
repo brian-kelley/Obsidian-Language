@@ -69,7 +69,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     size_t dims = type->arrayDims;
     type->arrayDims = 0;
     //now look up the type for the element type
-    Type* elemType = getType(type, usedScope, nullptr, false);
+    Type* elemType = getType(type, usedScope, NULL, false);
     //restore original type to preserve AST
     type->arrayDims = dims;
     if(elemType)
@@ -95,7 +95,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     else if(usage)
     {
       unresolved.emplace_back(type, usedScope, usage);
-      return nullptr;
+      return NULL;
     }
     else if(failureIsError)
     {
@@ -106,9 +106,9 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
   {
     return primitives[(int) type->t.get<TypeNT::Prim>()];
   }
-  else if(type->t.is<AP(Member)>())
+  else if(type->t.is<Member*>())
   {
-    auto mem = type->t.get<AP(Member)>().get();
+    auto mem = type->t.get<Member*>();
     auto typeSearch = usedScope->findSub(mem->scopes);
     for(auto s : typeSearch)
     {
@@ -147,18 +147,18 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     if(usage)
       unresolved.emplace_back(type, usedScope, usage);
   }
-  else if(type->t.is<AP(TupleTypeNT)>())
+  else if(type->t.is<TupleTypeNT*>())
   {
-    auto& tt = type->t.get<AP(TupleTypeNT)>();
+    auto& tt = type->t.get<TupleTypeNT*>();
     //search for each member individually
     bool resolved = true;
     //TupleTypes can have unresolved arrays/tuples as members, so is necessary to pass usage ptr for each member
-    vector<Type*> types(tt->members.size(), nullptr);
+    vector<Type*> types(tt->members.size(), NULL);
     size_t i;
     for(i = 0; i < tt->members.size(); i++)
     {
       auto& mem = tt->members[i];
-      types[i] = getType(mem.get(), usedScope, nullptr, false);
+      types[i] = getType(mem, usedScope, NULL, false);
       if(!types[i])
         resolved = false;
     }
@@ -171,7 +171,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
       else if(usage)
       {
         unresolved.emplace_back(type, usedScope, usage);
-        return nullptr;
+        return NULL;
       }
     }
     for(auto& existing : tuples)
@@ -184,23 +184,23 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     //must create new type
     return new TupleType(types);
   }
-  else if(type->t.is<AP(FuncTypeNT)>())
+  else if(type->t.is<FuncTypeNT*>())
   {
-    return getFuncType(type->t.get<AP(FuncTypeNT)>().get(), usedScope, usage, failureIsError);
+    return getFuncType(type->t.get<FuncTypeNT*>(), usedScope, usage, failureIsError);
   }
-  else if(type->t.is<AP(ProcTypeNT)>())
+  else if(type->t.is<ProcTypeNT*>())
   {
-    return getProcType(type->t.get<AP(ProcTypeNT)>().get(), usedScope, usage, failureIsError);
+    return getProcType(type->t.get<ProcTypeNT*>(), usedScope, usage, failureIsError);
   }
-  else if(type->t.is<AP(TraitType)>())
+  else if(type->t.is<TraitType*>())
   {
-    return new BoundedType(type->t.get<AP(TraitType)>().get(), usedScope);
+    return new BoundedType(type->t.get<TraitType*>(), usedScope);
   }
   else if(type->t.is<TypeNT::Wildcard>())
   {
     return &TType::inst;
   }
-  return nullptr;
+  return NULL;
 }
 
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
@@ -237,7 +237,7 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
   }
   if(usage)
     unresolvedTraits.emplace_back(name, usedScope, usage);
-  return nullptr;
+  return NULL;
 }
 
 Type* getIntegerType(int bytes, bool isSigned)
@@ -262,7 +262,7 @@ Type* getIntegerType(int bytes, bool isSigned)
   }
   cout << "<!> Error: requested integer type but size is out of range or is not a power of 2.\n";
   INTERNAL_ERROR;
-  return nullptr;
+  return NULL;
 }
 
 void resolveAllTypes()
@@ -272,18 +272,18 @@ void resolveAllTypes()
   {
     auto& ut = unresolved[i];
     //note: failureIsError is true because all named types should be available now
-    Type* t = nullptr;
+    Type* t = NULL;
     if(ut.parsedType)
     {
-      t = getType(ut.parsedType, ut.scope, nullptr, true);
+      t = getType(ut.parsedType, ut.scope, NULL, true);
     }
     else if(ut.parsedFunc)
     {
-      t = getFuncType(ut.parsedFunc, ut.scope, nullptr, true);
+      t = getFuncType(ut.parsedFunc, ut.scope, NULL, true);
     }
     else
     {
-      t = getProcType(ut.parsedProc, ut.scope, nullptr, true);
+      t = getProcType(ut.parsedProc, ut.scope, NULL, true);
     }
     if(!t)
     {
@@ -298,7 +298,7 @@ void resolveAllTraits()
   for(auto& ut : unresolvedTraits)
   {
     //note: failureIsError is true because all named types should be available now
-    Trait* t = getTrait(ut.parsed, ut.scope, nullptr, true);
+    Trait* t = getTrait(ut.parsed, ut.scope, NULL, true);
     if(!t)
     {
       errAndQuit("Trait could not be resolved.");
@@ -311,13 +311,13 @@ void resolveAllTraits()
 /* Function Type */
 /*****************/
 
-FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(nullptr)
+FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(NULL)
 {
-  retType = getType(ft->retType.get(), scope, &retType, false);
+  retType = getType(ft->retType, scope, &retType, false);
   argTypes.resize(ft->args.size());
   for(size_t i = 0; i < ft->args.size(); i++)
   {
-    argTypes[i] = getType(ft->args[i]->type.get(), scope, &argTypes[i], false);
+    argTypes[i] = getType(ft->args[i]->type, scope, &argTypes[i], false);
   }
 }
 
@@ -335,7 +335,7 @@ bool FuncType::canConvert(Type* other)
 {
   //True if other is also a function and has ret type and arg types that can be converted
   FuncType* fp = dynamic_cast<FuncType*>(other);
-  if(fp == nullptr)
+  if(fp == NULL)
     return false;
   if(!retType->canConvert(fp->retType))
     return false;
@@ -353,13 +353,13 @@ bool FuncType::canConvert(Type* other)
 /* Procedure Type */
 /******************/
 
-ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(nullptr)
+ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(NULL)
 {
-  retType = getType(pt->retType.get(), scope, &retType, false);
+  retType = getType(pt->retType, scope, &retType, false);
   argTypes.resize(pt->args.size());
   for(size_t i = 0; i < pt->args.size(); i++)
   {
-    argTypes[i] = getType(pt->args[i]->type.get(), scope, &argTypes[i], false);
+    argTypes[i] = getType(pt->args[i]->type, scope, &argTypes[i], false);
   }
   nonterm = pt->nonterm;
 }
@@ -415,12 +415,12 @@ bool ProcType::canConvert(Type* other)
 /* Bounded Type */
 /****************/
 
-BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(nullptr)
+BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
 {
   traits.resize(tt->traits.size());
   for(size_t i = 0; i < tt->traits.size(); i++)
   {
-    traits[i] = getTrait(tt->traits[i].get(), s, &traits[i], false);
+    traits[i] = getTrait(tt->traits[i], s, &traits[i], false);
   }
 }
 
@@ -435,7 +435,7 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
   int numProcs = 0;
   for(auto& callable : td->members)
   {
-    if(callable.is<AP(FuncDecl)>())
+    if(callable.is<FuncDecl*>())
       numFuncs++;
     else
       numProcs++;
@@ -447,16 +447,16 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
   //now, look up
   for(auto& callable : td->members)
   {
-    if(callable.is<AP(FuncDecl)>())
+    if(callable.is<FuncDecl*>())
     {
-      auto fdecl = callable.get<AP(FuncDecl)>();
+      auto fdecl = callable.get<FuncDecl*>();
       funcs[funcIndex].type = getFuncType(&fdecl->type, s, (Type**) &funcs[funcIndex].type, false);
       funcs[funcIndex].name = fdecl->name;
       funcIndex++;
     }
     else
     {
-      auto pdecl = callable.get<AP(ProcDecl)>();
+      auto pdecl = callable.get<ProcDecl*>();
       procs[procIndex].type = getProcType(&pdecl->type, s, (Type**) &procs[procIndex].type, false);
       procs[procIndex].name = pdecl->name;
       procIndex++;
@@ -482,7 +482,7 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   size_t numMemberVars = 0;
   for(auto& it : sd->members)
   {
-    if(it->sd->decl.is<AP(VarDecl)>())
+    if(it->sd->decl.is<VarDecl*>())
       numMemberVars++;
   }
   members.resize(numMemberVars);
@@ -491,11 +491,11 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   size_t membersAdded = 0;
   for(auto& it : sd->members)
   {
-    if(it->sd->decl.is<AP(VarDecl)>())
+    if(it->sd->decl.is<VarDecl*>())
     {
-      VarDecl* data = it->sd->decl.get<AP(VarDecl)>().get();
+      VarDecl* data = it->sd->decl.get<VarDecl*>();
       //Start search for struct member types inside the struct's scope
-      Type* dataType = getType(data->type.get(), structScope, &members[membersAdded], false);
+      Type* dataType = getType(data->type, structScope, &members[membersAdded], false);
       members[membersAdded] = dataType;
       memberNames[membersAdded] = data->name;
       membersAdded++;
@@ -505,7 +505,7 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   traits.resize(sd->traits.size());
   for(size_t i = 0; i < sd->traits.size(); i++)
   {
-    traits[i] = getTrait(sd->traits[i].get(), enclosingScope, &traits[i], false);
+    traits[i] = getTrait(sd->traits[i], enclosingScope, &traits[i], false);
   }
 }
 
@@ -543,7 +543,7 @@ UnionType::UnionType(Parser::UnionDecl* ud, Scope* enclosingScope) : Type(enclos
   options.resize(ud->types.size());
   for(size_t i = 0; i < ud->types.size(); i++)
   {
-    Type* option = getType(ud->types[i].get(), enclosingScope, &options[i], false);
+    Type* option = getType(ud->types[i], enclosingScope, &options[i], false);
     if(!option)
     {
       resolved = false;
@@ -566,7 +566,7 @@ bool UnionType::isUnion()
 /* Array Type */
 /**************/
 
-ArrayType::ArrayType(Type* elemType, int ndims) : Type(nullptr)
+ArrayType::ArrayType(Type* elemType, int ndims) : Type(NULL)
 {
   assert(elemType);
   this->dims = ndims;
@@ -596,13 +596,13 @@ bool ArrayType::isArray()
 /* Tuple Type */
 /**************/
 
-TupleType::TupleType(vector<Type*> mems) : Type(nullptr)
+TupleType::TupleType(vector<Type*> mems) : Type(NULL)
 {
   this->members = mems;
   tuples.push_back(this);
 }
 
-TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
+TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(NULL)
 {
   decl = tt;
   //Note: this constructor being called means that Type::getType
@@ -610,8 +610,8 @@ TupleType::TupleType(TupleTypeNT* tt, Scope* currentScope) : Type(nullptr)
   bool resolved = true;
   for(auto& it : tt->members)
   {
-    TypeNT* typeNT = it.get();
-    Type* type = getType(typeNT, currentScope, nullptr, false);
+    TypeNT* typeNT = it;
+    Type* type = getType(typeNT, currentScope, NULL, false);
     if(!type)
     {
       resolved = false;
@@ -645,7 +645,7 @@ AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
 {
   name = td->ident;
   decl = td;
-  Type* t = getType(td->type.get(), current, &actual, false);
+  Type* t = getType(td->type, current, &actual, false);
   actual = t;
 }
 
@@ -653,7 +653,7 @@ AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type
 {
   name = alias;
   actual = underlying;
-  decl = nullptr;
+  decl = NULL;
 }
 
 bool AliasType::canConvert(Type* other)
@@ -814,7 +814,7 @@ bool BoolType::isBool()
 /* T Type */
 /**********/
 
-TType::TType() : Type(nullptr) {}
+TType::TType() : Type(NULL) {}
 
 bool TType::canConvert(Type* other)
 {

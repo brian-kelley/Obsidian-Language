@@ -37,7 +37,7 @@ namespace AstPrinter
     }
     for(auto& it : m->decls)
     {
-      printScopedDecl(it.get(), ind + indentLevel);
+      printScopedDecl(it, ind + indentLevel);
     }
   }
 
@@ -46,30 +46,30 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "ScopedDecl\n";
-    if(m->decl.is<AP(Module)>())
-      printModule(m->decl.get<AP(Module)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(VarDecl)>())
-      printVarDecl(m->decl.get<AP(VarDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(StructDecl)>())
-      printStructDecl(m->decl.get<AP(StructDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(UnionDecl)>())
-      printUnionDecl(m->decl.get<AP(UnionDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(TraitDecl)>())
-      printTraitDecl(m->decl.get<AP(TraitDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(Enum)>())
-      printEnum(m->decl.get<AP(Enum)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(Typedef)>())
-      printTypedef(m->decl.get<AP(Typedef)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(FuncDecl)>())
-      printFuncDecl(m->decl.get<AP(FuncDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(FuncDef)>())
-      printFuncDef(m->decl.get<AP(FuncDef)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(ProcDecl)>())
-      printProcDecl(m->decl.get<AP(ProcDecl)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(ProcDef)>())
-      printProcDef(m->decl.get<AP(ProcDef)>().get(), ind + indentLevel);
-    else if(m->decl.is<AP(TestDecl)>())
-      printTestDecl(m->decl.get<AP(TestDecl)>().get(), ind + indentLevel);
+    if(m->decl.is<Module*>())
+      printModule(m->decl.get<Module*>(), ind + indentLevel);
+    else if(m->decl.is<VarDecl*>())
+      printVarDecl(m->decl.get<VarDecl*>(), ind + indentLevel);
+    else if(m->decl.is<StructDecl*>())
+      printStructDecl(m->decl.get<StructDecl*>(), ind + indentLevel);
+    else if(m->decl.is<UnionDecl*>())
+      printUnionDecl(m->decl.get<UnionDecl*>(), ind + indentLevel);
+    else if(m->decl.is<TraitDecl*>())
+      printTraitDecl(m->decl.get<TraitDecl*>(), ind + indentLevel);
+    else if(m->decl.is<Enum*>())
+      printEnum(m->decl.get<Enum*>(), ind + indentLevel);
+    else if(m->decl.is<Typedef*>())
+      printTypedef(m->decl.get<Typedef*>(), ind + indentLevel);
+    else if(m->decl.is<FuncDecl*>())
+      printFuncDecl(m->decl.get<FuncDecl*>(), ind + indentLevel);
+    else if(m->decl.is<FuncDef*>())
+      printFuncDef(m->decl.get<FuncDef*>(), ind + indentLevel);
+    else if(m->decl.is<ProcDecl*>())
+      printProcDecl(m->decl.get<ProcDecl*>(), ind + indentLevel);
+    else if(m->decl.is<ProcDef*>())
+      printProcDef(m->decl.get<ProcDef*>(), ind + indentLevel);
+    else if(m->decl.is<TestDecl*>())
+      printTestDecl(m->decl.get<TestDecl*>(), ind + indentLevel);
   }
 
   void printTypeNT(Parser::TypeNT* t, int ind)
@@ -128,72 +128,70 @@ namespace AstPrinter
       }
       cout << '\n';
     }
-    else if(t->t.is<AP(Member)>())
+    else if(t->t.is<Member*>())
     {
       //member, print indented on next line
       cout << '\n';
-      printMember(t->t.get<AP(Member)>().get(), ind + indentLevel);
+      printMember(t->t.get<Member*>(), ind + indentLevel);
     }
-    else if(t->t.is<AP(TupleTypeNT)>())
+    else if(t->t.is<TupleTypeNT*>())
     {
       //tuple type, print indented on next line
       cout << '\n';
-      printTupleTypeNT(t->t.get<AP(TupleTypeNT)>().get(), ind + indentLevel);
+      printTupleTypeNT(t->t.get<TupleTypeNT*>(), ind + indentLevel);
     }
-    else if(t->t.is<AP(FuncTypeNT)>())
+    else if(t->t.is<FuncTypeNT*>())
     {
-      printFuncTypeNT(t->t.get<AP(FuncTypeNT)>().get(), ind + indentLevel);
+      printFuncTypeNT(t->t.get<FuncTypeNT*>(), ind + indentLevel);
     }
-    else if(t->t.is<AP(ProcTypeNT)>())
+    else if(t->t.is<ProcTypeNT*>())
     {
-      printProcTypeNT(t->t.get<AP(ProcTypeNT)>().get(), ind + indentLevel);
+      printProcTypeNT(t->t.get<ProcTypeNT*>(), ind + indentLevel);
     }
-    else if(t->t.is<AP(TraitType)>())
+    else if(t->t.is<TraitType*>())
     {
-      printTraitType(t->t.get<AP(TraitType)>().get(), ind + indentLevel);
+      printTraitType(t->t.get<TraitType*>(), ind + indentLevel);
     }
   }
 
   void printStatement(Statement* s, int ind)
   {
     //statements don't need any extra printouts
-    if(s->s.is<AP(ScopedDecl)>())
-      printScopedDecl(s->s.get<AP(ScopedDecl)>().get(), ind);
-    else if(s->s.is<AP(VarAssign)>())
-      printVarAssign(s->s.get<AP(VarAssign)>().get(), ind);
-    else if(s->s.is<AP(Print)>())
-      printPrint(s->s.get<AP(Print)>().get(), ind);
-    else if(s->s.is<AP(ExpressionNT)>())
-      printExpressionNT(s->s.get<AP(ExpressionNT)>().get(), ind);
-    else if(s->s.is<AP(Block)>())
-      printBlock(s->s.get<AP(Block)>().get(), ind);
-    else if(s->s.is<AP(Return)>())
-      printReturn(s->s.get<AP(Return)>().get(), ind);
-    else if(s->s.is<AP(Continue)>())
+    if(s->s.is<ScopedDecl*>())
+      printScopedDecl(s->s.get<ScopedDecl*>(), ind);
+    else if(s->s.is<VarAssign*>())
+      printVarAssign(s->s.get<VarAssign*>(), ind);
+    else if(s->s.is<Print*>())
+      printPrint(s->s.get<Print*>(), ind);
+    else if(s->s.is<ExpressionNT*>())
+      printExpressionNT(s->s.get<ExpressionNT*>(), ind);
+    else if(s->s.is<Block*>())
+      printBlock(s->s.get<Block*>(), ind);
+    else if(s->s.is<Return*>())
+      printReturn(s->s.get<Return*>(), ind);
+    else if(s->s.is<Continue*>())
       printContinue(ind);
-    else if(s->s.is<AP(Break)>())
+    else if(s->s.is<Break*>())
       printBreak(ind);
-    else if(s->s.is<AP(Switch)>())
-      printSwitch(s->s.get<AP(Switch)>().get(), ind);
-    else if(s->s.is<AP(For)>())
-      printFor(s->s.get<AP(For)>().get(), ind);
-    else if(s->s.is<AP(While)>())
-      printWhile(s->s.get<AP(While)>().get(), ind);
-    else if(s->s.is<AP(If)>())
-      printIf(s->s.get<AP(If)>().get(), ind);
-    else if(s->s.is<AP(Assertion)>())
-      printAssertion(s->s.get<AP(Assertion)>().get(), ind);
-    else if(s->s.is<AP(EmptyStatement)>())
+    else if(s->s.is<Switch*>())
+      printSwitch(s->s.get<Switch*>(), ind);
+    else if(s->s.is<For*>())
+      printFor(s->s.get<For*>(), ind);
+    else if(s->s.is<While*>())
+      printWhile(s->s.get<While*>(), ind);
+    else if(s->s.is<If*>())
+      printIf(s->s.get<If*>(), ind);
+    else if(s->s.is<Assertion*>())
+      printAssertion(s->s.get<Assertion*>(), ind);
+    else if(s->s.is<EmptyStatement*>())
       printEmptyStatement(ind);
-    else if(s->s.is<AP(VarDecl)>())
-      printVarDecl(s->s.get<AP(VarDecl)>().get(), ind);
   }
 
   void printTypedef(Typedef* t, int ind)
   {
     indent(ind);
     cout << "Typedef \"" << t->ident << "\"\n";
-    printTypeNT(t->type.get(), ind + indentLevel);
+    printTypeNT(t->type, ind + indentLevel);
   }
 
   void printReturn(Return* r, int ind)
@@ -202,7 +200,7 @@ namespace AstPrinter
     cout << "Return\n";
     if(r->ex)
     {
-      printExpressionNT(r->ex.get(), ind + 2);
+      printExpressionNT(r->ex, ind + 2);
     }
   }
 
@@ -212,21 +210,21 @@ namespace AstPrinter
     cout << "Switch\n";
     indent(ind + indentLevel);
     cout << "Value\n";
-    printExpressionNT(s->sw.get(), ind + indentLevel);
+    printExpressionNT(s->sw, ind + indentLevel);
     for(auto sc : s->cases)
     {
       indent(ind + indentLevel);
       cout << "Match value:\n";
-      printExpressionNT(sc->matchVal.get(), ind + indentLevel);
+      printExpressionNT(sc->matchVal, ind + indentLevel);
       indent(ind + indentLevel);
       cout << "Match statement:\n";
-      printStatement(sc->s.get(), ind + indentLevel);
+      printStatement(sc->s, ind + indentLevel);
     }
     if(s->defaultStatement)
     {
       indent(ind + indentLevel);
       cout << "Default statement:\n";
-      printStatement(s->defaultStatement.get(), ind + indentLevel);
+      printStatement(s->defaultStatement, ind + indentLevel);
     }
   }
 
@@ -252,16 +250,16 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "For ";
-    if(f->f.is<AP(ForC)>())
+    if(f->f.is<ForC*>())
     {
       cout << "C-style\n";
-      auto& forC = f->f.get<AP(ForC)>();
+      auto& forC = f->f.get<ForC*>();
       indent(ind + indentLevel);
       cout << "Initializer: ";
       if(forC->decl)
       {
         cout << '\n';
-        printVarDecl(forC->decl.get(), ind + indentLevel);
+        printVarDecl(forC->decl, ind + indentLevel);
       }
       else
       {
@@ -272,7 +270,7 @@ namespace AstPrinter
       if(forC->condition)
       {
         cout << '\n';
-        printExpressionNT(forC->condition.get(), ind + indentLevel);
+        printExpressionNT(forC->condition, ind + indentLevel);
       }
       else
       {
@@ -283,42 +281,42 @@ namespace AstPrinter
       if(forC->incr)
       {
         cout << '\n';
-        printVarAssign(forC->incr.get(), ind + indentLevel);
+        printVarAssign(forC->incr, ind + indentLevel);
       }
       else
       {
         cout << "none\n";
       }
     }
-    else if(f->f.is<AP(ForRange1)>())
+    else if(f->f.is<ForRange1*>())
     {
       cout << "[0, n) range\n";
-      auto& forRange1 = f->f.get<AP(ForRange1)>();
+      auto& forRange1 = f->f.get<ForRange1*>();
       indent(ind + indentLevel);
       cout << "Upper bound:\n";
-      printExpressionNT(forRange1->expr.get(), ind + indentLevel);
+      printExpressionNT(forRange1->expr, ind + indentLevel);
     }
-    else if(f->f.is<AP(ForRange2)>())
+    else if(f->f.is<ForRange2*>())
     {
       cout << "[n1, n2) range\n";
-      auto& forRange2 = f->f.get<AP(ForRange2)>();
+      auto& forRange2 = f->f.get<ForRange2*>();
       indent(ind + indentLevel);
       cout << "Lower bound:\n";
-      printExpressionNT(forRange2->start.get(), ind + indentLevel);
+      printExpressionNT(forRange2->start, ind + indentLevel);
       cout << "Upper bound:\n";
-      printExpressionNT(forRange2->end.get(), ind + indentLevel);
+      printExpressionNT(forRange2->end, ind + indentLevel);
     }
-    else if(f->f.is<AP(ForArray)>())
+    else if(f->f.is<ForArray*>())
     {
       cout << "container\n";
-      auto& forArray = f->f.get<AP(ForArray)>();
+      auto& forArray = f->f.get<ForArray*>();
       indent(ind + indentLevel);
       cout << "Container:\n";
-      printExpressionNT(forArray->container.get(), ind + indentLevel);
+      printExpressionNT(forArray->container, ind + indentLevel);
     }
     indent(ind);
     cout << "Body:\n";
-    printStatement(f->body.get(), ind + indentLevel);
+    printStatement(f->body, ind + indentLevel);
   }
 
   void printWhile(While* w, int ind)
@@ -327,10 +325,10 @@ namespace AstPrinter
     cout << "While\n";
     indent(ind + indentLevel);
     cout << "Condition:\n";
-    printExpressionNT(w->cond.get(), ind + indentLevel);
+    printExpressionNT(w->cond, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Body:\n";
-    printStatement(w->body.get(), ind + indentLevel);
+    printStatement(w->body, ind + indentLevel);
   }
 
   void printIf(If* i, int ind)
@@ -339,15 +337,15 @@ namespace AstPrinter
     cout << "If\n";
     indent(ind + indentLevel);
     cout << "Condition\n";
-    printExpressionNT(i->cond.get(), ind + indentLevel);
+    printExpressionNT(i->cond, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "If Body\n";
-    printStatement(i->ifBody.get(), ind + indentLevel);
+    printStatement(i->ifBody, ind + indentLevel);
     if(i->elseBody)
     {
       indent(ind + indentLevel);
       cout << "Else Body\n";
-      printStatement(i->elseBody.get(), ind + indentLevel);
+      printStatement(i->elseBody, ind + indentLevel);
     }
   }
 
@@ -355,14 +353,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Assertion\n";
-    printExpressionNT(a->expr.get(), ind + indentLevel);
+    printExpressionNT(a->expr, ind + indentLevel);
   }
 
   void printTestDecl(TestDecl* td, int ind)
   {
     indent(ind);
     cout << "Test\n";
-    printCall(td->call.get(), ind + indentLevel);
+    printCall(td->call, ind + indentLevel);
   }
 
   void printEnum(Enum* e, int ind)
@@ -394,7 +392,7 @@ namespace AstPrinter
     cout << "Block\n";
     for(auto& s : b->statements)
     {
-      printStatement(s.get(), ind + indentLevel);
+      printStatement(s, ind + indentLevel);
     }
   }
 
@@ -406,7 +404,7 @@ namespace AstPrinter
     cout << "Name: " << vd->name << '\n';
     if(vd->type)
     {
-      printTypeNT(vd->type.get(), ind + indentLevel);
+      printTypeNT(vd->type, ind + indentLevel);
     }
     else
     {
@@ -417,7 +415,7 @@ namespace AstPrinter
     {
       indent(ind + indentLevel);
       cout << "Value:\n";
-      printExpressionNT(vd->val.get(), ind + indentLevel);
+      printExpressionNT(vd->val, ind + indentLevel);
     }
     else
     {
@@ -432,14 +430,14 @@ namespace AstPrinter
     cout << "Variable assignment\n";
     indent(ind + indentLevel);
     cout << "L-value:\n";
-    printExpressionNT(va->target.get(), ind + indentLevel);
+    printExpressionNT(va->target, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Operator: " << va->op->getStr() << '\n';
     if(va->rhs)
     {
       indent(ind + indentLevel);
       cout << "Assigned value:\n";
-      printExpressionNT(va->rhs.get(), ind + indentLevel);
+      printExpressionNT(va->rhs, ind + indentLevel);
     }
   }
 
@@ -449,7 +447,7 @@ namespace AstPrinter
     cout << "Print\n";
     for(auto& e : p->exprs)
     {
-      printExpressionNT(e.get(), ind + indentLevel);
+      printExpressionNT(e, ind + indentLevel);
     }
   }
 
@@ -459,12 +457,12 @@ namespace AstPrinter
     cout << "Call\n";
     indent(ind + indentLevel);
     cout << "Function/Procedure: \n";
-    printMember(c->callable.get(), ind + indentLevel);
+    printMember(c->callable, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Args:\n";
     for(auto& it : c->args)
     {
-      printExpressionNT(it.get(), ind + indentLevel);
+      printExpressionNT(it, ind + indentLevel);
     }
   }
 
@@ -480,7 +478,7 @@ namespace AstPrinter
     {
       cout << "unnamed\n";
     }
-    printTypeNT(a->type.get(), ind + indentLevel);
+    printTypeNT(a->type, ind + indentLevel);
   }
 
   void printFuncDecl(FuncDecl* fd, int ind)
@@ -489,7 +487,7 @@ namespace AstPrinter
     cout << "Func declaration: \"" << fd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(fd->type.retType.get(), ind + indentLevel);
+    printTypeNT(fd->type.retType, ind + indentLevel);
     indent(ind);
     if(fd->type.args.size() == 0)
       cout << "No args\n";
@@ -497,7 +495,7 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : fd->type.args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
   }
 
@@ -505,10 +503,10 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Func definition:\n";
-    printMember(fd->name.get(), ind + indentLevel);
+    printMember(fd->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(fd->type.retType.get(), ind + indentLevel);
+    printTypeNT(fd->type.retType, ind + indentLevel);
     indent(ind);
     if(fd->type.args.size() == 0)
       cout << "No args\n";
@@ -516,11 +514,11 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : fd->type.args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
     indent(ind);
     cout << "Body:\n";
-    printBlock(fd->body.get(), ind + indentLevel);
+    printBlock(fd->body, ind + indentLevel);
   }
 
   void printFuncTypeNT(FuncTypeNT* ft, int ind)
@@ -529,7 +527,7 @@ namespace AstPrinter
     cout << "Func type:\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(ft->retType.get(), ind + indentLevel);
+    printTypeNT(ft->retType, ind + indentLevel);
     indent(ind);
     if(ft->args.size() == 0)
       cout << "No args\n";
@@ -537,7 +535,7 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : ft->args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
   }
 
@@ -547,7 +545,7 @@ namespace AstPrinter
     cout << "Proc declaration: \"" << pd->name << "\"\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(pd->type.retType.get(), ind + indentLevel);
+    printTypeNT(pd->type.retType, ind + indentLevel);
     indent(ind);
     if(pd->type.args.size() == 0)
       cout << "No args\n";
@@ -555,7 +553,7 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : pd->type.args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
   }
 
@@ -563,10 +561,10 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Proc definition:\n";
-    printMember(pd->name.get(), ind + indentLevel);
+    printMember(pd->name, ind + indentLevel);
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(pd->type.retType.get(), ind + indentLevel);
+    printTypeNT(pd->type.retType, ind + indentLevel);
     indent(ind);
     if(pd->type.args.size() == 0)
       cout << "No args\n";
@@ -574,11 +572,11 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : pd->type.args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
     indent(ind);
     cout << "Body:\n";
-    printBlock(pd->body.get(), ind + indentLevel);
+    printBlock(pd->body, ind + indentLevel);
   }
 
   void printProcTypeNT(ProcTypeNT* pt, int ind)
@@ -587,7 +585,7 @@ namespace AstPrinter
     cout << "Proc type:\n";
     indent(ind);
     cout << "Return type:\n";
-    printTypeNT(pt->retType.get(), ind + indentLevel);
+    printTypeNT(pt->retType, ind + indentLevel);
     indent(ind);
     if(pt->args.size() == 0)
       cout << "No args\n";
@@ -595,7 +593,7 @@ namespace AstPrinter
       cout << "Args:\n";
     for(auto& it : pt->args)
     {
-      printArg(it.get(), ind + indentLevel);
+      printArg(it, ind + indentLevel);
     }
   }
 
@@ -609,14 +607,14 @@ namespace AstPrinter
       cout << "Traits:\n";
       for(auto& it : sd->traits)
       {
-        printMember(it.get(), ind + indentLevel);
+        printMember(it, ind + indentLevel);
       }
     }
     indent(ind + indentLevel);
     cout << "Members:\n";
     for(auto it : sd->members)
     {
-      bool staticData = it->sd->decl.is<AP(VarDecl)>() && it->sd->decl.get<AP(VarDecl)>()->isStatic;
+      bool staticData = it->sd->decl.is<VarDecl*>() && it->sd->decl.get<VarDecl*>()->isStatic;
       if(it->compose || staticData)
       {
         indent(ind + indentLevel);
@@ -632,7 +630,7 @@ namespace AstPrinter
         }
         cout << '\n';
       }
-      printScopedDecl(it->sd.get(), ind + indentLevel);
+      printScopedDecl(it->sd, ind + indentLevel);
     }
   }
 
@@ -642,7 +640,7 @@ namespace AstPrinter
     cout << "Union \"" << vd->name << "\"\n";
     for(auto& it : vd->types)
     {
-      printTypeNT(it.get(), ind + indentLevel);
+      printTypeNT(it, ind + indentLevel);
     }
   }
 
@@ -652,10 +650,10 @@ namespace AstPrinter
     cout << "Trait \"" << td->name << "\"\n";
     for(auto& it : td->members)
     {
-      if(it.is<AP(FuncDecl)>())
-        printFuncDecl(it.get<AP(FuncDecl)>().get(), ind + indentLevel);
-      else if(it.is<AP(ProcDecl)>())
-        printProcDecl(it.get<AP(ProcDecl)>().get(), ind + indentLevel);
+      if(it.is<FuncDecl*>())
+        printFuncDecl(it.get<FuncDecl*>(), ind + indentLevel);
+      else if(it.is<ProcDecl*>())
+        printProcDecl(it.get<ProcDecl*>(), ind + indentLevel);
     }
   }
 
@@ -665,7 +663,7 @@ namespace AstPrinter
     cout << "Struct/Array literal\n";
     for(auto& it : sl->vals)
     {
-      printExpressionNT(it.get(), ind + indentLevel);
+      printExpressionNT(it, ind + indentLevel);
     }
   }
 
@@ -681,7 +679,7 @@ namespace AstPrinter
     cout << "TraitType \"" << tt->localName << "\", traits:\n";
     for(auto& mem : tt->traits)
     {
-      printMember(mem.get(), ind + indentLevel);
+      printMember(mem, ind + indentLevel);
     }
   }
 
@@ -691,7 +689,7 @@ namespace AstPrinter
     cout << "Tuple type, members:\n";
     for(auto& it : tt->members)
     {
-      printTypeNT(it.get(), ind + indentLevel);
+      printTypeNT(it, ind + indentLevel);
     }
   }
 
@@ -717,8 +715,8 @@ namespace AstPrinter
   void printExpr1(Expr1* e, int ind)
   {
     indent(ind);
-    cout << "Expr1, head:\n";
-    printExpr2(e->head.get(), ind + indentLevel);
+    cout << "expr1 ptr " << e << '\n';
+    printExpr2(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -726,7 +724,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr1RHS(it.get(), ind + indentLevel);
+      printExpr1RHS(it, ind + indentLevel);
     }
   }
 
@@ -734,14 +732,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr1RHS (||)\n";
-    printExpr2(e->rhs.get(), ind + indentLevel);
+    printExpr2(e->rhs, ind + indentLevel);
   }
 
   void printExpr2(Expr2* e, int ind)
   {
     indent(ind);
     cout << "Expr2, head:\n";
-    printExpr3(e->head.get(), ind + indentLevel);
+    printExpr3(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -749,7 +747,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr2RHS(it.get(), ind + indentLevel);
+      printExpr2RHS(it, ind + indentLevel);
     }
   }
 
@@ -757,14 +755,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr2RHS (&&)\n";
-    printExpr3(e->rhs.get(), ind + indentLevel);
+    printExpr3(e->rhs, ind + indentLevel);
   }
 
   void printExpr3(Expr3* e, int ind)
   {
     indent(ind);
     cout << "Expr3, head:\n";
-    printExpr4(e->head.get(), ind + indentLevel);
+    printExpr4(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -772,7 +770,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr3RHS(it.get(), ind + indentLevel);
+      printExpr3RHS(it, ind + indentLevel);
     }
   }
 
@@ -780,14 +778,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr3RHS (|)\n";
-    printExpr4(e->rhs.get(), ind + indentLevel);
+    printExpr4(e->rhs, ind + indentLevel);
   }
 
   void printExpr4(Expr4* e, int ind)
   {
     indent(ind);
     cout << "Expr4, head:\n";
-    printExpr5(e->head.get(), ind + indentLevel);
+    printExpr5(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -795,7 +793,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr4RHS(it.get(), ind + indentLevel);
+      printExpr4RHS(it, ind + indentLevel);
     }
   }
 
@@ -803,14 +801,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr4RHS (^)\n";
-    printExpr5(e->rhs.get(), ind + indentLevel);
+    printExpr5(e->rhs, ind + indentLevel);
   }
 
   void printExpr5(Expr5* e, int ind)
   {
     indent(ind);
     cout << "Expr5, head:\n";
-    printExpr6(e->head.get(), ind + indentLevel);
+    printExpr6(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -818,7 +816,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr5RHS(it.get(), ind + indentLevel);
+      printExpr5RHS(it, ind + indentLevel);
     }
   }
 
@@ -826,14 +824,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr5RHS (&)\n";
-    printExpr6(e->rhs.get(), ind + indentLevel);
+    printExpr6(e->rhs, ind + indentLevel);
   }
 
   void printExpr6(Expr6* e, int ind)
   {
     indent(ind);
     cout << "Expr6, head:\n";
-    printExpr7(e->head.get(), ind + indentLevel);
+    printExpr7(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -841,7 +839,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr6RHS(it.get(), ind + indentLevel);
+      printExpr6RHS(it, ind + indentLevel);
     }
   }
 
@@ -849,14 +847,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr6RHS (" << operatorTable[e->op] << ")\n";
-    printExpr7(e->rhs.get(), ind + indentLevel);
+    printExpr7(e->rhs, ind + indentLevel);
   }
 
   void printExpr7(Expr7* e, int ind)
   {
     indent(ind);
     cout << "Expr7, head:\n";
-    printExpr8(e->head.get(), ind + indentLevel);
+    printExpr8(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -864,7 +862,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr7RHS(it.get(), ind + indentLevel);
+      printExpr7RHS(it, ind + indentLevel);
     }
   }
 
@@ -872,14 +870,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr7RHS (" << operatorTable[e->op] << ")\n";
-    printExpr8(e->rhs.get(), ind + indentLevel);
+    printExpr8(e->rhs, ind + indentLevel);
   }
 
   void printExpr8(Expr8* e, int ind)
   {
     indent(ind);
     cout << "Expr8, head:\n";
-    printExpr9(e->head.get(), ind + indentLevel);
+    printExpr9(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -887,7 +885,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr8RHS(it.get(), ind + indentLevel);
+      printExpr8RHS(it, ind + indentLevel);
     }
   }
 
@@ -895,14 +893,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr8RHS (" << operatorTable[e->op] << ")\n";
-    printExpr9(e->rhs.get(), ind + indentLevel);
+    printExpr9(e->rhs, ind + indentLevel);
   }
 
   void printExpr9(Expr9* e, int ind)
   {
     indent(ind);
     cout << "Expr9, head:\n";
-    printExpr10(e->head.get(), ind + indentLevel);
+    printExpr10(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -910,7 +908,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr9RHS(it.get(), ind + indentLevel);
+      printExpr9RHS(it, ind + indentLevel);
     }
   }
 
@@ -918,14 +916,14 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr9RHS (" << operatorTable[e->op] << ")\n";
-    printExpr10(e->rhs.get(), ind + indentLevel);
+    printExpr10(e->rhs, ind + indentLevel);
   }
 
   void printExpr10(Expr10* e, int ind)
   {
     indent(ind);
     cout << "Expr10, head:\n";
-    printExpr11(e->head.get(), ind + indentLevel);
+    printExpr11(e->head, ind + indentLevel);
     if(e->tail.size())
     {
       indent(ind);
@@ -933,7 +931,7 @@ namespace AstPrinter
     }
     for(auto& it : e->tail)
     {
-      printExpr10RHS(it.get(), ind + indentLevel);
+      printExpr10RHS(it, ind + indentLevel);
     }
   }
 
@@ -941,7 +939,7 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Expr10RHS (" << operatorTable[e->op] << ")\n";
-    printExpr11(e->rhs.get(), ind + indentLevel);
+    printExpr11(e->rhs, ind + indentLevel);
   }
 
   void printExpr11(Expr11* e, int ind)
@@ -949,16 +947,16 @@ namespace AstPrinter
     typedef Expr11::UnaryExpr UE;
     indent(ind);
     cout << "Expr11\n";
-    if(e->e.is<AP(Expr12)>())
+    if(e->e.is<Expr12*>())
     {
-      printExpr12(e->e.get<AP(Expr12)>().get(), ind + indentLevel);
+      printExpr12(e->e.get<Expr12*>(), ind + indentLevel);
     }
     else if(e->e.is<UE>())
     {
       UE& ue = e->e.get<UE>();
       indent(ind);
       cout << "Unary expr, op: " << operatorTable[ue.op] << "\n";
-      printExpr11(ue.rhs.get(), ind + indentLevel);
+      printExpr11(ue.rhs, ind + indentLevel);
     }
   }
 
@@ -985,21 +983,21 @@ namespace AstPrinter
     {
       printf("Float literal: %.3e\n", e->e.get<FloatLit*>()->val);
     }
-    else if(e->e.is<AP(BoolLit)>())
+    else if(e->e.is<BoolLit*>())
     {
-      printBoolLit(e->e.get<AP(BoolLit)>().get(), 0);
+      printBoolLit(e->e.get<BoolLit*>(), 0);
     }
-    else if(e->e.is<AP(ExpressionNT)>())
+    else if(e->e.is<ExpressionNT*>())
     {
-      printExpressionNT(e->e.get<AP(ExpressionNT)>().get(), indentLevel);
+      printExpressionNT(e->e.get<ExpressionNT*>(), indentLevel);
     }
-    else if(e->e.is<AP(Member)>())
+    else if(e->e.is<Member*>())
     {
-      printMember(e->e.get<AP(Member)>().get(), indentLevel);
+      printMember(e->e.get<Member*>(), indentLevel);
     }
-    else if(e->e.is<AP(StructLit)>())
+    else if(e->e.is<StructLit*>())
     {
-      printStructLit(e->e.get<AP(StructLit)>().get(), indentLevel);
+      printStructLit(e->e.get<StructLit*>(), indentLevel);
     }
     else if(e->e.is<Parser::Expr12::ArrayIndex>())
     {
@@ -1007,10 +1005,10 @@ namespace AstPrinter
       cout << "Array/tuple index\n";
       indent(ind);
       cout << "Array or tuple expression:\n";
-      printExpr12(ai.arr.get(), ind + 1);
+      printExpr12(ai.arr, ind + 1);
       indent(ind);
       cout << "Index:\n";
-      printExpressionNT(ai.index.get(), ind + 1);
+      printExpressionNT(ai.index, ind + 1);
     }
   }
 }

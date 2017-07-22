@@ -42,12 +42,12 @@ int main(int argc, const char** argv)
   cout << '\n';
   */
   //Parse the global/root module
-  AP(Parser::Module) ast = Parser::parseProgram(toks);
+  Parser::Module* ast = Parser::parseProgram(toks);
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";
-  printAST(ast.get());
-  MiddleEnd::load(ast.get());
+  printAST(ast);
+  MiddleEnd::load(ast);
   cout << "************************************\n";
   cout << "*          Scopes/Types            *\n";
   cout << "************************************\n";

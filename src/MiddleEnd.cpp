@@ -17,7 +17,7 @@ namespace MiddleEnd
     cout << "Building scope tree and creating types...\n";
     for(auto& it : ast->decls)
     {
-      ScopeTypeLoading::visitScopedDecl(global, it.get());
+      ScopeTypeLoading::visitScopedDecl(global, it);
     }
     cout << "Resolving undefined types...\n";
     resolveAllTraits();
@@ -35,7 +35,7 @@ namespace MiddleEnd
       //add all locally defined non-struct types in first pass:
       for(auto& it : m->decls)
       {
-        visitScopedDecl(mscope, it.get());
+        visitScopedDecl(mscope, it);
       }
     }
 
@@ -44,13 +44,13 @@ namespace MiddleEnd
       BlockScope* bscope = new BlockScope(current, b);
       for(auto& st : b->statements)
       {
-        if(st->s.is<AP(ScopedDecl)>())
+        if(st->s.is<ScopedDecl*>())
         {
-          visitScopedDecl(bscope, st->s.get<AP(ScopedDecl)>().get());
+          visitScopedDecl(bscope, st->s.get<ScopedDecl*>());
         }
-        else if(st->s.is<AP(Block)>())
+        else if(st->s.is<Block*>())
         {
-          visitBlock(bscope, st->s.get<AP(Block)>().get());
+          visitBlock(bscope, st->s.get<Block*>());
         }
       }
     }
@@ -63,44 +63,44 @@ namespace MiddleEnd
       for(auto& it : sd->members)
       {
         auto& decl = it->sd;
-        visitScopedDecl(sscope, decl.get());
+        visitScopedDecl(sscope, decl);
       }
       new StructType(sd, current, sscope);
     }
 
     void visitScopedDecl(Scope* current, ScopedDecl* sd)
     {
-      if(sd->decl.is<AP(Enum)>())
+      if(sd->decl.is<Enum*>())
       {
-        new EnumType(sd->decl.get<AP(Enum)>().get(), current);
+        new EnumType(sd->decl.get<Enum*>(), current);
       }
-      else if(sd->decl.is<AP(Typedef)>())
+      else if(sd->decl.is<Typedef*>())
       {
-        new AliasType(sd->decl.get<AP(Typedef)>().get(), current);
+        new AliasType(sd->decl.get<Typedef*>(), current);
       }
-      else if(sd->decl.is<AP(StructDecl)>())
+      else if(sd->decl.is<StructDecl*>())
       {
-        visitStruct(current, sd->decl.get<AP(StructDecl)>().get());
+        visitStruct(current, sd->decl.get<StructDecl*>());
       }
-      else if(sd->decl.is<AP(UnionDecl)>())
+      else if(sd->decl.is<UnionDecl*>())
       {
-        new UnionType(sd->decl.get<AP(UnionDecl)>().get(), current);
+        new UnionType(sd->decl.get<UnionDecl*>(), current);
       }
-      else if(sd->decl.is<AP(Module)>())
+      else if(sd->decl.is<Module*>())
       {
-        visitModule(current, sd->decl.get<AP(Module)>().get());
+        visitModule(current, sd->decl.get<Module*>());
       }
-      else if(sd->decl.is<AP(FuncDef)>())
+      else if(sd->decl.is<FuncDef*>())
       {
-        visitBlock(current, sd->decl.get<AP(FuncDef)>()->body.get());
+        visitBlock(current, sd->decl.get<FuncDef*>()->body);
       }
-      else if(sd->decl.is<AP(ProcDef)>())
+      else if(sd->decl.is<ProcDef*>())
       {
-        visitBlock(current, sd->decl.get<AP(ProcDef)>()->body.get());
+        visitBlock(current, sd->decl.get<ProcDef*>()->body);
       }
-      else if(sd->decl.is<AP(TraitDecl)>())
+      else if(sd->decl.is<TraitDecl*>())
       {
-        new Trait(sd->decl.get<AP(TraitDecl)>().get(), current);
+        new Trait(sd->decl.get<TraitDecl*>(), current);
       }
     }
   }
@@ -122,12 +122,12 @@ namespace MiddleEnd
       {
         for(auto& it : bs->ast->statements)
         {
-          if(it->s.is<AP(ScopedDecl)>())
+          if(it->s.is<ScopedDecl*>())
           {
-            auto sd = it->s.get<AP(ScopedDecl)>();
-            if(sd->decl.is<AP(VarDecl)>())
+            auto sd = it->s.get<ScopedDecl*>();
+            if(sd->decl.is<VarDecl*>())
             {
-              auto vd = sd->decl.get<AP(VarDecl)>().get();
+              auto vd = sd->decl.get<VarDecl*>();
               bs->vars.push_back(new Variable(s, vd));
             }
           }
@@ -138,9 +138,9 @@ namespace MiddleEnd
         //only process static vars here
         for(auto& it : ss->ast->members)
         {
-          if(it->sd->decl.is<AP(VarDecl)>())
+          if(it->sd->decl.is<VarDecl*>())
           {
-            auto vd = it->sd->decl.get<AP(VarDecl)>().get();
+            auto vd = it->sd->decl.get<VarDecl*>();
             if(vd->isStatic)
             {
               ss->vars.push_back(new Variable(s, vd));
@@ -152,9 +152,9 @@ namespace MiddleEnd
       {
         for(auto& it : ms->ast->decls)
         {
-          if(it->decl.is<AP(VarDecl)>())
+          if(it->decl.is<VarDecl*>())
           {
-            ms->vars.push_back(new Variable(s, it->decl.get<AP(VarDecl)>().get()));
+            ms->vars.push_back(new Variable(s, it->decl.get<VarDecl*>()));
           }
         }
       }

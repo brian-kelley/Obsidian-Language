@@ -38,8 +38,8 @@ struct BinaryArith : public Expression
 {
   BinaryArith(Expression* lhs, int op, Expression* rhs);
   int op;
-  AP(Expression) lhs;
-  AP(Expression) rhs;
+  Expression* lhs;
+  Expression* rhs;
   bool assignable()
   {
     return false;
