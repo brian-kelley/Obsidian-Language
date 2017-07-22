@@ -152,10 +152,10 @@ Ident::Ident()
   type = IDENTIFIER;
 }
 
-Ident::Ident(string name)
+Ident::Ident(string n)
 {
   type = IDENTIFIER;
-  this->name = name;
+  this->name = n;
 }
 
 bool Ident::compareTo(Token* rhs)
@@ -198,10 +198,10 @@ Oper::Oper()
   type = OPERATOR;
 }
 
-Oper::Oper(int op)
+Oper::Oper(int o)
 {
   type = OPERATOR;
-  this->op = op;
+  this->op = o;
 }
 
 bool Oper::compareTo(Token* rhs)
@@ -235,10 +235,10 @@ StrLit::StrLit()
   type = STRING_LITERAL;
 }
 
-StrLit::StrLit(string val)
+StrLit::StrLit(string v)
 {
   type = STRING_LITERAL;
-  this->val = val;
+  this->val = v;
 }
 
 bool StrLit::compareTo(Token* rhs)
@@ -272,10 +272,10 @@ CharLit::CharLit()
   type = CHAR_LITERAL;
 }
 
-CharLit::CharLit(char val)
+CharLit::CharLit(char v)
 {
   type = CHAR_LITERAL;
-  this->val = val;
+  this->val = v;
 }
 
 bool CharLit::compareTo(Token* rhs)
@@ -309,10 +309,10 @@ IntLit::IntLit()
   type = INT_LITERAL;
 }
 
-IntLit::IntLit(uint64_t val)
+IntLit::IntLit(uint64_t v)
 {
   type = INT_LITERAL;
-  this->val = val;
+  this->val = v;
 }
 
 bool IntLit::compareTo(Token* rhs)
@@ -346,10 +346,10 @@ FloatLit::FloatLit()
   type = FLOAT_LITERAL;
 }
 
-FloatLit::FloatLit(double val)
+FloatLit::FloatLit(double v)
 {
   type = FLOAT_LITERAL;
-  this->val = val;
+  this->val = v;
 }
 
 bool FloatLit::compareTo(Token* rhs)
@@ -383,10 +383,10 @@ Punct::Punct()
   type = PUNCTUATION;
 }
 
-Punct::Punct(int val)
+Punct::Punct(int v)
 {
   type = PUNCTUATION;
-  this->val = val;
+  this->val = v;
 }
 
 bool Punct::compareTo(Token* rhs)

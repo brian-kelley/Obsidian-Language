@@ -127,7 +127,10 @@ struct Type
   Type* getArrayType(int dims);
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
-  virtual bool canConvert(Expression* other) = 0;
+  virtual bool canConvert(Expression* other)
+  {
+    return false;
+  }
   //Use this getType() for scope tree building
   //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
   //Other variations (so above getType() 

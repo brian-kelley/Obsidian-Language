@@ -94,13 +94,13 @@ void lex(string& code, vector<Token*>& tokList)
       int stringStart = cs.iter;
       while(true)
       {
-        char c = cs.getNext();
-        if(c == '\\')
+        char next = cs.getNext();
+        if(next == '\\')
         {
           //eat an additional character no matter what it is
           cs.getNext();
         }
-        else if(c == '"')
+        else if(next == '"')
         {
           //end of string
           break;

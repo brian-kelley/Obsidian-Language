@@ -369,22 +369,25 @@ Expression::Expression(Scope* s)
  * UnaryArith *
  **************/
 
-UnaryArith::UnaryArith(int op, Expression* expr) : Expression(nullptr)
+UnaryArith::UnaryArith(int o, Expression* e) : Expression(nullptr)
 {
+  this->op = o;
+  this->expr = e;
 }
 
 /***************
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(nullptr)
+BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(nullptr)
 {
   using Parser::TypeNT;
   //Type check the operation
-  auto ltype = lhs->type;
-  auto rtype = rhs->type;
+  auto ltype = l->type;
+  auto rtype = r->type;
   bool typesNull = ltype == nullptr || rtype == nullptr;
-  switch(op)
+  op = o;
+  switch(o)
   {
     case LOR:
     case LAND:
@@ -421,6 +424,7 @@ BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(
     case SUB:
     case MUL:
     case DIV:
+    case MOD:
     {
       //TODO: warn on div by 0
       if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
@@ -476,22 +480,39 @@ BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(
     case CMPEQ:
     case CMPNEQ:
     {
-      //Can't directly compare two compound literals (and no reason to)
+      //Can't directly compare two compound literals (ok because there is no reason to do that)
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       if(typesNull)
       {
         errAndQuit("can't compare two compound literals for equality.");
       }
-      else if(ltype == nullptr)
+      //here, use the canConvert that takes an expression
+      if((ltype && ltype->canConvert(r)) || (rtype && rtype->canConvert(l)))
       {
-        //lhs must be convertible to rhs->type
-        if(!(ltype->canConvert(rhs)))
-        {
-
-        }
+        this->type = TypeSystem::primitives[TypeNT::BOOL];
+      }
+      else
+      {
+        errAndQuit("types can't be compared for equality.");
       }
       break;
     }
+    case CMPL:
+    case CMPLE:
+    case CMPG:
+    case CMPGE:
+    {
+      if((ltype->isNumber() && rtype->isNumber()) || (ltype->isString() && rtype->isString()))
+      {
+        this->type = TypeSystem::primitives[TypeNT::BOOL];
+      }
+      else
+      {
+        errAndQuit("incompatible types for ordered comparison - can only compare numbers and strings to each other.");
+      }
+      break;
+    }
+    default: INTERNAL_ERROR;
   }
 }
 
@@ -499,9 +520,9 @@ BinaryArith::BinaryArith(Expression* lhs, int op, Expression* rhs) : Expression(
  * Primitive Literals *
  **********************/
 
-IntLiteral::IntLiteral(IntLit* ast) : Expression(nullptr)
+IntLiteral::IntLiteral(IntLit* a) : Expression(nullptr)
 {
-  this->ast = ast;
+  this->ast = a;
   //if value fits in a signed int, use that as the type
   //when in doubt, don't use auto
   if(value() > 0x7FFFFFFF)
@@ -514,27 +535,27 @@ IntLiteral::IntLiteral(IntLit* ast) : Expression(nullptr)
   }
 }
 
-FloatLiteral::FloatLiteral(FloatLit* ast) : Expression(nullptr)
+FloatLiteral::FloatLiteral(FloatLit* a) : Expression(nullptr)
 {
-  this->ast = ast;
+  this->ast = a;
   type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
 }
 
-StringLiteral::StringLiteral(StrLit* ast) : Expression(nullptr)
+StringLiteral::StringLiteral(StrLit* a) : Expression(nullptr)
 {
-  this->ast = ast;
+  this->ast = a;
   type = TypeSystem::primitives[Parser::TypeNT::STRING];
 }
 
-CharLiteral::CharLiteral(CharLit* ast) : Expression(nullptr)
+CharLiteral::CharLiteral(CharLit* a) : Expression(nullptr)
 {
-  this->ast = ast;
+  this->ast = a;
   type = TypeSystem::primitives[Parser::TypeNT::CHAR];
 }
 
-BoolLiteral::BoolLiteral(Parser::BoolLit* ast) : Expression(nullptr)
+BoolLiteral::BoolLiteral(Parser::BoolLit* a) : Expression(nullptr)
 {
-  this->ast = ast;
+  this->ast = a;
   type = TypeSystem::primitives[Parser::TypeNT::BOOL];
 }
 
@@ -542,9 +563,9 @@ BoolLiteral::BoolLiteral(Parser::BoolLit* ast) : Expression(nullptr)
  * CompoundLiteral *
  *******************/
 
-CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(s)
+CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a) : Expression(s)
 {
-  this->ast = ast;
+  this->ast = a;
   //type cannot be determined for a compound literal
   type = nullptr;
   for(auto v : ast->vals)
@@ -558,9 +579,9 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* ast) : Expression(
  * TupleLiteral *
  ****************/
 
-TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* ast) : Expression(s)
+TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* a) : Expression(s)
 {
-  this->ast = ast;
+  this->ast = a;
   vector<TypeSystem::Type*> memTypes;
   bool typeResolved = true;
   for(auto it : ast->vals)
@@ -583,9 +604,9 @@ TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* ast) : Expression(s)
  * Indexed *
  ***********/
 
-Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast) : Expression(s)
+Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
 {
-  this->ast = ast;
+  this->ast = a;
   //get expressions for the index and the indexed object
   group = getExpression(s, ast->arr.get());
   index = getExpression(s, ast->index.get());
