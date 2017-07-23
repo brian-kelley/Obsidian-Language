@@ -459,9 +459,10 @@ namespace Parser
   {
     VarAssign* va = new VarAssign;
     va->target = parse<ExpressionNT>();
-    va->op = (Oper*) expect(OPERATOR);
+    va->rhs = nullptr;
+    Oper* op = (Oper*) expect(OPERATOR);
     //unary assign operators don't have rhs
-    int otype = va->op->op;
+    int otype = op->op;
     if(otype != INC && otype != DEC)
     {
       va->rhs = parse<ExpressionNT>();
@@ -474,6 +475,17 @@ namespace Parser
         otype != BANDEQ && otype != BXOREQ)
     {
       err("invalid operator for variable assignment/update: " + operatorTable[otype]);
+    }
+    switch(otype)
+    {
+      case ASSIGN:
+        break;
+      case INC:
+      case DEC:
+      {
+        Expr12* one = new Expr12;
+        one->e = new IntLit(1);
+      }
     }
     //like all statements, must be terminated with semicolon
     expectPunct(SEMICOLON);
@@ -765,6 +777,111 @@ namespace Parser
       err("invalid bool literal");
     }
     return bl;
+  }
+
+  Expr1::Expr1(Expr2* e)
+  {
+    head = e;
+  }
+
+  Expr1::Expr1(Expr3* e)
+  {
+    head = new Expr2(e);
+  }
+
+  Expr1::Expr1(Expr4* e)
+  {
+    head = new Expr2(new Expr3(e));
+  }
+
+  Expr1::Expr1(Expr5* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(e)));
+  }
+
+  Expr1::Expr1(Expr6* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(e))));
+  }
+
+  Expr1::Expr1(Expr7* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(e)))));
+  }
+
+  Expr1::Expr1(Expr8* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(e))))));
+  }
+
+  Expr1::Expr1(Expr9* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(e)))))));
+  }
+
+  Expr1::Expr1(Expr10* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(e))))))));
+  }
+
+  Expr1::Expr1(Expr11* e)
+  {
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(e)))))))));
+  }
+
+  Expr1::Expr1(Expr12* e12)
+  {
+    head = new Expr2(e12);
+  }
+
+  Expr2::Expr2(Expr12* e12)
+  {
+    head = new Expr3(e12);
+  }
+
+  Expr3::Expr3(Expr12* e12)
+  {
+    head = new Expr4(e12);
+  }
+
+  Expr4::Expr4(Expr12* e12)
+  {
+    head = new Expr5(e12);
+  }
+
+  Expr5::Expr5(Expr12* e12)
+  {
+    head = new Expr6(e12);
+  }
+
+  Expr6::Expr6(Expr12* e12)
+  {
+    head = new Expr7(e12);
+  }
+
+  Expr7::Expr7(Expr12* e12)
+  {
+    head = new Expr8(e12);
+  }
+
+  Expr8::Expr8(Expr12* e12)
+  {
+    head = new Expr9(e12);
+  }
+
+  Expr9::Expr9(Expr12* e12)
+  {
+    head = new Expr10(e12);
+  }
+
+  Expr10::Expr10(Expr12* e12)
+  {
+    head = new Expr11(e12);
+  }
+
+  Expr11::Expr11(Expr12* e12)
+  {
+    e = e12;
   }
 
   template<>

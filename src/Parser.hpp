@@ -325,11 +325,9 @@ namespace Parser
 
   struct VarAssign
   {
-    VarAssign() : target(nullptr), op(nullptr), rhs(nullptr) {}
-    //note: target must be an lvalue (this is checked in middle end)
+    VarAssign() : target(nullptr), rhs(nullptr) {}
+    //note: target must be an lvalue (this will be checked in middle end)
     ExpressionNT* target;
-    Oper* op;
-    //NULL if ++ or --
     ExpressionNT* rhs;
   };
 
@@ -466,6 +464,17 @@ namespace Parser
   struct Expr1
   {
     Expr1() : head(nullptr) {}
+    Expr1(Expr2* e);
+    Expr1(Expr3* e);
+    Expr1(Expr4* e);
+    Expr1(Expr5* e);
+    Expr1(Expr6* e);
+    Expr1(Expr7* e);
+    Expr1(Expr8* e);
+    Expr1(Expr9* e);
+    Expr1(Expr10* e);
+    Expr1(Expr11* e);
+    Expr1(Expr12* e12);
     Expr2* head;
     vector<Expr1RHS*> tail;
   };
@@ -480,6 +489,8 @@ namespace Parser
   struct Expr2
   {
     Expr2() : head(nullptr) {}
+    Expr2(Expr3* e) : head(e) {}
+    Expr2(Expr12* e12);
     Expr3* head;
     vector<Expr2RHS*> tail;
   };
@@ -494,6 +505,8 @@ namespace Parser
   struct Expr3
   {
     Expr3() : head(nullptr) {}
+    Expr3(Expr4* e) : head(e) {}
+    Expr3(Expr12* e12);
     Expr4* head;
     vector<Expr3RHS*> tail;
   };
@@ -508,6 +521,8 @@ namespace Parser
   struct Expr4
   {
     Expr4() : head(nullptr) {}
+    Expr4(Expr5* e) : head(e) {}
+    Expr4(Expr12* e12);
     Expr5* head;
     vector<Expr4RHS*> tail;
   };
@@ -522,6 +537,8 @@ namespace Parser
   struct Expr5
   {
     Expr5() : head(nullptr) {}
+    Expr5(Expr6* e) : head(e) {}
+    Expr5(Expr12* e12);
     Expr6* head; 
     vector<Expr5RHS*> tail;
   };
@@ -536,6 +553,8 @@ namespace Parser
   struct Expr6
   {
     Expr6() : head(nullptr) {}
+    Expr6(Expr7* e) : head(e) {}
+    Expr6(Expr12* e12);
     Expr7* head;
     vector<Expr6RHS*> tail;
   };
@@ -550,6 +569,8 @@ namespace Parser
   struct Expr7
   {
     Expr7() : head(nullptr) {}
+    Expr7(Expr8* e) : head(e) {}
+    Expr7(Expr12* e12);
     Expr8* head;
     vector<Expr7RHS*> tail;
   };
@@ -564,6 +585,8 @@ namespace Parser
   struct Expr8
   {
     Expr8() : head(nullptr) {}
+    Expr8(Expr9* e) : head(e) {}
+    Expr8(Expr12* e12);
     Expr9* head;
     vector<Expr8RHS*> tail;
   };
@@ -578,6 +601,8 @@ namespace Parser
   struct Expr9
   {
     Expr9() : head(nullptr) {}
+    Expr9(Expr10* e) : head(e) {}
+    Expr9(Expr12* e12);
     Expr10* head;
     vector<Expr9RHS*> tail;
   };
@@ -592,6 +617,8 @@ namespace Parser
   struct Expr10
   {
     Expr10() : head(nullptr) {}
+    Expr10(Expr11* e) : head(e) {}
+    Expr10(Expr12* e12);
     Expr11* head;
     vector<Expr10RHS*> tail;
   };
@@ -607,6 +634,7 @@ namespace Parser
   struct Expr11
   {
     Expr11() : e(None()) {}
+    Expr11(Expr12* e12);
     struct UnaryExpr
     {
       int op; //SUB, LNOT, BNOT

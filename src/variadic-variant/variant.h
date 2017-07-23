@@ -98,14 +98,14 @@ class variant {
 	int tag;
 	char storage[impl::type_info<Types...>::size];
 	
-	variant() : tag(0) {}
-	
 	template<typename X>
 	void init(const X& x) {
 		tag = impl::position<X, Types...>::pos;
 		new(storage) X(x);
 	}
 public:
+	variant() : tag(0) {}
+
 	template<typename X>
 	variant(const X& v) {
 		static_assert(
