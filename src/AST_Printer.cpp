@@ -432,13 +432,8 @@ namespace AstPrinter
     cout << "L-value:\n";
     printExpressionNT(va->target, ind + indentLevel);
     indent(ind + indentLevel);
-    cout << "Operator: " << va->op->getStr() << '\n';
-    if(va->rhs)
-    {
-      indent(ind + indentLevel);
-      cout << "Assigned value:\n";
-      printExpressionNT(va->rhs, ind + indentLevel);
-    }
+    cout << "R-value:\n";
+    printExpressionNT(va->rhs, ind + indentLevel);
   }
 
   void printPrint(Print* p, int ind)

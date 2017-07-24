@@ -458,14 +458,15 @@ namespace Parser
   VarAssign* parse<VarAssign>()
   {
     VarAssign* va = new VarAssign;
-    va->target = parse<ExpressionNT>();
-    va->rhs = nullptr;
+    //need to determine lvalue and rvalue (target and rhs)
+    ExpressionNT* target = parse<ExpressionNT>();
+    ExpressionNT* rhs = nullptr;
     Oper* op = (Oper*) expect(OPERATOR);
     //unary assign operators don't have rhs
     int otype = op->op;
     if(otype != INC && otype != DEC)
     {
-      va->rhs = parse<ExpressionNT>();
+      rhs = parse<ExpressionNT>();
     }
     if(
         otype != ASSIGN &&
@@ -479,13 +480,108 @@ namespace Parser
     switch(otype)
     {
       case ASSIGN:
-        break;
+      {
+        va->target = target;
+        va->rhs = rhs;
+        return va;
+      }
       case INC:
       case DEC:
       {
-        Expr12* one = new Expr12;
-        one->e = new IntLit(1);
+        Expr12* oneLit = new Expr12;
+        oneLit->e = new IntLit(1);
+        //addition and subtraction encoded in Expr10
+        Expr9* sum = new Expr9(new Expr12(target));
+        Expr9RHS* oneRHS = new Expr9RHS;
+        oneRHS->rhs = new Expr10(oneLit);
+        if(otype == INC)
+          oneRHS->op = PLUS;
+        else
+          oneRHS->op = SUB;
+        sum->tail.push_back(oneRHS);
+        va->target = target;
+        va->rhs = new ExpressionNT(sum);
+        return va;
       }
+      case PLUSEQ:
+      case SUBEQ:
+      {
+        Expr9* ex = new Expr9(new Expr12(target));
+        Expr9RHS* r = new Expr9RHS;
+        if(otype == PLUSEQ)
+          r->op = PLUS;
+        else
+          r->op = SUB;
+        r->rhs = new Expr10(new Expr12(rhs));
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      case MULEQ:
+      case DIVEQ:
+      case MODEQ:
+      {
+        Expr10* ex = new Expr10(new Expr12(target));
+        Expr10RHS* r = new Expr10RHS;
+        if(otype == MULEQ)
+          r->op = MUL;
+        else if(otype == DIVEQ)
+          r->op = DIV;
+        else
+          r->op = MOD;
+        r->rhs = new Expr11(new Expr12(rhs));
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      case BOREQ:
+      {
+        Expr3* ex = new Expr3(new Expr12(target));
+        Expr3RHS* r = new Expr3RHS;
+        r->rhs = new Expr4(new Expr12(rhs));
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      case BANDEQ:
+      {
+        Expr5* ex = new Expr5(new Expr12(target));
+        Expr5RHS* r = new Expr5RHS;
+        r->rhs = new Expr6(new Expr12(rhs));
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      case BXOREQ:
+      {
+        Expr4* ex = new Expr4(new Expr12(target));
+        Expr4RHS* r = new Expr4RHS;
+        r->rhs = new Expr5(new Expr12(rhs));
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      case SHLEQ:
+      case SHREQ:
+      {
+        Expr8* ex = new Expr8(new Expr12(target));
+        Expr8RHS* r = new Expr8RHS;
+        r->rhs = new Expr9(new Expr12(rhs));
+        if(otype == SHLEQ)
+          r->op = SHL;
+        else
+          r->op = SHR;
+        ex->tail.push_back(r);
+        va->target = target;
+        va->rhs = new ExpressionNT(ex);
+        return va;
+      }
+      default: INTERNAL_ERROR;
     }
     //like all statements, must be terminated with semicolon
     expectPunct(SEMICOLON);
@@ -1094,7 +1190,9 @@ namespace Parser
     {
       if(oper->op != SUB && oper->op != LNOT && oper->op != BNOT)
       {
-        err("invalid unary operator");
+        ostringstream oss;
+        oss << '\"' << oper->getStr() << "\" is an invalid unary operator.";
+        err(oss.str());
       }
       Expr11::UnaryExpr ue;
       ue.op = oper->op;

@@ -648,6 +648,7 @@ namespace Parser
   struct Expr12
   {
     Expr12() : e(None()) {}
+    Expr12(ExpressionNT* expr) : e(expr) {}
     struct ArrayIndex
     {
       //arr[index]
