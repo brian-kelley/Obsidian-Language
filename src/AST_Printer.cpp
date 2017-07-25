@@ -710,7 +710,7 @@ namespace AstPrinter
   void printExpr1(Expr1* e, int ind)
   {
     indent(ind);
-    cout << "expr1 ptr " << e << '\n';
+    cout << "Expr1, head:\n";
     printExpr2(e->head, ind + indentLevel);
     if(e->tail.size())
     {
@@ -957,13 +957,14 @@ namespace AstPrinter
 
   void printExpr12(Expr12* e, int ind)
   {
-    indent(ind);
     if(e->e.is<IntLit*>())
     {
+      indent(ind);
       cout << "Int literal: " << e->e.get<IntLit*>()->val << '\n';
     }
     else if(e->e.is<CharLit*>())
     {
+      indent(ind);
       char c = e->e.get<CharLit*>()->val;
       if(isprint(c))
         cout << "Char literal: " << c << '\n';
@@ -972,30 +973,34 @@ namespace AstPrinter
     }
     else if(e->e.is<StrLit*>())
     {
+      indent(ind);
       cout << "String literal: \"" << e->e.get<StrLit*>()->val << "\"\n";
     }
     else if(e->e.is<FloatLit*>())
     {
+      indent(ind);
       printf("Float literal: %.3e\n", e->e.get<FloatLit*>()->val);
     }
     else if(e->e.is<BoolLit*>())
     {
+      indent(ind);
       printBoolLit(e->e.get<BoolLit*>(), 0);
     }
     else if(e->e.is<ExpressionNT*>())
     {
-      printExpressionNT(e->e.get<ExpressionNT*>(), indentLevel);
+      printExpressionNT(e->e.get<ExpressionNT*>(), ind + 1);
     }
     else if(e->e.is<Member*>())
     {
-      printMember(e->e.get<Member*>(), indentLevel);
+      printMember(e->e.get<Member*>(), ind + 1);
     }
     else if(e->e.is<StructLit*>())
     {
-      printStructLit(e->e.get<StructLit*>(), indentLevel);
+      printStructLit(e->e.get<StructLit*>(), ind + 1);
     }
     else if(e->e.is<Parser::Expr12::ArrayIndex>())
     {
+      indent(ind);
       auto& ai = e->e.get<Parser::Expr12::ArrayIndex>();
       cout << "Array/tuple index\n";
       indent(ind);
