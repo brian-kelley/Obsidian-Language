@@ -461,9 +461,8 @@ namespace Parser
     //need to determine lvalue and rvalue (target and rhs)
     ExpressionNT* target = parse<ExpressionNT>();
     ExpressionNT* rhs = nullptr;
-    Oper* op = (Oper*) expect(OPERATOR);
+    int otype = ((Oper*) expect(OPERATOR))->op;
     //unary assign operators don't have rhs
-    int otype = op->op;
     if(otype != INC && otype != DEC)
     {
       rhs = parse<ExpressionNT>();

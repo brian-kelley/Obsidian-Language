@@ -31,7 +31,6 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks;
   lex(code, toks);
-  /*
   cout << "************************************\n";
   cout << "*            TOKENS                *\n";
   cout << "************************************\n";
@@ -40,7 +39,6 @@ int main(int argc, const char** argv)
     cout << it->getDesc() << " : " << it->getStr() << "\n";
   }
   cout << '\n';
-  */
   //Parse the global/root module
   Parser::Module* ast = Parser::parseProgram(toks);
   cout << "************************************\n";

@@ -265,7 +265,7 @@ void lex(string& code, vector<Token*>& tokList)
         //operator, not punct
         //some operators are 2 chars long, use them if valid, otherwise 1 char
         string oper1 = string("") + c;
-        string oper2 = oper1 + cs.peek(1);
+        string oper2 = oper1 + cs.peek(0);
         auto oper2Iter = operatorMap.find(oper2);
         if(oper2Iter == operatorMap.end())
         {
@@ -294,10 +294,9 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else
     {
-      cout << "Note: cs iter is " << cs.iter << ", but code len is " << code.length() << '\n';
-      char temp[64];
-      sprintf(temp, "unexpected character: 0x%02hhx", c);
-      cs.err(temp);
+      ostringstream oss;
+      oss << "unexpected character: '" << c << "'\n";
+      cs.err(oss.str());
     }
   }
 }
