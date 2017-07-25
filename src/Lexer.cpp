@@ -1,6 +1,6 @@
 #include "Lexer.hpp"
 
-#define TAB_LENGTH 4
+#define TAB_LENGTH 2
 
 //utility func to parse escaped chars, e.g. 'n' -> '\n'
 char getEscapedChar(char ident);
@@ -10,18 +10,24 @@ struct CodeStream
   CodeStream(string& srcIn, vector<Token*>& toksIn) : src(srcIn), toks(toksIn)
   {
     iter = 0;
+    //no error can happen with iter at 0,
+    //so prev position doesn't matter (no chars read yet)
+    prevLine = 0;
+    prevCol = 0;
     line = 1;
     col = 1;
   }
   char getNext()
   {
+    prevCol = col;
+    prevLine = line;
     if(iter >= src.length())
       return '\0';
     char c = src[iter];
     if(c == '\n') 
     {
       line++;
-      col = 0;
+      col = 1;
     }
     else if(c == '\t')
     {
@@ -40,14 +46,6 @@ struct CodeStream
       return '\0';
     return src[iter + ahead];
   }
-  void putback()
-  {
-    if(iter == 0)
-    {
-      err("tried to backtrack at start of code stream");
-    }
-    iter--;
-  }
   void addToken(Token* tok)
   {
     toks.push_back(tok);
@@ -65,8 +63,8 @@ struct CodeStream
   }
   void err(string msg)
   {
-    string fullMsg = string("Lexical error at line ") + to_string(line) +
-      ", col " + to_string(col) + ": " + msg;
+    string fullMsg = string("Lexical error at line ") + to_string(prevLine) +
+      ", col " + to_string(prevCol) + ": " + msg;
     errAndQuit(fullMsg);
   }
   string& src;
@@ -74,6 +72,8 @@ struct CodeStream
   size_t iter;
   int line;
   int col;
+  int prevLine;
+  int prevCol;
 };
 
 void lex(string& code, vector<Token*>& tokList)
@@ -178,14 +178,18 @@ void lex(string& code, vector<Token*>& tokList)
     {
       //keyword or identifier
       //scan all following alphanumeric/underscore chars to classify
+      //c would be the start of the identifier, but iter is one past that now
       int identStart = cs.iter - 1;
-      while(true)
+      for(int i = 0;; i++)
       {
-        char identChar = cs.getNext();
+        char identChar = cs.peek(i);
         if(!isalnum(identChar) && identChar != '_')
         {
-          cs.putback();
           break;
+        }
+        else
+        {
+          cs.getNext();
         }
       }
       int identEnd = cs.iter;
@@ -273,7 +277,7 @@ void lex(string& code, vector<Token*>& tokList)
           auto oper1Iter = operatorMap.find(oper1);
           if(oper1Iter == operatorMap.end())
           {
-            cs.err("symbol character neither valid operator nor punctuation.");
+            cs.err(string("symbol character '") + oper1 + "' neither valid operator nor punctuation.");
           }
           else
           {
