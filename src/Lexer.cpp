@@ -40,7 +40,7 @@ struct CodeStream
     iter++;
     return c;
   }
-  char peek(int ahead)
+  char peek(int ahead = 0)
   {
     if(iter + ahead >= src.length())
       return '\0';
@@ -127,7 +127,7 @@ void lex(string& code, vector<Token*>& tokList)
       string s(&strLit[0]);
       cs.addToken(new StrLit(s));
     }
-    else if(c == '/' && cs.peek(0) == '*')
+    else if(c == '/' && cs.peek() == '*')
     {
       int commentDepth = 1;
       cs.getNext();
@@ -135,12 +135,12 @@ void lex(string& code, vector<Token*>& tokList)
       {
         //get next char
         char next = cs.getNext();
-        if(next == '/' && cs.peek(0) == '*')
+        if(next == '/' && cs.peek() == '*')
         {
           cs.getNext();
           commentDepth++;
         }
-        else if(next == '*' && cs.peek(0) == '/')
+        else if(next == '*' && cs.peek() == '/')
         {
           cs.getNext();
           commentDepth--;
@@ -169,7 +169,7 @@ void lex(string& code, vector<Token*>& tokList)
         cs.err("non-terminated character literal");
       }
     }
-    else if(c == '/' && cs.peek(0) == '/')
+    else if(c == '/' && cs.peek() == '/')
     {
       cs.getNext();
       while(cs.getNext() != '\n');
@@ -180,17 +180,13 @@ void lex(string& code, vector<Token*>& tokList)
       //scan all following alphanumeric/underscore chars to classify
       //c would be the start of the identifier, but iter is one past that now
       int identStart = cs.iter - 1;
-      for(int i = 0;; i++)
+      while(1)
       {
-        char identChar = cs.peek(i);
-        if(!isalnum(identChar) && identChar != '_')
-        {
-          break;
-        }
-        else
-        {
+        char identChar = cs.peek();
+        if(isalnum(identChar) || identChar == '_')
           cs.getNext();
-        }
+        else
+          break;
       }
       int identEnd = cs.iter;
       string ident = code.substr(identStart, identEnd - identStart);
@@ -201,7 +197,7 @@ void lex(string& code, vector<Token*>& tokList)
       else
         cs.addToken(new Keyword(kwIter->second));
     }
-    else if(c == '0' && tolower(cs.peek(0)) == 'x' && isxdigit(cs.peek(1)))
+    else if(c == '0' && tolower(cs.peek()) == 'x' && isxdigit(cs.peek(1)))
     {
       //hex int literal, OR int 0 followed by ??? (if not valid hex num)
       cs.getNext();
@@ -214,7 +210,7 @@ void lex(string& code, vector<Token*>& tokList)
         cs.getNext();
       }
     }
-    else if(c == '0' && tolower(cs.peek(0)) == 'b' &&
+    else if(c == '0' && tolower(cs.peek()) == 'b' &&
         (cs.peek(1) == '0' || cs.peek(1) == '1'))
     {
       //binary int literal, OR int 0 followed by ??? (if not valid bin num)
@@ -269,7 +265,7 @@ void lex(string& code, vector<Token*>& tokList)
         //operator, not punct
         //some operators are 2 chars long, use them if valid, otherwise 1 char
         string oper1 = string("") + c;
-        string oper2 = oper1 + cs.peek(0);
+        string oper2 = oper1 + cs.peek();
         auto oper2Iter = operatorMap.find(oper2);
         if(oper2Iter == operatorMap.end())
         {
