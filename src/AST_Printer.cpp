@@ -360,7 +360,7 @@ namespace AstPrinter
   {
     indent(ind);
     cout << "Test\n";
-    printCall(td->call, ind + indentLevel);
+    printCallNT(td->call, ind + indentLevel);
   }
 
   void printEnum(Enum* e, int ind)
@@ -446,10 +446,10 @@ namespace AstPrinter
     }
   }
 
-  void printCall(Call* c, int ind)
+  void printCallNT(CallNT* c, int ind)
   {
     indent(ind);
-    cout << "Call\n";
+    cout << "CallNT\n";
     indent(ind + indentLevel);
     cout << "Function/Procedure: \n";
     printMember(c->callable, ind + indentLevel);

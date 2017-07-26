@@ -1,8 +1,5 @@
 #include "Expression.hpp"
 
-namespace MiddleEndExpr
-{
-
 /**********************
  * Expression loading *
  **********************/
@@ -340,9 +337,9 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     return new TupleLiteral(s, expr->e.get<Parser::TupleLit*>());
   }
-  else if(expr->e.is<Parser::Call*>())
+  else if(expr->e.is<Parser::CallNT*>())
   {
-    return new Call(s, expr->e.get<Parser::Call*>());
+    return new Call(s, expr->e.get<Parser::CallNT*>());
   }
   else if(expr->e.is<Parser::Expr12::ArrayIndex>())
   {
@@ -659,7 +656,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
  * Call *
  ********/
 
-Call::Call(Scope* s, Parser::Call* ast) : Expression(s)
+Call::Call(Scope* s, Parser::CallNT* ast) : Expression(s)
 {
 }
 
@@ -695,4 +692,3 @@ Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
   this->type = var->type;
 }
 
-}

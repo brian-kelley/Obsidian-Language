@@ -35,7 +35,7 @@ namespace AstPrinter
   void printVarAssign(VarAssign* va, int indent);
   void printPrint(Print* p, int indent);
   void printExpressionNT(ExpressionNT* e, int indent);
-  void printCall(Call* c, int indent);
+  void printCallNT(CallNT* c, int indent);
   void printArg(Arg* a, int indent);
   void printFuncDecl(FuncDecl* fd, int indent);
   void printFuncDef(FuncDef* fd, int indent);

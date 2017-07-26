@@ -43,7 +43,7 @@ namespace Parser
   template<> VarAssign* parse<VarAssign>();
   template<> Print* parse<Print>();
   template<> ExpressionNT* parse<ExpressionNT>();
-  template<> Call* parse<Call>();
+  template<> CallNT* parse<CallNT>();
   template<> Arg* parse<Arg>();
   template<> FuncDecl* parse<FuncDecl>();
   template<> FuncDef* parse<FuncDef>();
@@ -393,7 +393,7 @@ namespace Parser
   {
     TestDecl* t = new TestDecl;
     expectKeyword(TEST);
-    t->call = parse<Call>();
+    t->call = parse<CallNT>();
     expectPunct(SEMICOLON);
     return t;
   }
@@ -600,9 +600,9 @@ namespace Parser
   }
 
   template<>
-  Call* parse<Call>()
+  CallNT* parse<CallNT>()
   {
-    Call* c = new Call;
+    CallNT* c = new CallNT;
     c->callable = parse<Member>();
     expectPunct(LPAREN);
     c->args = parseSomeCommaSeparated<ExpressionNT>();
@@ -1224,7 +1224,7 @@ namespace Parser
         !(e12->e = parseOptional<BoolLit>()) &&
         !(e12->e = parseOptional<Member>()) &&
         !(e12->e = parseOptional<StructLit>()) &&
-        !(e12->e = parseOptional<Call>()))
+        !(e12->e = parseOptional<CallNT>()))
     {
       err("invalid expression");
     }

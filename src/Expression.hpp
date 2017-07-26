@@ -5,9 +5,6 @@
 #include "TypeSystem.hpp"
 #include "variant.h"
 
-namespace MiddleEndExpr
-{
-
 struct Expression
 {
   //Expression constructor will determine the type (implemented in subclasses)
@@ -165,7 +162,7 @@ struct Indexed : public Expression
 
 struct Call : public Expression
 {
-  Call(Scope* s, Parser::Call* ast);
+  Call(Scope* s, Parser::CallNT* ast);
   bool assignable()
   {
     return false;
@@ -182,8 +179,6 @@ struct Var : public Expression
     return true;
   }
 };
-
-}
 
 #endif
 

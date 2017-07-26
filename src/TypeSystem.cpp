@@ -1,4 +1,5 @@
 #include "TypeSystem.hpp"
+//Include Expression here because it includes TypeSystem.hpp
 #include "Expression.hpp"
 
 using namespace std;
@@ -521,9 +522,56 @@ bool StructType::hasProc(ProcType* type)
   return false;
 }
 
+//direct conversion requires other to be the same type
 bool StructType::canConvert(Type* other)
 {
   return other == this;
+}
+
+bool StructType::canConvert(Expression* other)
+{
+  if(other->type == this)
+    return true;
+  else if(other->type != nullptr)
+    return false;
+  //if compound literal or tuple literal, check if those match members
+  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
+  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
+  if(cl)
+  {
+    if(cl->members.size() != members.size())
+    {
+      return false;
+    }
+    bool canConvert = true;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!(members[i]->canConvert(cl->members[i])))
+      {
+        canConvert = false;
+        break;
+      }
+    }
+    return canConvert;
+  }
+  else if(tl)
+  {
+    if(tl->members.size() != members.size())
+    {
+      return false;
+    }
+    bool canConvert = true;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!(members[i]->canConvert(tl->members[i])))
+      {
+        canConvert = false;
+        break;
+      }
+    }
+    return canConvert;
+  }
+  return false;
 }
 
 bool StructType::isStruct()

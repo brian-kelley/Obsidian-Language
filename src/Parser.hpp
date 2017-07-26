@@ -64,7 +64,7 @@ namespace Parser
   struct VarDecl;
   struct VarAssign;
   struct Print;
-  struct Call;
+  struct CallNT;
   struct Arg;
   struct FuncDecl;
   struct FuncDef;
@@ -286,7 +286,7 @@ namespace Parser
   struct TestDecl
   {
     TestDecl() : call(nullptr) {}
-    Call* call;
+    CallNT* call;
   };
 
   struct EnumItem
@@ -336,9 +336,9 @@ namespace Parser
     vector<ExpressionNT*> exprs;
   };
 
-  struct Call
+  struct CallNT
   {
-    Call() : callable(nullptr) {}
+    CallNT() : callable(nullptr) {}
     //name of func/proc
     Member* callable;
     vector<ExpressionNT*> args;
@@ -666,7 +666,7 @@ namespace Parser
       Member*,
       StructLit*,
       TupleLit*,
-      Call*,
+      CallNT*,
       ArrayIndex> e;
   }; 
 

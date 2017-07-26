@@ -36,10 +36,7 @@ struct Scope;
 struct StructScope;
 
 //need to forward-declare this to resolve mutual dependency
-namespace MiddleEndExpr
-{
-  struct Expression;
-}
+struct Expression;
 
 namespace TypeSystem
 {
@@ -53,8 +50,6 @@ struct AliasType;
 struct FuncType;
 struct ProcType;
 struct Trait;
-
-using MiddleEndExpr::Expression;
 
 //  UnresolvedType is used to remember an instance of a type (used in another type)
 //  that cannot be resolved during the first pass
@@ -129,6 +124,9 @@ struct Type
   virtual bool canConvert(Type* other) = 0;
   virtual bool canConvert(Expression* other)
   {
+    //Basic behavior here: if other has a known type, check if that can convert
+    if(other->type)
+      return canConvert(other->type);
     return false;
   }
   //Use this getType() for scope tree building
@@ -235,6 +233,7 @@ struct StructType : public Type
   //member types must be searched from here (the scope inside the struct decl)
   StructScope* structScope;
   bool canConvert(Type* other);
+  bool canConvert(Expression* other);
   bool isStruct();
 };
 
@@ -245,17 +244,18 @@ struct UnionType : public Type
   vector<Type*> options;
   Parser::UnionDecl* decl;
   bool canConvert(Type* other);
+  bool canConvert(Expression* other);
   bool isUnion();
 };
 
 struct ArrayType : public Type
 {
-  //note: dims in type passed to ctor ignored
   ArrayType(Type* elemType, int dims);
   Type* elem;
   Parser::TypeNT* elemNT;
   int dims;
   bool canConvert(Type* other);
+  bool canConvert(Expression* other);
   bool isArray();
 };
 
@@ -270,6 +270,7 @@ struct TupleType : public Type
   //this is used only when handling unresolved members
   Parser::TupleTypeNT* decl;
   bool canConvert(Type* other);
+  bool canConvert(Expression* other);
   bool isTuple();
   //Whether this->members exactly matches types
   bool matchesTypes(vector<Type*>& types);
@@ -287,6 +288,7 @@ struct AliasType : public Type
   Type* actual;
   Parser::Typedef* decl;
   bool canConvert(Type* other);
+  bool canConvert(Expression* other);
 };
 
 struct EnumType : public Type
