@@ -33,6 +33,14 @@ Type::Type(Scope* enclosingScope)
   }
 }
 
+bool Type::canConvert(Expression* other)
+{
+  //Basic behavior here: if other has a known type, check if that can convert
+  if(other->type)
+    return canConvert(other->type);
+  return false;
+}
+
 void createBuiltinTypes()
 {
   using Parser::TypeNT;
@@ -632,6 +640,52 @@ bool ArrayType::canConvert(Type* other)
     //unlike C, allow implicit conversion of elements
     return dims == at->dims && elem->canConvert(at->elem);
   }
+  else if(other->isTuple())
+  {
+    //Tuples can also be implicitly converted to arrays, as long as each member can be converted
+    auto tt = dynamic_cast<TupleType*>(other);
+    for(auto m : tt->members)
+    {
+      if(!(elem->canConvert(m)))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+bool ArrayType::canConvert(Expression* other)
+{
+  if(other->type && canConvert(other->type))
+  {
+    return true;
+  }
+  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
+  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
+  if(cl)
+  {
+    for(auto m : cl->members)
+    {
+      if(!(elem->canConvert(m)))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  else if(tl)
+  {
+    for(auto m : tl->members)
+    {
+      if(!(elem->canConvert(m)))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
   return false;
 }
 
@@ -675,6 +729,45 @@ bool TupleType::canConvert(Type* other)
   return (this == other) || (members.size() == 1 && members[0]->canConvert(other));
 }
 
+bool TupleType::canConvert(Expression* other)
+{
+  if(other->type && canConvert(other->type))
+    return true;
+  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
+  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
+  if(cl)
+  {
+    if(cl->members.size() != members.size())
+    {
+      return false;
+    }
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!(members[i]->canConvert(cl->members[i])))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  else if(tl)
+  {
+    if(tl->members.size() != members.size())
+    {
+      return false;
+    }
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!(members[i]->canConvert(tl->members[i])))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 bool TupleType::isTuple()
 {
   return true;
@@ -705,6 +798,11 @@ AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type
 }
 
 bool AliasType::canConvert(Type* other)
+{
+  return actual->canConvert(other);
+}
+
+bool AliasType::canConvert(Expression* other)
 {
   return actual->canConvert(other);
 }

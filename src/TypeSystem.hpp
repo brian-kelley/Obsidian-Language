@@ -122,13 +122,7 @@ struct Type
   Type* getArrayType(int dims);
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
-  virtual bool canConvert(Expression* other)
-  {
-    //Basic behavior here: if other has a known type, check if that can convert
-    if(other->type)
-      return canConvert(other->type);
-    return false;
-  }
+  virtual bool canConvert(Expression* other);
   //Use this getType() for scope tree building
   //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
   //Other variations (so above getType() 
@@ -244,7 +238,6 @@ struct UnionType : public Type
   vector<Type*> options;
   Parser::UnionDecl* decl;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool isUnion();
 };
 
