@@ -472,6 +472,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       {
         errAndQuit("operands to bit shifting operators must be integers.");
       }
+      this->type = ltype;
       break;
     }
     case CMPEQ:
