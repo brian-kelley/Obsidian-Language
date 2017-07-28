@@ -11,6 +11,7 @@
 
 struct Statement
 {
+  Scope* s;
 };
 
 struct Assign : public Statement
@@ -55,15 +56,14 @@ struct IfElse : public Statement
 
 struct Return : public Statement
 {
+  Statement* value;
 };
 
 struct Break : public Statement
-{
-};
+{};
 
 struct Continue : public Statement
-{
-};
+{};
 
 struct Print : public Statement
 {
@@ -76,6 +76,7 @@ struct Subroutine
   Type* retType;
   vector<Type*> argTypes;
   bool pure;              //true for functions and false for procedures
+  vector<Statement*> statements;
 };
 
 #endif
