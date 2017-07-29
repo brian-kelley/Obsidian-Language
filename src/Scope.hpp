@@ -5,9 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "TypeSystem.hpp"
-#include "Variable.hpp"
-
+//Forward-declare all the things that Scopes contain
 namespace TypeSystem
 {
   struct Type;
@@ -16,6 +14,7 @@ namespace TypeSystem
   struct Trait;
 }
 
+struct Subroutine;
 struct Variable;
 
 //Scopes own all funcs/structs/traits/etc
@@ -31,7 +30,7 @@ struct Scope
   vector<Variable*> vars;             //variables declared here
   //funcs and procs are all fully implemented functions in a scope
   //Struct member funcs/procs can be declared before defined but then they must be defined in parent scope
-  vector<TypeSystem::FuncType*> funcs;
+  vector<Subroutine*> subr;
   vector<TypeSystem::ProcType*> procs;
   //Find a sub scope of this (or a parent) with given relative "path"
   //"names" will probably come from Parser::Member::scopes

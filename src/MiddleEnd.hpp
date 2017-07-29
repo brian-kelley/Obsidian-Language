@@ -3,10 +3,11 @@
 
 #include "Misc.hpp"
 #include "Utils.hpp"
-#include "Variable.hpp"
 #include "Parser.hpp"
-#include "TypeSystem.hpp"
 #include "Scope.hpp"
+#include "TypeSystem.hpp"
+#include "Subroutine.hpp"
+#include "Variable.hpp"
 #include "Expression.hpp"
 
 /*
@@ -36,6 +37,12 @@ namespace MiddleEnd
     void visitStruct(Scope* current, Parser::StructDecl* sd);
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
     void resolveAll();
+  }
+  namespace SubroutineLoading
+  {
+    void visitScope(Scope* s);
+    void visitFuncDef(Scope* s, Parser::FuncDef* ast);
+    void visitProcDef(Scope* s, Parser::ProcDef* ast);
   }
   namespace VarLoading
   {

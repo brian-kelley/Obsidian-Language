@@ -20,6 +20,11 @@ struct Assign : public Statement
   Expression* rvalue;
 };
 
+struct Block : public Statement
+{
+  vector<Statement*> stmts;
+};
+
 struct For : public Statement
 {
   Type* counterType;
@@ -72,11 +77,25 @@ struct Print : public Statement
 
 struct Subroutine
 {
+  Subroutine(Scope* enclosing) : s(enclosing) {}
   Scope* s;
   Type* retType;
   vector<Type*> argTypes;
   bool pure;              //true for functions and false for procedures
   vector<Statement*> statements;
+  StructType* owner;      //the struct type with this as member (or null if non-member)
+};
+
+struct Function : public Subroutine
+{
+  Function(Parser::FuncDef* a, Scope* enclosing);
+  Parser::FuncDef* ast;
+};
+
+struct Procedure : public Subroutine
+{
+  Procedure(Parser::ProcDef* a, Scope* enclosing);
+  Parser::ProcDef* ast;
 };
 
 #endif
