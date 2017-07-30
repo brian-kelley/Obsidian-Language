@@ -4,25 +4,34 @@
 #include "TypeSystem.hpp"
 #include "Parser.hpp"
 #include "Expression.hpp"
-#include "Variable.hpp"
 #include "Scope.hpp"
 
 //Abstract middle-end format for functions, procedures and statements
 
 struct Statement
+{};
+
+//Block scope provides:
+//  -scope for looking up variables/types
+//  -BlockScope::Variable
+Statement* createStatement(Parser::StatementNT* stmt, Parser::BlockScope* b);
+
+struct Block : public Statement
 {
-  Scope* s;
+  Block(Parser::Block* b, Scope* s);
+  vector<Statement*> stmts;
+};
+
+struct NewVar : public Statement
+{
+  NewVar(Parser::VarDecl* vd, Scope* s);
 };
 
 struct Assign : public Statement
 {
+  Assign(Parser::VarAssign* 
   Expression* lvalue;
   Expression* rvalue;
-};
-
-struct Block : public Statement
-{
-  vector<Statement*> stmts;
 };
 
 struct For : public Statement
@@ -61,7 +70,7 @@ struct IfElse : public Statement
 
 struct Return : public Statement
 {
-  Statement* value;
+  Statement* value; //can be null
 };
 
 struct Break : public Statement
@@ -77,25 +86,23 @@ struct Print : public Statement
 
 struct Subroutine
 {
-  Subroutine(Scope* enclosing) : s(enclosing) {}
+  Subroutine(Scope* enclosing, Parser::Block* block) : s(enclosing) {}
   Scope* s;
   Type* retType;
   vector<Type*> argTypes;
   bool pure;              //true for functions and false for procedures
   vector<Statement*> statements;
-  StructType* owner;      //the struct type with this as member (or null if non-member)
+  StructType* owner;      //the struct type with this subroutine as a non-static member (otherwise null)
 };
 
 struct Function : public Subroutine
 {
   Function(Parser::FuncDef* a, Scope* enclosing);
-  Parser::FuncDef* ast;
 };
 
 struct Procedure : public Subroutine
 {
   Procedure(Parser::ProcDef* a, Scope* enclosing);
-  Parser::ProcDef* ast;
 };
 
 #endif

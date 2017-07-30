@@ -316,7 +316,7 @@ namespace Parser
     TypeNT* type;
     //var decl's name can only be a single identifier (but variables can be referenced via compound idents)
     string name;
-    //NULL if not initialization, but required if auto
+    //initializing expression (optional)
     ExpressionNT* val;
     //true if static, false otherwise
     //if true, only has valid semantics if inside a struct decl

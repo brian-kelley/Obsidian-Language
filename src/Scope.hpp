@@ -63,6 +63,7 @@ struct BlockScope : public Scope
   Parser::Block* ast;
   int index;
   static int nextBlockIndex;
+  int statementCounter;
 };
 
 #endif

@@ -14,6 +14,7 @@ add_executable (onyx
   src/Variable.cpp
   src/Expression.cpp
   src/TypeSystem.cpp
+  src/Subroutine.cpp
   src/Scope.cpp
   src/Lexer.cpp
   src/Parser.cpp
