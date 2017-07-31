@@ -139,6 +139,25 @@ Trait* Scope::findTrait(Parser::Member* mem)
   return nullptr;
 }
 
+Subroutine* Scope::findSubroutine(Parser::Member* mem)
+{
+  auto search = findSub(mem->scopes);
+  for(auto scope : search)
+  {
+    for(Subroutine* s : scope->traits)
+    {
+      if(s->name == mem->ident)
+      {
+        return s;
+      }
+    }
+  }
+  ostringstream oss;
+  oss << "function or procedure \"" << mem << "\" has not been declared";
+  errAndQuit(oss.str());
+  return nullptr;
+}
+
 vector<Scope*> Scope::findSub(vector<string>& names)
 {
   vector<Scope*> matches;

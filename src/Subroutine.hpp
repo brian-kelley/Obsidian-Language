@@ -25,12 +25,6 @@ struct Block : public Statement
   vector<Statement*> stmts;
 };
 
-//Note: NewVar constructor also adds a LocalVar to the scope
-struct NewVar : public Statement
-{
-  NewVar(Parser::VarDecl* vd, Scope* s);
-};
-
 struct Assign : public Statement
 {
   Assign(Parser::VarAssign* 
@@ -94,8 +88,10 @@ struct Subroutine
   Scope* s;
   Type* retType;
   vector<Type*> argTypes;
-  bool pure;              //true for functions and false for procedures
   vector<Statement*> statements;
+  bool pure;              //true for functions and false for procedures
+  string name;
+  bool isStatic;
   StructType* owner;      //the struct type with this subroutine as a non-static member (otherwise null)
 };
 

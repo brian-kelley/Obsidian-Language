@@ -169,7 +169,7 @@ namespace Parser
       ScopedDecl*,
       VarAssign*,
       Print*,
-      ExpressionNT*,
+      Call*,
       Block*,
       Return*,
       Continue*,

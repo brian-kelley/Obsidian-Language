@@ -37,6 +37,7 @@ struct Scope
   TypeSystem::Type* findType(Parser::Member* mem);
   Variable* findVariable(Parser::Member* mem);
   Trait* findTrait(Parser::Member* mem);
+  Subroutine* findSubroutine(Parser::Member* mem);
   private:
   void findSubImpl(vector<string>& names, vector<Scope*>& matches);
 };

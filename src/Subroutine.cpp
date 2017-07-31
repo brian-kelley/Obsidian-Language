@@ -4,28 +4,51 @@ Statement* createStatement(Parser::StatementNT* stmt, BlockScope* bs)
 {
   if(stmt->s.is<ScopedDecl*>())
   {
-    //only process this here if it is a VarDecl
-    //all other kinds of scoped decl have already been processed
-    auto sd = stmt->s.get<ScopedDecl*>();
-    if(sd->decl.is<VarDecl*>())
-    {
-      return new NewVar(sd->decl.get<VarDecl*>(), bs);
-    }
+    //local VarDecls are handled in Block ctor, and
+    //all other kinds of scoped decls have already been added to scope
+    INTERNAL_ERROR;
   }
-
-      ScopedDecl*,
-      VarAssign*,
-      Print*,
-      ExpressionNT*,
-      Block*,
-      Return*,
-      Continue*,
-      Break*,
-      Switch*,
-      For*,
-      While*,
-      If*,
-      Assertion*,
+  else if(stmt->s.is<VarAssign*>())
+  {
+  }
+  else if(stmt->s.is<Print*>())
+  {
+  }
+  else if(stmt->s.is<Call*>())
+  {
+  }
+  else if(stmt->s.is<Block*>())
+  {
+  }
+  else if(stmt->s.is<Return*>())
+  {
+  }
+  else if(stmt->s.is<Continue*>())
+  {
+  }
+  else if(stmt->s.is<Break*>())
+  {
+  }
+  else if(stmt->s.is<Switch*>())
+  {
+  }
+  else if(stmt->s.is<For*>())
+  {
+  }
+  else if(stmt->s.is<While*>())
+  {
+  }
+  else if(stmt->s.is<If*>())
+  {
+  }
+  else if(stmt->s.is<Assertion*>())
+  {
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
+  return nullptr;
 }
 
 Block::Block(Parser::Block* b, Scope* s)

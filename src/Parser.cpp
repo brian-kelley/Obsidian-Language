@@ -190,6 +190,7 @@ namespace Parser
     if((s->s = parseOptional<ScopedDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
         (s->s = parseOptional<Print>()) ||
+        (s->s = parseOptional<Call>()) ||
         (s->s = parseOptional<Block>()) ||
         (s->s = parseOptional<Return>()) ||
         (s->s = parseOptional<Continue>()) ||
