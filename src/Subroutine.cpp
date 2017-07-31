@@ -55,13 +55,32 @@ Block::Block(Parser::Block* b, Scope* s)
 {
   for(auto stmt : b->statements)
   {
+    if(stmt->s.is<ScopedDecl*>())
+    {
+      auto sd = stmt->s.is<ScopedDecl*>();
+      if(sd->decl.is<VarDecl*>())
+      {
+        auto vd = sd->decl.get<VarDecl*>();
+        Variable* newVar = new Variable(s, vd);
+        s->vars.push_back(newVar);
+        //if the new variable has an initializing expression,
+        //treat as a separate Assign statement
+        if(vd->val)
+        {
+          stmts.push_back(new Assign(newVar, getExpression(s, vd->val)));
+        }
+      }
+    }
     stmts.push_back(createStatement(stmt, s);
   }
 }
 
-NewVar::NewVar(Parser::VarDecl* vd, Scope* s)
+Assign::Assign(Parser::VarAssign* va, Scope* s)
 {
-  s->variables.push_back(new Variable(s, vd));
+}
+
+Assign::Assign(Variable* target, Expression* e)
+{
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)

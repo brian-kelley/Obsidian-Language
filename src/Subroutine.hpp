@@ -27,7 +27,8 @@ struct Block : public Statement
 
 struct Assign : public Statement
 {
-  Assign(Parser::VarAssign* 
+  Assign(Parser::VarAssign* va, Scope* s);
+  Assign(Variable* target, Expression* e);
   Expression* lvalue;
   Expression* rvalue;
 };

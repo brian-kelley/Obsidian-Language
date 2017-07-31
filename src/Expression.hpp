@@ -17,7 +17,7 @@ struct Expression
 
 //Create a new Expression given one of the ExprN nonterminals
 template<typename NT>
-Expression* getExpression(Scope* s, NT* expr, int stmtNum);
+Expression* getExpression(Scope* s, NT* expr);
 
 struct UnaryArith : public Expression
 {
