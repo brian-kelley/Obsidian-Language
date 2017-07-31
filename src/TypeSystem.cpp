@@ -17,6 +17,7 @@ namespace TypeSystem
 {
 
 vector<Type*> primitives;
+unordered_map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
 vector<UnresolvedType> unresolved;
@@ -58,6 +59,18 @@ void createBuiltinTypes()
   primitives[TypeNT::FLOAT] = new FloatType("float", 4);
   primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
   primitives[TypeNT::STRING] = new StringType;
+  primNames["bool"] = primitives[TypeNT::BOOL];
+  primNames["char"] = primitives[TypeNT::CHAR];
+  primNames["uchar"] = primitives[TypeNT::UCHAR];
+  primNames["short"] = primitives[TypeNT::SHORT];
+  primNames["ushort"] = primitives[TypeNT::USHORT];
+  primNames["int"] = primitives[TypeNT::INT];
+  primNames["uint"] = primitives[TypeNT::UINT];
+  primNames["long"] = primitives[TypeNT::LONG];
+  primNames["ulong"] = primitives[TypeNT::ULONG];
+  primNames["float"] = primitives[TypeNT::FLOAT];
+  primNames["double"] = primitives[TypeNT::DOUBLE];
+  primNames["string"] = primitives[TypeNT::STRING];
   new AliasType("i8", primitives[TypeNT::CHAR], global);
   new AliasType("u8", primitives[TypeNT::UCHAR], global);
   new AliasType("i16", primitives[TypeNT::SHORT], global);

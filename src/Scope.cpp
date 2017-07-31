@@ -64,6 +64,81 @@ void Scope::findSubImpl(vector<string>& names, vector<Scope*>& matches)
   }
 }
 
+TypeSystem::Type* Scope::findType(Parser::Member* mem)
+{
+  //check for primitives
+  if(mem->scopes.size() == 0)
+  {
+    auto prim = TypeSystem::primNames.find(mem->ident);
+    if(prim != TypeSystem::primNames.end())
+    {
+      return prim->second;
+    }
+  }
+  auto search = findSub(mem->scopes);
+  for(auto scope : search)
+  {
+    for(Type* t : scope->types)
+    {
+      //check for named type
+      auto at = dynamic_cast<AliasType*>(t);
+      auto st = dynamic_cast<StructType*>(t);
+      auto ut = dynamic_cast<UnionType*>(t);
+      auto et = dynamic_cast<EnumType*>(t);
+      if(at && at->name == mem->ident ||
+         st && st->name == mem->ident ||
+         ut && ut->name == mem->ident ||
+         et && et->name == mem->ident)
+      {
+        return t;
+      }
+      INTERNAL_ERROR;
+    }
+  }
+  ostringstream oss;
+  oss << "type \"" << mem << "\" has not been declared";
+  errAndQuit(oss.str());
+  return nullptr;
+}
+
+Variable* Scope::findVariable(Parser::Member* mem)
+{
+  auto search = findSub(mem->scopes);
+  for(auto scope : search)
+  {
+    for(Variable* v : scope->vars)
+    {
+      if(v->name == mem->ident)
+      {
+        return v;
+      }
+    }
+  }
+  ostringstream oss;
+  oss << "variable \"" << mem << "\" has not been declared";
+  errAndQuit(oss.str());
+  return nullptr;
+}
+
+Trait* Scope::findTrait(Parser::Member* mem)
+{
+  auto search = findSub(mem->scopes);
+  for(auto scope : search)
+  {
+    for(Trait* t : scope->traits)
+    {
+      if(t->name == mem->ident)
+      {
+        return t;
+      }
+    }
+  }
+  ostringstream oss;
+  oss << "trait \"" << mem << "\" has not been declared";
+  errAndQuit(oss.str());
+  return nullptr;
+}
+
 vector<Scope*> Scope::findSub(vector<string>& names)
 {
   vector<Scope*> matches;
@@ -95,7 +170,7 @@ string StructScope::getLocalName()
 
 /* BlockScope */
 
-BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++), statementCounter(0) {}
+BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++) {}
 
 string BlockScope::getLocalName()
 {

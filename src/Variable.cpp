@@ -1,13 +1,9 @@
 #include "Variable.hpp"
 
-unsigned Variable::nextID = 1;
-
-Variable::Variable(Scope* s, Parser::VarDecl* astIn)
+Variable::Variable(Scope* s, Parser::VarDecl* ast)
 {
-  name = astIn->name;
+  name = ast->name;
   scope = s;
-  ast = astIn;
-  id = nextID++;
   isStatic = ast->isStatic;
   if(isStatic && !dynamic_cast<StructScope*>(s))
   {

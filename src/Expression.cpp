@@ -1,4 +1,6 @@
 #include "Expression.hpp"
+#include "Variable.hpp"
+#include "Scope.hpp"
 
 /**********************
  * Expression loading *
@@ -327,7 +329,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::Member*>())
   {
-    return new Var(s, expr->e.get<Parser::Member*>());
+    return new VarExpr(s, expr->e.get<Parser::Member*>());
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
@@ -339,7 +341,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::CallNT*>())
   {
-    return new Call(s, expr->e.get<Parser::CallNT*>());
+    return new CallExpr(s, expr->e.get<Parser::CallNT*>());
   }
   else if(expr->e.is<Parser::Expr12::ArrayIndex>())
   {
@@ -653,19 +655,19 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
   }
 }
 
-/********
- * Call *
- ********/
+/************
+ * CallExpr *
+ ************/
 
-Call::Call(Scope* s, Parser::CallNT* ast) : Expression(s)
+CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
 {
 }
 
-/*******
- * Var *
- *******/
+/***********
+ * VarExpr *
+ ***********/
 
-Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
+VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
 {
   //To get type and var (Variable*), look up the variable in scope tree
   auto searchScopes = s->findSub(ast->scopes);
@@ -676,6 +678,7 @@ Var::Var(Scope* s, Parser::Member* ast) : Expression(s)
     {
       if(ast->ident == v->name)
       {
+        //var must be declared before use
         var = v;
         break;
       }

@@ -198,7 +198,7 @@ namespace MiddleEnd
             if(sd->decl.is<VarDecl*>())
             {
               auto vd = sd->decl.get<VarDecl*>();
-              bs->vars.push_back(new Variable(s, vd));
+              bs->vars.push_back(new GlobalVar(s, vd));
             }
           }
         }
@@ -213,7 +213,7 @@ namespace MiddleEnd
             auto vd = it->sd->decl.get<VarDecl*>();
             if(vd->isStatic)
             {
-              ss->vars.push_back(new Variable(s, vd));
+              ss->vars.push_back(new GlobalVar(s, vd));
             }
           }
         }
@@ -224,7 +224,7 @@ namespace MiddleEnd
         {
           if(it->decl.is<VarDecl*>())
           {
-            ms->vars.push_back(new Variable(s, it->decl.get<VarDecl*>()));
+            ms->vars.push_back(new GlobalVar(s, it->decl.get<VarDecl*>()));
           }
         }
       }

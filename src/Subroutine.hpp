@@ -6,22 +6,26 @@
 #include "Expression.hpp"
 #include "Scope.hpp"
 
-//Abstract middle-end format for functions, procedures and statements
+/***************************************************************************/
+// Subroutine: middle-end structures for program behavior and control flow //
+/***************************************************************************/
 
 struct Statement
 {};
 
 //Block scope provides:
 //  -scope for looking up variables/types
-//  -BlockScope::Variable
+//  -BlockScope::statementCounter to provide the position of the variable in the block
 Statement* createStatement(Parser::StatementNT* stmt, Parser::BlockScope* b);
 
+//Block: list of statements
 struct Block : public Statement
 {
   Block(Parser::Block* b, Scope* s);
   vector<Statement*> stmts;
 };
 
+//Note: NewVar constructor also adds a LocalVar to the scope
 struct NewVar : public Statement
 {
   NewVar(Parser::VarDecl* vd, Scope* s);

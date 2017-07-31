@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "TypeSystem.hpp"
 #include "Scope.hpp"
+#include "Expression.hpp"
 
 struct Scope;
 
@@ -16,14 +17,11 @@ namespace TypeSystem
 
 struct Variable
 {
-  Variable(Scope* s, Parser::VarDecl* astIn);
+  Variable(Scope* s, Parser::VarDecl* ast);
   Scope* scope;
   string name;
   TypeSystem::Type* type;
-  Parser::VarDecl* ast;
   bool isStatic;
-  unsigned id;
-  static unsigned nextID;
 };
 
 #endif

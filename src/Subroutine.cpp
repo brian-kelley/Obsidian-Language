@@ -1,6 +1,6 @@
 #include "Subroutine.hpp"
 
-Statement* createStatement(Parser::StatementNT* stmt, Scope* s)
+Statement* createStatement(Parser::StatementNT* stmt, BlockScope* bs)
 {
   if(stmt->s.is<ScopedDecl*>())
   {
@@ -9,6 +9,7 @@ Statement* createStatement(Parser::StatementNT* stmt, Scope* s)
     auto sd = stmt->s.get<ScopedDecl*>();
     if(sd->decl.is<VarDecl*>())
     {
+      return new NewVar(sd->decl.get<VarDecl*>(), bs);
     }
   }
 
@@ -31,8 +32,13 @@ Block::Block(Parser::Block* b, Scope* s)
 {
   for(auto stmt : b->statements)
   {
-    stmts.push_back(getStatement(stmt, s);
+    stmts.push_back(createStatement(stmt, s);
   }
+}
+
+NewVar::NewVar(Parser::VarDecl* vd, Scope* s)
+{
+  s->variables.push_back(new Variable(s, vd));
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)

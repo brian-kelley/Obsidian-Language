@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <cassert>
 
@@ -108,6 +109,7 @@ extern vector<ArrayType*> arrays;
 extern vector<UnresolvedType> unresolved;
 extern vector<UnresolvedTrait> unresolvedTraits;
 extern vector<Type*> primitives;
+extern unordered_map<string, Type*> primNames;
 extern Type* self;
 
 struct Type

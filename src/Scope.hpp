@@ -28,13 +28,15 @@ struct Scope
   vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
   vector<TypeSystem::Trait*> traits;  //traits declared here
   vector<Variable*> vars;             //variables declared here
-  //funcs and procs are all fully implemented functions in a scope
-  //Struct member funcs/procs can be declared before defined but then they must be defined in parent scope
+  //subroutines (funcs and procs) defined in scope
   vector<Subroutine*> subr;
-  vector<TypeSystem::ProcType*> procs;
   //Find a sub scope of this (or a parent) with given relative "path"
   //"names" will probably come from Parser::Member::scopes
   vector<Scope*> findSub(vector<string>& names);
+  //Look up types, variables, subroutines (return NULL if not found)
+  TypeSystem::Type* findType(Parser::Member* mem);
+  Variable* findVariable(Parser::Member* mem);
+  Trait* findTrait(Parser::Member* mem);
   private:
   void findSubImpl(vector<string>& names, vector<Scope*>& matches);
 };
@@ -63,7 +65,6 @@ struct BlockScope : public Scope
   Parser::Block* ast;
   int index;
   static int nextBlockIndex;
-  int statementCounter;
 };
 
 #endif
