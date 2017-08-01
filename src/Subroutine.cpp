@@ -77,10 +77,55 @@ Block::Block(Parser::Block* b, Scope* s)
 
 Assign::Assign(Parser::VarAssign* va, Scope* s)
 {
+  lvalue = va->target;
+  rvalue = va->rhs;
+  //make sure that lvalue is in fact an lvalue, and that
+  //rvalue can convert to lvalue's type
+  if(!lvalue->assignable())
+  {
+    errAndQuit("cannot assign to that expression");
+  }
+  if(!lvalue->type)
+  {
+    INTERNAL_ERROR;
+  }
+  if(!lvalue->type->canConvert(rvalue))
+  {
+    errAndQuit("incompatible types for assignment");
+  }
 }
 
-Assign::Assign(Variable* target, Expression* e)
+Assign::Assign(Variable* target, Expression* e, Scope* s)
 {
+  lvalue = new VarExpr(s, target);
+  //vars are always lvalues, no need to check that
+  if(!lvalue->type->canConvert(e))
+  {
+    errAndQuit("incompatible types for assignment");
+  }
+  rvalue = e;
+}
+
+For::For(Parser::For* f, Scope* s)
+{
+  if(f->f.is<Parser::ForC*>())
+  {
+    auto fc = f->f.get<Parser::ForC*>();
+  }
+  else if(f->f.is<Parser::ForRange1*>())
+  {
+  }
+  else if(f->f.is<Parser::ForRange2*>())
+  {
+  }
+  else if(f->f.is<Parser::ForArray*>())
+  {
+  }
+  Type* counterType;
+  Expression* start;
+  Expression* condition;
+  Statement* increment;
+  Statement* body;
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)

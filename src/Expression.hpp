@@ -117,7 +117,7 @@ struct BoolLiteral : public Expression
 //CompoundLiteral covers both array and struct literals
 struct CompoundLiteral : public Expression
 {
-  CompoundLiteral(Scope* s, Parser::StructLit* ast, int stmtNum);
+  CompoundLiteral(Scope* s, Parser::StructLit* ast);
   Parser::StructLit* ast;
   bool assignable()
   {
@@ -131,7 +131,7 @@ struct CompoundLiteral : public Expression
 //"auto tup = (1, 2, 3, 4.5, "hello");" is valid
 struct TupleLiteral : public Expression
 {
-  TupleLiteral(Scope* s, Parser::TupleLit* ast, int stmtNum);
+  TupleLiteral(Scope* s, Parser::TupleLit* ast);
   Parser::TupleLit* ast;
   bool assignable()
   {
@@ -150,7 +150,7 @@ struct TupleLiteral : public Expression
 
 struct Indexed : public Expression
 {
-  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast, int stmtNum);
+  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
   Parser::Expr12::ArrayIndex* ast;
@@ -162,7 +162,8 @@ struct Indexed : public Expression
 
 struct CallExpr : public Expression
 {
-  CallExpr(Scope* s, Parser::CallNT* ast, int stmtNum);
+  CallExpr(Scope* s, Parser::CallNT* ast);
+  Subroutine* subr;
   bool assignable()
   {
     return false;
@@ -171,7 +172,8 @@ struct CallExpr : public Expression
 
 struct VarExpr : public Expression
 {
-  VarExpr(Scope* s, Parser::Member* ast, int stmtNum);
+  VarExpr(Scope* s, Parser::Member* ast);
+  VarExpr(Scope* s, Variable* v);
   Variable* var;  //var must be looked up from current scope
   bool assignable()
   {

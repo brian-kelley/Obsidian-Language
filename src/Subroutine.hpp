@@ -28,23 +28,19 @@ struct Block : public Statement
 struct Assign : public Statement
 {
   Assign(Parser::VarAssign* va, Scope* s);
-  Assign(Variable* target, Expression* e);
+  Assign(Variable* target, Expression* e, Scope* s);
   Expression* lvalue;
   Expression* rvalue;
 };
 
 struct For : public Statement
 {
+  For(Parser::For* f, Scope* s);
+  //note: everything except body is auto-generated in case of ranged for
   Type* counterType;
   Expression* start;
   Expression* condition;
   Statement* increment;
-  Statement* body;
-};
-
-struct ForRange : public Statement
-{
-  Type* iterable;
   Statement* body;
 };
 

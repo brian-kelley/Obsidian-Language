@@ -1,6 +1,7 @@
 #include "Expression.hpp"
 #include "Variable.hpp"
 #include "Scope.hpp"
+#include "Subroutine.hpp"
 
 /**********************
  * Expression loading *
@@ -650,7 +651,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
     }
     else
     {
-      errAndQuit("Expression can't be subscripted.");
+      errAndQuit("expression can't be subscripted.");
     }
   }
 }
@@ -661,6 +662,14 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
 
 CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
 {
+  subr = s->findSubroutine(ast->callable);
+  if(!subr)
+  {
+    ostringstream oss;
+    oss << "\"" << ast->callable << "\" is not a function or procedure";
+    errAndQuit(oss.str());
+  }
+  this->type = subr->retType;
 }
 
 /***********
@@ -670,22 +679,7 @@ CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
 VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
 {
   //To get type and var (Variable*), look up the variable in scope tree
-  auto searchScopes = s->findSub(ast->scopes);
-  var = NULL;
-  for(auto search : searchScopes)
-  {
-    for(auto v : search->vars)
-    {
-      if(ast->ident == v->name)
-      {
-        //var must be declared before use
-        var = v;
-        break;
-      }
-    }
-    if(var)
-      break;
-  }
+  var = s->findVariable(ast);
   if(!var)
   {
     ostringstream oss;
@@ -694,5 +688,10 @@ VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
   }
   //type of variable must be known
   this->type = var->type;
+}
+
+VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
+{
+  this->type = v->type;
 }
 
