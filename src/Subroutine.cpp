@@ -61,6 +61,13 @@ Block::Block(Parser::Block* b, Scope* s)
       if(sd->decl.is<VarDecl*>())
       {
         auto vd = sd->decl.get<VarDecl*>();
+        //Make sure variable doesn't already exist (shadowing var is error)
+        Parser::Member search;
+        search.ident = vd->name;
+        if(s->findVariable(&search))
+        {
+          errAndQuit(string("variable \"") + vd->name + "\" already exists");
+        }
         Variable* newVar = new Variable(s, vd);
         s->vars.push_back(newVar);
         //if the new variable has an initializing expression,
@@ -111,6 +118,10 @@ For::For(Parser::For* f, Scope* s)
   if(f->f.is<Parser::ForC*>())
   {
     auto fc = f->f.get<Parser::ForC*>();
+    //if there is an initializer statement, add it to the block as the first statement
+    if(fc->decl)
+    {
+    }
   }
   else if(f->f.is<Parser::ForRange1*>())
   {
@@ -121,11 +132,15 @@ For::For(Parser::For* f, Scope* s)
   else if(f->f.is<Parser::ForArray*>())
   {
   }
+
+  /*
+   * Fields:
   Type* counterType;
   Expression* start;
   Expression* condition;
   Statement* increment;
   Statement* body;
+  */
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)

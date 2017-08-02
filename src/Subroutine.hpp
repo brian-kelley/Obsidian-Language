@@ -38,7 +38,8 @@ struct For : public Statement
   For(Parser::For* f, Scope* s);
   //note: everything except body is auto-generated in case of ranged for
   Type* counterType;
-  Expression* start;
+  //Even if the body is not a block, create a block to introduce a scope
+  Block* block;
   Expression* condition;
   Statement* increment;
   Statement* body;

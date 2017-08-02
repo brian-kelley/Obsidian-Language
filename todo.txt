@@ -7,6 +7,13 @@ TODO:
     -statements (including local var decls) are ordered
   -in var lookup, add arguments
   -in var lookup, add to non-static member subroutines the implicit "this" pointer
+
+---------------------
+  -Annotated AST refactor
+  -Middle end structures added directly to AST nodes
+  -Expression* in ExpressionNT
+  -Statement* in StatementNT
+  -Type* in TypeNT
 ---------------------
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):

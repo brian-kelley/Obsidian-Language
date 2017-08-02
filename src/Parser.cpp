@@ -1,6 +1,8 @@
 #include "Parser.hpp"
 #include "AST_Printer.hpp"
 
+struct BlockScope;
+
 namespace Parser
 {
   size_t pos;
@@ -201,14 +203,17 @@ namespace Parser
         (s->s = parseOptional<If>()) ||
         (s->s = parseOptional<Assertion>()) ||
         (s->s = parseOptional<EmptyStatement>()))
+    {}
+    else if((s->s = parseOptional<Call>()))
     {
-      return s;
+      //call doesn't include the semicolon
+      expectPunct(SEMICOLON);
     }
     else
     {
       err("invalid statement");
-      return s;
     }
+    return s;
   }
 
   template<>
@@ -293,16 +298,15 @@ namespace Parser
     expectKeyword(FOR);
     expectPunct(LPAREN);
     //all 3 parts of the loop are optional
-    forC->decl = parseOptional<VarDecl>();
+    forC->decl = parseOptional<Statement>();
     if(!forC->decl)
     {
       expectPunct(SEMICOLON);
     }
     forC->condition = parseOptional<ExpressionNT>();
     expectPunct(SEMICOLON);
-    forC->incr = parseOptional<VarAssign>();
+    forC->incr = parseOptional<Statement>();
     expectPunct(RPAREN);
-    //parse succeeded, use forC
     return forC;
   }
 
@@ -430,6 +434,7 @@ namespace Parser
     expectPunct(LBRACE);
     b->statements = parseSome<Statement>();
     expectPunct(RBRACE);
+    bs = nullptr;
     return b;
   }
 
@@ -819,10 +824,6 @@ namespace Parser
   Member* parse<Member>()
   {
     Member* m = new Member;
-    /*
-    vector<string> scopes;
-    string ident;
-    */
     //get a list of all strings separated by dots
     m->scopes.push_back(((Ident*) expect(IDENTIFIER))->name);
     while(acceptPunct(DOT))

@@ -189,7 +189,10 @@ string StructScope::getLocalName()
 
 /* BlockScope */
 
-BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++) {}
+BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++)
+{
+  ast->bs = this;
+}
 
 string BlockScope::getLocalName()
 {

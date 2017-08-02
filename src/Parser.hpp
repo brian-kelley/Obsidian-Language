@@ -231,9 +231,11 @@ namespace Parser
   struct ForC
   {
     ForC() : decl(nullptr), condition(nullptr), incr(nullptr) {}
-    VarDecl* decl;
+    //for(decl; condition; incr) <body>
+    //allow arbitrary statements for dcel and incr, not just VarDecl and VarAssign
+    Statement* decl;
     ExpressionNT* condition;
-    VarAssign* incr;
+    Statement* incr;
   };
 
   struct ForRange1
@@ -307,6 +309,7 @@ namespace Parser
   struct Block
   {
     vector<Statement*> statements;
+    BlockScope* bs;
   };
 
   struct VarDecl
