@@ -13,33 +13,42 @@
 struct Statement
 {};
 
-//Block scope provides:
-//  -scope for looking up variables/types
-//  -BlockScope::statementCounter to provide the position of the variable in the block
-Statement* createStatement(Parser::StatementNT* stmt, Parser::BlockScope* b);
-
 //Block: list of statements
 struct Block : public Statement
 {
-  Block(Parser::Block* b, Scope* s);
+  Block(Parser::Block* b, BlockScope* s);
   vector<Statement*> stmts;
+  BlockScope* scope;
 };
+
+//Create any kind of Statement
+Statement* createStatement(Block* b, Parser::StatementNT* stmt);
+//Given a VarDecl, add a new Variable to scope and then
+//create an Assign statement if that variable is initialized
+void addLocalVariable(Block* b, Parser::VarDecl* vd);
 
 struct Assign : public Statement
 {
-  Assign(Parser::VarAssign* va, Scope* s);
-  Assign(Variable* target, Expression* e, Scope* s);
+  Assign(Parser::VarAssign* va, BlockScope* s);
+  Assign(Variable* target, Expression* e, BlockScope* s);
   Expression* lvalue;
   Expression* rvalue;
 };
 
+struct CallStmt : public Statement
+{
+  CallStmt(Parser::CallNT* c, BlockScope* s);
+  Subroutine* called;
+  //a standalone procedure call just has arguments
+  vector<Expression*> args;
+};
+
 struct For : public Statement
 {
-  For(Parser::For* f, Scope* s);
+  For(Parser::For* f, BlockScope* s);
   //note: everything except body is auto-generated in case of ranged for
-  Type* counterType;
-  //Even if the body is not a block, create a block to introduce a scope
-  Block* block;
+  //Even if the body is not a block, the loop introduces a BlockScope for the counter(s)
+  BlockScope* scope;
   Expression* condition;
   Statement* increment;
   Statement* body;
@@ -47,18 +56,21 @@ struct For : public Statement
 
 struct While : public Statement
 {
+  While(Parser::While* w, BlockScope* s);
   Expression* condition;
   Statement* body;
 };
 
 struct If : public Statement
 {
+  If(Parser::If* i, BlockScope* s);
   Expression* condition;
   Statement* body;
 };
 
 struct IfElse : public Statement
 {
+  IfElse(Parser::IfElse* ie, BlockScope* s);
   Expression* condition;
   Statement* trueBody;
   Statement* falseBody;
@@ -66,6 +78,7 @@ struct IfElse : public Statement
 
 struct Return : public Statement
 {
+  Return(Parser::Return* r, BlockScope* s);
   Statement* value; //can be null
 };
 
@@ -77,12 +90,13 @@ struct Continue : public Statement
 
 struct Print : public Statement
 {
+  Print(Parser::PrintNT* p, Scope* s);
   vector<Expression*> exprs;
 };
 
 struct Subroutine
 {
-  Subroutine(Scope* enclosing, Parser::Block* block) : s(enclosing) {}
+  Subroutine(BlockScope* enclosing, Parser::Block* block) : s(enclosing) {}
   Scope* s;
   Type* retType;
   vector<Type*> argTypes;

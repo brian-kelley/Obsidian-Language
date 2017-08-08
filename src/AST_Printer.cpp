@@ -1,4 +1,4 @@
-#include "AST_Printer.hpp"
+#include "AST_PrintNTer.hpp"
 
 using namespace std;
 
@@ -40,7 +40,6 @@ namespace AstPrinter
       printScopedDecl(it, ind + indentLevel);
     }
   }
-
 
   void printScopedDecl(ScopedDecl* m, int ind)
   {
@@ -161,8 +160,8 @@ namespace AstPrinter
       printScopedDecl(s->s.get<ScopedDecl*>(), ind);
     else if(s->s.is<VarAssign*>())
       printVarAssign(s->s.get<VarAssign*>(), ind);
-    else if(s->s.is<Print*>())
-      printPrint(s->s.get<Print*>(), ind);
+    else if(s->s.is<PrintNT*>())
+      printPrintNT(s->s.get<PrintNT*>(), ind);
     else if(s->s.is<ExpressionNT*>())
       printExpressionNT(s->s.get<ExpressionNT*>(), ind);
     else if(s->s.is<Block*>())
@@ -436,10 +435,10 @@ namespace AstPrinter
     printExpressionNT(va->rhs, ind + indentLevel);
   }
 
-  void printPrint(Print* p, int ind)
+  void printPrintNT(PrintNT* p, int ind)
   {
     indent(ind);
-    cout << "Print\n";
+    cout << "PrintNT\n";
     for(auto& e : p->exprs)
     {
       printExpressionNT(e, ind + indentLevel);

@@ -42,7 +42,7 @@ namespace Parser
   //lots of mutual recursion in nonterminal structs so just forward-declare all of them
   struct ScopedDecl;
   struct TypeNT;
-  struct Statement;
+  struct StatementNT;
   struct Typedef;
   struct Return;
   struct Switch;
@@ -63,7 +63,7 @@ namespace Parser
   struct Block;
   struct VarDecl;
   struct VarAssign;
-  struct Print;
+  struct PrintNT;
   struct CallNT;
   struct Arg;
   struct FuncDecl;
@@ -161,14 +161,14 @@ namespace Parser
     int arrayDims;
   };
 
-  struct Statement
+  struct StatementNT
   {
-    Statement() : s(None()) {}
+    StatementNT() : s(None()) {}
     variant<
       None,
       ScopedDecl*,
       VarAssign*,
-      Print*,
+      PrintNT*,
       Call*,
       Block*,
       Return*,
@@ -180,6 +180,7 @@ namespace Parser
       If*,
       Assertion*,
       EmptyStatement*> s;
+    Statement* stmt;
   };
 
   struct Typedef
@@ -200,7 +201,7 @@ namespace Parser
   {
     SwitchCase() : matchVal(nullptr), s(nullptr) {}
     ExpressionNT* matchVal;
-    Statement* s;
+    StatementNT* s;
   };
 
   struct Switch
@@ -209,7 +210,7 @@ namespace Parser
     ExpressionNT* sw;
     vector<SwitchCase*> cases;
     //optional default: statement, NULL if unused
-    Statement* defaultStatement;
+    StatementNT* defaultStatement;
   };
 
   struct Continue {};
@@ -218,14 +219,15 @@ namespace Parser
 
   struct For
   {
-    For() : f(None()), body(nullptr) {}
+    For() : f(None()), body(nullptr), scope(nullptr) {}
     variant<
       None,
       ForC*,
       ForRange1*,
       ForRange2*,
       ForArray*> f;
-    Statement* body;
+    BlockScope* scope;
+    StatementNT* body;
   };
 
   struct ForC
@@ -233,9 +235,9 @@ namespace Parser
     ForC() : decl(nullptr), condition(nullptr), incr(nullptr) {}
     //for(decl; condition; incr) <body>
     //allow arbitrary statements for dcel and incr, not just VarDecl and VarAssign
-    Statement* decl;
+    StatementNT* decl;
     ExpressionNT* condition;
-    Statement* incr;
+    StatementNT* incr;
   };
 
   struct ForRange1
@@ -259,18 +261,30 @@ namespace Parser
 
   struct While
   {
-    While() : cond(nullptr), body(nullptr) {}
+    While() : cond(nullptr), body(nullptr), scope(nullptr) {}
     ExpressionNT* cond;
-    Statement* body;
+    StatementNT* body;
+    BlockScope* scope;
   };
 
   struct If
   {
     If() : cond(nullptr), ifBody(nullptr), elseBody(nullptr) {}
     ExpressionNT* cond;
-    Statement* ifBody;
-    //elseBody NULL if there is no else clause
-    Statement* elseBody;
+    StatementNT* ifBody;
+    //elseBody NULL when there is no else clause
+    StatementNT* elseBody;
+    /* note: if(cond1) if(cond2) a else b else c will parse depth-first:
+     * if(cond1)
+     * {
+     *   if(cond2)
+     *     a
+     *   else
+     *     b
+     * }
+     * else
+     *   c
+     */
   };
 
   struct Using
@@ -308,7 +322,7 @@ namespace Parser
 
   struct Block
   {
-    vector<Statement*> statements;
+    vector<StatementNT*> statements;
     BlockScope* bs;
   };
 
@@ -334,7 +348,7 @@ namespace Parser
     ExpressionNT* rhs;
   };
 
-  struct Print
+  struct PrintNT
   {
     vector<ExpressionNT*> exprs;
   };

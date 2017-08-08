@@ -27,7 +27,7 @@ struct Scope
   vector<Scope*> children;            //owned scopes
   vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
   vector<TypeSystem::Trait*> traits;  //traits declared here
-  vector<Variable*> vars;             //variables declared here
+  vector<Variable*> vars;             //variables declared here - first globals & statics and then locals (in order of declaration)
   //subroutines (funcs and procs) defined in scope
   vector<Subroutine*> subr;
   //Find a sub scope of this (or a parent) with given relative "path"
@@ -62,6 +62,10 @@ struct BlockScope : public Scope
 {
   //constructor sets index automatically
   BlockScope(Scope* parent, Parser::Block* astIn);
+  BlockScope(Scope* parent);
+  string getLocalName();
+  Parser::Block* ast;
+  int index;
   string getLocalName();
   Parser::Block* ast;
   int index;

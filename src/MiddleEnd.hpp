@@ -34,8 +34,12 @@ namespace MiddleEnd
     //Types can only come from scoped decls
     void visitModule(Scope* current, Parser::Module* m);
     void visitBlock(Scope* current, Parser::Block* b);
+    void visitStatement(Scope* current, Parser::StatementNT* s);
     void visitStruct(Scope* current, Parser::StructDecl* sd);
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
+    //for loops are special becuase they always introduce a block scope (for the counter),
+    //even if its body is not a block
+    void visitFor(Scope* current, Parser::For* f);
     void resolveAll();
   }
   namespace SubroutineLoading

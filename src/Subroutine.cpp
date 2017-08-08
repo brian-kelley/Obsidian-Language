@@ -1,24 +1,41 @@
 #include "Subroutine.hpp"
 
-Statement* createStatement(Parser::StatementNT* stmt, BlockScope* bs)
+Block::Block(Parser::Block* b, Scope* s)
 {
-  if(stmt->s.is<ScopedDecl*>())
+  bs = dynamic_cast<BlockScope*>(s);
+  for(auto stmt : b->statements)
   {
-    //local VarDecls are handled in Block ctor, and
-    //all other kinds of scoped decls have already been added to scope
-    INTERNAL_ERROR;
+    if(stmt->s.is<ScopedDecl*>())
+    {
+      auto sd = stmt->s.is<ScopedDecl*>();
+      if(sd->decl.is<VarDecl*>())
+      {
+        auto vd = sd->decl.get<VarDecl*>();
+        addLocalVariable(this, vd);
+      }
+    }
+    stmts.push_back(createStatement(s, stmt);
   }
-  else if(stmt->s.is<VarAssign*>())
+}
+
+Statement* createStatement(Block* b, Parser::StatementNT* stmt)
+{
+  auto scope = b->scope;
+  if(stmt->s.is<Parser::VarAssign*>())
   {
+    return new Assign(stmt->s.get<VarAssign*>(), scope);
   }
-  else if(stmt->s.is<Print*>())
+  else if(stmt->s.is<Parser::PrintNT*>())
   {
+    return new Print(stmt->s.get<Parser::PrintNT*>(), scope);
   }
-  else if(stmt->s.is<Call*>())
+  else if(stmt->s.is<Parser::CallNT*>())
   {
+    return new CallStmt(stmt->s.get<Parser::CallNT*>(), scope);
   }
   else if(stmt->s.is<Block*>())
   {
+    return new Block(stmt->s.get<Block*>(), scope);
   }
   else if(stmt->s.is<Return*>())
   {
@@ -44,41 +61,22 @@ Statement* createStatement(Parser::StatementNT* stmt, BlockScope* bs)
   else if(stmt->s.is<Assertion*>())
   {
   }
-  else
-  {
-    INTERNAL_ERROR;
-  }
-  return nullptr;
 }
 
-Block::Block(Parser::Block* b, Scope* s)
+void addLocalVariable(Block* b, Parser::VarDecl* vd)
 {
-  for(auto stmt : b->statements)
+  //Make sure variable doesn't already exist (shadowing var is error)
+  Parser::Member search;
+  search.ident = vd->name;
+  if(s->findVariable(&search))
   {
-    if(stmt->s.is<ScopedDecl*>())
-    {
-      auto sd = stmt->s.is<ScopedDecl*>();
-      if(sd->decl.is<VarDecl*>())
-      {
-        auto vd = sd->decl.get<VarDecl*>();
-        //Make sure variable doesn't already exist (shadowing var is error)
-        Parser::Member search;
-        search.ident = vd->name;
-        if(s->findVariable(&search))
-        {
-          errAndQuit(string("variable \"") + vd->name + "\" already exists");
-        }
-        Variable* newVar = new Variable(s, vd);
-        s->vars.push_back(newVar);
-        //if the new variable has an initializing expression,
-        //treat as a separate Assign statement
-        if(vd->val)
-        {
-          stmts.push_back(new Assign(newVar, getExpression(s, vd->val)));
-        }
-      }
-    }
-    stmts.push_back(createStatement(stmt, s);
+    errAndQuit(string("variable \"") + vd->name + "\" already exists");
+  }
+  Variable* newVar = new Variable(s, vd);
+  s->vars.push_back(newVar);
+  if(vd->val)
+  {
+    b->stmts.push_back(new Assign(newVar, getExpression(s, vd->val)));
   }
 }
 
@@ -113,8 +111,13 @@ Assign::Assign(Variable* target, Expression* e, Scope* s)
   rvalue = e;
 }
 
+CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
+{
+}
+
 For::For(Parser::For* f, Scope* s)
 {
+  auto loopScope = f->scope;
   if(f->f.is<Parser::ForC*>())
   {
     auto fc = f->f.get<Parser::ForC*>();
@@ -125,6 +128,7 @@ For::For(Parser::For* f, Scope* s)
   }
   else if(f->f.is<Parser::ForRange1*>())
   {
+    //introduce integer counter i/j/k/etc
   }
   else if(f->f.is<Parser::ForRange2*>())
   {
@@ -132,7 +136,6 @@ For::For(Parser::For* f, Scope* s)
   else if(f->f.is<Parser::ForArray*>())
   {
   }
-
   /*
    * Fields:
   Type* counterType;

@@ -1,5 +1,5 @@
 #include "Parser.hpp"
-#include "AST_Printer.hpp"
+#include "AST_PrintNTer.hpp"
 
 struct BlockScope;
 
@@ -24,7 +24,7 @@ namespace Parser
   template<> Module* parse<Module>();
   template<> ScopedDecl* parse<ScopedDecl>();
   template<> TypeNT* parse<TypeNT>();
-  template<> Statement* parse<Statement>();
+  template<> StatementNT* parse<StatementNT>();
   template<> Typedef* parse<Typedef>();
   template<> Return* parse<Return>();
   template<> SwitchCase* parse<SwitchCase>();
@@ -43,7 +43,7 @@ namespace Parser
   template<> Block* parse<Block>();
   template<> VarDecl* parse<VarDecl>();
   template<> VarAssign* parse<VarAssign>();
-  template<> Print* parse<Print>();
+  template<> PrintNT* parse<PrintNT>();
   template<> ExpressionNT* parse<ExpressionNT>();
   template<> CallNT* parse<CallNT>();
   template<> Arg* parse<Arg>();
@@ -186,12 +186,12 @@ namespace Parser
   }
 
   template<>
-  Statement* parse<Statement>()
+  StatementNT* parse<StatementNT>()
   {
-    Statement* s = new Statement;
+    StatementNT* s = new StatementNT;
     if((s->s = parseOptional<ScopedDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
-        (s->s = parseOptional<Print>()) ||
+        (s->s = parseOptional<PrintNT>()) ||
         (s->s = parseOptional<Call>()) ||
         (s->s = parseOptional<Block>()) ||
         (s->s = parseOptional<Return>()) ||
@@ -266,7 +266,7 @@ namespace Parser
     SwitchCase* sc = new SwitchCase;
     sc->matchVal = parse<ExpressionNT>();
     expectPunct(COLON);
-    sc->s = parse<Statement>();
+    sc->s = parse<StatementNT>();
     return sc;
   }
 
@@ -283,7 +283,7 @@ namespace Parser
     if(acceptKeyword(DEFAULT))
     {
       expectPunct(COLON);
-      sw->defaultStatement = parse<Statement>();
+      sw->defaultStatement = parse<StatementNT>();
       //otherwise, leave defaultStatment NULL
     }
     expectPunct(RBRACE);
@@ -298,14 +298,14 @@ namespace Parser
     expectKeyword(FOR);
     expectPunct(LPAREN);
     //all 3 parts of the loop are optional
-    forC->decl = parseOptional<Statement>();
+    forC->decl = parseOptional<StatementNT>();
     if(!forC->decl)
     {
       expectPunct(SEMICOLON);
     }
     forC->condition = parseOptional<ExpressionNT>();
     expectPunct(SEMICOLON);
-    forC->incr = parseOptional<Statement>();
+    forC->incr = parseOptional<StatementNT>();
     expectPunct(RPAREN);
     return forC;
   }
@@ -347,8 +347,7 @@ namespace Parser
         (f->f = parseOptional<ForRange2>()) ||
         (f->f = parseOptional<ForArray>()))
     {
-      f->body = parse<Statement>();
-      return f;
+      f->body = parse<StatementNT>();
     }
     else
     {
@@ -365,7 +364,7 @@ namespace Parser
     expectPunct(LPAREN);
     w->cond = parse<ExpressionNT>();
     expectPunct(RPAREN);
-    w->body = parse<Statement>();
+    w->body = parse<StatementNT>();
     return w;
   }
 
@@ -377,9 +376,9 @@ namespace Parser
     expectPunct(LPAREN);
     i->cond = parse<ExpressionNT>();
     expectPunct(RPAREN);
-    i->ifBody = parse<Statement>();
+    i->ifBody = parse<StatementNT>();
     if(acceptKeyword(ELSE))
-      i->elseBody = parse<Statement>();
+      i->elseBody = parse<StatementNT>();
     return i;
   }
 
@@ -432,7 +431,7 @@ namespace Parser
   {
     Block* b = new Block;
     expectPunct(LBRACE);
-    b->statements = parseSome<Statement>();
+    b->statements = parseSome<StatementNT>();
     expectPunct(RBRACE);
     bs = nullptr;
     return b;
@@ -594,9 +593,9 @@ namespace Parser
   }
 
   template<>
-  Print* parse<Print>()
+  PrintNT* parse<PrintNT>()
   {
-    Print* p = new Print;
+    PrintNT* p = new PrintNT;
     expectKeyword(PRINT);
     expectPunct(LPAREN);
     p->exprs = parseSomeCommaSeparated<ExpressionNT>();

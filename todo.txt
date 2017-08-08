@@ -10,15 +10,13 @@ TODO:
 
 ---------------------
   -Annotated AST refactor
-  -Middle end structures added directly to AST nodes
-  -Expression* in ExpressionNT
-  -Statement* in StatementNT
-  -Type* in TypeNT
+    -Add middle-end Scope pointers to AST nodes to make traversing scope tree easier
+      -BlockNT and BlockScope then point to each other
 ---------------------
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):
-  -Term (stdin/stdout/formatting/parsing)
-  -Sys (File I/O, directories, sockets)
+  -Term (stdin/stdout/formatting/parsing, commands)
+  -Sys (File I/O, filesystem, sockets, time)
   -Modern OpenGL, plus some nice utilties, like:
     -GLM-style math
     -OBJ model loading

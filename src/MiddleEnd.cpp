@@ -42,16 +42,63 @@ namespace MiddleEnd
     void visitBlock(Scope* current, Block* b)
     {
       BlockScope* bscope = new BlockScope(current, b);
-      for(auto& st : b->statements)
+      for(auto st : b->statements)
       {
-        if(st->s.is<ScopedDecl*>())
+        visitStatement(current, st);
+      }
+    }
+
+    void visitStatement(Scope* current, Parser::StatementNT* s)
+    {
+      if(st->s.is<ScopedDecl*>())
+      {
+        visitScopedDecl(current, st->s.get<ScopedDecl*>());
+      }
+      else if(st->s.is<Block*>())
+      {
+        visitBlock(current, st->s.get<Block*>());
+      }
+      else if(st->s.is<For*>())
+      {
+        visitFor(current, st->s.get<For*>());
+      }
+      else if(st->s.is<While*>())
+      {
+        auto w = st->s.get<While*>();
+        visitStatement(current, w->body);
+      }
+      else if(st->s.is<If*>())
+      {
+        auto i = st->s.get<If*>();
+        visitStatement(current, i->ifBody);
+        if(i->elseBody)
         {
-          visitScopedDecl(bscope, st->s.get<ScopedDecl*>());
+          visitStatement(current, i->elseBody);
         }
-        else if(st->s.is<Block*>())
+      }
+      else if(st->s.is<Switch*>())
+      {
+        auto sw = st->s.get<Switch*>();
+        for(auto sc : sw->cases)
         {
-          visitBlock(bscope, st->s.get<Block*>());
+          visitStatement(current, sc->s);
         }
+        if(sw->defaultStatement)
+        {
+          visitStatement(current, sw->defaultStatement);
+        }
+      }
+    }
+
+    void visitFor(Scope* current, Parser::For* f)
+    {
+      //this block scope is a regular sub scope of parent but isn't tied to a BlockNT
+      BlockScope* loopScope = new BlockScope(current);
+      f->scope = loopScope;
+      //now, if the for's body is BlockNT or for, visit that (otherwise done)
+      if(f->body.s.is<BlockNT*>())
+      {
+        visitBlock(loopScope, f->body.s.get<BlockNT*>());
       }
     }
 
