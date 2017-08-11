@@ -121,7 +121,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     }
     else if(failureIsError)
     {
-      errAndQuit("Required ArrayType but its element type could not be resolved.");
+      ERR_MSG("Required ArrayType but its element type could not be resolved.");
     }
   }
   else if(type->t.is<TypeNT::Prim>())
@@ -162,9 +162,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     //If usage is null (meaning this is during the resolving pass), is fatal error
     if(failureIsError)
     {
-      ostringstream oss;
-      oss << "Could not resolve type: \"" << *mem << "\" required from scope \"" << usedScope->getLocalName() << '\"';
-      errAndQuit(oss.str());
+      ERR_MSG("Could not resolve type: \"" << *mem << "\" required from scope \"" << usedScope->getLocalName() << '\"');
     }
     if(usage)
       unresolved.emplace_back(type, usedScope, usage);
@@ -188,7 +186,7 @@ Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failure
     {
       if(failureIsError)
       {
-        errAndQuit(string("Required TupleType but member ") + to_string(i) + " could not be resolved.");
+        ERR_MSG(string("Required TupleType but member ") + to_string(i) + " could not be resolved.");
       }
       else if(usage)
       {
@@ -253,9 +251,7 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
   //If usage is null (meaning this is during the resolving pass), is fatal error
   if(failureIsError)
   {
-    ostringstream oss;
-    oss << "Could not resolve trait: \"" << *name << "\" required from scope \"" << usedScope->getLocalName() << '\"';
-    errAndQuit(oss.str());
+    ERR_MSG("Could not resolve trait: \"" << *name << "\" required from scope \"" << usedScope->getLocalName() << '\"');
   }
   if(usage)
     unresolvedTraits.emplace_back(name, usedScope, usage);
@@ -309,7 +305,7 @@ void resolveAllTypes()
     }
     if(!t)
     {
-      errAndQuit("Type could not be resolved.");
+      ERR_MSG("Type could not be resolved.");
     }
     *(ut.usage) = t;
   }
@@ -323,7 +319,7 @@ void resolveAllTraits()
     Trait* t = getTrait(ut.parsed, ut.scope, NULL, true);
     if(!t)
     {
-      errAndQuit("Trait could not be resolved.");
+      ERR_MSG("Trait could not be resolved.");
     }
     *(ut.usage) = t;
   }
@@ -846,7 +842,7 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
       {
         string errMsg = "Enum \"";
         errMsg += e->name + "\" has a duplicate value " + to_string(vals[i]) + " with key \"" + item.name + "\"";
-        errAndQuit(errMsg);
+        ERR_MSG(errMsg);
       }
     }
   }

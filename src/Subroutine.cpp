@@ -1,9 +1,18 @@
 #include "Subroutine.hpp"
 
-Block::Block(Parser::Block* b, Scope* s)
+Block::Block(Parser::Block* b, Subroutine* subr) : scope(subr->scope), ast(b)
 {
-  bs = dynamic_cast<BlockScope*>(s);
-  for(auto stmt : b->statements)
+  addStatements();
+}
+
+Block::Block(Parser::Block* b, Block* parent) : scope(b->bs), ast(b)
+{
+  addStatements();
+}
+
+void Block::addStatements()
+{
+  for(auto stmt : ast->statements)
   {
     if(stmt->s.is<ScopedDecl*>())
     {
@@ -33,33 +42,41 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     return new CallStmt(stmt->s.get<Parser::CallNT*>(), scope);
   }
-  else if(stmt->s.is<Block*>())
+  else if(stmt->s.is<Parser::Block*>())
   {
     return new Block(stmt->s.get<Block*>(), scope);
   }
-  else if(stmt->s.is<Return*>())
+  else if(stmt->s.is<Parser::Return*>())
   {
+    return new Return(stmt->s.get<Parser::Return*>(), scope);
   }
-  else if(stmt->s.is<Continue*>())
+  else if(stmt->s.is<Parser::Continue*>())
   {
+    return new Continue;
   }
-  else if(stmt->s.is<Break*>())
+  else if(stmt->s.is<Parser::Break*>())
   {
+    return new Break;
   }
-  else if(stmt->s.is<Switch*>())
+  else if(stmt->s.is<Parser::Switch*>())
   {
+    ERR_MSG("switch statements aren't supported (yet)");
   }
-  else if(stmt->s.is<For*>())
+  else if(stmt->s.is<Parser::For*>())
   {
+    return new For(stmt->s.get<Parser::For*>(), scope);
   }
-  else if(stmt->s.is<While*>())
+  else if(stmt->s.is<Parser::While*>())
   {
+    return new While(stmt->s.get<Parser::While*>(), scope);
   }
-  else if(stmt->s.is<If*>())
+  else if(stmt->s.is<Parser::If*>())
   {
+    return new While(stmt->s.get<Parser::While*>(), scope);
   }
-  else if(stmt->s.is<Assertion*>())
+  else if(stmt->s.is<Parser::Assertion*>())
   {
+    return new Assertion(stmt->s.get<Parser::Assertion*>(), scope);
   }
 }
 
@@ -70,7 +87,7 @@ void addLocalVariable(Block* b, Parser::VarDecl* vd)
   search.ident = vd->name;
   if(s->findVariable(&search))
   {
-    errAndQuit(string("variable \"") + vd->name + "\" already exists");
+    ERR_MSG(string("variable \"") + vd->name + "\" already exists");
   }
   Variable* newVar = new Variable(s, vd);
   s->vars.push_back(newVar);
@@ -88,7 +105,7 @@ Assign::Assign(Parser::VarAssign* va, Scope* s)
   //rvalue can convert to lvalue's type
   if(!lvalue->assignable())
   {
-    errAndQuit("cannot assign to that expression");
+    ERR_MSG("cannot assign to that expression");
   }
   if(!lvalue->type)
   {
@@ -96,7 +113,7 @@ Assign::Assign(Parser::VarAssign* va, Scope* s)
   }
   if(!lvalue->type->canConvert(rvalue))
   {
-    errAndQuit("incompatible types for assignment");
+    ERR_MSG("incompatible types for assignment");
   }
 }
 
@@ -106,13 +123,19 @@ Assign::Assign(Variable* target, Expression* e, Scope* s)
   //vars are always lvalues, no need to check that
   if(!lvalue->type->canConvert(e))
   {
-    errAndQuit("incompatible types for assignment");
+    ERR_MSG("incompatible types for assignment");
   }
   rvalue = e;
 }
 
 CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
 {
+  //look up callable (make sure it is a procedure, not a function)
+  called = s->findSubroutine(c->callable);
+  if(!called)
+  {
+    ERR_MSG("tried to call undeclared procedure \"" << c->callable << "\" with " << c->args.size() << " arguments");
+  }
 }
 
 For::For(Parser::For* f, Scope* s)
@@ -144,6 +167,30 @@ For::For(Parser::For* f, Scope* s)
   Statement* increment;
   Statement* body;
   */
+}
+
+While::While(Parser::While* w, BlockScope* s)
+{
+}
+
+If::If(Parser::If* i, BlockScope* s)
+{
+}
+
+IfElse::IfElse(Parser::IfElse* ie, BlockScope* s)
+{
+}
+
+Return::Return(Parser::Return* r, BlockScope* s)
+{
+}
+
+Break::Break()
+{
+}
+
+Continue::Continue()
+{
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)

@@ -95,9 +95,7 @@ TypeSystem::Type* Scope::findType(Parser::Member* mem)
       INTERNAL_ERROR;
     }
   }
-  ostringstream oss;
-  oss << "type \"" << mem << "\" has not been declared";
-  errAndQuit(oss.str());
+  ERR_MSG("type \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -114,9 +112,7 @@ Variable* Scope::findVariable(Parser::Member* mem)
       }
     }
   }
-  ostringstream oss;
-  oss << "variable \"" << mem << "\" has not been declared";
-  errAndQuit(oss.str());
+  ERR_MSG("variable \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -133,9 +129,7 @@ Trait* Scope::findTrait(Parser::Member* mem)
       }
     }
   }
-  ostringstream oss;
-  oss << "trait \"" << mem << "\" has not been declared";
-  errAndQuit(oss.str());
+  ERR_MSG("trait \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -152,9 +146,7 @@ Subroutine* Scope::findSubroutine(Parser::Member* mem)
       }
     }
   }
-  ostringstream oss;
-  oss << "function or procedure \"" << mem << "\" has not been declared";
-  errAndQuit(oss.str());
+  ERR_MSG("function or procedure \"" << mem << "\" has not been declared");
   return nullptr;
 }
 

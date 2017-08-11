@@ -13,11 +13,20 @@
 struct Statement
 {};
 
+struct Subroutine;
+struct Procedure; 
+
 //Block: list of statements
 struct Block : public Statement
 {
-  Block(Parser::Block* b, BlockScope* s);
+  //Constructor for function/procedure body
+  Block(Parser::Block* b, Subroutine* subr);
+  //Constructor for block inside a function/procedure
+  Block(Parser::Block* b, Block* parent);
+  Parser::Block* ast;
+  void addStatements();
   vector<Statement*> stmts;
+  //scope of the block
   BlockScope* scope;
 };
 
@@ -38,7 +47,7 @@ struct Assign : public Statement
 struct CallStmt : public Statement
 {
   CallStmt(Parser::CallNT* c, BlockScope* s);
-  Subroutine* called;
+  Procedure* called;
   //a standalone procedure call just has arguments
   vector<Expression*> args;
 };
@@ -83,10 +92,16 @@ struct Return : public Statement
 };
 
 struct Break : public Statement
-{};
+{
+  //this ctor checks that the statement is being used inside a loop
+  Break(BlockScope* s);
+};
 
 struct Continue : public Statement
-{};
+{
+  //this ctor checks that the statement is being used inside a loop
+  Continue(BlockScope* s);
+};
 
 struct Print : public Statement
 {
@@ -94,10 +109,17 @@ struct Print : public Statement
   vector<Expression*> exprs;
 };
 
+struct Assertion : public Statement
+{
+  Assertion(Parser::Assertion* as, Scope* s);
+  Expression* asserted;
+};
+
 struct Subroutine
 {
   Subroutine(BlockScope* enclosing, Parser::Block* block) : s(enclosing) {}
-  Scope* s;
+  //The scope of the subroutine (child of the enclosing scope)
+  BlockScope* scope;
   Type* retType;
   vector<Type*> argTypes;
   vector<Statement*> statements;

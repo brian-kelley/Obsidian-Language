@@ -426,7 +426,7 @@ Keyword::Keyword(string text)
   int val = isKeyword(text);
   if(val == -1)
   {
-    errAndQuit("Expected a keyword.");
+    ERR_MSG("Expected a keyword.");
   }
   this->kw = val;
 }

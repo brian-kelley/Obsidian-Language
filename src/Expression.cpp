@@ -95,7 +95,7 @@ Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* expr)
     {
       if(e->type == NULL || !e->type->isInteger())
       {
-        errAndQuit("operands to && must both be booleans.");
+        ERR_MSG("operands to && must both be booleans.");
       }
     }
     for(size_t i = 2; i < leaves.size(); i++)
@@ -395,7 +395,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       if(ltype != TypeSystem::primitives[TypeNT::BOOL] ||
          rtype != TypeSystem::primitives[TypeNT::BOOL])
       {
-        errAndQuit("operands to || and && must both be booleans.");
+        ERR_MSG("operands to || and && must both be booleans.");
       }
       //type of expression is always bool
       this->type = TypeSystem::primitives[TypeNT::BOOL];
@@ -408,7 +408,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //both operands must be integers
       if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        errAndQuit("operands to bitwise operators must be integers.");
+        ERR_MSG("operands to bitwise operators must be integers.");
       }
       //the resulting type is the wider of the two integers, favoring unsigned
       typedef TypeSystem::IntegerType IT;
@@ -429,7 +429,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //TODO: warn on div by 0
       if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
       {
-        errAndQuit("operands to arithmetic operators must be numbers.");
+        ERR_MSG("operands to arithmetic operators must be numbers.");
       }
       //get type of result as the "most promoted" of ltype and rtype
       //double > float, float > integers, unsigned > signed, wider integer > narrower integer
@@ -473,7 +473,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //TODO: if rhs is a constant, warn if evaluates to negative or greater than the width of the lhs type.
       if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        errAndQuit("operands to bit shifting operators must be integers.");
+        ERR_MSG("operands to bit shifting operators must be integers.");
       }
       this->type = ltype;
       break;
@@ -485,7 +485,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       if(typesNull)
       {
-        errAndQuit("can't compare two compound literals for equality.");
+        ERR_MSG("can't compare two compound literals for equality.");
       }
       //here, use the canConvert that takes an expression
       if((ltype && ltype->canConvert(r)) || (rtype && rtype->canConvert(l)))
@@ -494,7 +494,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       }
       else
       {
-        errAndQuit("types can't be compared for equality.");
+        ERR_MSG("types can't be compared for equality.");
       }
       break;
     }
@@ -509,7 +509,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       }
       else
       {
-        errAndQuit("incompatible types for ordered comparison - can only compare numbers and strings to each other.");
+        ERR_MSG("incompatible types for ordered comparison - can only compare numbers and strings to each other.");
       }
       break;
     }
@@ -616,7 +616,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
   //Anything else is assumed to be an array and then the index can be any integer expression
   if(dynamic_cast<CompoundLiteral*>(group))
   {
-    errAndQuit("Can't index a compound literal - assign it to an array first.");
+    ERR_MSG("Can't index a compound literal - assign it to an array first.");
   }
   //note: ok if this is null
   auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type);
@@ -632,13 +632,13 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
       auto val = intIndex->value();
       if(val >= tt->members.size())
       {
-        errAndQuit(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));
+        ERR_MSG(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));
       }
       type = tt->members[val];
     }
     else
     {
-      errAndQuit("Tuple subscript must be an integer constant.");
+      ERR_MSG("Tuple subscript must be an integer constant.");
     }
   }
   else
@@ -651,7 +651,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
     }
     else
     {
-      errAndQuit("expression can't be subscripted.");
+      ERR_MSG("expression can't be subscripted.");
     }
   }
 }
@@ -665,9 +665,7 @@ CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
   subr = s->findSubroutine(ast->callable);
   if(!subr)
   {
-    ostringstream oss;
-    oss << "\"" << ast->callable << "\" is not a function or procedure";
-    errAndQuit(oss.str());
+    ERR_MSG("\"" << ast->callable << "\" is not a function or procedure");
   }
   this->type = subr->retType;
 }
@@ -682,9 +680,7 @@ VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
   var = s->findVariable(ast);
   if(!var)
   {
-    ostringstream oss;
-    oss << "Use of undeclared variable " << *ast;
-    errAndQuit(oss.str());
+    ERR_MSG("Use of undeclared variable " << *ast);
   }
   //type of variable must be known
   this->type = var->type;

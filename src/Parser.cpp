@@ -96,7 +96,7 @@ namespace Parser
     {
       //If not all tokens were used, there was a parse error
       //print the deepest error message produced
-      errAndQuit(deepestErr);
+      ERR_MSG(deepestErr);
     }
     return globalModule;
   }
@@ -1190,9 +1190,7 @@ namespace Parser
     {
       if(oper->op != SUB && oper->op != LNOT && oper->op != BNOT)
       {
-        ostringstream oss;
-        oss << '\"' << oper->getStr() << "\" is an invalid unary operator.";
-        err(oss.str());
+        ERR_MSG('\"' << oper->getStr() << "\" is an invalid unary operator.");
       }
       Expr11::UnaryExpr ue;
       ue.op = oper->op;

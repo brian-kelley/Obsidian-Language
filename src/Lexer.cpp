@@ -65,7 +65,7 @@ struct CodeStream
   {
     string fullMsg = string("Lexical error at line ") + to_string(prevLine) +
       ", col " + to_string(prevCol) + ": " + msg;
-    errAndQuit(fullMsg);
+    ERR_MSG(fullMsg);
   }
   string& src;
   vector<Token*>& toks;
@@ -294,8 +294,7 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else
     {
-      ostringstream oss;
-      oss << "unexpected character: '" << c << "'\n";
+      ERR_MSG("unexpected character: '" << c << "'\n");
       cs.err(oss.str());
     }
   }
@@ -313,7 +312,7 @@ char getEscapedChar(char ident)
     return '\\';
   if(ident == 'r')
     return '\r';
-  errAndQuit(string("Unknown escape sequence: \\") + ident);
+  ERR_MSG(string("Unknown escape sequence: \\") + ident);
   return ' ';
 }
 
