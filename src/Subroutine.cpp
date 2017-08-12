@@ -10,6 +10,9 @@ Block::Block(Parser::Block* b, Block* parent) : scope(b->bs), ast(b)
   addStatements();
 }
 
+Block::Block(BlockScope* bs) : scope(bs), ast(nullptr) {}
+//don't add any statements yet
+
 void Block::addStatements()
 {
   for(auto stmt : ast->statements)
@@ -23,14 +26,23 @@ void Block::addStatements()
         addLocalVariable(this, vd);
       }
     }
-    stmts.push_back(createStatement(s, stmt);
+    stmts.push_back(createStatement(s, stmt));
   }
 }
 
 Statement* createStatement(Block* b, Parser::StatementNT* stmt)
 {
   auto scope = b->scope;
-  if(stmt->s.is<Parser::VarAssign*>())
+  if(stmt->s.is<Parser::ScopedDecl*>())
+  {
+    //only scoped decl to handle now is VarDecl
+    auto sd = stmt->s.get<Parser::ScopedDecl*>();
+    if(sd->s.is<Parser::VarDecl*>())
+    {
+      addLocalVariable(b, sd->s.get<Parser::VarDecl*>());
+    }
+  }
+  else if(stmt->s.is<Parser::VarAssign*>())
   {
     return new Assign(stmt->s.get<VarAssign*>(), scope);
   }
@@ -136,22 +148,43 @@ CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
   {
     ERR_MSG("tried to call undeclared procedure \"" << c->callable << "\" with " << c->args.size() << " arguments");
   }
+  for(auto it : c->args)
+  {
+    args.push_back(getExpression(s, it));
+  }
 }
 
 For::For(Parser::For* f, Scope* s)
 {
   auto loopScope = f->scope;
+  loopBlock = new Block(loopScope);
   if(f->f.is<Parser::ForC*>())
   {
     auto fc = f->f.get<Parser::ForC*>();
     //if there is an initializer statement, add it to the block as the first statement
     if(fc->decl)
     {
+      //if fc->decl is a ScopedDecl/VarDecl,
+      //this will create the counter as local variable in loopScope
+      init = createStatement(loopBlock, fc->decl);
+    }
+    if(fc->condition)
+    {
+      condition = getExpression(loopScope, fc->condition);
+      if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
+      {
+        ERR_MSG("condition expression in C-style for loop must be a boolean");
+      }
+    }
+    if(fc->incr)
+    {
+      increment = createStatement(loopBlock, fc->incr);
     }
   }
   else if(f->f.is<Parser::ForRange1*>())
   {
-    //introduce integer counter i/j/k/etc
+    //introduce integer counter
+    //counter var names start at i and go to z, after that there is error
   }
   else if(f->f.is<Parser::ForRange2*>())
   {
@@ -159,14 +192,8 @@ For::For(Parser::For* f, Scope* s)
   else if(f->f.is<Parser::ForArray*>())
   {
   }
-  /*
-   * Fields:
-  Type* counterType;
-  Expression* start;
-  Expression* condition;
-  Statement* increment;
-  Statement* body;
-  */
+  //body is required by grammar
+  body = createStatement(loopBlock, f->body);
 }
 
 While::While(Parser::While* w, BlockScope* s)

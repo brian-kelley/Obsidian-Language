@@ -23,6 +23,8 @@ struct Block : public Statement
   Block(Parser::Block* b, Subroutine* subr);
   //Constructor for block inside a function/procedure
   Block(Parser::Block* b, Block* parent);
+  //Constructor for For loop
+  Block(BlockScope* scope);
   Parser::Block* ast;
   void addStatements();
   vector<Statement*> stmts;
@@ -30,7 +32,7 @@ struct Block : public Statement
   BlockScope* scope;
 };
 
-//Create any kind of Statement
+//Create any kind of Statement - adds to block
 Statement* createStatement(Block* b, Parser::StatementNT* stmt);
 //Given a VarDecl, add a new Variable to scope and then
 //create an Assign statement if that variable is initialized
@@ -55,12 +57,13 @@ struct CallStmt : public Statement
 struct For : public Statement
 {
   For(Parser::For* f, BlockScope* s);
-  //note: everything except body is auto-generated in case of ranged for
-  //Even if the body is not a block, the loop introduces a BlockScope for the counter(s)
-  BlockScope* scope;
-  Expression* condition;
-  Statement* increment;
+  //Even if the body is not a block, the loop has a BlockScope for containing the counter
+  //Statement 0 is init(s), body, increment(s) in that order
+  Block* loopBlock;
+  Statement* init;
+  Expression* condition;  //check this before each entry to loop body
   Statement* body;
+  Statement* increment;
 };
 
 struct While : public Statement
