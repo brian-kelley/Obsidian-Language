@@ -59,6 +59,7 @@ void createBuiltinTypes()
   primitives[TypeNT::FLOAT] = new FloatType("float", 4);
   primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
   primitives[TypeNT::STRING] = new StringType;
+  primitives[TypeNT::VOID] = new VoidType;
   primNames["bool"] = primitives[TypeNT::BOOL];
   primNames["char"] = primitives[TypeNT::CHAR];
   primNames["uchar"] = primitives[TypeNT::UCHAR];
@@ -71,6 +72,7 @@ void createBuiltinTypes()
   primNames["float"] = primitives[TypeNT::FLOAT];
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["string"] = primitives[TypeNT::STRING];
+  primNames["void"] = primitives[TypeNT::VOID];
   new AliasType("i8", primitives[TypeNT::CHAR], global);
   new AliasType("u8", primitives[TypeNT::UCHAR], global);
   new AliasType("i16", primitives[TypeNT::SHORT], global);
@@ -961,6 +963,17 @@ bool BoolType::canConvert(Type* other)
 }
 
 bool BoolType::isBool()
+{
+  return true;
+}
+
+/*************/
+/* Void Type */
+/*************/
+
+VoidType() : Type(global) {}
+
+bool isVoid()
 {
   return true;
 }

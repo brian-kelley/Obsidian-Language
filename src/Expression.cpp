@@ -521,9 +521,18 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
  * Primitive Literals *
  **********************/
 
-IntLiteral::IntLiteral(IntLit* a) : Expression(NULL)
+IntLiteral::IntLiteral(IntLit* a) : Expression(NULL), value(ast->val)
 {
-  this->ast = a;
+  setType();
+}
+
+IntLiteral::IntLiteral(uint64_t val) : Expression(NULL), value(val)
+{
+  setType();
+}
+
+void setType()
+{
   //if value fits in a signed int, use that as the type
   //when in doubt, don't use auto
   if(value() > 0x7FFFFFFF)
@@ -536,9 +545,13 @@ IntLiteral::IntLiteral(IntLit* a) : Expression(NULL)
   }
 }
 
-FloatLiteral::FloatLiteral(FloatLit* a) : Expression(NULL)
+FloatLiteral::FloatLiteral(FloatLit* a) : Expression(NULL), value(a->val)
 {
-  this->ast = a;
+  type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
+}
+
+FloatLiteral(double val) : value(val)
+{
   type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
 }
 

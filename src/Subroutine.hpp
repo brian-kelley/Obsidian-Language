@@ -23,8 +23,6 @@ struct Block : public Statement
   Block(Parser::Block* b, Subroutine* subr);
   //Constructor for block inside a function/procedure
   Block(Parser::Block* b, Block* parent);
-  //Constructor for For loop
-  Block(BlockScope* scope);
   Parser::Block* ast;
   void addStatements();
   vector<Statement*> stmts;
@@ -33,10 +31,12 @@ struct Block : public Statement
 };
 
 //Create any kind of Statement - adds to block
-Statement* createStatement(Block* b, Parser::StatementNT* stmt);
+Statement* createStatement(BlockScope* s, Parser::StatementNT* stmt);
 //Given a VarDecl, add a new Variable to scope and then
 //create an Assign statement if that variable is initialized
-void addLocalVariable(Block* b, Parser::VarDecl* vd);
+Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd);
+//Create a local variable with given name and type
+Statement* addLocalVariable(BlockScope* s, string name, Type* type, Expression* init);
 
 struct Assign : public Statement
 {

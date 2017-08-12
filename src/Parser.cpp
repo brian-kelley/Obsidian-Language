@@ -158,6 +158,7 @@ namespace Parser
     TRY_PRIMITIVE(FLOAT);
     TRY_PRIMITIVE(DOUBLE);
     TRY_PRIMITIVE(STRING);
+    TRY_PRIMITIVE(VOID);
     #undef TRY_PRIMITIVE
     if(type->t.is<None>())
     {

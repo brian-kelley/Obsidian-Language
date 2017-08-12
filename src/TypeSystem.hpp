@@ -145,6 +145,7 @@ struct Type
   virtual bool isString()   {return false;}
   virtual bool isBool()     {return false;}
   virtual bool isConcrete() {return true;}
+  virtual bool isVoid()     {return false;}
 };
 
 struct FuncType : public Type
@@ -331,6 +332,12 @@ struct BoolType : public Type
   BoolType();
   bool canConvert(Type* other);
   bool isBool();
+};
+
+struct VoidType : public Type
+{
+  VoidType();
+  bool isVoid();
 };
 
 struct TType : public Type

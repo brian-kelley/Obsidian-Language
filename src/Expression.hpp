@@ -46,25 +46,20 @@ struct BinaryArith : public Expression
 struct IntLiteral : public Expression
 {
   IntLiteral(IntLit* ast);
-  IntLit* ast;
-  uint64_t value()
-  {
-    return ast->val;
-  }
+  IntLiteral(uint64_t val);
+  uint64_t value;
   bool assignable()
   {
     return false;
   }
+  void setType();
 };
 
 struct FloatLiteral : public Expression
 {
   FloatLiteral(FloatLit* ast);
-  FloatLit* ast;
-  double value()
-  {
-    return ast->val;
-  }
+  FloatLiteral(double val);
+  double value;
   bool assignable()
   {
     return false;

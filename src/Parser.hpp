@@ -146,7 +146,8 @@ namespace Parser
       ULONG,
       FLOAT,
       DOUBLE,
-      STRING
+      STRING,
+      VOID
     };
     struct Wildcard {};
     variant<

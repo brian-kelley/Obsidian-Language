@@ -17,7 +17,10 @@ namespace TypeSystem
 
 struct Variable
 {
+  //General constructor for static or local variables created through VarDecl
   Variable(Scope* s, Parser::VarDecl* ast);
+  //Constructor for creating local variable with given name and type
+  Variable(Scope* s, string name, TypeSystem::Type* t);
   Scope* scope;
   string name;
   TypeSystem::Type* type;
