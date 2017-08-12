@@ -355,11 +355,24 @@ Continue::Continue(Block* b)
   loop = b->loop;
 }
 
-Function::Function(Parser::FuncDef* a, Scope* enclosing)
+Subroutine::Subroutine(Scope* enclosing, Parser::Block* block) : scope(block->bs)
 {
+}
+
+Function::Function(Parser::FuncDef* a, Scope* enclosing) : Subroutine(, Parser::Block* block) : s(enclosing) {}
+{
+  retType = getType(a->type->retType, enclosing, nullptr);
+  for(auto it : a->type->args)
+  {
+  }
+  scope = a->body->bs;
+  pure = true;
 }
 
 Procedure::Procedure(Parser::ProcDef* a, Scope* enclosing)
 {
+  retType = getType(a->type->retType, enclosing, nullptr);
+  scope = a->body->bs;
+  pure = false;
 }
 

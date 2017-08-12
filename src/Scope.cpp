@@ -186,8 +186,7 @@ BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast
   ast->bs = this;
 }
 
-BlockScope::BlockScope(Scope* parent) : Scope(parent), ast(nullptr), index(nextBlockIndex++)
-{}
+BlockScope::BlockScope(Scope* parent) : Scope(parent), ast(nullptr), index(nextBlockIndex++) {}
 
 string BlockScope::getLocalName()
 {

@@ -130,7 +130,6 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  Subroutine(BlockScope* enclosing, Parser::Block* block) : s(enclosing) {}
   //The scope of the subroutine (child of the enclosing scope)
   BlockScope* scope;
   Type* retType;
