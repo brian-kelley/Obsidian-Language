@@ -67,7 +67,6 @@ struct BlockScope : public Scope
   Parser::Block* ast;
   int index;
   string getLocalName();
-  int index;
   static int nextBlockIndex;
 };
 

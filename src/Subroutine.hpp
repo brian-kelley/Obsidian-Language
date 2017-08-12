@@ -15,6 +15,10 @@ struct Statement
 
 struct Subroutine;
 struct Procedure; 
+struct For;
+struct While;
+
+typedef variant<For*, While*> Loop;
 
 //Block: list of statements
 struct Block : public Statement
@@ -28,10 +32,14 @@ struct Block : public Statement
   vector<Statement*> stmts;
   //scope of the block
   BlockScope* scope;
+  //subroutine whose body contains this block (passed down to child blocks that aren't 
+  Subroutine* subr;
+  //innermost loop whose body contains this block (or NULL if none)
+  Loop* loop;
 };
 
 //Create any kind of Statement - adds to block
-Statement* createStatement(BlockScope* s, Parser::StatementNT* stmt);
+Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 //Given a VarDecl, add a new Variable to scope and then
 //create an Assign statement if that variable is initialized
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd);
@@ -98,23 +106,25 @@ struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(BlockScope* s);
+  Loop loop;
 };
 
 struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Continue(BlockScope* s);
+  Loop loop;
 };
 
 struct Print : public Statement
 {
-  Print(Parser::PrintNT* p, Scope* s);
+  Print(Parser::PrintNT* p, BlockScope* s);
   vector<Expression*> exprs;
 };
 
 struct Assertion : public Statement
 {
-  Assertion(Parser::Assertion* as, Scope* s);
+  Assertion(Parser::Assertion* as, BlockScope* s);
   Expression* asserted;
 };
 

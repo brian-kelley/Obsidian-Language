@@ -2,11 +2,15 @@
 
 Block::Block(Parser::Block* b, Subroutine* subr) : scope(subr->scope), ast(b)
 {
+  this->subr = subr;
+  this->loop = nullptr;
   addStatements();
 }
 
 Block::Block(Parser::Block* b, Block* parent) : scope(b->bs), ast(b)
 {
+  this->subr = parent->subr;
+  this->loop = parent->loop;
   addStatements();
 }
 
@@ -16,18 +20,26 @@ void Block::addStatements()
   {
     if(stmt->s.is<ScopedDecl*>())
     {
-      auto sd = stmt->s.is<ScopedDecl*>();
+      auto sd = stmt->s.get<ScopedDecl*>();
       if(sd->decl.is<VarDecl*>())
       {
         auto vd = sd->decl.get<VarDecl*>();
         addLocalVariable(scope, vd);
+      }
+      else if(sd->decl.is<FuncDef*>())
+      {
+        scope->subr.push_back(new Function(sd->decl.get<FuncDef*>(), scope));
+      }
+      else if(sd->decl.is<ProcDef*>())
+      {
+        scope->subr.push_back(new Procedure(sd->decl.get<ProcDef*>(), scope));
       }
     }
     stmts.push_back(createStatement(scope, stmt));
   }
 }
 
-Statement* createStatement(BlockScope* b, Parser::StatementNT* stmt)
+Statement* createStatement(Block* b, Parser::StatementNT* stmt)
 {
   auto scope = b->scope;
   if(stmt->s.is<Parser::ScopedDecl*>())
@@ -53,19 +65,19 @@ Statement* createStatement(BlockScope* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::Block*>())
   {
-    return new Block(stmt->s.get<Block*>(), scope);
+    return new Block(stmt->s.get<Block*>(), b);
   }
   else if(stmt->s.is<Parser::Return*>())
   {
-    return new Return(stmt->s.get<Parser::Return*>(), scope);
+    return new Return(stmt->s.get<Parser::Return*>(), b);
   }
   else if(stmt->s.is<Parser::Continue*>())
   {
-    return new Continue;
+    return new Continue(b);
   }
   else if(stmt->s.is<Parser::Break*>())
   {
-    return new Break;
+    return new Break(b);
   }
   else if(stmt->s.is<Parser::Switch*>())
   {
@@ -73,22 +85,22 @@ Statement* createStatement(BlockScope* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::For*>())
   {
-    return new For(stmt->s.get<Parser::For*>(), scope);
+    return new For(stmt->s.get<Parser::For*>(), b);
   }
   else if(stmt->s.is<Parser::While*>())
   {
-    return new While(stmt->s.get<Parser::While*>(), scope);
+    return new While(stmt->s.get<Parser::While*>(), b);
   }
   else if(stmt->s.is<Parser::If*>())
   {
     auto i = stmt->s.get<Parser::If*>();
     if(i->elseBody)
     {
-      return new IfElse(i, scope);
+      return new IfElse(i, b);
     }
     else
     {
-      return new If(i, scope);
+      return new If(i, b);
     }
   }
   else if(stmt->s.is<Parser::Assertion*>())
@@ -133,10 +145,10 @@ Statement* addLocalVariable(BlockScope* s, string name, Type* type, Expression* 
   return nullptr;
 }
 
-Assign::Assign(Parser::VarAssign* va, Scope* s)
+Assign::Assign(Parser::VarAssign* va, BlockScope* s)
 {
-  lvalue = va->target;
-  rvalue = va->rhs;
+  lvalue = getExpression(s, va->target);
+  rvalue = getExpression(s, va->rhs);
   //make sure that lvalue is in fact an lvalue, and that
   //rvalue can convert to lvalue's type
   if(!lvalue->assignable())
@@ -167,7 +179,12 @@ Assign::Assign(Variable* target, Expression* e, Scope* s)
 CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
 {
   //look up callable (make sure it is a procedure, not a function)
-  called = s->findSubroutine(c->callable);
+  Subroutine* subr = s->findSubroutine(c->callable);
+  if(dynamic_cast<Function*>(subr))
+  {
+    ERR_MSG("called function " << subr->name << " without using its return value - should it be a procedure?");
+  }
+  called = dynamic_cast<Procedure*>(subr);
   if(!called)
   {
     ERR_MSG("tried to call undeclared procedure \"" << c->callable << "\" with " << c->args.size() << " arguments");
@@ -284,32 +301,58 @@ If::If(Parser::If* i, BlockScope* s)
   body = createStatement(loopScope, i->body);
 }
 
-IfElse::IfElse(Parser::IfElse* ie, BlockScope* s)
+IfElse::IfElse(Parser::IfElse* ie, Block* b)
 {
-  condition = getExpression(s, i->cond);
+  condition = getExpression(s->scope, i->cond);
   if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
   {
     ERR_MSG("while loop condition must be a bool");
   }
-  trueBody = createStatement(loopScope, i->ifBody);
-  falseBody = createStatement(loopScope, i->elseBody);
+  trueBody = createStatement(b, i->ifBody);
+  falseBody = createStatement(b, i->elseBody);
 }
 
-Return::Return(Parser::Return* r, BlockScope* s)
+Return::Return(Parser::Return* r, Block* b)
 {
-  if(r->ex)
+  value = nullptr;
+  bool voidReturn = r->ex == nullptr;
+  if(!voidReturn)
   {
-    value = getExpression(s, r->ex);
+    value = getExpression(b->scope, r->ex);
   }
-  //Make sure that this return is inside a subroutine, and check the type of return value
+  //Make sure that the return expression has a type that matches the subroutine's retType
+  if(voidReturn && subr->retType != TypeSystem::primitives[TypeNT::BOOL])
+  {
+    ERR_MSG("function or procedure doesn't return void, so return must have an expression");
+  }
+  if(!voidReturn && subr->retType == TypeSystem::primitives[TypeNT::BOOL])
+  {
+    ERR_MSG("procedure returns void but a return expression was provided");
+  }
+  if(!voidReturn && !subr->retType->canConvert(value))
+  {
+    ERR_MSG("returned expression can't be converted to the function/procedure return type");
+  }
 }
 
-Break::Break()
+Break::Break(Block* b)
 {
+  //make sure the break is inside a loop
+  if(!b->loop)
+  {
+    ERR_MSG("break statement used outside of a for or while loop");
+  }
+  loop = b->loop;
 }
 
-Continue::Continue()
+Continue::Continue(Block* b)
 {
+  //make sure the continue is inside a loop
+  if(!b->loop)
+  {
+    ERR_MSG("continue statement used outside of a for or while loop");
+  }
+  loop = b->loop;
 }
 
 Function::Function(Parser::FuncDef* a, Scope* enclosing)
