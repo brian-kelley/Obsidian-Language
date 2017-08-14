@@ -20,5 +20,6 @@ add_executable (onyx
   src/Parser.cpp
   src/CGen.cpp
   src/AST_Printer.cpp
+  src/Subroutine.cpp
 )
 

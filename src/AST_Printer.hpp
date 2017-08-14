@@ -17,7 +17,7 @@ namespace AstPrinter
   void printModule(Module* m, int indent);
   void printScopedDecl(ScopedDecl* m, int indent);
   void printTypeNT(Parser::TypeNT* t, int indent);
-  void printStatement(Statement* s, int indent);
+  void printStatementNT(Parser::StatementNT* s, int indent);
   void printTypedef(Typedef* t, int indent);
   void printReturn(Return* r, int indent);
   void printSwitch(Switch* s, int indent);

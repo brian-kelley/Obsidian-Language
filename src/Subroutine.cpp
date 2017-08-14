@@ -1,16 +1,30 @@
 #include "Subroutine.hpp"
+#include "Variable.hpp"
 
-Block::Block(Parser::Block* b, Subroutine* subr) : scope(subr->scope), ast(b)
+Block::Block(Parser::Block* b, Subroutine* sub) : ast(b), scope(b->bs)
 {
-  this->subr = subr;
+  this->subr = sub;
   this->loop = nullptr;
   addStatements();
 }
 
-Block::Block(Parser::Block* b, Block* parent) : scope(b->bs), ast(b)
+Block::Block(Parser::Block* b, Block* parent) : ast(b), scope(b->bs)
 {
   this->subr = parent->subr;
   this->loop = parent->loop;
+  addStatements();
+}
+
+Block::Block(Parser::For* lp, For* f, Block* parent) : ast(lp->body), scope(lp->body->bs)
+{
+  this->subr = parent->subr;
+  this->loop = new Loop(f);
+}
+
+Block::Block(Parser::While* lp, While* w, Block* parent) : ast(lp->body), scope(lp->body->bs)
+{
+  this->subr = parent->subr;
+  this->loop = new Loop(w);
   addStatements();
 }
 
@@ -18,24 +32,24 @@ void Block::addStatements()
 {
   for(auto stmt : ast->statements)
   {
-    if(stmt->s.is<ScopedDecl*>())
+    if(stmt->s.is<Parser::ScopedDecl*>())
     {
-      auto sd = stmt->s.get<ScopedDecl*>();
-      if(sd->decl.is<VarDecl*>())
+      auto sd = stmt->s.get<Parser::ScopedDecl*>();
+      if(sd->decl.is<Parser::VarDecl*>())
       {
-        auto vd = sd->decl.get<VarDecl*>();
+        auto vd = sd->decl.get<Parser::VarDecl*>();
         addLocalVariable(scope, vd);
       }
-      else if(sd->decl.is<FuncDef*>())
+      else if(sd->decl.is<Parser::FuncDef*>())
       {
-        scope->subr.push_back(new Function(sd->decl.get<FuncDef*>(), scope));
+        scope->subr.push_back(new Function(sd->decl.get<Parser::FuncDef*>()));
       }
-      else if(sd->decl.is<ProcDef*>())
+      else if(sd->decl.is<Parser::ProcDef*>())
       {
-        scope->subr.push_back(new Procedure(sd->decl.get<ProcDef*>(), scope));
+        scope->subr.push_back(new Procedure(sd->decl.get<Parser::ProcDef*>()));
       }
     }
-    stmts.push_back(createStatement(scope, stmt));
+    stmts.push_back(createStatement(this, stmt));
   }
 }
 
@@ -46,14 +60,14 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     //only scoped decl to handle now is VarDecl
     auto sd = stmt->s.get<Parser::ScopedDecl*>();
-    if(sd->s.is<Parser::VarDecl*>())
+    if(sd->decl.is<Parser::VarDecl*>())
     {
-      return addLocalVariable(b, sd->s.get<Parser::VarDecl*>());
+      return addLocalVariable(b->scope, sd->decl.get<Parser::VarDecl*>());
     }
   }
   else if(stmt->s.is<Parser::VarAssign*>())
   {
-    return new Assign(stmt->s.get<VarAssign*>(), scope);
+    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope);
   }
   else if(stmt->s.is<Parser::PrintNT*>())
   {
@@ -65,7 +79,7 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::Block*>())
   {
-    return new Block(stmt->s.get<Block*>(), b);
+    return new Block(stmt->s.get<Parser::Block*>(), b);
   }
   else if(stmt->s.is<Parser::Return*>())
   {
@@ -107,6 +121,8 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     return new Assertion(stmt->s.get<Parser::Assertion*>(), scope);
   }
+  INTERNAL_ERROR;
+  return nullptr;
 }
 
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
@@ -122,25 +138,25 @@ Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
   s->vars.push_back(newVar);
   if(vd->val)
   {
-    return new Assign(newVar, getExpression(s, vd->val));
+    return new Assign(newVar, getExpression(s, vd->val), s);
   }
   return nullptr;
 }
 
-Statement* addLocalVariable(BlockScope* s, string name, Type* type, Expression* init)
+Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, Expression* init)
 {
   //Make sure variable doesn't already exist (shadowing var is error)
   Parser::Member search;
-  search.ident = vd->name;
+  search.ident = name;
   if(s->findVariable(&search))
   {
-    ERR_MSG(string("variable \"") + vd->name + "\" already exists");
+    ERR_MSG(string("variable \"") + name + "\" already exists");
   }
   Variable* newVar = new Variable(s, name, type);
   s->vars.push_back(newVar);
-  if(vd->val)
+  if(init)
   {
-    return new Assign(newVar, init);
+    return new Assign(newVar, init, s);
   }
   return nullptr;
 }
@@ -195,9 +211,11 @@ CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
   }
 }
 
-For::For(Parser::For* f, Scope* s)
+For::For(Parser::For* f, Block* b)
 {
-  auto loopScope = f->scope;
+  loopBlock = new Block(f, this, b);
+  auto loopScope = f->body->bs;
+  auto enclosing = loopScope->parent;
   Expression* one = new IntLiteral(1);
   if(f->f.is<Parser::ForC*>())
   {
@@ -207,19 +225,19 @@ For::For(Parser::For* f, Scope* s)
     {
       //if fc->decl is a ScopedDecl/VarDecl,
       //this will create the counter as local variable in loopScope
-      init = createStatement(loopScope, fc->decl);
+      init = createStatement(loopBlock, fc->decl);
     }
     if(fc->condition)
     {
-      condition = getExpression(loopScope, fc->condition);
-      if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
+      condition = getExpression(enclosing, fc->condition);
+      if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
       {
         ERR_MSG("condition expression in C-style for loop must be a boolean");
       }
     }
     if(fc->incr)
     {
-      increment = createStatement(loopScope, fc->incr);
+      increment = createStatement(loopBlock, fc->incr);
     }
   }
   else if(f->f.is<Parser::ForRange1*>() || f->f.is<Parser::ForRange2*>())
@@ -231,14 +249,14 @@ For::For(Parser::For* f, Scope* s)
     if(f->f.is<Parser::ForRange1*>())
     {
       auto f1 = f->f.get<Parser::ForRange1*>();
-      lowerBound = new IntLiteral(0);
-      upperBound = getExpression(loopScope, f1->expr);
+      lowerBound = new IntLiteral((uint64_t) 0);
+      upperBound = getExpression(enclosing, f1->expr);
     }
     else
     {
-      auto f2 = f->f.get<Parser::ForRange1*>();
-      lowerBound = getExpression(loopScope, f2->start);
-      upperBound = getExpression(loopScope, f2->end);
+      auto f2 = f->f.get<Parser::ForRange2*>();
+      lowerBound = getExpression(enclosing, f2->start);
+      upperBound = getExpression(enclosing, f2->end);
     }
     if(upperBound->type == nullptr || !upperBound->type->isInteger())
     {
@@ -250,7 +268,7 @@ For::For(Parser::For* f, Scope* s)
     {
       Parser::Member mem;
       mem.ident = string("") + nameChar;
-      if(!s->findVariable(&mem))
+      if(!enclosing->findVariable(&mem))
       {
         //this variable doesn't already exist, so use this name
         foundCounterName = true;
@@ -265,46 +283,46 @@ For::For(Parser::For* f, Scope* s)
     counterName += nameChar;
     init = addLocalVariable(loopScope, counterName, upperBound->type, lowerBound);
     Parser::Member finalCountMem;
-    finalCountMem->ident = counterName;
+    finalCountMem.ident = counterName;
     Variable* counter = loopScope->findVariable(&finalCountMem);
     auto counterExpr = new VarExpr(loopScope, counter);
     //the condition is counterExpr < upperBound
     condition = new BinaryArith(counterExpr, CMPL, upperBound);
     //the increment is counter = counter + one
-    increment = new Assign(counter, new BinaryArith(counter, PLUS, one), loopScope);
+    increment = new Assign(counter, new BinaryArith(counterExpr, PLUS, one), loopScope);
   }
   else if(f->f.is<Parser::ForArray*>())
   {
     ERR_MSG("for loop over array isn't suppoted (yet)...");
   }
-  //body is required by grammar
-  body = createStatement(loopScope, f->body);
+  loopBlock->addStatements();
 }
 
-While::While(Parser::While* w, BlockScope* s)
+While::While(Parser::While* w, Block* b)
 {
-  condition = getExpression(s, w->cond);
-  if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
+  auto enclosing = b->scope;
+  condition = getExpression(enclosing, w->cond);
+  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
     ERR_MSG("while loop condition must be a bool");
   }
-  body = createStatement(loopScope, w->body);
+  loopBlock = new Block(w, this, b);
 }
 
-If::If(Parser::If* i, BlockScope* s)
+If::If(Parser::If* i, Block* b)
 {
-  condition = getExpression(s, i->cond);
-  if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
+  condition = getExpression(b->scope, i->cond);
+  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
     ERR_MSG("while loop condition must be a bool");
   }
-  body = createStatement(loopScope, i->body);
+  body = createStatement(b, i->ifBody);
 }
 
-IfElse::IfElse(Parser::IfElse* ie, Block* b)
+IfElse::IfElse(Parser::If* i, Block* b)
 {
-  condition = getExpression(s->scope, i->cond);
-  if(condition->type != TypeSystem::primitives[TypeNT::BOOL])
+  condition = getExpression(b->scope, i->cond);
+  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
     ERR_MSG("while loop condition must be a bool");
   }
@@ -355,24 +373,60 @@ Continue::Continue(Block* b)
   loop = b->loop;
 }
 
-Subroutine::Subroutine(Scope* enclosing, Parser::Block* block) : scope(block->bs)
+Subroutine::Subroutine(string name, TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* bodyBlock)
 {
+  auto scope = bodyBlock->scope;
+  auto enclosing = scope->parent;
+  this->name = name;
+  this->retType = TypeSystem::getType(ret, enclosing, nullptr);
+  argTypes.resize(args.size());
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    argTypes[i] = TypeSystem::getType(args[i]->type, enclosing, nullptr);
+    if(argTypes[i]->isVoid())
+    {
+      ERR_MSG("void can't be used as an argument type");
+    }
+  }
+  argVars.resize(args.size());
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    if(args[i]->haveName)
+    {
+      scope->vars.push_back(new Variable(scope, args[i]->name, argTypes[i]));
+      Member mem;
+      mem.ident = args[i]->name;
+      argVars[i] = scope->findVariable(&mem);
+    }
+    else
+    {
+      //this variable doesn't exist and won't be given stack space
+      argVars[i] = nullptr;
+    }
+  }
+  //load statements
+  body = new Block(bodyBlock, this);
+  isStatic = false;
+  owner = false;
 }
 
-Function::Function(Parser::FuncDef* a, Scope* enclosing) : Subroutine(, Parser::Block* block) : s(enclosing) {}
+Function::Function(Parser::FuncDef* a) : Subroutine(a->name, a->type->retType, a->type->args, a->body)
 {
-  retType = getType(a->type->retType, enclosing, nullptr);
-  for(auto it : a->type->args)
-  {
-  }
-  scope = a->body->bs;
   pure = true;
 }
 
-Procedure::Procedure(Parser::ProcDef* a, Scope* enclosing)
+bool Function::isPure()
 {
-  retType = getType(a->type->retType, enclosing, nullptr);
-  scope = a->body->bs;
+  return false;
+}
+
+Procedure::Procedure(Parser::ProcDef* a) : Subroutine(a->name, a->type->retType, a->type->args, a->body)
+{
   pure = false;
+}
+
+bool Procedure::isPure()
+{
+  return false;
 }
 

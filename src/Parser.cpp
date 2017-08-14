@@ -186,6 +186,14 @@ namespace Parser
     return type;
   }
 
+  Block* parseBlockWrappedStatement()
+  {
+    StatementNT* s = parse<StatementNT>();
+    Block* b = new Block;
+    b->statements.push_back(s);
+    return b;
+  }
+
   template<>
   StatementNT* parse<StatementNT>()
   {
@@ -348,7 +356,7 @@ namespace Parser
         (f->f = parseOptional<ForRange2>()) ||
         (f->f = parseOptional<ForArray>()))
     {
-      f->body = parse<StatementNT>();
+      f->body = parseBlockWrappedStatement();
     }
     else
     {
@@ -365,7 +373,7 @@ namespace Parser
     expectPunct(LPAREN);
     w->cond = parse<ExpressionNT>();
     expectPunct(RPAREN);
-    w->body = parse<StatementNT>();
+    w->body = parseBlockWrappedStatement();
     return w;
   }
 

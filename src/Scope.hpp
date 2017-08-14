@@ -36,7 +36,7 @@ struct Scope
   //Look up types, variables, subroutines (return NULL if not found)
   TypeSystem::Type* findType(Parser::Member* mem);
   Variable* findVariable(Parser::Member* mem);
-  Trait* findTrait(Parser::Member* mem);
+  TypeSystem::Trait* findTrait(Parser::Member* mem);
   Subroutine* findSubroutine(Parser::Member* mem);
   private:
   void findSubImpl(vector<string>& names, vector<Scope*>& matches);
@@ -66,7 +66,6 @@ struct BlockScope : public Scope
   string getLocalName();
   Parser::Block* ast;
   int index;
-  string getLocalName();
   static int nextBlockIndex;
 };
 

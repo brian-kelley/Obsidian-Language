@@ -521,7 +521,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
  * Primitive Literals *
  **********************/
 
-IntLiteral::IntLiteral(IntLit* a) : Expression(NULL), value(ast->val)
+IntLiteral::IntLiteral(IntLit* ast) : Expression(NULL), value(ast->val)
 {
   setType();
 }
@@ -531,11 +531,11 @@ IntLiteral::IntLiteral(uint64_t val) : Expression(NULL), value(val)
   setType();
 }
 
-void setType()
+void IntLiteral::setType()
 {
   //if value fits in a signed int, use that as the type
   //when in doubt, don't use auto
-  if(value() > 0x7FFFFFFF)
+  if(value > 0x7FFFFFFF)
   {
     type = TypeSystem::primitives[Parser::TypeNT::ULONG];
   }
@@ -550,7 +550,7 @@ FloatLiteral::FloatLiteral(FloatLit* a) : Expression(NULL), value(a->val)
   type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
 }
 
-FloatLiteral(double val) : value(val)
+FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
 {
   type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
 }
@@ -642,7 +642,7 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
     if(intIndex)
     {
       //val is unsigned and so always positive
-      auto val = intIndex->value();
+      auto val = intIndex->value;
       if(val >= tt->members.size())
       {
         ERR_MSG(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));

@@ -337,6 +337,7 @@ struct BoolType : public Type
 struct VoidType : public Type
 {
   VoidType();
+  bool canConvert(Type* other);
   bool isVoid();
 };
 

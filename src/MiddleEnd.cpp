@@ -1,14 +1,12 @@
 #include "MiddleEnd.hpp"
 
 using namespace std;
-using namespace Parser;
-using namespace TypeSystem;
 
 ModuleScope* global = NULL;
 
 namespace MiddleEnd
 {
-  void load(Module* ast)
+  void load(Parser::Module* ast)
   {
     //create global scope - no name and no parent
     global = new ModuleScope("", NULL, ast);
@@ -20,8 +18,8 @@ namespace MiddleEnd
       ScopeTypeLoading::visitScopedDecl(global, it);
     }
     cout << "Resolving undefined types...\n";
-    resolveAllTraits();
-    resolveAllTypes();
+    TypeSystem::resolveAllTraits();
+    TypeSystem::resolveAllTypes();
     cout << "Builing list of variable declarations...\n";
     VarLoading::visitScope(global);
     cout << "Middle end done.\n";
@@ -29,7 +27,7 @@ namespace MiddleEnd
 
   namespace ScopeTypeLoading
   {
-    void visitModule(Scope* current, Module* m)
+    void visitModule(Scope* current, Parser::Module* m)
     {
       Scope* mscope = new ModuleScope(m->name, current, m);
       //add all locally defined non-struct types in first pass:
@@ -39,46 +37,45 @@ namespace MiddleEnd
       }
     }
 
-    void visitBlock(Scope* current, Block* b)
+    void visitBlock(Scope* current, Parser::Block* b)
     {
       BlockScope* bscope = new BlockScope(current, b);
       for(auto st : b->statements)
       {
-        visitStatement(current, st);
+        visitStatement(bscope, st);
       }
     }
 
-    void visitStatement(Scope* current, Parser::StatementNT* s)
+    void visitStatement(Scope* current, Parser::StatementNT* st)
     {
-      if(st->s.is<ScopedDecl*>())
+      if(st->s.is<Parser::ScopedDecl*>())
       {
-        visitScopedDecl(current, st->s.get<ScopedDecl*>());
+        visitScopedDecl(current, st->s.get<Parser::ScopedDecl*>());
       }
-      else if(st->s.is<Block*>())
+      else if(st->s.is<Parser::Block*>())
       {
-        visitBlock(current, st->s.get<Block*>());
+        visitBlock(current, st->s.get<Parser::Block*>());
       }
-      else if(st->s.is<For*>())
+      else if(st->s.is<Parser::For*>())
       {
-        visitFor(current, st->s.get<For*>());
+        visitBlock(current, st->s.get<Parser::For*>()->body);
       }
-      else if(st->s.is<While*>())
+      else if(st->s.is<Parser::While*>())
       {
-        auto w = st->s.get<While*>();
-        visitStatement(current, w->body);
+        visitBlock(current, st->s.get<Parser::While*>()->body);
       }
-      else if(st->s.is<If*>())
+      else if(st->s.is<Parser::If*>())
       {
-        auto i = st->s.get<If*>();
+        auto i = st->s.get<Parser::If*>();
         visitStatement(current, i->ifBody);
         if(i->elseBody)
         {
           visitStatement(current, i->elseBody);
         }
       }
-      else if(st->s.is<Switch*>())
+      else if(st->s.is<Parser::Switch*>())
       {
-        auto sw = st->s.get<Switch*>();
+        auto sw = st->s.get<Parser::Switch*>();
         for(auto sc : sw->cases)
         {
           visitStatement(current, sc->s);
@@ -90,19 +87,7 @@ namespace MiddleEnd
       }
     }
 
-    void visitFor(Scope* current, Parser::For* f)
-    {
-      //this block scope is a regular sub scope of parent but isn't tied to a BlockNT
-      BlockScope* loopScope = new BlockScope(current);
-      f->scope = loopScope;
-      //now, if the for's body is BlockNT or for, visit that (otherwise done)
-      if(f->body.s.is<BlockNT*>())
-      {
-        visitBlock(loopScope, f->body.s.get<BlockNT*>());
-      }
-    }
-
-    void visitStruct(Scope* current, StructDecl* sd)
+    void visitStruct(Scope* current, Parser::StructDecl* sd)
     {
       //must create a child scope first, and then type
       StructScope* sscope = new StructScope(sd->name, current, sd);
@@ -112,42 +97,42 @@ namespace MiddleEnd
         auto& decl = it->sd;
         visitScopedDecl(sscope, decl);
       }
-      new StructType(sd, current, sscope);
+      new TypeSystem::StructType(sd, current, sscope);
     }
 
-    void visitScopedDecl(Scope* current, ScopedDecl* sd)
+    void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
     {
-      if(sd->decl.is<Enum*>())
+      if(sd->decl.is<Parser::Enum*>())
       {
-        new EnumType(sd->decl.get<Enum*>(), current);
+        new TypeSystem::EnumType(sd->decl.get<Parser::Enum*>(), current);
       }
-      else if(sd->decl.is<Typedef*>())
+      else if(sd->decl.is<Parser::Typedef*>())
       {
-        new AliasType(sd->decl.get<Typedef*>(), current);
+        new TypeSystem::AliasType(sd->decl.get<Parser::Typedef*>(), current);
       }
-      else if(sd->decl.is<StructDecl*>())
+      else if(sd->decl.is<Parser::StructDecl*>())
       {
-        visitStruct(current, sd->decl.get<StructDecl*>());
+        visitStruct(current, sd->decl.get<Parser::StructDecl*>());
       }
-      else if(sd->decl.is<UnionDecl*>())
+      else if(sd->decl.is<Parser::UnionDecl*>())
       {
-        new UnionType(sd->decl.get<UnionDecl*>(), current);
+        new TypeSystem::UnionType(sd->decl.get<Parser::UnionDecl*>(), current);
       }
-      else if(sd->decl.is<Module*>())
+      else if(sd->decl.is<Parser::Module*>())
       {
-        visitModule(current, sd->decl.get<Module*>());
+        visitModule(current, sd->decl.get<Parser::Module*>());
       }
-      else if(sd->decl.is<FuncDef*>())
+      else if(sd->decl.is<Parser::FuncDef*>())
       {
-        visitBlock(current, sd->decl.get<FuncDef*>()->body);
+        visitBlock(current, sd->decl.get<Parser::FuncDef*>()->body);
       }
-      else if(sd->decl.is<ProcDef*>())
+      else if(sd->decl.is<Parser::ProcDef*>())
       {
-        visitBlock(current, sd->decl.get<ProcDef*>()->body);
+        visitBlock(current, sd->decl.get<Parser::ProcDef*>()->body);
       }
-      else if(sd->decl.is<TraitDecl*>())
+      else if(sd->decl.is<Parser::TraitDecl*>())
       {
-        new Trait(sd->decl.get<TraitDecl*>(), current);
+        new TypeSystem::Trait(sd->decl.get<Parser::TraitDecl*>(), current);
       }
     }
   }
@@ -163,17 +148,17 @@ namespace MiddleEnd
       {
         for(auto& it : bs->ast->statements)
         {
-          if(it->s.is<ScopedDecl*>())
+          if(it->s.is<Parser::ScopedDecl*>())
           {
-            auto sd = it->s.get<ScopedDecl*>();
-            if(sd->decl.is<FuncDef*>())
+            auto sd = it->s.get<Parser::ScopedDecl*>();
+            if(sd->decl.is<Parser::FuncDef*>())
             {
-              visitFuncDef(s, sd->decl.get<FuncDef*>());
+              visitFuncDef(s, sd->decl.get<Parser::FuncDef*>());
             }
-            else if(sd->decl.is<ProcDef*>())
+            else if(sd->decl.is<Parser::ProcDef*>())
             {
             }
-              visitProcDef(s, sd->decl.get<ProcDef*>());
+              visitProcDef(s, sd->decl.get<Parser::ProcDef*>());
           }
         }
       }
@@ -181,13 +166,13 @@ namespace MiddleEnd
       {
         for(auto& it : ms->ast->decls)
         {
-          if(it->decl.is<FuncDef*>())
+          if(it->decl.is<Parser::FuncDef*>())
           {
-            visitFuncDef(s, it->decl.get<FuncDef*>());
+            visitFuncDef(s, it->decl.get<Parser::FuncDef*>());
           }
-          else if(it->decl.is<ProcDef*>())
+          else if(it->decl.is<Parser::ProcDef*>())
           {
-            visitProcDef(s, it->decl.get<ProcDef*>());
+            visitProcDef(s, it->decl.get<Parser::ProcDef*>());
           }
         }
       }
@@ -195,17 +180,17 @@ namespace MiddleEnd
       {
         for(auto& it : ss->ast->members)
         {
-          if(it->sd->decl.is<FuncDef*>())
+          if(it->sd->decl.is<Parser::FuncDef*>())
           {
-            visitFuncDef(s, it->sd->decl.get<FuncDef*>());
+            visitFuncDef(s, it->sd->decl.get<Parser::FuncDef*>());
           }
-          else if(it->sd->decl.is<ProcDef*>())
+          else if(it->sd->decl.is<Parser::ProcDef*>())
           {
-            visitProcDef(s, it->sd->decl.get<ProcDef*>());
+            visitProcDef(s, it->sd->decl.get<Parser::ProcDef*>());
           }
         }
       }
-      for(auto child : children)
+      for(auto child : s->children)
       {
         visitScope(child);
       }
@@ -213,12 +198,12 @@ namespace MiddleEnd
 
     void visitFuncDef(Scope* s, Parser::FuncDef* ast)
     {
-      s->subr.push_back(new Function(s, ast));
+      s->subr.push_back(new Function(ast));
     }
 
     void visitProcDef(Scope* s, Parser::ProcDef* ast)
     {
-      s->subr.push_back(new Procedure(s, ast));
+      s->subr.push_back(new Procedure(ast));
     }
   }
 
@@ -239,13 +224,13 @@ namespace MiddleEnd
       {
         for(auto& it : bs->ast->statements)
         {
-          if(it->s.is<ScopedDecl*>())
+          if(it->s.is<Parser::ScopedDecl*>())
           {
-            auto sd = it->s.get<ScopedDecl*>();
-            if(sd->decl.is<VarDecl*>())
+            auto sd = it->s.get<Parser::ScopedDecl*>();
+            if(sd->decl.is<Parser::VarDecl*>())
             {
-              auto vd = sd->decl.get<VarDecl*>();
-              bs->vars.push_back(new GlobalVar(s, vd));
+              auto vd = sd->decl.get<Parser::VarDecl*>();
+              bs->vars.push_back(new Variable(s, vd));
             }
           }
         }
@@ -255,12 +240,12 @@ namespace MiddleEnd
         //only process static vars here
         for(auto& it : ss->ast->members)
         {
-          if(it->sd->decl.is<VarDecl*>())
+          if(it->sd->decl.is<Parser::VarDecl*>())
           {
-            auto vd = it->sd->decl.get<VarDecl*>();
+            auto vd = it->sd->decl.get<Parser::VarDecl*>();
             if(vd->isStatic)
             {
-              ss->vars.push_back(new GlobalVar(s, vd));
+              ss->vars.push_back(new Variable(s, vd));
             }
           }
         }
@@ -269,9 +254,9 @@ namespace MiddleEnd
       {
         for(auto& it : ms->ast->decls)
         {
-          if(it->decl.is<VarDecl*>())
+          if(it->decl.is<Parser::VarDecl*>())
           {
-            ms->vars.push_back(new GlobalVar(s, it->decl.get<VarDecl*>()));
+            ms->vars.push_back(new Variable(s, it->decl.get<Parser::VarDecl*>()));
           }
         }
       }

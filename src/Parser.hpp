@@ -12,6 +12,7 @@ using namespace std;
 
 //Use empty struct as default value in some variants
 struct None{};
+struct BlockScope;
 typedef runtime_error ParseErr;
 
 namespace Parser
@@ -170,7 +171,7 @@ namespace Parser
       ScopedDecl*,
       VarAssign*,
       PrintNT*,
-      Call*,
+      CallNT*,
       Block*,
       Return*,
       Continue*,
@@ -181,7 +182,7 @@ namespace Parser
       If*,
       Assertion*,
       EmptyStatement*> s;
-    Statement* stmt;
+    StatementNT* stmt;
   };
 
   struct Typedef
@@ -220,15 +221,14 @@ namespace Parser
 
   struct For
   {
-    For() : f(None()), body(nullptr), scope(nullptr) {}
+    For() : f(None()), body(nullptr) {}
     variant<
       None,
       ForC*,
       ForRange1*,
       ForRange2*,
       ForArray*> f;
-    BlockScope* scope;
-    StatementNT* body;
+    Block* body;
   };
 
   struct ForC
@@ -264,7 +264,7 @@ namespace Parser
   {
     While() : cond(nullptr), body(nullptr), scope(nullptr) {}
     ExpressionNT* cond;
-    StatementNT* body;
+    Block* body;
     BlockScope* scope;
   };
 

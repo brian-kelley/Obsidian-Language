@@ -27,6 +27,10 @@ struct Block : public Statement
   Block(Parser::Block* b, Subroutine* subr);
   //Constructor for block inside a function/procedure
   Block(Parser::Block* b, Block* parent);
+  //Constructor for For loop body
+  Block(Parser::For* lp, For* f, Block* parent);
+  //Constructor for While loop body
+  Block(Parser::While* lp, While* w, Block* parent);
   Parser::Block* ast;
   void addStatements();
   vector<Statement*> stmts;
@@ -44,12 +48,12 @@ Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 //create an Assign statement if that variable is initialized
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd);
 //Create a local variable with given name and type
-Statement* addLocalVariable(BlockScope* s, string name, Type* type, Expression* init);
+Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, Expression* init);
 
 struct Assign : public Statement
 {
   Assign(Parser::VarAssign* va, BlockScope* s);
-  Assign(Variable* target, Expression* e, BlockScope* s);
+  Assign(Variable* target, Expression* e, Scope* s);
   Expression* lvalue;
   Expression* rvalue;
 };
@@ -64,33 +68,31 @@ struct CallStmt : public Statement
 
 struct For : public Statement
 {
-  For(Parser::For* f, BlockScope* s);
-  //Even if the body is not a block, the loop has a BlockScope for containing the counter
-  //Statement 0 is init(s), body, increment(s) in that order
+  //note: scope provided in Parser::For
+  For(Parser::For* f, Block* b);
   Block* loopBlock;
   Statement* init;
   Expression* condition;  //check this before each entry to loop body
-  Statement* body;
   Statement* increment;
 };
 
 struct While : public Statement
 {
-  While(Parser::While* w, BlockScope* s);
+  While(Parser::While* w, Block* b);
+  Block* loopBlock;
   Expression* condition;
-  Statement* body;
 };
 
 struct If : public Statement
 {
-  If(Parser::If* i, BlockScope* s);
+  If(Parser::If* i, Block* b);
   Expression* condition;
   Statement* body;
 };
 
 struct IfElse : public Statement
 {
-  IfElse(Parser::IfElse* ie, BlockScope* s);
+  IfElse(Parser::If* ie, Block* b);
   Expression* condition;
   Statement* trueBody;
   Statement* falseBody;
@@ -98,21 +100,21 @@ struct IfElse : public Statement
 
 struct Return : public Statement
 {
-  Return(Parser::Return* r, BlockScope* s);
+  Return(Parser::Return* r, Block* s);
   Statement* value; //can be null
 };
 
 struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
-  Break(BlockScope* s);
+  Break(Block* s);
   Loop loop;
 };
 
 struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
-  Continue(BlockScope* s);
+  Continue(Block* s);
   Loop loop;
 };
 
@@ -130,25 +132,28 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  //The scope of the subroutine (child of the enclosing scope)
-  BlockScope* scope;
-  Type* retType;
-  vector<Type*> argTypes;
-  vector<Statement*> statements;
-  bool pure;              //true for functions and false for procedures
+  Subroutine(string name, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Block* body);
+  TypeSystem::Type* retType;
+  vector<TypeSystem::Type*> argTypes;
+  //Local variables in body's scope representing arguments, in order
+  vector<Variable*> argVars;
+  Block* body;
+  virtual bool isPure() = 0;
   string name;
   bool isStatic;
-  StructType* owner;      //the struct type with this subroutine as a non-static member (otherwise null)
+  TypeSystem::StructType* owner;      //the struct type with this subroutine as a non-static member (otherwise null)
 };
 
 struct Function : public Subroutine
 {
-  Function(Parser::FuncDef* a, Scope* enclosing);
+  Function(Parser::FuncDef* a);
+  bool isPure();
 };
 
 struct Procedure : public Subroutine
 {
-  Procedure(Parser::ProcDef* a, Scope* enclosing);
+  Procedure(Parser::ProcDef* a);
+  bool isPure();
 };
 
 #endif

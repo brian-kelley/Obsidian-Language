@@ -971,9 +971,14 @@ bool BoolType::isBool()
 /* Void Type */
 /*************/
 
-VoidType() : Type(global) {}
+VoidType::VoidType() : Type(global) {}
 
-bool isVoid()
+bool VoidType::canConvert(Type* t)
+{
+  return t->isVoid();
+}
+
+bool VoidType::isVoid()
 {
   return true;
 }

@@ -16,9 +16,9 @@ Variable::Variable(Scope* s, Parser::VarDecl* ast)
   this->type = TypeSystem::getType(ast->type, scope, NULL, true);
 }
 
-Variable::Variable(Scope* s, string name, TypeSystem::Type* t)
+Variable::Variable(Scope* s, string n, TypeSystem::Type* t)
 {
-  this->name = name;
+  this->name = n;
   this->scope = s;
   this->isStatic = false;
   this->type = t;

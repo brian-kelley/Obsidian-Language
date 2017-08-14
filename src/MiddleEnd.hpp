@@ -39,7 +39,6 @@ namespace MiddleEnd
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
     //for loops are special becuase they always introduce a block scope (for the counter),
     //even if its body is not a block
-    void visitFor(Scope* current, Parser::For* f);
     void resolveAll();
   }
   namespace SubroutineLoading
