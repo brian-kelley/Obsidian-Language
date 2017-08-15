@@ -97,9 +97,9 @@ namespace MiddleEndDebug
     if(!t)
     {
       indent(ind);
-      cout << "Warning: null Type!\n";
+      cout << "WARNING: null Type!\n";
     }
-    if(dynamic_cast<StructType*>(t))
+    else if(dynamic_cast<StructType*>(t))
     {
       printStructType((StructType*) t, ind);
     }
@@ -150,6 +150,11 @@ namespace MiddleEndDebug
       indent(ind);
       cout << "bool\n";
     }
+    else if(dynamic_cast<VoidType*>(t))
+    {
+      indent(ind);
+      cout << "void\n";
+    }
     else if(dynamic_cast<FuncType*>(t))
     {
       printFuncType((FuncType*) t, ind);
@@ -162,6 +167,11 @@ namespace MiddleEndDebug
     {
       indent(ind);
       cout << "T (in trait)\n";
+    }
+    else
+    {
+      indent(ind);
+      cout << "ERROR: unknown Type subclass!\n";
     }
   }
 
@@ -305,6 +315,187 @@ namespace MiddleEndDebug
     indent(ind);
     cout << "Type:\n";
     printType(v->type, ind + 1);
+  }
+
+  void printSubroutines(Scope* s, int ind)
+  {
+    indent(ind);
+    cout << s->subr.size() << " subroutines in scope " << s->getLocalName() << ":\n";
+    for(auto it : s->subr)
+    {
+      auto f = dynamic_cast<Function*>(it);
+      auto p = dynamic_cast<Procedure*>(it);
+      if(f)
+      {
+        printFunc(f, ind + 1);
+      }
+      else
+      {
+        printProc(p, ind + 1);
+      }
+    }
+    for(auto c : s->children)
+    {
+      printSubroutines(c, ind + 1);
+    }
+  }
+
+  void printFunc(Function* f, int ind)
+  {
+    indent(ind);
+    cout << "Function " << f->name << ":\n";
+    printStatement(f->body, ind + 1);
+  }
+
+  void printProc(Procedure* p, int ind)
+  {
+    indent(ind);
+    cout << "Procedure " << p->name << ":\n";
+    printStatement(p->body, ind + 1);
+  }
+
+  void printStatement(Statement* s, int ind)
+  {
+    auto b = dynamic_cast<Block*>(s);
+    auto a = dynamic_cast<Assign*>(s);
+    auto c = dynamic_cast<CallStmt*>(s);
+    auto f = dynamic_cast<For*>(s);
+    auto w = dynamic_cast<While*>(s);
+    auto i = dynamic_cast<If*>(s);
+    auto ie = dynamic_cast<IfElse*>(s);
+    auto r = dynamic_cast<Return*>(s);
+    auto br = dynamic_cast<Break*>(s);
+    auto co = dynamic_cast<Continue*>(s);
+    auto p = dynamic_cast<Print*>(s);
+    auto as = dynamic_cast<Assertion*>(s);
+    if(b)
+    {
+      printBlock(b, ind);
+    }
+    else if(a)
+    {
+      indent(ind);
+      cout << "Assignment of expr " << a->rvalue << " to expr " << a->lvalue << '\n';
+    }
+    else if(c)
+    {
+      indent(ind);
+      cout << "Call to procedure " << c->called->name << " with args:\n";
+      for(auto arg : c->args)
+      {
+        indent(ind + 1);
+        cout << arg << '\n';
+      }
+    }
+    else if(f)
+    {
+      indent(ind);
+      cout << "For loop\n";
+      indent(ind);
+      cout << "Initializer:\n";
+      printStatement(f->init, ind + 1);
+      cout << "Condition expr\n";
+      indent(ind + 1);
+      cout << f->condition;
+      indent(ind);
+      cout << "Increment:\n";
+      printStatement(f->increment, ind + 1);
+      cout << "Body:\n";
+      printBlock(f->loopBlock, ind + 1);
+    }
+    else if(w)
+    {
+      indent(ind);
+      cout << "While loop\n";
+      indent(ind);
+      cout << "Condition: " << w->condition << '\n';
+      indent(ind);
+      cout << "Body:\n";
+      printBlock(w->loopBlock, ind + 1);
+    }
+    else if(i)
+    {
+      indent(ind);
+      cout << "If: condition " << i->condition << "\n";
+      indent(ind);
+      cout << "Body:\n";
+      printStatement(i->body, ind + 1);
+    }
+    else if(ie)
+    {
+      indent(ind);
+      cout << "If-else: condition " << ie->condition << "\n";
+      indent(ind);
+      cout << "True body:\n";
+      printStatement(ie->trueBody, ind + 1);
+      cout << "False body:\n";
+      printStatement(ie->falseBody, ind + 1);
+    }
+    else if(r)
+    {
+      indent(ind);
+      cout << "Return ";
+      if(r->value)
+      {
+        cout << "expr " << r->value << ' ';
+      }
+      else
+      {
+        cout << "void ";
+      }
+      cout << "from subroutine " << r->from << '\n';
+    }
+    else if(br)
+    {
+      indent(ind);
+      cout << "Break from ";
+      if(br->loop->is<For*>())
+      {
+        cout << "for loop " << br->loop->get<For*>() << '\n';
+      }
+      else
+      {
+        cout << "while loop " << br->loop->get<While*>() << '\n';
+      }
+    }
+    else if(co)
+    {
+      indent(ind);
+      cout << "Countine: return to start of ";
+      if(co->loop->is<For*>())
+      {
+        cout << "for loop " << co->loop->get<For*>() << '\n';
+      }
+      else
+      {
+        cout << "while loop " << co->loop->get<While*>() << '\n';
+      }
+    }
+    else if(p)
+    {
+      indent(ind);
+      cout << "Print of expressions:\n";
+      for(auto e : p->exprs)
+      {
+        indent(ind + 1);
+        cout << e << '\n';
+      }
+    }
+    else if(as)
+    {
+      indent(ind);
+      cout << "Assertion that expression " << as->asserted << " is true\n";
+    }
+  }
+
+  void printBlock(Block* b, int ind)
+  {
+    indent(ind);
+    cout << "Block:\n";
+    for(auto stmt : b->stmts)
+    {
+      printStatement(stmt, ind + 1);
+    }
   }
 }
 

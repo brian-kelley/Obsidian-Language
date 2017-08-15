@@ -26,6 +26,12 @@ namespace MiddleEndDebug
   
   void printTrait(TypeSystem::Trait* t, int ind);
   void printVariable(Variable* v, int ind);
+
+  void printSubroutines(Scope* s = global, int ind = 0);
+  void printFunc(Function* f, int ind);
+  void printProc(Procedure* p, int ind);
+  void printStatement(Statement* s, int ind);
+  void printBlock(Block* b, int ind);
 }
 
 #endif

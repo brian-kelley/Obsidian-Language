@@ -43,15 +43,21 @@ int main(int argc, const char** argv)
   */
   //Parse the global/root module
   Parser::Module* ast = Parser::parseProgram(toks);
+  /*
   cout << "************************************\n";
   cout << "*             AST                  *\n";
   cout << "************************************\n";
   printAST(ast);
+  */
   MiddleEnd::load(ast);
   cout << "************************************\n";
   cout << "*          Scopes/Types            *\n";
   cout << "************************************\n";
   MiddleEndDebug::printTypeTree();
+  cout << "************************************\n";
+  cout << "*          Subroutines             *\n";
+  cout << "************************************\n";
+  MiddleEndDebug::printSubroutines();
   //Code generation
   //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

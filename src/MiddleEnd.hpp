@@ -41,16 +41,15 @@ namespace MiddleEnd
     //even if its body is not a block
     void resolveAll();
   }
-  namespace SubroutineLoading
-  {
-    void visitScope(Scope* s);
-    void visitFuncDef(Scope* s, Parser::FuncDef* ast);
-    void visitProcDef(Scope* s, Parser::ProcDef* ast);
-  }
   namespace VarLoading
   {
     void visitScope(Scope* s);
     void visitVarDecl(Scope* s, Parser::VarDecl* vd);
+  }
+  namespace SubroutineLoading
+  {
+    void visitScope(Scope* s);
+    void visitDecl(Scope* s, Parser::ScopedDecl* decl);
   }
 }
 

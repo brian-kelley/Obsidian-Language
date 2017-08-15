@@ -11,7 +11,9 @@
 /***************************************************************************/
 
 struct Statement
-{};
+{
+  virtual ~Statement() {}
+};
 
 struct Subroutine;
 struct Procedure; 
@@ -102,6 +104,7 @@ struct Return : public Statement
 {
   Return(Parser::Return* r, Block* s);
   Expression* value; //can be null (void return)
+  Subroutine* from;
 };
 
 struct Break : public Statement

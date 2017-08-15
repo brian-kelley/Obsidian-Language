@@ -20,8 +20,10 @@ namespace MiddleEnd
     cout << "Resolving undefined types...\n";
     TypeSystem::resolveAllTraits();
     TypeSystem::resolveAllTypes();
-    cout << "Builing list of variable declarations...\n";
+    cout << "Building list of global/static variable declarations...\n";
     VarLoading::visitScope(global);
+    cout << "Loading functions and procedures...\n";
+    SubroutineLoading::visitScope(global);
     cout << "Middle end done.\n";
   }
 
@@ -137,76 +139,6 @@ namespace MiddleEnd
     }
   }
 
-  namespace SubroutineLoading
-  {
-    void visitScope(Scope* s)
-    {
-      auto bs = dynamic_cast<BlockScope*>(s);
-      auto ms = dynamic_cast<ModuleScope*>(s);
-      auto ss = dynamic_cast<StructScope*>(s);
-      if(bs)
-      {
-        for(auto& it : bs->ast->statements)
-        {
-          if(it->s.is<Parser::ScopedDecl*>())
-          {
-            auto sd = it->s.get<Parser::ScopedDecl*>();
-            if(sd->decl.is<Parser::FuncDef*>())
-            {
-              visitFuncDef(s, sd->decl.get<Parser::FuncDef*>());
-            }
-            else if(sd->decl.is<Parser::ProcDef*>())
-            {
-            }
-              visitProcDef(s, sd->decl.get<Parser::ProcDef*>());
-          }
-        }
-      }
-      else if(ms)
-      {
-        for(auto& it : ms->ast->decls)
-        {
-          if(it->decl.is<Parser::FuncDef*>())
-          {
-            visitFuncDef(s, it->decl.get<Parser::FuncDef*>());
-          }
-          else if(it->decl.is<Parser::ProcDef*>())
-          {
-            visitProcDef(s, it->decl.get<Parser::ProcDef*>());
-          }
-        }
-      }
-      else if(ss)
-      {
-        for(auto& it : ss->ast->members)
-        {
-          if(it->sd->decl.is<Parser::FuncDef*>())
-          {
-            visitFuncDef(s, it->sd->decl.get<Parser::FuncDef*>());
-          }
-          else if(it->sd->decl.is<Parser::ProcDef*>())
-          {
-            visitProcDef(s, it->sd->decl.get<Parser::ProcDef*>());
-          }
-        }
-      }
-      for(auto child : s->children)
-      {
-        visitScope(child);
-      }
-    }
-
-    void visitFuncDef(Scope* s, Parser::FuncDef* ast)
-    {
-      s->subr.push_back(new Function(ast));
-    }
-
-    void visitProcDef(Scope* s, Parser::ProcDef* ast)
-    {
-      s->subr.push_back(new Procedure(ast));
-    }
-  }
-
   namespace VarLoading
   {
     void visitScope(Scope* s)
@@ -264,6 +196,57 @@ namespace MiddleEnd
       for(auto child : s->children)
       {
         visitScope(child);
+      }
+    }
+  }
+
+  namespace SubroutineLoading
+  {
+    void visitScope(Scope* s)
+    {
+      auto bs = dynamic_cast<BlockScope*>(s);
+      auto ms = dynamic_cast<ModuleScope*>(s);
+      auto ss = dynamic_cast<StructScope*>(s);
+      if(bs)
+      {
+        for(auto& it : bs->ast->statements)
+        {
+          if(it->s.is<Parser::ScopedDecl*>())
+          {
+            auto sd = it->s.get<Parser::ScopedDecl*>();
+            visitDecl(s, sd);
+          }
+        }
+      }
+      else if(ms)
+      {
+        for(auto& it : ms->ast->decls)
+        {
+          visitDecl(s, it);
+        }
+      }
+      else if(ss)
+      {
+        for(auto& it : ss->ast->members)
+        {
+          visitDecl(s, it->sd);
+        }
+      }
+      for(auto child : s->children)
+      {
+        visitScope(child);
+      }
+    }
+
+    void visitDecl(Scope* s, Parser::ScopedDecl* decl)
+    {
+      if(decl->decl.is<Parser::FuncDef*>())
+      {
+        s->subr.push_back(new Function(decl->decl.get<Parser::FuncDef*>()));
+      }
+      else if(decl->decl.is<Parser::ProcDef*>())
+      {
+        s->subr.push_back(new Procedure(decl->decl.get<Parser::ProcDef*>()));
       }
     }
   }

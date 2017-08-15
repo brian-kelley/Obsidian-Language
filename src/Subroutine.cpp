@@ -332,6 +332,7 @@ IfElse::IfElse(Parser::If* i, Block* b)
 
 Return::Return(Parser::Return* r, Block* b)
 {
+  from = b->subr;
   value = nullptr;
   bool voidReturn = r->ex == nullptr;
   if(!voidReturn)
@@ -417,7 +418,7 @@ Subroutine::Subroutine(string n, Parser::TypeNT* ret, vector<Parser::Arg*>& args
       argVars[i] = nullptr;
     }
   }
-  //TODO:
+  //TODO TODO TODO TODO:
   isStatic = false;
   owner = nullptr;
   //load statements

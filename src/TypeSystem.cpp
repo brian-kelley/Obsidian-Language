@@ -46,7 +46,7 @@ void createBuiltinTypes()
 {
   using Parser::TypeNT;
   //primitives has same size as the enum Parser::TypeNT::Prim
-  primitives.resize(12);
+  primitives.resize(13);
   primitives[TypeNT::BOOL] = new BoolType;
   primitives[TypeNT::CHAR] = new IntegerType("char", 1, true);
   primitives[TypeNT::UCHAR] = new IntegerType("uchar", 1, false);
