@@ -17,7 +17,7 @@ namespace TypeSystem
 {
 
 vector<Type*> primitives;
-unordered_map<string, Type*> primNames;
+map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
 vector<UnresolvedType> unresolved;

@@ -295,7 +295,6 @@ void lex(string& code, vector<Token*>& tokList)
     else
     {
       ERR_MSG("unexpected character: '" << c << "'\n");
-      cs.err(oss.str());
     }
   }
 }

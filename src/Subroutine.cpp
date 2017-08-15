@@ -339,15 +339,15 @@ Return::Return(Parser::Return* r, Block* b)
     value = getExpression(b->scope, r->ex);
   }
   //Make sure that the return expression has a type that matches the subroutine's retType
-  if(voidReturn && subr->retType != TypeSystem::primitives[TypeNT::BOOL])
+  if(voidReturn && b->subr->retType != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
     ERR_MSG("function or procedure doesn't return void, so return must have an expression");
   }
-  if(!voidReturn && subr->retType == TypeSystem::primitives[TypeNT::BOOL])
+  if(!voidReturn && b->subr->retType == TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
     ERR_MSG("procedure returns void but a return expression was provided");
   }
-  if(!voidReturn && !subr->retType->canConvert(value))
+  if(!voidReturn && !b->subr->retType->canConvert(value))
   {
     ERR_MSG("returned expression can't be converted to the function/procedure return type");
   }
@@ -373,11 +373,24 @@ Continue::Continue(Block* b)
   loop = b->loop;
 }
 
-Subroutine::Subroutine(string name, TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* bodyBlock)
+Print::Print(Parser::PrintNT* p, BlockScope* s)
 {
-  auto scope = bodyBlock->scope;
+  for(auto e : p->exprs)
+  {
+    exprs.push_back(getExpression(s, e));
+  }
+}
+
+Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
+{
+  asserted = getExpression(s, as->expr);
+}
+
+Subroutine::Subroutine(string n, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* bodyBlock)
+{
+  auto scope = bodyBlock->bs;
   auto enclosing = scope->parent;
-  this->name = name;
+  this->name = n;
   this->retType = TypeSystem::getType(ret, enclosing, nullptr);
   argTypes.resize(args.size());
   for(size_t i = 0; i < args.size(); i++)
@@ -394,7 +407,7 @@ Subroutine::Subroutine(string name, TypeNT* ret, vector<Parser::Arg*>& args, Par
     if(args[i]->haveName)
     {
       scope->vars.push_back(new Variable(scope, args[i]->name, argTypes[i]));
-      Member mem;
+      Parser::Member mem;
       mem.ident = args[i]->name;
       argVars[i] = scope->findVariable(&mem);
     }
@@ -404,26 +417,23 @@ Subroutine::Subroutine(string name, TypeNT* ret, vector<Parser::Arg*>& args, Par
       argVars[i] = nullptr;
     }
   }
+  //TODO:
+  isStatic = false;
+  owner = nullptr;
   //load statements
   body = new Block(bodyBlock, this);
-  isStatic = false;
-  owner = false;
 }
 
-Function::Function(Parser::FuncDef* a) : Subroutine(a->name, a->type->retType, a->type->args, a->body)
-{
-  pure = true;
-}
+Function::Function(Parser::FuncDef* a) : Subroutine(a->name, a->type.retType, a->type.args, a->body)
+{}
 
 bool Function::isPure()
 {
   return false;
 }
 
-Procedure::Procedure(Parser::ProcDef* a) : Subroutine(a->name, a->type->retType, a->type->args, a->body)
-{
-  pure = false;
-}
+Procedure::Procedure(Parser::ProcDef* a) : Subroutine(a->name, a->type.retType, a->type.args, a->body)
+{}
 
 bool Procedure::isPure()
 {

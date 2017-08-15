@@ -1,5 +1,5 @@
 #include "Parser.hpp"
-#include "AST_PrintNTer.hpp"
+#include "AST_Printer.hpp"
 
 struct BlockScope;
 
@@ -201,7 +201,7 @@ namespace Parser
     if((s->s = parseOptional<ScopedDecl>()) ||
         (s->s = parseOptional<VarAssign>()) ||
         (s->s = parseOptional<PrintNT>()) ||
-        (s->s = parseOptional<Call>()) ||
+        (s->s = parseOptional<CallNT>()) ||
         (s->s = parseOptional<Block>()) ||
         (s->s = parseOptional<Return>()) ||
         (s->s = parseOptional<Continue>()) ||
@@ -213,7 +213,7 @@ namespace Parser
         (s->s = parseOptional<Assertion>()) ||
         (s->s = parseOptional<EmptyStatement>()))
     {}
-    else if((s->s = parseOptional<Call>()))
+    else if((s->s = parseOptional<CallNT>()))
     {
       //call doesn't include the semicolon
       expectPunct(SEMICOLON);
@@ -442,7 +442,7 @@ namespace Parser
     expectPunct(LBRACE);
     b->statements = parseSome<StatementNT>();
     expectPunct(RBRACE);
-    bs = nullptr;
+    b->bs = nullptr;
     return b;
   }
 
@@ -662,7 +662,7 @@ namespace Parser
     FuncDef* fd = new FuncDef;
     expectKeyword(FUNC);
     fd->type.retType = parse<TypeNT>();
-    fd->name = parse<Member>();
+    fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     fd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);
@@ -706,7 +706,7 @@ namespace Parser
       pd->type.nonterm = true;
     expectKeyword(PROC);
     pd->type.retType = parse<TypeNT>();
-    pd->name = parse<Member>();
+    pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     pd->type.args = parseSomeCommaSeparated<Arg>();
     expectPunct(RPAREN);

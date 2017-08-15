@@ -101,21 +101,21 @@ struct IfElse : public Statement
 struct Return : public Statement
 {
   Return(Parser::Return* r, Block* s);
-  Statement* value; //can be null
+  Expression* value; //can be null (void return)
 };
 
 struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(Block* s);
-  Loop loop;
+  Loop* loop;
 };
 
 struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Continue(Block* s);
-  Loop loop;
+  Loop* loop;
 };
 
 struct Print : public Statement
@@ -132,7 +132,7 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  Subroutine(string name, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Block* body);
+  Subroutine(string name, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* body);
   TypeSystem::Type* retType;
   vector<TypeSystem::Type*> argTypes;
   //Local variables in body's scope representing arguments, in order

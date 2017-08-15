@@ -1,4 +1,7 @@
 #include "Scope.hpp"
+#include "TypeSystem.hpp"
+#include "Variable.hpp"
+#include "Subroutine.hpp"
 
 int BlockScope::nextBlockIndex = 0;
 
@@ -78,17 +81,17 @@ TypeSystem::Type* Scope::findType(Parser::Member* mem)
   auto search = findSub(mem->scopes);
   for(auto scope : search)
   {
-    for(Type* t : scope->types)
+    for(TypeSystem::Type* t : scope->types)
     {
       //check for named type
-      auto at = dynamic_cast<AliasType*>(t);
-      auto st = dynamic_cast<StructType*>(t);
-      auto ut = dynamic_cast<UnionType*>(t);
-      auto et = dynamic_cast<EnumType*>(t);
-      if(at && at->name == mem->ident ||
-         st && st->name == mem->ident ||
-         ut && ut->name == mem->ident ||
-         et && et->name == mem->ident)
+      auto at = dynamic_cast<TypeSystem::AliasType*>(t);
+      auto st = dynamic_cast<TypeSystem::StructType*>(t);
+      auto ut = dynamic_cast<TypeSystem::UnionType*>(t);
+      auto et = dynamic_cast<TypeSystem::EnumType*>(t);
+      if((at && at->name == mem->ident) ||
+         (st && st->name == mem->ident) ||
+         (ut && ut->name == mem->ident) ||
+         (et && et->name == mem->ident))
       {
         return t;
       }
@@ -116,12 +119,12 @@ Variable* Scope::findVariable(Parser::Member* mem)
   return nullptr;
 }
 
-Trait* Scope::findTrait(Parser::Member* mem)
+TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
 {
   auto search = findSub(mem->scopes);
   for(auto scope : search)
   {
-    for(Trait* t : scope->traits)
+    for(TypeSystem::Trait* t : scope->traits)
     {
       if(t->name == mem->ident)
       {
@@ -138,7 +141,7 @@ Subroutine* Scope::findSubroutine(Parser::Member* mem)
   auto search = findSub(mem->scopes);
   for(auto scope : search)
   {
-    for(Subroutine* s : scope->traits)
+    for(Subroutine* s : scope->subr)
     {
       if(s->name == mem->ident)
       {

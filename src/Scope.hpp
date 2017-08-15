@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "Parser.hpp"
+#include "Utils.hpp"
 
 //Forward-declare all the things that Scopes contain
 namespace TypeSystem

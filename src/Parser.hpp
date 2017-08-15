@@ -387,7 +387,7 @@ namespace Parser
   struct FuncDef
   {
     FuncDef() : name(nullptr), body(nullptr) {}
-    Member* name;
+    string name;
     FuncTypeNT type;
     Block* body;
   };
@@ -409,7 +409,7 @@ namespace Parser
   struct ProcDef
   {
     ProcDef() : name(nullptr), body(nullptr) {}
-    Member* name;
+    string name;
     ProcTypeNT type;
     Block* body;
   };

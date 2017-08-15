@@ -1,4 +1,4 @@
-#include "AST_PrintNTer.hpp"
+#include "AST_Printer.hpp"
 
 using namespace std;
 
@@ -153,7 +153,7 @@ namespace AstPrinter
     }
   }
 
-  void printStatement(Statement* s, int ind)
+  void printStatementNT(StatementNT* s, int ind)
   {
     //statements don't need any extra printouts
     if(s->s.is<ScopedDecl*>())
@@ -162,8 +162,8 @@ namespace AstPrinter
       printVarAssign(s->s.get<VarAssign*>(), ind);
     else if(s->s.is<PrintNT*>())
       printPrintNT(s->s.get<PrintNT*>(), ind);
-    else if(s->s.is<ExpressionNT*>())
-      printExpressionNT(s->s.get<ExpressionNT*>(), ind);
+    else if(s->s.is<CallNT*>())
+      printCallNT(s->s.get<CallNT*>(), ind);
     else if(s->s.is<Block*>())
       printBlock(s->s.get<Block*>(), ind);
     else if(s->s.is<Return*>())
@@ -217,13 +217,13 @@ namespace AstPrinter
       printExpressionNT(sc->matchVal, ind + indentLevel);
       indent(ind + indentLevel);
       cout << "Match statement:\n";
-      printStatement(sc->s, ind + indentLevel);
+      printStatementNT(sc->s, ind + indentLevel);
     }
     if(s->defaultStatement)
     {
       indent(ind + indentLevel);
       cout << "Default statement:\n";
-      printStatement(s->defaultStatement, ind + indentLevel);
+      printStatementNT(s->defaultStatement, ind + indentLevel);
     }
   }
 
@@ -258,7 +258,7 @@ namespace AstPrinter
       if(forC->decl)
       {
         cout << '\n';
-        printVarDecl(forC->decl, ind + indentLevel);
+        printStatementNT(forC->decl, ind + indentLevel);
       }
       else
       {
@@ -280,7 +280,7 @@ namespace AstPrinter
       if(forC->incr)
       {
         cout << '\n';
-        printVarAssign(forC->incr, ind + indentLevel);
+        printStatementNT(forC->incr, ind + indentLevel);
       }
       else
       {
@@ -315,7 +315,7 @@ namespace AstPrinter
     }
     indent(ind);
     cout << "Body:\n";
-    printStatement(f->body, ind + indentLevel);
+    printBlock(f->body, ind + indentLevel);
   }
 
   void printWhile(While* w, int ind)
@@ -327,7 +327,7 @@ namespace AstPrinter
     printExpressionNT(w->cond, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "Body:\n";
-    printStatement(w->body, ind + indentLevel);
+    printBlock(w->body, ind + indentLevel);
   }
 
   void printIf(If* i, int ind)
@@ -339,12 +339,12 @@ namespace AstPrinter
     printExpressionNT(i->cond, ind + indentLevel);
     indent(ind + indentLevel);
     cout << "If Body\n";
-    printStatement(i->ifBody, ind + indentLevel);
+    printStatementNT(i->ifBody, ind + indentLevel);
     if(i->elseBody)
     {
       indent(ind + indentLevel);
       cout << "Else Body\n";
-      printStatement(i->elseBody, ind + indentLevel);
+      printStatementNT(i->elseBody, ind + indentLevel);
     }
   }
 
@@ -391,7 +391,7 @@ namespace AstPrinter
     cout << "Block\n";
     for(auto& s : b->statements)
     {
-      printStatement(s, ind + indentLevel);
+      printStatementNT(s, ind + indentLevel);
     }
   }
 
@@ -496,8 +496,7 @@ namespace AstPrinter
   void printFuncDef(FuncDef* fd, int ind)
   {
     indent(ind);
-    cout << "Func definition:\n";
-    printMember(fd->name, ind + indentLevel);
+    cout << "Func definition: " << fd->name << '\n';
     indent(ind);
     cout << "Return type:\n";
     printTypeNT(fd->type.retType, ind + indentLevel);
@@ -554,8 +553,7 @@ namespace AstPrinter
   void printProcDef(ProcDef* pd, int ind)
   {
     indent(ind);
-    cout << "Proc definition:\n";
-    printMember(pd->name, ind + indentLevel);
+    cout << "Proc definition: " << pd->name << '\n';
     indent(ind);
     cout << "Return type:\n";
     printTypeNT(pd->type.retType, ind + indentLevel);
