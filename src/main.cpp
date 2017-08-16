@@ -1,7 +1,7 @@
 #include "Misc.hpp"
 #include "Options.hpp"
 #include "Utils.hpp"
-#include "CGen.hpp"
+#include "x86_Backend.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
@@ -58,6 +58,8 @@ int main(int argc, const char** argv)
   cout << "*          Subroutines             *\n";
   cout << "************************************\n";
   MiddleEndDebug::printSubroutines();
+  string assembly = x86::generateAsm();
+  x86::buildExecutable(assembly, true, op.outputStem);
   //Code generation
   //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

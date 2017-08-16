@@ -10,7 +10,6 @@ add_executable (onyx
   src/Options.cpp
   src/Token.cpp
   src/MiddleEnd.cpp
-  src/MiddleEndDebug.cpp
   src/Variable.cpp
   src/Expression.cpp
   src/TypeSystem.cpp
@@ -18,8 +17,10 @@ add_executable (onyx
   src/Scope.cpp
   src/Lexer.cpp
   src/Parser.cpp
-  src/CGen.cpp
-  src/AST_Printer.cpp
   src/Subroutine.cpp
+  src/C_Backend.cpp
+  src/x86_Backend.cpp
+  src/MiddleEndDebug.cpp
+  src/AST_Printer.cpp
 )
 

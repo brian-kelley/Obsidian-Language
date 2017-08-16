@@ -19,6 +19,8 @@ struct Options
   bool emitC;
   //emit llvm ir
   bool emitLLVM;
+  //emit x86_64 assembly
+  bool emitX86;
 };
 
 Options getDefaultOptions();

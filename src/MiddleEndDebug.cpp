@@ -320,7 +320,14 @@ namespace MiddleEndDebug
   void printSubroutines(Scope* s, int ind)
   {
     indent(ind);
-    cout << s->subr.size() << " subroutines in scope " << s->getLocalName() << ":\n";
+    if(s == global)
+    {
+      cout << s->subr.size() << " subroutine(s) in global scope:\n";
+    }
+    else
+    {
+      cout << s->subr.size() << " subroutine(s) in scope " << s->getLocalName() << ":\n";
+    }
     for(auto it : s->subr)
     {
       auto f = dynamic_cast<Function*>(it);
