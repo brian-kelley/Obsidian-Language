@@ -12,19 +12,19 @@ namespace MiddleEnd
     global = new ModuleScope("", NULL, ast);
     TypeSystem::createBuiltinTypes();
     //build scope tree
-    cout << "Building scope tree and creating types...\n";
+    DEBUG_DO(cout << "Building scope tree and creating types...\n";);
     for(auto& it : ast->decls)
     {
       ScopeTypeLoading::visitScopedDecl(global, it);
     }
-    cout << "Resolving undefined types...\n";
+    DEBUG_DO(cout << "Resolving undefined types...\n";);
     TypeSystem::resolveAllTraits();
     TypeSystem::resolveAllTypes();
-    cout << "Building list of global/static variable declarations...\n";
+    DEBUG_DO(cout << "Building list of global/static variable declarations...\n";);
     VarLoading::visitScope(global);
-    cout << "Loading functions and procedures...\n";
+    DEBUG_DO(cout << "Loading functions and procedures...\n";);
     SubroutineLoading::visitScope(global);
-    cout << "Middle end done.\n";
+    DEBUG_DO(cout << "Middle end done.\n";);
   }
 
   namespace ScopeTypeLoading

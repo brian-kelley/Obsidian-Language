@@ -27,39 +27,43 @@ int main(int argc, const char** argv)
     return EXIT_FAILURE;
   }
   string code = loadFile(op.input.c_str());
-  cout << "Loaded " << code.size() << " bytes of source code.\n";
+  DEBUG_DO(cout << "Loaded " << code.size() << " bytes of source code.\n";);
   //Lexing
   vector<Token*> toks;
-  lex(code, toks);
-  /*
-  cout << "************************************\n";
-  cout << "*            TOKENS                *\n";
-  cout << "************************************\n";
-  for(auto& it : toks)
-  {
-    cout << it->getDesc() << " : " << it->getStr() << "\n";
-  }
-  cout << '\n';
-  */
+  TIMEIT("Lexing", lex(code, toks););
+  DEBUG_DO({
+    cout << "************************************\n";
+    cout << "*            TOKENS                *\n";
+    cout << "************************************\n";
+    for(auto& it : toks)
+    {
+      cout << it->getDesc() << " : " << it->getStr() << "\n";
+    }
+    cout << '\n';
+  });
   //Parse the global/root module
-  Parser::Module* ast = Parser::parseProgram(toks);
-  /*
-  cout << "************************************\n";
-  cout << "*             AST                  *\n";
-  cout << "************************************\n";
-  printAST(ast);
-  */
-  MiddleEnd::load(ast);
-  cout << "************************************\n";
-  cout << "*          Scopes/Types            *\n";
-  cout << "************************************\n";
-  MiddleEndDebug::printTypeTree();
-  cout << "************************************\n";
-  cout << "*          Subroutines             *\n";
-  cout << "************************************\n";
-  MiddleEndDebug::printSubroutines();
-  string assembly = x86::generateAsm();
-  x86::buildExecutable(assembly, true, op.outputStem);
+  Parser::Module* ast;
+  TIMEIT("Parsing", ast = Parser::parseProgram(toks););
+  DEBUG_DO({
+    cout << "************************************\n";
+    cout << "*             AST                  *\n";
+    cout << "************************************\n";
+    printAST(ast);
+  });
+  TIMEIT("Middle end", MiddleEnd::load(ast););
+  DEBUG_DO({
+    cout << "************************************\n";
+    cout << "*          Scopes/Types            *\n";
+    cout << "************************************\n";
+    MiddleEndDebug::printTypeTree();
+    cout << "************************************\n";
+    cout << "*          Subroutines             *\n";
+    cout << "************************************\n";
+    MiddleEndDebug::printSubroutines();
+  });
+  string assembly;
+  TIMEIT("Back end", assembly = x86::generateAsm(););
+  TIMEIT("Assembler/linker", x86::buildExecutable(assembly, true, op.outputStem););
   //Code generation
   //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

@@ -35,3 +35,9 @@ void errAndQuit(string message)
   exit(EXIT_FAILURE);
 }
 
+bool runCommand(string command)
+{
+  string silencedCommand = command + " &> /dev/null";
+  return system(silencedCommand.c_str()) == 0;
+}
+
