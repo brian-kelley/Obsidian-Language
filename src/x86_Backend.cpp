@@ -80,28 +80,33 @@ namespace x86
     vector<LocalVar> local;
     size_t stackCounter = 0;
     auto scope = s->body->scope;
-    for(auto vars : scope->vars)
+    for(auto var : scope->vars)
     {
-      NatType* 
-      local.emplace_back
+      NatType* natType = getNativeType(var->type);
     }
-    endSubroutine(assembly);
+    closeStackFrame(assembly);
+    assembly << "ret\n\n";
   }
 
-  void beginSubroutine(Oss& assembly)
+  void openStackFrame(Oss& assembly)
   {
     assembly << "push rbp\n";
     assembly << "mov rbp, rsp\n";
   }
 
-  void endSubroutine(Oss& assembly)
+  void closeStackFrame(Oss& assembly)
   {
     assembly << "pop rbp\n";
-    assembly << "ret\n";
   }
 
   NativeType* getNativeType(TypeSystem::Type* t)
   {
+    auto it = natTypes.find(t);
+    if(it == natTypes.end())
+    {
+      //create new NatType for t
+    }
+    return it->second;
   }
 }
 

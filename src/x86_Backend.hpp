@@ -43,13 +43,14 @@ namespace x86
   {
     virtual ~NativeType() {}
   };
-  struct Primitive : public NativeType
+  struct Integer : public NativeType
   {
-    enum RegType
-    {
-      INT_REG,
-      SSE_REG
-    };
+    int size; //1, 2, 4 or 8
+    bool isSigned;
+  };
+  struct Float : public NativeType
+  {
+    int size; //4 or 8
   };
   struct Compound : public NativeType
   {
@@ -63,14 +64,48 @@ namespace x86
     size_t stackOffset; //offset relative to rbp
     NativeType* natType;
   };
+  struct StackFrame
+  {
+    //bytes of space in the stack frame
+    size_t bytes;
+    //Saved integer regs, in order of push
+    int saved[16];
+    //Number of saved general purpose regs
+    int numSaved;
+  };
   //Code generation
   string getNewSymbol();
   void implSubroutine(Subroutine* s, Oss& assembly);
-  void beginSubroutine(Oss& assembly);
-  void endSubroutine(Oss& assembly);
+  void openStackFrame(Oss& assembly);
+  void closeStackFrame(Oss& assembly);
   //lazily get the native concrete type for given abstract type
   NativeType* getNativeType(TypeSystem::Type* t);
 }
 
 #endif
+/*
+ * Backend plan:
+ * -Machine representations of all Types
+ *    -Integer, float, bool and void types are easy
+ *    -Struct and tuple are structures with aligned members
+ *      -All members must have constant size
+ *    -Arrays: store dimension counts in 4-byte unsigned, then data
+ *      -for now, arrays are always malloc'd so they have a fixed size
+ *      -this is a pointer
+ *    -All variables must have a place on the stack because temporary expression evaluation will use registers
+ *
+ * -Values have machine types, have a single, fixed-size location
+ *    -location can be a register, stack offset, heap block + offset or data segment fixed offset
+ *
+ * -Place literals in data segment, except ints/bools (can be put in regs or stack directly)
+ *
+ * -compute Expressions bottom-up by doing arithmetic operations on values
+ *    -can use the stack redzone as temporary space, but prefer registers that are available
+ *
+ * -implement subroutines:
+ *    -follow System V ABI for all arguments
+ *    -compound values are passed as pointers to value (caller prepares)
+ *    -this means return vals are in rax, but size not known by caller so callee allocates it
+ *    -don't emit stack frame prep immediately: need to determine set of registers to be preserved
+ */
 
