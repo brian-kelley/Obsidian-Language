@@ -5,13 +5,9 @@ static size_t symbolCounter = 0;
 
 unordered_map<Subroutine*, string> textSyms;
 unordered_map<Variable*, string> dataSyms;
-unordered_map<TypeSystem::Type*, NativeType*> natTypes;
 
 namespace x86
 {
-  LocalVar(size_t offset, NativeType* nt) : stackOffset(offset), natType(nt)
-  {}
-
   string generateAsm()
   {
     return "";
@@ -74,16 +70,11 @@ namespace x86
     //get label symbol name
     string symName = getNewSymbol();
     assembly << symName << ":\n";
-    beginSubroutine(assembly);
+    openStackFrame(assembly);
     //lazily generate the native types for all local variables
     //note: everything in a block scope is local (stack)
-    vector<LocalVar> local;
     size_t stackCounter = 0;
     auto scope = s->body->scope;
-    for(auto var : scope->vars)
-    {
-      NatType* natType = getNativeType(var->type);
-    }
     closeStackFrame(assembly);
     assembly << "ret\n\n";
   }
@@ -97,16 +88,6 @@ namespace x86
   void closeStackFrame(Oss& assembly)
   {
     assembly << "pop rbp\n";
-  }
-
-  NativeType* getNativeType(TypeSystem::Type* t)
-  {
-    auto it = natTypes.find(t);
-    if(it == natTypes.end())
-    {
-      //create new NatType for t
-    }
-    return it->second;
   }
 }
 

@@ -37,33 +37,6 @@ namespace x86
     R14,
     R15
   };
-  //Native information about primitive types
-  //Native memory layout of compound types (struct, tuple)
-  struct NativeType
-  {
-    virtual ~NativeType() {}
-  };
-  struct Integer : public NativeType
-  {
-    int size; //1, 2, 4 or 8
-    bool isSigned;
-  };
-  struct Float : public NativeType
-  {
-    int size; //4 or 8
-  };
-  struct Compound : public NativeType
-  {
-    vector<NativeType*> members;
-    size_t offsetOf(int member);
-    size_t size();
-  };
-  struct LocalVar
-  {
-    LocalVar(size_t stackOffset, NativeType* natType);
-    size_t stackOffset; //offset relative to rbp
-    NativeType* natType;
-  };
   struct StackFrame
   {
     //bytes of space in the stack frame
@@ -73,16 +46,16 @@ namespace x86
     //Number of saved general purpose regs
     int numSaved;
   };
-  //Code generation
-  string getNewSymbol();
+  //High-level code generation
   void implSubroutine(Subroutine* s, Oss& assembly);
   void openStackFrame(Oss& assembly);
   void closeStackFrame(Oss& assembly);
-  //lazily get the native concrete type for given abstract type
-  NativeType* getNativeType(TypeSystem::Type* t);
+  //Code generation utilities
+  string getNewSymbol();  //generate new, unique (short) string label
 }
 
 #endif
+
 /*
  * Backend plan:
  * -Machine representations of all Types

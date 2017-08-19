@@ -2,6 +2,7 @@
 #include "Options.hpp"
 #include "Utils.hpp"
 #include "x86_Backend.hpp"
+#include "C_Backend.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
@@ -61,9 +62,12 @@ int main(int argc, const char** argv)
     cout << "************************************\n";
     MiddleEndDebug::printSubroutines();
   });
+  /*
   string assembly;
   TIMEIT("Back end", assembly = x86::generateAsm(););
   TIMEIT("Assembler/linker", x86::buildExecutable(assembly, true, op.outputStem););
+  */
+  TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

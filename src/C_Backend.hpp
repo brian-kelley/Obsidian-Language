@@ -1,14 +1,23 @@
 #ifndef C_GEN_H
 #define C_GEN_H
 
-#include "Misc.hpp"
 #include "Utils.hpp"
-#include "Parser.hpp"
-#include <cstdio>
-#include <cstring>
+#include "MiddleEnd.hpp"
 
-void genHeader(FILE* c, Parser::Module* ast);
-void generateC(string outputStem, bool keep, Parser::Module* ast);
+namespace C
+{
+  //Generate C source, then run C compiler, and if !keep delete the source
+  void generate(string outputStem, bool keep);
+  //add file label and basic libc includes
+  void genCommon(ostream& c);
+  //forward-declare all compound types (and arrays),
+  //then actually define them as C structs
+  void genTypeDecls(ostream& c);
+  //declare all global/static data
+  void genGlobals(ostream& c);
+  //forward-declare all subroutines, then actually provide impls
+  void genSubroutines(ostream& c);
+}
 
 #endif
 

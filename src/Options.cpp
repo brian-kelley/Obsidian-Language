@@ -3,10 +3,10 @@
 Options getDefaultOptions()
 {
   Options op;
-  op.backend = Options::BACKEND_X86;
-  op.emitC = false;
+  op.backend = Options::BACKEND_C;
+  op.emitC = true;
   op.emitLLVM = false;
-  op.emitX86 = true;
+  op.emitX86 = false;
   op.input = "";
   op.outputStem = "";
   return op;
