@@ -17,6 +17,13 @@ namespace C
   void genGlobals(ostream& c);
   //forward-declare all subroutines, then actually provide impls
   void genSubroutines(ostream& c);
+
+  //Utilities
+  //given lambda f that takes a Scope*, run f on all scopes
+  string getIdentifier();
+  template<typename F>
+  void walkScopeTree(F f);
+  void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t);
 }
 
 #endif

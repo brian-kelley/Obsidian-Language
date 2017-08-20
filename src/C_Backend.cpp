@@ -1,5 +1,12 @@
 #include "C_Backend.hpp"
 
+using namespace TypeSystem;
+
+unordered_map<Type*, string> types;
+unordered_map<Subroutine*, string> subrs;
+unordered_map<Variable*, string> vars;
+size_t identCount;
+
 namespace C
 {
   void generate(string outputStem, bool keep)
@@ -28,10 +35,36 @@ namespace C
 
   void genCommon(ostream& c)
   {
+    c << "#include \"stdio.h\"\n";
+    c << "#include \"stdlib.h\"\n";
+    c << "#include \"math.h\"\n";
+    c << "#include \"string.h\"\n";
+    c << "#include \"stdint.h\"\n";
+    c << '\n';
   }
 
   void genTypeDecls(ostream& c)
   {
+    walkScopeTree([&] (Scope* s) -> void
+      {
+        for(auto t : s->types)
+        {
+          //get an identifier for type t
+          string ident = getIdentifier();
+          types[t] = ident;
+          //forward-declare the type
+          c << "struct " << ident << ";\n";
+        }
+      });
+    c << '\n';
+    walkScopeTree([&] (Scope* s) -> void
+      {
+        for(auto t : s->types)
+        {
+          generateCompoundType(c, types[t], t);
+        }
+      });
+    c << '\n';
   }
 
   void genGlobals(ostream& c)
@@ -40,6 +73,70 @@ namespace C
 
   void genSubroutines(ostream& c)
   {
+  }
+
+  string getIdentifier()
+  {
+    return "o" + to_string(identCount++);
+  }
+
+  template<typename F>
+  void walkScopeTree(F f)
+  {
+    vector<Scope*> visit;
+    visit.push_back(global);
+    while(visit.size())
+    {
+      Scope* s = visit.back();
+      f(s);
+      visit.pop_back();
+      for(auto child : s->children)
+      {
+        visit.push_back(child);
+      }
+    }
+  }
+
+  void generateCompoundType(ostream& c, string cName, Type* t)
+  {
+    auto at = dynamic_cast<ArrayType*>(t);
+    auto st = dynamic_cast<StructType*>(t);
+    auto ut = dynamic_cast<UnionType*>(t);
+    auto tt = dynamic_cast<TupleType*>(t);
+    c << "struct " << cName << "\n{\n";
+    //C type to use for array types
+    string indexType = "uint64_t";
+    if(at)
+    {
+      //add dims
+      for(int dim = 0; dim < at->dims; dim++)
+      {
+        c << indexType << " dim" << dim << ";\n";
+      }
+      //add pointer to element type
+      c << types[at->elem] << "* data;\n";
+    }
+    else if(st)
+    {
+      //add all members (as pointer)
+      for(size_t i = 0; i < st->members.size(); i++)
+      {
+        c << types[st->members[i]] << "* mem" << i << ";\n";
+      }
+    }
+    else if(ut)
+    {
+      c << "void* data;\n";
+      c << "int option;\n";
+    }
+    else if(tt)
+    {
+      for(size_t i = 0; i < tt->members.size(); i++)
+      {
+        c << types[tt->members[i]] << "* mem" << i << ";\n";
+      }
+    }
+    c << "};\n";
   }
 }
 
