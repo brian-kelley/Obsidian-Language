@@ -311,6 +311,7 @@ struct EnumType : public Type
   bool isEnum();
   bool isInteger();
   bool isNumber();
+  bool isPrimitive();
 };
 
 struct IntegerType : public Type

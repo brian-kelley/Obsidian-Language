@@ -889,6 +889,11 @@ bool EnumType::isNumber()
   return true;
 }
 
+bool EnumType::isPrimitive()
+{
+  return true;
+}
+
 /****************/
 /* Integer Type */
 /****************/

@@ -98,7 +98,6 @@ TypeSystem::Type* Scope::findType(Parser::Member* mem)
       INTERNAL_ERROR;
     }
   }
-  ERR_MSG("type \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -115,7 +114,6 @@ Variable* Scope::findVariable(Parser::Member* mem)
       }
     }
   }
-  ERR_MSG("variable \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -132,7 +130,6 @@ TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
       }
     }
   }
-  ERR_MSG("trait \"" << mem << "\" has not been declared");
   return nullptr;
 }
 
@@ -149,7 +146,6 @@ Subroutine* Scope::findSubroutine(Parser::Member* mem)
       }
     }
   }
-  ERR_MSG("function or procedure \"" << mem << "\" has not been declared");
   return nullptr;
 }
 

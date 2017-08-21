@@ -29,6 +29,7 @@ namespace C
   void generateExpression(ostream& c, Block* b, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
   void generatePrint(ostream& c, Block* b, Expression* expr);
+  void generateCharLiteral(ostream& c, char character);
 }
 
 #endif

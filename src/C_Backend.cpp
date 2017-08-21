@@ -80,6 +80,12 @@ namespace C
             c << "struct " << ident << ";\n";
             numTypes++;
           }
+          for(auto arrType : t->dimTypes)
+          {
+            string ident = getIdentifier();
+            types[t] = ident;
+            c << "struct " << ident << ";\n";
+          }
         }
       });
     if(numTypes)
@@ -91,6 +97,10 @@ namespace C
             if(!t->isPrimitive())
             {
               generateCompoundType(c, types[t], t);
+            }
+            for(auto arrType : t->dimTypes)
+            {
+              generateCompoundType(c, types[arrType], arrType);
             }
           }
         });
@@ -176,9 +186,34 @@ namespace C
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
+      switch(unary->op)
+      {
+        case LNOT:
+          c << '!';
+          break;
+        case BNOT:
+          c << '~';
+          break;
+        case SUB:
+          c << '-';
+          break;
+        default:;
+      }
+      c << '(';
+      generateExpression(c, b, unary->expr);
+      c << ')';
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
+      //emit this so that it works even if onyx uses different
+      //operator precedence than C
+      c << "((";
+      generateExpression(c, b, binary->lhs);
+      c << ')';
+      c << operatorTable[binary->op];
+      c << '(';
+      generateExpression(c, b, binary->rhs);
+      c << "))";
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
@@ -328,10 +363,12 @@ namespace C
     {
       //printf format code
       string fmt;
+      bool isChar = false;
       switch(intType->size)
       {
         case 1:
-          fmt = intType->isSigned ? "hhd" : "hhu";
+          fmt = intType->isSigned ? "c" : "hhu";
+          isChar = intType->isSigned;
           break;
         case 2:
           fmt = intType->isSigned ? "hd" : "hu";
@@ -346,7 +383,11 @@ namespace C
           INTERNAL_ERROR;
       }
       c << "printf(\"%" << fmt << "\", ";
-      generateExpression(c, b, expr);
+      auto cl = dynamic_cast<CharLiteral*>(expr);
+      if(isChar && cl)
+        generateCharLiteral(c, cl->value);
+      else
+        generateExpression(c, b, expr);
       c << ");\n";
     }
     else if(FloatType* floatType = dynamic_cast<FloatType*>(type))
@@ -460,8 +501,10 @@ namespace C
       //add all members (as pointer)
       //since there is no possible name collision among the member names, don't
       //replace them with mangled identifiers
+      cout << "C name for struct " << st->name << " is " << cName << '\n';
       for(size_t i = 0; i < st->members.size(); i++)
       {
+        cout << "C name for member type " << i << " is " << types[st->members[i]] << '\n';
         c << types[st->members[i]] << "* " << st->memberNames[i] << ";\n";
       }
     }
@@ -479,6 +522,29 @@ namespace C
       }
     }
     c << "};\n";
+  }
+
+  void generateCharLiteral(ostream& c, char character)
+  {
+    c << '\'';
+    switch(character)
+    {
+      case 0:
+        c << "\\0";
+        break;
+      case '\n':
+        c << "\\n";
+        break;
+      case '\t':
+        c << "\\t";
+        break;
+      case '\r':
+        c << "\\r";
+        break;
+      default:
+        c << character;
+    }
+    c << '\'';
   }
 }
 

@@ -149,25 +149,9 @@ namespace MiddleEnd
       //Note: BlockScope can have Statements which are ScopedDecls which are VarDecls
       //ModuleScope and StructScope can only have ScopedDecls which are VarDecls
       //Will search through the stored AST node corresponding to Scope
-      auto bs = dynamic_cast<BlockScope*>(s);
       auto ss = dynamic_cast<StructScope*>(s);
       auto ms = dynamic_cast<ModuleScope*>(s);
-      if(bs)
-      {
-        for(auto& it : bs->ast->statements)
-        {
-          if(it->s.is<Parser::ScopedDecl*>())
-          {
-            auto sd = it->s.get<Parser::ScopedDecl*>();
-            if(sd->decl.is<Parser::VarDecl*>())
-            {
-              auto vd = sd->decl.get<Parser::VarDecl*>();
-              bs->vars.push_back(new Variable(s, vd));
-            }
-          }
-        }
-      }
-      else if(ss)
+      if(ss)
       {
         //only process static vars here
         for(auto& it : ss->ast->members)

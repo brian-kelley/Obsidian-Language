@@ -35,12 +35,7 @@ void Block::addStatements()
     if(stmt->s.is<Parser::ScopedDecl*>())
     {
       auto sd = stmt->s.get<Parser::ScopedDecl*>();
-      if(sd->decl.is<Parser::VarDecl*>())
-      {
-        auto vd = sd->decl.get<Parser::VarDecl*>();
-        addLocalVariable(scope, vd);
-      }
-      else if(sd->decl.is<Parser::FuncDef*>())
+      if(sd->decl.is<Parser::FuncDef*>())
       {
         scope->subr.push_back(new Function(sd->decl.get<Parser::FuncDef*>()));
       }
@@ -418,7 +413,7 @@ Subroutine::Subroutine(string n, Parser::TypeNT* ret, vector<Parser::Arg*>& args
       argVars[i] = nullptr;
     }
   }
-  //TODO TODO TODO TODO:
+  //TODO
   isStatic = false;
   owner = nullptr;
   //load statements
