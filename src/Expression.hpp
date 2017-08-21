@@ -15,6 +15,20 @@ struct Expression
   virtual bool assignable() = 0;
 };
 
+//Subclasses of Expression
+struct UnaryArith;
+struct BinaryArith;
+struct IntLiteral;
+struct FloatLiteral;
+struct StringLiteral;
+struct CharLiteral;
+struct BoolLiteral;
+struct CompoundLiteral;
+struct TupleLiteral;
+struct Indexed;
+struct CallExpr;
+struct VarExpr;
+
 //Create a new Expression given one of the ExprN nonterminals
 template<typename NT>
 Expression* getExpression(Scope* s, NT* expr);
@@ -69,11 +83,7 @@ struct FloatLiteral : public Expression
 struct StringLiteral : public Expression
 {
   StringLiteral(StrLit* ast);
-  StrLit* ast;
-  string value()
-  {
-    return ast->val;
-  }
+  string value;
   bool assignable()
   {
     return false;

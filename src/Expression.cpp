@@ -557,7 +557,7 @@ FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
 
 StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
 {
-  this->ast = a;
+  value = a->val;
   type = TypeSystem::primitives[Parser::TypeNT::STRING];
 }
 

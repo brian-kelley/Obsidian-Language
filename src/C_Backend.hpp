@@ -24,6 +24,11 @@ namespace C
   template<typename F>
   void walkScopeTree(F f);
   void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t);
+  void generateStatement(ostream& c, Block* b, Statement* stmt);
+  void generateBlock(ostream& c, Block* b);
+  void generateExpression(ostream& c, Block* b, Expression* expr);
+  void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
+  void generatePrint(ostream& c, Block* b, Expression* expr);
 }
 
 #endif

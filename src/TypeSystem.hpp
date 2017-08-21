@@ -145,6 +145,7 @@ struct Type
   virtual bool isBool()     {return false;}
   virtual bool isConcrete() {return true;}
   virtual bool isVoid()     {return false;}
+  virtual bool isPrimitive(){return false;}
 };
 
 struct FuncType : public Type
@@ -284,6 +285,21 @@ struct AliasType : public Type
   Parser::Typedef* decl;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
+  bool isArray()    {return actual->isArray();}
+  bool isStruct()   {return actual->isStruct();}
+  bool isUnion()    {return actual->isUnion();}
+  bool isTuple()    {return actual->isTuple();}
+  bool isEnum()     {return actual->isEnum();}
+  bool isCallable() {return actual->isCallable();}
+  bool isProc()     {return actual->isProc();}
+  bool isFunc()     {return actual->isFunc();}
+  bool isInteger()  {return actual->isInteger();}
+  bool isNumber()   {return actual->isNumber();}
+  bool isString()   {return actual->isString();}
+  bool isBool()     {return actual->isBool();}
+  bool isConcrete() {return actual->isConcrete();}
+  bool isVoid()     {return actual->isVoid();}
+  bool isPrimitive(){return actual->isPrimitive();}
 };
 
 struct EnumType : public Type
@@ -307,6 +323,7 @@ struct IntegerType : public Type
   bool canConvert(Type* other);
   bool isInteger();
   bool isNumber();
+  bool isPrimitive();
 };
 
 struct FloatType : public Type
@@ -317,6 +334,7 @@ struct FloatType : public Type
   int size;
   bool canConvert(Type* other);
   bool isNumber();
+  bool isPrimitive();
 };
 
 struct StringType : public Type
@@ -324,6 +342,7 @@ struct StringType : public Type
   StringType();
   bool canConvert(Type* other);
   bool isString();
+  bool isPrimitive();
 };
 
 struct BoolType : public Type
@@ -331,6 +350,7 @@ struct BoolType : public Type
   BoolType();
   bool canConvert(Type* other);
   bool isBool();
+  bool isPrimitive();
 };
 
 struct VoidType : public Type
@@ -338,6 +358,7 @@ struct VoidType : public Type
   VoidType();
   bool canConvert(Type* other);
   bool isVoid();
+  bool isPrimitive();
 };
 
 struct TType : public Type

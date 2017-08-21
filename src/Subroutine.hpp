@@ -15,6 +15,20 @@ struct Statement
   virtual ~Statement() {}
 };
 
+//Statement types
+struct Block;
+struct Assign;
+struct CallStmt;
+struct For;
+struct While;
+struct If;
+struct IfElse;
+struct Return;
+struct Break;
+struct Continue;
+struct Print;
+struct Assertion;
+
 struct Subroutine;
 struct Procedure; 
 struct For;

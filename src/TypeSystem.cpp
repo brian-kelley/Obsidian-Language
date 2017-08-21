@@ -915,6 +915,11 @@ bool IntegerType::isNumber()
   return true;
 }
 
+bool IntegerType::isPrimitive()
+{
+  return true;
+}
+
 /**************/
 /* Float Type */
 /**************/
@@ -935,6 +940,11 @@ bool FloatType::isNumber()
   return true;
 }
 
+bool FloatType::isPrimitive()
+{
+  return true;
+}
+
 /***************/
 /* String Type */
 /***************/
@@ -947,6 +957,11 @@ bool StringType::canConvert(Type* other)
 }
 
 bool StringType::isString()
+{
+  return true;
+}
+
+bool StringType::isPrimitive()
 {
   return true;
 }
@@ -967,6 +982,11 @@ bool BoolType::isBool()
   return true;
 }
 
+bool BoolType::isPrimitive()
+{
+  return true;
+}
+
 /*************/
 /* Void Type */
 /*************/
@@ -979,6 +999,11 @@ bool VoidType::canConvert(Type* t)
 }
 
 bool VoidType::isVoid()
+{
+  return true;
+}
+
+bool VoidType::isPrimitive()
 {
   return true;
 }

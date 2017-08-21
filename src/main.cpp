@@ -32,6 +32,7 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks;
   TIMEIT("Lexing", lex(code, toks););
+  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*            TOKENS                *\n";
@@ -42,16 +43,20 @@ int main(int argc, const char** argv)
     }
     cout << '\n';
   });
+  */
   //Parse the global/root module
   Parser::Module* ast;
   TIMEIT("Parsing", ast = Parser::parseProgram(toks););
+  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*             AST                  *\n";
     cout << "************************************\n";
     printAST(ast);
   });
+  */
   TIMEIT("Middle end", MiddleEnd::load(ast););
+  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*          Scopes/Types            *\n";
@@ -62,6 +67,7 @@ int main(int argc, const char** argv)
     cout << "************************************\n";
     MiddleEndDebug::printSubroutines();
   });
+  */
   /*
   string assembly;
   TIMEIT("Back end", assembly = x86::generateAsm(););
