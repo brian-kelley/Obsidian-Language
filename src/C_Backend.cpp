@@ -377,11 +377,17 @@ namespace C
     }
     else if(StructType* structType = dynamic_cast<StructType*>(type))
     {
+      c << "printf(\"" << structType->name << "{\");\n";
+      //print each member, comma separated
+      c << "putchar('}');\n";
     }
     else if(UnionType* unionType = dynamic_cast<UnionType*>(type))
     {
     }
     else if(TupleType* tupleType = dynamic_cast<TupleType*>(type))
+    {
+    }
+    else if(ArrayType* arrayType = dynamic_cast<ArrayType*>(type))
     {
     }
   }
@@ -452,9 +458,11 @@ namespace C
     else if(st)
     {
       //add all members (as pointer)
+      //since there is no possible name collision among the member names, don't
+      //replace them with mangled identifiers
       for(size_t i = 0; i < st->members.size(); i++)
       {
-        c << types[st->members[i]] << "* mem" << i << ";\n";
+        c << types[st->members[i]] << "* " << st->memberNames[i] << ";\n";
       }
     }
     else if(ut)
@@ -466,6 +474,7 @@ namespace C
     {
       for(size_t i = 0; i < tt->members.size(); i++)
       {
+        //tuple members are anonymous so just use memN as the name
         c << types[tt->members[i]] << "* mem" << i << ";\n";
       }
     }
