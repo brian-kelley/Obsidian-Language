@@ -5,7 +5,7 @@
 #include <sstream>
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
-#define DEBUG
+//#define DEBUG
 
 //Read string from file, and append \n
 string loadFile(string filename);
@@ -21,7 +21,7 @@ bool runCommand(string command);
 
 #define ERR_MSG(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
 
-#define IE_IMPL(f, l) cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'
+#define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; exit(1);}
 
 #define INTERNAL_ERROR IE_IMPL(__FILE__, __LINE__)
 //Debug macros:
@@ -44,6 +44,12 @@ bool runCommand(string command);
 #else
 #define TIMEIT(name, stmt) stmt
 #endif
+
+/*
+//Very fast, very leaky pool allocator to speed up whole compiler (esp. parsing)
+void* operator new[](std::size_t s) throw(std::bad_alloc);
+void operator delete[](void* p) throw();
+*/
 
 #endif
 

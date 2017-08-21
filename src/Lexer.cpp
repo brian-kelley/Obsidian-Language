@@ -232,16 +232,17 @@ void lex(string& code, vector<Token*>& tokList)
       const char* numStart = code.c_str() + cs.iter - 1;
       char* intEnd;
       char* floatEnd;
-      //note: int/float literals are always positive (- handled as arithmetic operator)
-      //this means that IntLit holds unsigned value
+      //note: int/float literals are always positive
+      //'-' handled as arithmetic unary operator
+      //so IntLit holds an unsigned 64-bit value to cover all cases
       intVal = strtoull(numStart, &intEnd, 10);
       double floatVal = strtod(numStart, &floatEnd);
       if(floatEnd > intEnd)
       {
         //use float
         cs.addToken(new FloatLit(floatVal));
-        cs.iter = floatEnd - code.c_str();
-        for(const char* i = code.c_str() + cs.iter + 1; i != floatEnd; i++)
+        //advance the char stream by floatEnd - code.c_str() chars
+        for(const char* i = code.c_str() + cs.iter; i != floatEnd; i++)
         {
           cs.getNext();
         }

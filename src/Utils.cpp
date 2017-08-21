@@ -41,3 +41,42 @@ bool runCommand(string command)
   return system(silencedCommand.c_str()) == 0;
 }
 
+/*
+#define BLOCK_SIZE 65536
+static char* currentBlock = nullptr;
+static size_t blockTop;
+
+void* operator new[](std::size_t s) throw(std::bad_alloc)
+{
+  cout << "Hello from custom allocator!\n";
+  if(!currentBlock)
+  {
+    currentBlock = (char*) malloc(BLOCK_SIZE);
+    blockTop = 0;
+  }
+  //can't fit in a whole block
+  if(s > BLOCK_SIZE)
+  {
+    void* ptr = malloc(s);
+    if(!ptr)
+      throw std::bad_alloc();
+    return ptr;
+  }
+  if(BLOCK_SIZE - blockTop < s)
+  {
+    //allocate a new block
+    currentBlock = (char*) malloc(BLOCK_SIZE);
+    blockTop = 0;
+  }
+  //return space at end of block
+  void* ptr = (void*) (currentBlock + blockTop);
+  blockTop += s;
+  return ptr;
+}
+
+void operator delete[](void* p) throw()
+{
+  //Do nothing
+}
+*/
+

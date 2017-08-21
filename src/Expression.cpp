@@ -312,6 +312,10 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     return new IntLiteral(expr->e.get<IntLit*>());
   }
+  else if(expr->e.is<FloatLit*>())
+  {
+    return new FloatLiteral(expr->e.get<FloatLit*>());
+  }
   else if(expr->e.is<CharLit*>())
   {
     return new CharLiteral(expr->e.get<CharLit*>());
@@ -350,6 +354,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else
   {
+    cout << "ERROR: Expr12 with tag " << expr->e.which() << '\n';
     INTERNAL_ERROR;
     return NULL;
   }
@@ -563,13 +568,13 @@ StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
 
 CharLiteral::CharLiteral(CharLit* a) : Expression(NULL)
 {
-  this->ast = a;
+  value = a->val;
   type = TypeSystem::primitives[Parser::TypeNT::CHAR];
 }
 
 BoolLiteral::BoolLiteral(Parser::BoolLit* a) : Expression(NULL)
 {
-  this->ast = a;
+  value = a->val;
   type = TypeSystem::primitives[Parser::TypeNT::BOOL];
 }
 

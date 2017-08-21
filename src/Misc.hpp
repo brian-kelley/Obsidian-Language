@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <cctype>
 #include <sstream>
+#include <stdexcept>
+#include <new>
 
 using std::string;
 using std::map;

@@ -192,6 +192,8 @@ namespace C
     }
     else if(FloatLiteral* floatLit = dynamic_cast<FloatLiteral*>(expr))
     {
+      //all float lits have type double, so never use "f" suffix
+      c << floatLit->value;
     }
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
@@ -201,9 +203,14 @@ namespace C
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
+      c << '\'' << charLit->value << '\'';
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
+      if(boolLit->value)
+        c << "true";
+      else
+        c << "false";
     }
     else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(expr))
     {
@@ -224,7 +231,6 @@ namespace C
 
   void generateBlock(ostream& c, Block* b)
   {
-    cout << "Generating block with " << b->stmts.size() << " statements.\n";
     c << "{\n";
     //introduce local variables
     for(auto local : b->scope->vars)
@@ -242,7 +248,6 @@ namespace C
 
   void generateStatement(ostream& c, Block* b, Statement* stmt)
   {
-    cout << ">>> Emitting statement " << stmt << " in block " << b << '\n';
     //get the type of statement
     if(Block* blk = dynamic_cast<Block*>(stmt))
     {
@@ -300,7 +305,6 @@ namespace C
     }
     else if(Print* p = dynamic_cast<Print*>(stmt))
     {
-      cout << "Emitting print!\n";
       //emit printf calls for each expression
       for(auto expr : p->exprs)
       {
@@ -319,7 +323,6 @@ namespace C
 
   void generatePrint(ostream& c, Block* b, Expression* expr)
   {
-    cout << ">>> Generating print()\n";
     auto type = expr->type;
     if(IntegerType* intType = dynamic_cast<IntegerType*>(type))
     {
@@ -355,21 +358,20 @@ namespace C
     }
     else if(dynamic_cast<VoidType*>(type))
     {
-      c << "puts(\"void\");\n";
+      c << "printf(\"void\");\n";
     }
     else if(dynamic_cast<BoolType*>(type))
     {
       c << "if(";
       generateExpression(c, b, expr);
       c << ")\n";
-      c << "puts(\"true\");\n";
+      c << "printf(\"true\");\n";
       c << "else\n";
-      c << "puts(\"false\");\n";
+      c << "printf(\"false\");\n";
     }
     else if(dynamic_cast<StringType*>(type))
     {
-      cout << "Generating print() for string.\n";
-      c << "puts(";
+      c << "printf(";
       generateExpression(c, b, expr);
       c << ".data);\n";
     }

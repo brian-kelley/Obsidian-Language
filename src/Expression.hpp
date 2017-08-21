@@ -94,10 +94,7 @@ struct CharLiteral : public Expression
 {
   CharLiteral(CharLit* ast);
   CharLit* ast;
-  char value()
-  {
-    return ast->val;
-  }
+  char value;
   bool assignable()
   {
     return false;
@@ -108,10 +105,7 @@ struct BoolLiteral : public Expression
 {
   BoolLiteral(Parser::BoolLit* ast);
   Parser::BoolLit* ast;
-  bool value()
-  {
-    return ast->val;
-  }
+  bool value;
   bool assignable()
   {
     return false;
