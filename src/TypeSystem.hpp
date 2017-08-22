@@ -308,6 +308,7 @@ struct EnumType : public Type
   string name;
   map<string, int> values;
   bool canConvert(Type* other);
+  //Enum values are equivalent to plain "int"s
   bool isEnum();
   bool isInteger();
   bool isNumber();

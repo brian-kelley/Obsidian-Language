@@ -21,14 +21,13 @@ namespace C
     genSubroutines(c);
     c << '\n';
     c.close();
-    string cmd = string("gcc") + " --std=c99 -Os -o " + exeName + ' ' + cName + " &> /dev/null";
     //wait for cc to terminate
-    int exitStatus = system(cmd.c_str());
+    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -Oz -ffast-math -fassociative-math -flto -o " + exeName + ' ' + cName + " &> /dev/null");
     if(!keep)
     {
       remove(cName.c_str());
     }
-    if(exitStatus)
+    if(!compileSuccess)
     {
       ERR_MSG("C compiler encountered error.");
     }
@@ -186,19 +185,7 @@ namespace C
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
-      switch(unary->op)
-      {
-        case LNOT:
-          c << '!';
-          break;
-        case BNOT:
-          c << '~';
-          break;
-        case SUB:
-          c << '-';
-          break;
-        default:;
-      }
+      c << operatorTable[unary->op];
       c << '(';
       generateExpression(c, b, unary->expr);
       c << ')';
@@ -253,14 +240,66 @@ namespace C
     else if(TupleLiteral* tupLit = dynamic_cast<TupleLiteral*>(expr))
     {
     }
-    else if(Indexed* index = dynamic_cast<Indexed*>(expr))
+    else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
+      //Indexed expression must be either a tuple or array
+      auto indexedType = indexed->group->type;
+      if(ArrayType* at = dynamic_cast<ArrayType*>(indexedType))
+      {
+        auto elementType = at->elem;
+        if(ArrayType* subArray = dynamic_cast<ArrayType*>(elementType))
+        {
+          c << "((" << types[indexedType] << ") {";
+          //add all dimensions, except highest
+          for(int dim = 1; dim < at->dims; dim++)
+          {
+            generateExpression(c, b, indexed->group);
+            c << ".dim" << dim << ", ";
+          }
+          //now add the data pointer from expr, but with offset
+          generateExpression(c, b, indexed->group);
+          c << ".data + ";
+          generateExpression(c, b, indexed->index);
+          //offset is produce of index and all lesser dimensions
+          for(int dim = 1; dim < at->dims; dim++)
+          {
+            c << " * (";
+            generateExpression(c, b, indexed->group);
+            c << ".dim" << dim << ")";
+          }
+          c << "})";
+        }
+        else
+        {
+          //just index into data
+          c << '(';
+          generateExpression(c, b, indexed->group);
+          c << ".data[";
+          generateExpression(c, b, indexed->index);
+          c << "])";
+        }
+      }
+      else if(TupleType* tt = dynamic_cast<TupleType*>(indexedType))
+      {
+        //tuple: simply reference the requested member
+        c << '(';
+        generateExpression(c, b, indexed->group);
+        //index must be an IntLiteral (has already been checked)
+        c << ".mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
+      }
     }
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
+      c << call->subr << '(';
+      for(auto arg : call->args)
+      {
+        generateExpression(c, b, arg);
+      }
+      c << ')';
     }
     else if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
     {
+      c << vars[var->var];
     }
   }
 

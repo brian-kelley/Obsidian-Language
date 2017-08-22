@@ -685,6 +685,11 @@ CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
   {
     ERR_MSG("\"" << ast->callable << "\" is not a function or procedure");
   }
+  args.resize(ast->args.size());
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    args[i] = getExpression(s, ast->args[i]);
+  }
   this->type = subr->retType;
 }
 
