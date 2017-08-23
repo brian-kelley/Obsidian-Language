@@ -1,7 +1,7 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-#include "Misc.hpp"
+#include "Common.hpp"
 #include "string.h"
 
 struct Options

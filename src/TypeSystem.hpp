@@ -1,13 +1,6 @@
 #ifndef TYPE_SYSTEM_H
 #define TYPE_SYSTEM_H
 
-#include <string>
-#include <iostream>
-#include <vector>
-#include <map>
-#include <set>
-#include <cassert>
-
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"

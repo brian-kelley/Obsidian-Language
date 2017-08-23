@@ -1,8 +1,28 @@
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef COMMON
+#define COMMON
 
-#include "Misc.hpp"
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <cctype>
+#include <ctime>
+#include <cassert>
 #include <sstream>
+#include <stdexcept>
+#include <new>
+
+using std::string;
+using std::map;
+using std::vector;
+using std::unordered_map;
+using std::ostringstream;
+using std::cout;
+using std::endl;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
 //#define DEBUG
@@ -44,12 +64,6 @@ bool runCommand(string command);
 #else
 #define TIMEIT(name, stmt) stmt
 #endif
-
-/*
-//Very fast, very leaky pool allocator to speed up whole compiler (esp. parsing)
-void* operator new[](std::size_t s) throw(std::bad_alloc);
-void operator delete[](void* p) throw();
-*/
 
 #endif
 

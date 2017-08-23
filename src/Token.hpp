@@ -1,13 +1,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include "Misc.hpp"
-#include "Utils.hpp"
-
-#include <map>
-#include <vector>
-
-using namespace std;
+#include "Common.hpp"
 
 extern vector<string> keywordTable;
 extern map<string, int> keywordMap;

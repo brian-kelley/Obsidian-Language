@@ -1,8 +1,7 @@
 #ifndef MIDDLE_END_H
 #define MIDDLE_END_H
 
-#include "Misc.hpp"
-#include "Utils.hpp"
+#include "Common.hpp"
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"

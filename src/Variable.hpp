@@ -1,8 +1,7 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-#include "Misc.hpp"
-#include "Utils.hpp"
+#include "Common.hpp"
 #include "Parser.hpp"
 #include "TypeSystem.hpp"
 #include "Scope.hpp"

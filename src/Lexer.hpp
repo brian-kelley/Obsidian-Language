@@ -1,4 +1,4 @@
-#include "Misc.hpp"
+#include "Common.hpp"
 #include "Token.hpp"
 
 //Lex source file contents

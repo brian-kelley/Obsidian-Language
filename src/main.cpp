@@ -1,6 +1,5 @@
-#include "Misc.hpp"
+#include "Common.hpp"
 #include "Options.hpp"
-#include "Utils.hpp"
 #include "x86_Backend.hpp"
 #include "C_Backend.hpp"
 #include "Token.hpp"
@@ -9,7 +8,6 @@
 #include "MiddleEnd.hpp"
 #include "AST_Printer.hpp"
 #include "MiddleEndDebug.hpp"
-#include <ctime>
 
 void init()
 {

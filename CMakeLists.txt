@@ -6,7 +6,7 @@ include_directories(src/variadic-variant)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -std=gnu++11 -Wall -Wshadow")
 add_executable (onyx
   src/main.cpp
-  src/Utils.cpp
+  src/Common.cpp
   src/Options.cpp
   src/Token.cpp
   src/MiddleEnd.cpp
