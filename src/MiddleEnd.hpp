@@ -25,7 +25,6 @@ extern ModuleScope* global;
 
 namespace MiddleEnd
 {
-  using namespace std;
   void load(Parser::Module* ast);
   //AST traversal functions for building scope tree and loading all type decls
   namespace ScopeTypeLoading

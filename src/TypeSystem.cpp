@@ -2,7 +2,6 @@
 //Include Expression here because it includes TypeSystem.hpp
 #include "Expression.hpp"
 
-using namespace std;
 using namespace Parser;
 
 /***********************/

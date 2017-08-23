@@ -32,6 +32,8 @@ namespace C
   //lazily generate (or return existing) print function for given compound type
   //for primitives, don't use this, just generate a single inline printf call
   string getPrintFunction(TypeSystem::Type* t);
+  //generate the code to print expr (may use getPrintFunction)
+  void generatePrint(ostream& c, Block* b, Expression* expr);
   void generateCharLiteral(ostream& c, char character);
 }
 

@@ -23,7 +23,8 @@ namespace C
     string exeName = outputStem + ".exe";
     typeDecls = Oss();
     varDecls = Oss();
-    printFuncs = Oss();
+    printFuncDecls = Oss();
+    printFuncDefs = Oss();
     funcDecls = Oss();
     funcDefs = Oss();
     genCommon();
@@ -124,7 +125,7 @@ namespace C
       {
         for(auto arrType : TypeSystem::primitives[prim]->dimTypes)
         {
-          generateCompoundType(types[arrType], arrType);
+          generateCompoundType(typeDecls, types[arrType], arrType);
         }
       }
       walkScopeTree([&] (Scope* s) -> void
@@ -133,11 +134,11 @@ namespace C
           {
             if(!t->isPrimitive())
             {
-              generateCompoundType(types[t], t);
+              generateCompoundType(typeDecls, types[t], t);
             }
             for(auto arrType : t->dimTypes)
             {
-              generateCompoundType(types[arrType], arrType);
+              generateCompoundType(typeDecls, types[arrType], arrType);
             }
           }
         });
@@ -216,7 +217,7 @@ namespace C
             funcDefs << types[arg->type] << ' ' << argName;
           }
           funcDefs << ")\n";
-          generateBlock(sub->body);
+          generateBlock(funcDefs, sub->body);
         }
       });
   }
@@ -400,7 +401,7 @@ namespace C
       generateExpression(c, b, w->condition);
       c << ")\n";
       c << "{\n";
-      generateBlock(c, w->body);
+      generateBlock(c, w->loopBlock);
       c << "}\n";
     }
     else if(If* i = dynamic_cast<If*>(stmt))
@@ -413,11 +414,11 @@ namespace C
     else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
     {
       c << "if(";
-      generateExpression(c, b, i->condition);
+      generateExpression(c, b, ie->condition);
       c << ")\n";
-      generateStatement(c, b, i->trueBody);
+      generateStatement(c, b, ie->trueBody);
       c << "else\n";
-      generateStatement(c, b, i->falseBody);
+      generateStatement(c, b, ie->falseBody);
     }
     else if(Return* r = dynamic_cast<Return*>(stmt))
     {
@@ -477,7 +478,7 @@ namespace C
     //otherwise, add decl/def for print function and return that
   }
 
-  void generatePrint(Block* b, Expression* expr)
+  void generatePrint(ostream& c, Block* b, Expression* expr)
   {
     auto type = expr->type;
     if(IntegerType* intType = dynamic_cast<IntegerType*>(type))

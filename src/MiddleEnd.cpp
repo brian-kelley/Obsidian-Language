@@ -1,7 +1,5 @@
 #include "MiddleEnd.hpp"
 
-using namespace std;
-
 ModuleScope* global = NULL;
 
 namespace MiddleEnd

@@ -1,7 +1,5 @@
 #include "AST_Printer.hpp"
 
-using namespace std;
-
 void printAST(Parser::Module* ast)
 {
   try

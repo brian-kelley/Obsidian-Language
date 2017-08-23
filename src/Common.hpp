@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <string>
 #include <cstdio>
@@ -17,12 +18,20 @@
 #include <new>
 
 using std::string;
-using std::map;
 using std::vector;
+using std::map;
 using std::unordered_map;
+using std::set;
+using std::ostream;
+using std::ofstream;
 using std::ostringstream;
+using std::exception;
+using std::runtime_error;
 using std::cout;
 using std::endl;
+using std::to_string;
+
+typedef ostringstream Oss;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
 //#define DEBUG

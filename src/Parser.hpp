@@ -6,8 +6,6 @@
 
 #include "variadic-variant/variant.h"
 
-using namespace std;
-
 //Use empty struct as default value in some variants
 struct None{};
 struct BlockScope;
