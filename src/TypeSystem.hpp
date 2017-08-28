@@ -5,6 +5,7 @@
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
 #include "AST_Printer.hpp"
+#include "DeferredLookup.hpp"
 
 /* Type system: 3 main categories of types
  *  -Primitives
@@ -19,6 +20,11 @@
  *    -Belong to global scope
  *    -Never duplicated, to save memory and speed up comparison (e.g. at most one int[] or (int, int) type defined in whole program)
  *    -For aliases: always trace back to underlying type (i32[][] becomes int[][])
+ */
+
+/*
+ * Type system revamp:
+ *  -Use DeferredLookup for types and traits (MiddleEnd handles that)
  */
 
 /**************************
@@ -44,65 +50,36 @@ struct FuncType;
 struct ProcType;
 struct Trait;
 
-//  UnresolvedType is used to remember an instance of a type (used in another type)
-//  that cannot be resolved during the first pass
-//
-//  -parsed[...] is the original AST node that represents the type that couldn't be looked up
-//  -Usage is where the type ID is needed by some other dependent type
-struct UnresolvedType
+
+struct TypeLookup
 {
-  //UnresolvedType() : parsed(NULL), usage(NULL) {}
-  UnresolvedType(Parser::TypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
-  {
-    parsedType = t;
-    parsedFunc = nullptr;
-    parsedProc = nullptr;
-  }
-  UnresolvedType(Parser::FuncTypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
-  {
-    parsedType = nullptr;
-    parsedFunc = t;
-    parsedProc = nullptr;
-  }
-  UnresolvedType(Parser::ProcTypeNT* t, Scope* s, Type** u) : scope(s), usage(u)
-  {
-    parsedType = nullptr;
-    parsedFunc = nullptr;
-    parsedProc = t;
-  }
-  Parser::TypeNT* parsedType;
-  Parser::FuncTypeNT* parsedFunc;
-  Parser::ProcTypeNT* parsedProc;
+  Parser::TypeNT* type;
   Scope* scope;
-  Type** usage;
 };
 
-struct UnresolvedTrait
+//type error message function, to be used by DeferredLookup on types
+string typeErrorMessage(TypeLookup& lookup);
+
+struct TraitLookup
 {
-  //UnresolvedType() : parsed(NULL), usage(NULL) {}
-  UnresolvedTrait(Parser::Member* t, Scope* s, Trait** u) : parsed(t), scope(s), usage(u) {}
-  Parser::Member* parsed;
+  Parser::Member* name;
   Scope* scope;
-  Trait** usage;
 };
 
-//If inTrait, "T" refers to TType
-Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
+Type* lookupType(Parser::TypeNT* type, Scope* scope);
+Type* lookupType(TypeLookup& lookupArgs);
+
+/*
 FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
 ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
-Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError = true);
+*/
 Type* getIntegerType(int bytes, bool isSigned);
-void resolveAllTypes();
-void resolveAllTraits();
+
 void createBuiltinTypes();
 
 extern vector<TupleType*> tuples;
-extern vector<ArrayType*> arrays;
-extern vector<UnresolvedType> unresolved;
-extern vector<UnresolvedTrait> unresolvedTraits;
 extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
-extern Type* self;
 
 struct Type
 {
@@ -141,48 +118,14 @@ struct Type
   virtual bool isPrimitive(){return false;}
 };
 
-struct FuncType : public Type
-{
-  FuncType(Parser::FuncTypeNT* ft, Scope* usedScope);
-  Type* retType;
-  vector<Type*> argTypes;
-  bool isCallable();
-  bool isFunc();
-  bool canConvert(Type* other);
-};
-
-struct ProcType : public Type
-{
-  ProcType(Parser::ProcTypeNT* pt, Scope* usedScope);
-  bool nonterm;
-  Type* retType;
-  vector<Type*> argTypes;
-  bool isCallable();
-  bool isProc();
-  bool canConvert(Type* other);
-};
-
-//Function/Prod
-struct FunctionDecl
-{
-  FuncType* type;
-  string name;
-};
-
-struct ProcedureDecl
-{
-  ProcType* type;
-  string name;
-};
-
 struct Trait
 {
   Trait(Parser::TraitDecl* td, Scope* s);
   Scope* scope;
   string name;
   //Trait is a set of named function and procedure types
-  vector<FunctionDecl> funcs;
-  vector<ProcedureDecl> procs;
+  //vector<FunctionDecl> funcs;
+  //vector<ProcedureDecl> procs;
 };
 
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
@@ -216,8 +159,8 @@ struct StructType : public Type
   bool hasProc(ProcType* type);
   vector<Trait*> traits;
   vector<Type*> members;
-  vector<string> memberNames;
-  vector<bool> composed;  //1-1 correspondence with members
+  vector<string> memberNames; //1-1 correspondence with members
+  vector<bool> composed;      //1-1 correspondence with members
   //used to handle unresolved data members
   Parser::StructDecl* decl;
   //member types must be searched from here (the scope inside the struct decl)

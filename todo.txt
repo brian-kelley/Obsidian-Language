@@ -1,17 +1,10 @@
 TODO:
 ---------------------
--After scope tree, types and traits are loaded:
-  -create list of subroutines in each scope
-  -(LATER, NO POLYMORPHIC YET): do one pass through statements and instantiate polymorphic functions, then add them to scope (mangled)
-  -scan in all statements in all subroutines (includes type checking expressions occurring in statements)
-    -statements (including local var decls) are ordered
-  -in var lookup, add arguments
-  -in var lookup, add to non-static member subroutines the implicit "this" pointer
+-Unified name searching
+  -Prevent one name for multiple kinds of things
+  -Subroutine overloading is still OK
+-Simplify and fix type loading
 
----------------------
-  -Annotated AST refactor
-    -Add middle-end Scope pointers to AST nodes to make traversing scope tree easier
-      -BlockNT and BlockScope then point to each other
 ---------------------
 
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):

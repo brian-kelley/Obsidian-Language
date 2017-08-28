@@ -19,8 +19,6 @@ vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
-vector<UnresolvedType> unresolved;
-vector<UnresolvedTrait> unresolvedTraits;
 TType TType::inst;
 
 Type::Type(Scope* enclosingScope)
@@ -84,7 +82,22 @@ void createBuiltinTypes()
   new AliasType("f64", primitives[TypeNT::DOUBLE], global);
 }
 
-Type* getType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
+string typeErrorMessage(TypeLookup& lookup)
+{
+}
+
+Type* lookupType(TypeLookup& args)
+{
+  return lookupType(args.type, args.scope);
+}
+
+Type* lookupType(Parser::TypeNT* type, Scope* scope)
+{
+  TypeLookup lookup(type, scope);
+  return lookupType(lookup);
+}
+
+Type* lookupType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
 {
   //handle array immediately - just make an array and then handle the singular element type
   if(type->arrayDims)
@@ -298,11 +311,11 @@ void resolveAllTypes()
     }
     else if(ut.parsedFunc)
     {
-      t = getFuncType(ut.parsedFunc, ut.scope, NULL, true);
+      //t = getFuncType(ut.parsedFunc, ut.scope, NULL, true);
     }
     else
     {
-      t = getProcType(ut.parsedProc, ut.scope, NULL, true);
+      //t = getProcType(ut.parsedProc, ut.scope, NULL, true);
     }
     if(!t)
     {
@@ -329,7 +342,7 @@ void resolveAllTraits()
 /*****************/
 /* Function Type */
 /*****************/
-
+/*
 FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(NULL)
 {
   retType = getType(ft->retType, scope, &retType, false);
@@ -367,11 +380,13 @@ bool FuncType::canConvert(Type* other)
   }
   return true;
 }
+*/
 
 /******************/
 /* Procedure Type */
 /******************/
 
+/*
 ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(NULL)
 {
   retType = getType(pt->retType, scope, &retType, false);
@@ -429,6 +444,7 @@ bool ProcType::canConvert(Type* other)
   }
   return false;
 }
+*/
 
 /****************/
 /* Bounded Type */
@@ -449,6 +465,7 @@ BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
 
 Trait::Trait(Parser::TraitDecl* td, Scope* s)
 {
+  /*
   //pre-allocate func and proc list (and their names)
   int numFuncs = 0;
   int numProcs = 0;
@@ -482,6 +499,7 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
     }
   }
   s->traits.push_back(this);
+  */
 }
 
 /***************/
