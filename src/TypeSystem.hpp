@@ -37,11 +37,6 @@ struct ArrayType;
 struct StructType;
 struct UnionType;
 struct AliasType;
-/*
-struct FuncType;
-struct ProcType;
-struct Trait;
-*/
 
 struct TypeLookup
 {
@@ -51,14 +46,6 @@ struct TypeLookup
 
 //type error message function, to be used by DeferredLookup on types
 string typeErrorMessage(TypeLookup& lookup);
-
-/*
-struct TraitLookup
-{
-  Parser::Member* name;
-  Scope* scope;
-};
-*/
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
 Type* lookupType(TypeLookup& lookupArgs);
@@ -70,6 +57,10 @@ void createBuiltinTypes();
 extern vector<TupleType*> tuples;
 extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
+
+typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
+//global type lookup to be used by some type constructors
+extern DeferredTypeLookup typeLookup;
 
 struct Type
 {
@@ -110,16 +101,6 @@ struct Type
   virtual bool isPrimitive(){return false;}
 };
 
-/* struct Trait
-{
-  Trait(Parser::TraitDecl* td, Scope* s);
-  Scope* scope;
-  string name;
-  //Trait is a set of named function and procedure types
-  //vector<FunctionDecl> funcs;
-  //vector<ProcedureDecl> procs;
-}; */
-
 /*
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
 //  ex: func string doThing(T: Printable val);
@@ -151,7 +132,7 @@ struct StructType : public Type
   //note: self doesn't count as an argument but it is the 1st arg internally
   bool hasFunc(FuncType* type);
   bool hasProc(ProcType* type);
-  vector<Trait*> traits;
+  //vector<Trait*> traits;
   vector<Type*> members;
   vector<string> memberNames; //1-1 correspondence with members
   vector<bool> composed;      //1-1 correspondence with members
@@ -311,7 +292,7 @@ struct FloatType : public Type
   bool isPrimitive();
   string getName()
   {
-    return ;
+    return name;
   }
 };
 

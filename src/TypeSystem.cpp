@@ -19,7 +19,8 @@ vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
-//TType TType::inst;
+
+DeferredTypeLookup typeLookup;
 
 Type::Type(Scope* enclosingScope) : enclosing(enclosingScope) {}
 
@@ -129,6 +130,10 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
       {
         if(t->getName() == mem->ident)
         {
+          if(AliasType* at = dynamic_cast<AliasType*>(t))
+          {
+            return at->actual;
+          }
           return t;
         }
       }

@@ -11,6 +11,9 @@ namespace MiddleEnd
     TypeSystem::createBuiltinTypes();
     //build scope tree
     DEBUG_DO(cout << "Building scope tree and creating types...\n";);
+    //set up deferred type lookup
+    TypeSystem::typeLookup = TypeSystem::DeferredTypeLookup(
+        TypeSystem::lookupType, TypeSystem::typeErrorMessage);
     for(auto& it : ast->decls)
     {
       ScopeTypeLoading::visitScopedDecl(global, it);
@@ -97,18 +100,18 @@ namespace MiddleEnd
         auto& decl = it->sd;
         visitScopedDecl(sscope, decl);
       }
-      new TypeSystem::StructType(sd, current, sscope);
+      current->types.push_back(new TypeSystem::StructType(sd, current, sscope));
     }
 
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
     {
       if(sd->decl.is<Parser::Enum*>())
       {
-        new TypeSystem::EnumType(sd->decl.get<Parser::Enum*>(), current);
+        current->types.push_back(new TypeSystem::EnumType(sd->decl.get<Parser::Enum*>(), current));
       }
       else if(sd->decl.is<Parser::Typedef*>())
       {
-        new TypeSystem::AliasType(sd->decl.get<Parser::Typedef*>(), current);
+        current->types.push_back(new TypeSystem::AliasType(sd->decl.get<Parser::Typedef*>(), current));
       }
       else if(sd->decl.is<Parser::StructDecl*>())
       {
@@ -116,7 +119,7 @@ namespace MiddleEnd
       }
       else if(sd->decl.is<Parser::UnionDecl*>())
       {
-        new TypeSystem::UnionType(sd->decl.get<Parser::UnionDecl*>(), current);
+        current->types.push_back(new TypeSystem::UnionType(sd->decl.get<Parser::UnionDecl*>(), current));
       }
       else if(sd->decl.is<Parser::Module*>())
       {
@@ -130,10 +133,12 @@ namespace MiddleEnd
       {
         visitBlock(current, sd->decl.get<Parser::ProcDef*>()->body);
       }
+      /*
       else if(sd->decl.is<Parser::TraitDecl*>())
       {
         new TypeSystem::Trait(sd->decl.get<Parser::TraitDecl*>(), current);
       }
+      */
     }
   }
 
