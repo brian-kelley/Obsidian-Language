@@ -85,12 +85,6 @@ Type* lookupType(TypeLookup& args)
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope)
 {
-  TypeLookup lookup(type, scope);
-  return lookupType(lookup);
-}
-
-Type* lookupType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
-{
   //handle array immediately - just make an array and then handle the singular element type
   if(type->arrayDims)
   {
@@ -100,34 +94,25 @@ Type* lookupType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool fail
     Type* elemType = getType(type, usedScope, NULL, false);
     //restore original type to preserve AST
     type->arrayDims = dims;
-    if(elemType)
+    if(!elemType)
+    {
+      //elem lookup type failed, so wait to get the array type
+      return NULL;
+    }
+    else
     {
       //lazily check & create array type
-      if(elemType->dimTypes.size() >= dims)
-      {
-        //already exists
-        return elemType->dimTypes[dims - 1];
-      }
-      else
+      if(elemType->dimTypes.size() < dims)
       {
         //create + add
         //size = 1 -> max dim = 1
         for(size_t i = elemType->dimTypes.size() + 1; i <= dims; i++)
         {
-          new ArrayType(elemType, i);
+          elemType->dimTypes.push_back(new ArrayType(elemType, i));
         }
         //now return the needed type
-        return elemType->dimTypes.back();
       }
-    }
-    else if(usage)
-    {
-      unresolved.emplace_back(type, usedScope, usage);
-      return NULL;
-    }
-    else if(failureIsError)
-    {
-      ERR_MSG("Required ArrayType but its element type could not be resolved.");
+      return elemType->dimTypes[dims - 1];
     }
   }
   else if(type->t.is<TypeNT::Prim>())
@@ -142,118 +127,28 @@ Type* lookupType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool fail
     {
       for(auto t : s->types)
       {
-        StructType* st = dynamic_cast<StructType*>(t);
-        if(st && st->name == mem->ident)
+        if(t->getName() == mem->ident)
         {
-          return st;
-        }
-        UnionType* ut = dynamic_cast<UnionType*>(t);
-        if(ut && ut->name == mem->ident)
-        {
-          return ut;
-        }
-        EnumType* et = dynamic_cast<EnumType*>(t);
-        if(et && et->name == mem->ident)
-        {
-          return et;
-        }
-        AliasType* at = dynamic_cast<AliasType*>(t);
-        if(at && at->name == mem->ident)
-        {
-          return at;
+          return t;
         }
       }
     }
-    //couldn't find type, mark as unresolved
-    //If usage is null (meaning this is during the resolving pass), is fatal error
-    if(failureIsError)
-    {
-      ERR_MSG("Could not resolve type: \"" << *mem << "\" required from scope \"" << usedScope->getLocalName() << '\"');
-    }
-    if(usage)
-      unresolved.emplace_back(type, usedScope, usage);
+    return nullptr;
   }
   else if(type->t.is<TupleTypeNT*>())
   {
-    auto& tt = type->t.get<TupleTypeNT*>();
-    //search for each member individually
-    bool resolved = true;
-    //TupleTypes can have unresolved arrays/tuples as members, so is necessary to pass usage ptr for each member
-    vector<Type*> types(tt->members.size(), NULL);
-    size_t i;
-    for(i = 0; i < tt->members.size(); i++)
+    //get a list of member types
+    vector<Type*> members;
+    for(auto mem : type->t.get<TupleTypeNT*>()->members)
     {
-      auto& mem = tt->members[i];
-      types[i] = getType(mem, usedScope, NULL, false);
-      if(!types[i])
-        resolved = false;
-    }
-    if(!resolved)
-    {
-      if(failureIsError)
+      members.push_back(lookupType(mem, scope));
+      if(members.back() == nullptr)
       {
-        ERR_MSG(string("Required TupleType but member ") + to_string(i) + " could not be resolved.");
-      }
-      else if(usage)
-      {
-        unresolved.emplace_back(type, usedScope, usage);
-        return NULL;
+        return nullptr;
       }
     }
-    for(auto& existing : tuples)
-    {
-      if(existing->matchesTypes(types))
-      {
-        return existing;
-      }
-    }
-    //must create new type
-    return new TupleType(types);
   }
-  else if(type->t.is<FuncTypeNT*>())
-  {
-    return getFuncType(type->t.get<FuncTypeNT*>(), usedScope, usage, failureIsError);
-  }
-  else if(type->t.is<ProcTypeNT*>())
-  {
-    return getProcType(type->t.get<ProcTypeNT*>(), usedScope, usage, failureIsError);
-  }
-  else if(type->t.is<TraitType*>())
-  {
-    return new BoundedType(type->t.get<TraitType*>(), usedScope);
-  }
-  else if(type->t.is<TypeNT::Wildcard>())
-  {
-    return &TType::inst;
-  }
-  return NULL;
 }
-
-/*
-Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError)
-{
-  //search up scope tree for the member
-  //need to search for EnumType, AliasType, StructType or UnionType
-  auto search = usedScope->findSub(name->scopes);
-  for(auto s : search)
-  {
-    for(auto searchTrait : s->traits)
-    {
-      if(searchTrait->name == name->ident)
-        return searchTrait;
-    }
-  }
-  //couldn't find type, mark as unresolved
-  //If usage is null (meaning this is during the resolving pass), is fatal error
-  if(failureIsError)
-  {
-    ERR_MSG("Could not resolve trait: \"" << *name << "\" required from scope \"" << usedScope->getLocalName() << '\"');
-  }
-  if(usage)
-    unresolvedTraits.emplace_back(name, usedScope, usage);
-  return NULL;
-}
-*/
 
 Type* getIntegerType(int bytes, bool isSigned)
 {

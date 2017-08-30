@@ -84,6 +84,8 @@ struct Type
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
   virtual bool canConvert(Expression* other);
+  //get the type's name
+  virtual string getName() = 0;
   //Use this getType() for scope tree building
   //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
   //Other variations (so above getType() 
@@ -160,6 +162,10 @@ struct StructType : public Type
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isStruct();
+  string getName()
+  {
+    return name;
+  }
 };
 
 struct UnionType : public Type
@@ -170,6 +176,10 @@ struct UnionType : public Type
   Parser::UnionDecl* decl;
   bool canConvert(Type* other);
   bool isUnion();
+  string getName()
+  {
+    return name;
+  }
 };
 
 struct ArrayType : public Type
@@ -181,6 +191,15 @@ struct ArrayType : public Type
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isArray();
+  string getName()
+  {
+    string name = elem->getName();
+    for(int i = 0; i < dims; i++)
+    {
+      name += "[]";
+    }
+    return name;
+  }
 };
 
 struct TupleType : public Type
@@ -201,6 +220,19 @@ struct TupleType : public Type
   bool operator<(const TupleType& rhs)
   {
     return lexicographical_compare(members.begin(), members.end(), rhs.members.begin(), rhs.members.end());
+  }
+  string getName()
+  {
+    string name = "(";
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      name += members[i]->getName();
+      if(i != members.size() - 1)
+      {
+        name += ", ";
+      }
+    }
+    name += ")";
   }
 };
 
@@ -228,6 +260,10 @@ struct AliasType : public Type
   bool isConcrete() {return actual->isConcrete();}
   bool isVoid()     {return actual->isVoid();}
   bool isPrimitive(){return actual->isPrimitive();}
+  string getName()
+  {
+    return name;
+  }
 };
 
 struct EnumType : public Type
@@ -241,6 +277,10 @@ struct EnumType : public Type
   bool isInteger();
   bool isNumber();
   bool isPrimitive();
+  string getName()
+  {
+    return name;
+  }
 };
 
 struct IntegerType : public Type
@@ -254,6 +294,10 @@ struct IntegerType : public Type
   bool isInteger();
   bool isNumber();
   bool isPrimitive();
+  string getName()
+  {
+    return name;
+  }
 };
 
 struct FloatType : public Type
@@ -265,6 +309,10 @@ struct FloatType : public Type
   bool canConvert(Type* other);
   bool isNumber();
   bool isPrimitive();
+  string getName()
+  {
+    return ;
+  }
 };
 
 struct StringType : public Type
@@ -273,6 +321,10 @@ struct StringType : public Type
   bool canConvert(Type* other);
   bool isString();
   bool isPrimitive();
+  string getName()
+  {
+    return "string";
+  }
 };
 
 struct BoolType : public Type
@@ -281,6 +333,10 @@ struct BoolType : public Type
   bool canConvert(Type* other);
   bool isBool();
   bool isPrimitive();
+  string getName()
+  {
+    return "bool";
+  }
 };
 
 struct VoidType : public Type
@@ -289,6 +345,10 @@ struct VoidType : public Type
   bool canConvert(Type* other);
   bool isVoid();
   bool isPrimitive();
+  string getName()
+  {
+    return "void";
+  }
 };
 
 /*
