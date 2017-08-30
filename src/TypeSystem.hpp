@@ -9,22 +9,13 @@
 
 /* Type system: 3 main categories of types
  *  -Primitives
- *    -belong to global scope
- *    -names are keywords
+ *    -don't belong to any scope (type lookup checks primitives first)
  *    -created before all other scope/type loading
- *  -Named types: struct, union, enum, typedef, func, proc
+ *  -Named types: struct, union, enum, typedef/alias
  *    -created immediately when encountered in scope tree loading
- *    -If dependent on any unavailable type, remember to resolve later
+ *    -belong to the type where declared
  *  -Unnamed (syntactic) types: array and tuple
- *    -Created last, as necessary, to resolve all named types
- *    -Belong to global scope
- *    -Never duplicated, to save memory and speed up comparison (e.g. at most one int[] or (int, int) type defined in whole program)
- *    -For aliases: always trace back to underlying type (i32[][] becomes int[][])
- */
-
-/*
- * Type system revamp:
- *  -Use DeferredLookup for types and traits (MiddleEnd handles that)
+ *    -don't belong to any scope
  */
 
 /**************************
@@ -46,10 +37,11 @@ struct ArrayType;
 struct StructType;
 struct UnionType;
 struct AliasType;
+/*
 struct FuncType;
 struct ProcType;
 struct Trait;
-
+*/
 
 struct TypeLookup
 {
@@ -60,19 +52,17 @@ struct TypeLookup
 //type error message function, to be used by DeferredLookup on types
 string typeErrorMessage(TypeLookup& lookup);
 
+/*
 struct TraitLookup
 {
   Parser::Member* name;
   Scope* scope;
 };
+*/
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
 Type* lookupType(TypeLookup& lookupArgs);
 
-/*
-FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
-ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError = true);
-*/
 Type* getIntegerType(int bytes, bool isSigned);
 
 void createBuiltinTypes();
@@ -118,7 +108,7 @@ struct Type
   virtual bool isPrimitive(){return false;}
 };
 
-struct Trait
+/* struct Trait
 {
   Trait(Parser::TraitDecl* td, Scope* s);
   Scope* scope;
@@ -126,8 +116,9 @@ struct Trait
   //Trait is a set of named function and procedure types
   //vector<FunctionDecl> funcs;
   //vector<ProcedureDecl> procs;
-};
+}; */
 
+/*
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
 //  ex: func string doThing(T: Printable val);
 //Can only be used in argument lists.
@@ -148,6 +139,7 @@ struct BoundedType : public Type
     return false;
   }
 };
+*/
 
 struct StructType : public Type
 {
@@ -299,12 +291,14 @@ struct VoidType : public Type
   bool isPrimitive();
 };
 
+/*
 struct TType : public Type
 {
   TType();
   static TType inst;
   bool canConvert(Type* other);
 };
+*/
 
 } //namespace TypeSystem
 

@@ -19,17 +19,9 @@ vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
-TType TType::inst;
+//TType TType::inst;
 
-Type::Type(Scope* enclosingScope)
-{
-  //Syntactic types (arrays, tuples, functions, procedures) have no scope, so enclosingScope can be null
-  if(enclosingScope)
-  {
-    enclosing = enclosingScope;
-    enclosing->types.push_back(this);
-  }
-}
+Type::Type(Scope* enclosingScope) : enclosing(enclosingScope) {}
 
 bool Type::canConvert(Expression* other)
 {
@@ -237,17 +229,7 @@ Type* lookupType(Parser::TypeNT* type, Scope* usedScope, Type** usage, bool fail
   return NULL;
 }
 
-FuncType* getFuncType(Parser::FuncTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
-{
-  //TODO: cache these and check for existing type before creating new one
-  return new FuncType(type, usedScope);
-}
-
-ProcType* getProcType(Parser::ProcTypeNT* type, Scope* usedScope, Type** usage, bool failureIsError)
-{
-  return new ProcType(type, usedScope);
-}
-
+/*
 Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool failureIsError)
 {
   //search up scope tree for the member
@@ -271,6 +253,7 @@ Trait* getTrait(Parser::Member* name, Scope* usedScope, Trait** usage, bool fail
     unresolvedTraits.emplace_back(name, usedScope, usage);
   return NULL;
 }
+*/
 
 Type* getIntegerType(int bytes, bool isSigned)
 {
@@ -339,117 +322,11 @@ void resolveAllTraits()
   }
 }
 
-/*****************/
-/* Function Type */
-/*****************/
-/*
-FuncType::FuncType(Parser::FuncTypeNT* ft, Scope* scope) : Type(NULL)
-{
-  retType = getType(ft->retType, scope, &retType, false);
-  argTypes.resize(ft->args.size());
-  for(size_t i = 0; i < ft->args.size(); i++)
-  {
-    argTypes[i] = getType(ft->args[i]->type, scope, &argTypes[i], false);
-  }
-}
-
-bool FuncType::isCallable()
-{
-  return true;
-}
-
-bool FuncType::isFunc()
-{
-  return true;
-}
-
-bool FuncType::canConvert(Type* other)
-{
-  //True if other is also a function and has ret type and arg types that can be converted
-  FuncType* fp = dynamic_cast<FuncType*>(other);
-  if(fp == NULL)
-    return false;
-  if(!retType->canConvert(fp->retType))
-    return false;
-  if(argTypes.size() != fp->argTypes.size())
-    return false;
-  for(size_t i = 0; i < argTypes.size(); i++)
-  {
-    if(!argTypes[i]->canConvert(fp->argTypes[i]))
-      return false;
-  }
-  return true;
-}
-*/
-
-/******************/
-/* Procedure Type */
-/******************/
-
-/*
-ProcType::ProcType(Parser::ProcTypeNT* pt, Scope* scope) : Type(NULL)
-{
-  retType = getType(pt->retType, scope, &retType, false);
-  argTypes.resize(pt->args.size());
-  for(size_t i = 0; i < pt->args.size(); i++)
-  {
-    argTypes[i] = getType(pt->args[i]->type, scope, &argTypes[i], false);
-  }
-  nonterm = pt->nonterm;
-}
-
-bool ProcType::isCallable()
-{
-  return true;
-}
-
-bool ProcType::isProc()
-{
-  return true;
-}
-
-bool ProcType::canConvert(Type* other)
-{
-  //True if other is a callable and has ret type and arg types that can be converted
-  FuncType* f = dynamic_cast<FuncType*>(other);
-  ProcType* p = dynamic_cast<ProcType*>(other);
-  if(f)
-  {
-    if(!retType->canConvert(f->retType))
-      return false;
-    if(argTypes.size() != f->argTypes.size())
-      return false;
-    for(size_t i = 0; i < argTypes.size(); i++)
-    {
-      if(!argTypes[i]->canConvert(f->argTypes[i]))
-        return false;
-    }
-    return true;
-  }
-  else if(p)
-  {
-    //terminating procedures are a subset of the non-terminating procedures
-    if(p->nonterm && !nonterm)
-      return false;
-    if(!retType->canConvert(p->retType))
-      return false;
-    if(argTypes.size() != p->argTypes.size())
-      return false;
-    for(size_t i = 0; i < argTypes.size(); i++)
-    {
-      if(!argTypes[i]->canConvert(p->argTypes[i]))
-        return false;
-    }
-    return true;
-  }
-  return false;
-}
-*/
-
 /****************/
 /* Bounded Type */
 /****************/
 
+/*
 BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
 {
   traits.resize(tt->traits.size());
@@ -458,14 +335,15 @@ BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
     traits[i] = getTrait(tt->traits[i], s, &traits[i], false);
   }
 }
+*/
 
 /***********/
 /*  Trait  */
 /***********/
 
+/*
 Trait::Trait(Parser::TraitDecl* td, Scope* s)
 {
-  /*
   //pre-allocate func and proc list (and their names)
   int numFuncs = 0;
   int numProcs = 0;
@@ -499,8 +377,8 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
     }
   }
   s->traits.push_back(this);
-  */
 }
+*/
 
 /***************/
 /* Struct Type */
@@ -1034,6 +912,7 @@ bool VoidType::isPrimitive()
 /* T Type */
 /**********/
 
+/*
 TType::TType() : Type(NULL) {}
 
 bool TType::canConvert(Type* other)
@@ -1041,6 +920,7 @@ bool TType::canConvert(Type* other)
   //All TTypes are equivalent before instantiation
   return dynamic_cast<TType*>(other);
 }
+*/
 
 } //namespace TypeSystem
 
