@@ -117,6 +117,7 @@ Variable* Scope::findVariable(Parser::Member* mem)
   return nullptr;
 }
 
+/*
 TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
 {
   auto search = findSub(mem->scopes);
@@ -132,6 +133,7 @@ TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
   }
   return nullptr;
 }
+*/
 
 Subroutine* Scope::findSubroutine(Parser::Member* mem)
 {

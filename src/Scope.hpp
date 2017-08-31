@@ -10,7 +10,7 @@ namespace TypeSystem
   struct Type;
   struct FuncType;
   struct ProcType;
-  struct Trait;
+  //struct Trait;
 }
 
 struct Subroutine;
@@ -25,7 +25,7 @@ struct Scope
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
   vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
-  vector<TypeSystem::Trait*> traits;  //traits declared here
+  //vector<TypeSystem::Trait*> traits;  //traits declared here
   vector<Variable*> vars;             //variables declared here - first globals & statics and then locals (in order of declaration)
   //subroutines (funcs and procs) defined in scope
   vector<Subroutine*> subr;
@@ -35,7 +35,7 @@ struct Scope
   //Look up types, variables, subroutines (return NULL if not found)
   TypeSystem::Type* findType(Parser::Member* mem);
   Variable* findVariable(Parser::Member* mem);
-  TypeSystem::Trait* findTrait(Parser::Member* mem);
+  //TypeSystem::Trait* findTrait(Parser::Member* mem);
   Subroutine* findSubroutine(Parser::Member* mem);
   private:
   void findSubImpl(vector<string>& names, vector<Scope*>& matches);

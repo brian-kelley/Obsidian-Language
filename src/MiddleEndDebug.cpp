@@ -59,6 +59,7 @@ namespace MiddleEndDebug
         printType(it, ind + 1);
       }
     }
+    /*
     if(s->traits.size())
     {
       indent(ind);
@@ -68,6 +69,7 @@ namespace MiddleEndDebug
         printTrait(it, ind + 1);
       }
     }
+    */
     if(s->vars.size())
     {
       indent(ind);
@@ -155,6 +157,7 @@ namespace MiddleEndDebug
       indent(ind);
       cout << "void\n";
     }
+    /*
     else if(dynamic_cast<FuncType*>(t))
     {
       printFuncType((FuncType*) t, ind);
@@ -168,6 +171,7 @@ namespace MiddleEndDebug
       indent(ind);
       cout << "T (in trait)\n";
     }
+    */
     else
     {
       indent(ind);
@@ -179,6 +183,7 @@ namespace MiddleEndDebug
   {
     indent(ind);
     cout << "Struct type: " << t->name << '\n';
+    /*
     if(t->traits.size())
     {
       indent(ind);
@@ -190,6 +195,7 @@ namespace MiddleEndDebug
         cout << t->traits[i]->name << 'n';
       }
     }
+    */
     indent(ind);
     cout << "Members:\n";
     for(size_t i = 0; i < t->members.size(); i++)
@@ -245,6 +251,7 @@ namespace MiddleEndDebug
     }
   }
 
+/*
   void printFuncType(FuncType* t, int ind)
   {
     indent(ind);
@@ -283,7 +290,9 @@ namespace MiddleEndDebug
       printType(t->argTypes[i], ind + 1);
     }
   }
+  */
 
+  /*
   void printTrait(TypeSystem::Trait* t, int ind)
   {
     indent(ind);
@@ -307,6 +316,7 @@ namespace MiddleEndDebug
       }
     }
   }
+  */
 
   void printVariable(Variable* v, int ind)
   {

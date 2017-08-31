@@ -13,7 +13,11 @@ Variable::Variable(Scope* s, Parser::VarDecl* ast)
   }
   //find type (this must succeed)
   //failureIsError true, so TypeSystem will produce the error
-  this->type = TypeSystem::getType(ast->type, scope, NULL, true);
+  this->type = TypeSystem::lookupType(ast->type, scope);
+  if(!this->type)
+  {
+    errAndQuit("variable " + name + " type could not be determined");
+  }
 }
 
 Variable::Variable(Scope* s, string n, TypeSystem::Type* t)

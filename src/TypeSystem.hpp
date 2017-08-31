@@ -40,6 +40,7 @@ struct AliasType;
 
 struct TypeLookup
 {
+  TypeLookup(Parser::TypeNT* t, Scope* s) : type(t), scope(s) {}
   Parser::TypeNT* type;
   Scope* scope;
 };
@@ -48,7 +49,7 @@ struct TypeLookup
 string typeErrorMessage(TypeLookup& lookup);
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
-Type* lookupType(TypeLookup& lookupArgs);
+Type* lookupTypeDeferred(TypeLookup& args);
 
 Type* getIntegerType(int bytes, bool isSigned);
 
@@ -60,14 +61,13 @@ extern map<string, Type*> primNames;
 
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
 //global type lookup to be used by some type constructors
-extern DeferredTypeLookup typeLookup;
+extern DeferredTypeLookup* typeLookup;
 
 struct Type
 {
   Type(Scope* enclosingScope);
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   Scope* enclosing;
-  //resolve all types that couldn't be found during first pass
   //dimTypes[0] is for T[], dimTypes[1] is for T[][], etc.
   vector<Type*> dimTypes;
   // [lazily create and] return array type for given number of dimensions of *this
@@ -185,11 +185,8 @@ struct ArrayType : public Type
 
 struct TupleType : public Type
 {
-  //TupleType has no scope, all are global
+  //TupleType has no scope, so ctor doesn't need it
   TupleType(vector<Type*> members);
-  //Note: TupleType really owned by global scope,
-  //but need currentScope to search for member Type*s
-  TupleType(Parser::TupleTypeNT* tt, Scope* currentScope);
   vector<Type*> members;
   //this is used only when handling unresolved members
   Parser::TupleTypeNT* decl;
@@ -214,6 +211,7 @@ struct TupleType : public Type
       }
     }
     name += ")";
+    return name;
   }
 };
 

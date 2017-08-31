@@ -24,7 +24,7 @@ namespace MiddleEndDebug
   void printFuncType(TypeSystem::FuncType* t, int ind);
   void printProcType(TypeSystem::ProcType* t, int ind);
   
-  void printTrait(TypeSystem::Trait* t, int ind);
+  //void printTrait(TypeSystem::Trait* t, int ind);
   void printVariable(Variable* v, int ind);
 
   void printSubroutines(Scope* s = global, int ind = 0);

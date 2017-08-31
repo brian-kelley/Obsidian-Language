@@ -387,11 +387,19 @@ Subroutine::Subroutine(string n, Parser::TypeNT* ret, vector<Parser::Arg*>& args
   auto scope = bodyBlock->bs;
   auto enclosing = scope->parent;
   this->name = n;
-  this->retType = TypeSystem::getType(ret, enclosing, nullptr);
+  this->retType = TypeSystem::lookupType(ret, enclosing);
+  if(this->retType == nullptr)
+  {
+    ERR_MSG("subroutine " + n + " return type couldn't be resolved");
+  }
   argTypes.resize(args.size());
   for(size_t i = 0; i < args.size(); i++)
   {
-    argTypes[i] = TypeSystem::getType(args[i]->type, enclosing, nullptr);
+    argTypes[i] = TypeSystem::lookupType(args[i]->type, enclosing);
+    if(argTypes[i] == nullptr)
+    {
+      ERR_MSG("subroutine " + n + " argument " + to_string(i) + " type couldn't be resolved");
+    }
     if(argTypes[i]->isVoid())
     {
       ERR_MSG("void can't be used as an argument type");

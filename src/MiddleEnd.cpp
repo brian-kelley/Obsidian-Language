@@ -12,15 +12,14 @@ namespace MiddleEnd
     //build scope tree
     DEBUG_DO(cout << "Building scope tree and creating types...\n";);
     //set up deferred type lookup
-    TypeSystem::typeLookup = TypeSystem::DeferredTypeLookup(
-        TypeSystem::lookupType, TypeSystem::typeErrorMessage);
+    TypeSystem::typeLookup = new TypeSystem::DeferredTypeLookup(
+        TypeSystem::lookupTypeDeferred, TypeSystem::typeErrorMessage);
     for(auto& it : ast->decls)
     {
       ScopeTypeLoading::visitScopedDecl(global, it);
     }
     DEBUG_DO(cout << "Resolving undefined types...\n";);
-    TypeSystem::resolveAllTraits();
-    TypeSystem::resolveAllTypes();
+    TypeSystem::typeLookup->flush();
     DEBUG_DO(cout << "Building list of global/static variable declarations...\n";);
     VarLoading::visitScope(global);
     DEBUG_DO(cout << "Loading functions and procedures...\n";);
