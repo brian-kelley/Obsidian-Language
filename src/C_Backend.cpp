@@ -45,7 +45,7 @@ namespace C
     c << '\n';
     c.close();
     //wait for cc to terminate
-    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -Oz -ffast-math -fassociative-math -flto -o " + exeName + ' ' + cName + " &> /dev/null");
+    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
     if(!keep)
     {
       remove(cName.c_str());
@@ -83,7 +83,10 @@ namespace C
       {
         for(auto t : s->types)
         {
-          allTypes.push_back(t);
+          if(!t->isAlias())
+          {
+            allTypes.push_back(t);
+          }
         }
       });
     //primitives (string is a struct, all others are C primitives)
@@ -105,59 +108,34 @@ namespace C
     typeDecls << "char* data;\n";
     typeDecls << "unsigned length;\n";
     typeDecls << "} ostring;\n\n";
-    //all primitives are now fully implemented
-    for(auto prim : TypeSystem::primitives)
-    {
-      typesImplemented[prim] = true;
-    }
-    walkScopeTree([&] (Scope* s) -> void
-      {
-        for(auto t : s->types)
-        {
-          if(!t->isPrimitive())
-          {
-            //get an identifier for type t
-            string ident = getIdentifier();
-            types[t] = ident;
-            typesImplemented[t] = false;
-            //forward-declare the type
-            typeDecls << "struct " << ident << ";\n";
-          }
-        }
-      });
+    //forward-declare all compound types
     for(auto t : allTypes)
     {
-      for(auto arrType : t->dimTypes)
+      if(!t->isPrimitive() && !t->isAlias())
       {
+        //get an identifier for type t
         string ident = getIdentifier();
-        types[arrType] = ident;
-        typesImplemented[arrType] = false;
-        typeDecls << "struct " << ident << ";\n";
+        types[t] = ident;
+        typesImplemented[t] = false;
+        //forward-declare the type
+        typeDecls << "struct " << ident << "; //" << t->getName() << '\n';
+      }
+      else if(t->isPrimitive() && !)
+      {
+        //primitives (including aliases of primitives) are already implemented
+        typesImplemented[t] = true;
       }
     }
     typeDecls << '\n';
-    for(size_t prim = 0; prim < TypeSystem::primitives.size(); prim++)
+    //implement all compound types
+    for(auto t : allTypes)
     {
-      for(auto arrType : TypeSystem::primitives[prim]->dimTypes)
+      if(!t->isPrimitive() && !typesImplemented[t])
       {
-        generateCompoundType(typeDecls, types[arrType], arrType);
+        generateCompoundType(typeDecls, types[t], t);
       }
     }
-    walkScopeTree([&] (Scope* s) -> void
-      {
-        for(auto t : s->types)
-        {
-          if(!t->isPrimitive())
-          {
-            generateCompoundType(typeDecls, types[t], t);
-          }
-          for(auto arrType : t->dimTypes)
-          {
-            generateCompoundType(typeDecls, types[arrType], arrType);
-          }
-        }
-      });
-      typeDecls << '\n';
+    typeDecls << '\n';
   }
 
   void genGlobals()
@@ -633,10 +611,14 @@ namespace C
     auto ut = dynamic_cast<UnionType*>(t);
     auto tt = dynamic_cast<TupleType*>(t);
     auto et = dynamic_cast<EnumType*>(t);
-    c << "struct " << cName << "\n{\n";
     //C type to use for array types
     if(at)
     {
+      if(!typesImplemented[at->elem])
+      {
+        generateCompoundType(c, types[at->elem], at->elem);
+      }
+      c << "struct " << cName << "\n{\n";
       //add dims
       for(int dim = 0; dim < at->dims; dim++)
       {
@@ -648,27 +630,47 @@ namespace C
     else if(st)
     {
       //add all members (as pointer)
-      //since there is no possible name collision among the member names, don't
-      //replace them with mangled identifiers
+      //  since there is no possible name collision among the member names, don't
+      //  need to replace them with mangled identifiers
+      //first make sure all members are already implemented
+      for(auto mem : st->members)
+      {
+        if(!typesImplemented[mem])
+        {
+          generateCompoundType(c, types[mem], mem);
+        }
+      }
+      //then add the members to the actual struct definition
+      c << "struct " << cName << "\n{\n";
       for(size_t i = 0; i < st->members.size(); i++)
       {
-        c << types[st->members[i]] << "* " << st->memberNames[i] << ";\n";
+        c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
       }
     }
     else if(ut)
     {
+      c << "struct " << cName << "\n{\n";
       c << "void* data;\n";
       c << "int option;\n";
     }
     else if(tt)
     {
+      for(auto mem : tt->members)
+      {
+        if(!typesImplemented[mem])
+        {
+          generateCompoundType(c, types[mem], mem);
+        }
+      }
+      c << "struct " << cName << "\n{\n";
       for(size_t i = 0; i < tt->members.size(); i++)
       {
         //tuple members are anonymous so just use memN as the name
-        c << types[tt->members[i]] << "* mem" << i << ";\n";
+        c << types[tt->members[i]] << " mem" << i << ";\n";
       }
     }
     c << "};\n";
+    typesImplemented[t] = true;
   }
 
   void generateCharLiteral(ostream& c, char character)

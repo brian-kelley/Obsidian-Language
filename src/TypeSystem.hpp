@@ -99,6 +99,7 @@ struct Type
   virtual bool isConcrete() {return true;}
   virtual bool isVoid()     {return false;}
   virtual bool isPrimitive(){return false;}
+  virtual bool isAlias()    {return false;}
 };
 
 /*
@@ -239,6 +240,7 @@ struct AliasType : public Type
   bool isConcrete() {return actual->isConcrete();}
   bool isVoid()     {return actual->isVoid();}
   bool isPrimitive(){return actual->isPrimitive();}
+  bool isAlias()    {return true;}
   string getName()
   {
     return name;
