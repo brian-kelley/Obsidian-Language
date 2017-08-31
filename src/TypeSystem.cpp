@@ -148,6 +148,13 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
         return nullptr;
       }
     }
+    cout << "searching for existing tuple type with types: ";
+    for(auto mem : members)
+    {
+      cout << mem->getName() << ' ';
+    }
+    cout << '\n';
+    cout << "Looking in list of " << tuples.size() << " tuple types\n";
     for(auto tt : tuples)
     {
       if(tt->matchesTypes(members))
@@ -155,8 +162,9 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
         return tt;
       }
     }
-    tuples.push_back(new TupleType(members));
-    return tuples.back();
+    TupleType* newTuple = new TupleType(members);
+    tuples.push_back(newTuple);
+    return newTuple;
   }
   return nullptr;
 }
@@ -401,7 +409,6 @@ ArrayType::ArrayType(Type* elemType, int ndims) : Type(NULL)
   this->elem = elemType;
   //If an ArrayType is being constructed, it must be the next dimension for elemType
   assert((int) elemType->dimTypes.size() == ndims - 1);
-  elemType->dimTypes.push_back(this);
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -473,7 +480,6 @@ bool ArrayType::isArray()
 TupleType::TupleType(vector<Type*> mems) : Type(NULL)
 {
   this->members = mems;
-  tuples.push_back(this);
 }
 
 bool TupleType::canConvert(Type* other)
@@ -535,15 +541,15 @@ bool TupleType::matchesTypes(vector<Type*>& types)
 /* Alias Type */
 /**************/
 
-AliasType::AliasType(Typedef* td, Scope* current) : Type(global)
+AliasType::AliasType(Typedef* td, Scope* scope) : Type(scope)
 {
   name = td->ident;
   decl = td;
-  TypeLookup args = TypeLookup(td->type, current);
+  TypeLookup args = TypeLookup(td->type, scope);
   typeLookup->lookup(args, actual);
 }
 
-AliasType::AliasType(string alias, Type* underlying, Scope* currentScope) : Type(currentScope)
+AliasType::AliasType(string alias, Type* underlying, Scope* scope) : Type(scope)
 {
   name = alias;
   actual = underlying;

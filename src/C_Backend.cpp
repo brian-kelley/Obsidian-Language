@@ -71,10 +71,6 @@ namespace C
   {
     //A list of all singular types (every type except arrays)
     vector<Type*> allTypes;
-    for(auto tt : TypeSystem::tuples)
-    {
-      allTypes.push_back(tt);
-    }
     for(auto prim : TypeSystem::primitives)
     {
       allTypes.push_back(prim);
@@ -89,6 +85,19 @@ namespace C
           }
         }
       });
+    for(auto tt : TypeSystem::tuples)
+    {
+      cout << "Adding tuple type: " << tt->getName() << '\n';
+      allTypes.push_back(tt);
+    }
+    size_t nonArrayTypes = allTypes.size();
+    for(size_t i = 0; i < nonArrayTypes; i++)
+    {
+      for(auto arrType : allTypes[i]->dimTypes)
+      {
+        allTypes.push_back(arrType);
+      }
+    }
     //primitives (string is a struct, all others are C primitives)
     types[TypeSystem::primNames["void"]] = "void";
     types[TypeSystem::primNames["bool"]] = "bool";
@@ -111,7 +120,12 @@ namespace C
     //forward-declare all compound types
     for(auto t : allTypes)
     {
-      if(!t->isPrimitive() && !t->isAlias())
+      if(t->isPrimitive())
+      {
+        //primitives (including aliases of primitives) are already implemented (done above)
+        typesImplemented[t] = true;
+      }
+      else
       {
         //get an identifier for type t
         string ident = getIdentifier();
@@ -120,13 +134,13 @@ namespace C
         //forward-declare the type
         typeDecls << "struct " << ident << "; //" << t->getName() << '\n';
       }
-      else if(t->isPrimitive() && !)
-      {
-        //primitives (including aliases of primitives) are already implemented
-        typesImplemented[t] = true;
-      }
     }
     typeDecls << '\n';
+    cout << "All types:\n";
+    for(auto t : allTypes)
+    {
+      cout << t->getName() << '\n';
+    }
     //implement all compound types
     for(auto t : allTypes)
     {
