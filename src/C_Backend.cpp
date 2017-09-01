@@ -632,7 +632,7 @@ namespace C
       {
         generateCompoundType(c, types[at->elem], at->elem);
       }
-      c << "struct " << cName << "\n{\n";
+      c << "typedef struct " << "\n{\n";
       //add dims
       for(int dim = 0; dim < at->dims; dim++)
       {
@@ -655,7 +655,7 @@ namespace C
         }
       }
       //then add the members to the actual struct definition
-      c << "struct " << cName << "\n{\n";
+      c << "typedef struct " << "\n{\n";
       for(size_t i = 0; i < st->members.size(); i++)
       {
         c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
@@ -663,7 +663,7 @@ namespace C
     }
     else if(ut)
     {
-      c << "struct " << cName << "\n{\n";
+      c << "typedef struct " << "\n{\n";
       c << "void* data;\n";
       c << "int option;\n";
     }
@@ -676,14 +676,14 @@ namespace C
           generateCompoundType(c, types[mem], mem);
         }
       }
-      c << "struct " << cName << "\n{\n";
+      c << "typedef struct " << "\n{\n";
       for(size_t i = 0; i < tt->members.size(); i++)
       {
         //tuple members are anonymous so just use memN as the name
         c << types[tt->members[i]] << " mem" << i << ";\n";
       }
     }
-    c << "};\n";
+    c << "} " << cName << ";\n";
     typesImplemented[t] = true;
   }
 
