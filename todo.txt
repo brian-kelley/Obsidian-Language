@@ -1,9 +1,19 @@
 TODO:
 ---------------------
 -Unified name searching
-  -Prevent one name for multiple kinds of things
-  -Subroutine overloading is still OK
--Simplify and fix type loading
+  -Prevent name collision across multiple kinds of things (no overloading yet, but later)
+-Actually make sure (in Subroutine) that the target of Assign statements in functions are in function scope
+-Make sure that types are never recursive
+  -depth-first search through members (applies to structs, arrays and tuples)
+-Make sure alias types don't alias themselves
+-rename char to byte and uchar to ubyte, and make new type char that is always an ASCII character (later UTF-8)
+-array creation expression: array type[a][b]...? (make array a keyword)
+-C backend: need to track value lifetimes
+  -Functions should all take primitives by value and string/all other types by pointer
+  -malloc and free for array creations
+    -make sure leaks are impossible
+  -index expressions for multi-dimensional arrays
+  -for now, always generate runtime bounds checking (make segfaults impossible)
 
 ---------------------
 
