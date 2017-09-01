@@ -62,7 +62,8 @@ enum
   TEST,
   ASSERT,
   T_TYPE,
-  STATIC
+  STATIC,
+  ARRAY
 };
 
 enum

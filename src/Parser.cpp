@@ -84,6 +84,7 @@ namespace Parser
   template<> Expr10RHS* parse<Expr10RHS>();
   template<> Expr11* parse<Expr11>();
   template<> Expr12* parse<Expr12>();
+  template<> NewArray* parse<NewArray>();
 
   Module* parseProgram(vector<Token*>& toks)
   {
@@ -1218,37 +1219,64 @@ namespace Parser
   {
     Expr12* e12 = new Expr12;
     e12->e = parseOptional<TupleLit>();
-    if(acceptPunct(LPAREN))
+    if(acceptKeyword(keywordMap["array"]))
     {
-      //any expression inside parentheses
-      e12->e = parse<ExpressionNT>();
-      expectPunct(RPAREN);
     }
-    else if(
-        !(e12->e = (IntLit*) accept(INT_LITERAL)) &&
-        !(e12->e = (CharLit*) accept(CHAR_LITERAL)) &&
-        !(e12->e = (StrLit*) accept(STRING_LITERAL)) &&
-        !(e12->e = (FloatLit*) accept(FLOAT_LITERAL)) &&
-        !(e12->e = parseOptional<BoolLit>()) &&
-        !(e12->e = parseOptional<Member>()) &&
-        !(e12->e = parseOptional<StructLit>()) &&
-        !(e12->e = parseOptional<CallNT>()))
+    else if(e12->e.get<TupleLit*>() == nullptr)
     {
-      err("invalid expression");
-    }
-    //check for array indexing
-    if(acceptPunct(LBRACKET))
-    {
-      Expr12::ArrayIndex ai;
-      //previously parsed expr12 is the array/tuple expression
-      ai.arr = e12;
-      ai.index = parse<ExpressionNT>();
-      Expr12* outer =new Expr12;
-      outer->e = ai;
-      expectPunct(RBRACKET);
-      return outer;
+      if(acceptPunct(LPAREN))
+      {
+        //any expression inside parentheses
+        e12->e = parse<ExpressionNT>();
+        expectPunct(RPAREN);
+      }
+      else if(
+          !(e12->e = (IntLit*) accept(INT_LITERAL)) &&
+          !(e12->e = (CharLit*) accept(CHAR_LITERAL)) &&
+          !(e12->e = (StrLit*) accept(STRING_LITERAL)) &&
+          !(e12->e = (FloatLit*) accept(FLOAT_LITERAL)) &&
+          !(e12->e = parseOptional<BoolLit>()) &&
+          !(e12->e = parseOptional<Member>()) &&
+          !(e12->e = parseOptional<StructLit>()) &&
+          !(e12->e = parseOptional<CallNT>()))
+      {
+        err("invalid expression");
+      }
+      //check for array indexing
+      if(acceptPunct(LBRACKET))
+      {
+        Expr12::ArrayIndex ai;
+        //previously parsed expr12 is the array/tuple expression
+        ai.arr = e12;
+        ai.index = parse<ExpressionNT>();
+        Expr12* outer =new Expr12;
+        outer->e = ai;
+        expectPunct(RBRACKET);
+        return outer;
+      }
     }
     return e12;
+  }
+
+  template<>
+  NewArray* parse<NewArray>()
+  {
+    expectKeyword(keywordMap["array"]);
+    NewArray* na = new NewArray;
+    na->elemType = parse<TypeNT>();
+    //check that elem type isn't itself an array type
+    if(na->elemType->arrayDims > 0)
+    {
+      err("can't create an array of arrays (all dimensions must be specified)");
+    }
+    int dims = 0;
+    while(acceptPunct(LBRACKET))
+    {
+      na->dimensions.push_back(parse<ExpressionNT>());
+      expectPunct(RBRACKET);
+      dims++;
+    }
+    return na;
   }
 
   bool accept(Token& t)
