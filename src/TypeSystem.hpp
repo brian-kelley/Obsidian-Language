@@ -94,6 +94,7 @@ struct Type
   virtual bool isFunc()     {return false;}
   virtual bool isInteger()  {return false;}
   virtual bool isNumber()   {return false;}
+  virtual bool isChar()     {return false;}
   virtual bool isString()   {return false;}
   virtual bool isBool()     {return false;}
   virtual bool isConcrete() {return true;}
@@ -305,6 +306,18 @@ struct StringType : public Type
   string getName()
   {
     return "string";
+  }
+};
+
+struct CharType : public Type
+{
+  CharType() : Type(nullptr) {}
+  bool canConvert(Type* other);
+  bool isChar() {return true;}
+  bool isPrimitive() {return true;}
+  string getName()
+  {
+    return "char";
   }
 };
 

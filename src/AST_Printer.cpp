@@ -90,8 +90,11 @@ namespace AstPrinter
         case TypeNT::Prim::CHAR:
           cout << "char";
           break;
-        case TypeNT::Prim::UCHAR:
-          cout << "uchar";
+        case TypeNT::Prim::BYTE:
+          cout << "byte";
+          break;
+        case TypeNT::Prim::UBYTE:
+          cout << "ubyte";
           break;
         case TypeNT::Prim::SHORT:
           cout << "short";

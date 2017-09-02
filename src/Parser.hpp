@@ -135,7 +135,8 @@ namespace Parser
     {
       BOOL,
       CHAR,
-      UCHAR,
+      BYTE,
+      UBYTE,
       SHORT,
       USHORT,
       INT,

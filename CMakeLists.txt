@@ -3,7 +3,8 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.10)
 set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk)
 project (Onyx-Lang)
 include_directories(src/variadic-variant)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -std=gnu++11 -Wall -Wshadow")
+set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -std=c++11 -Wall -Wshadow")
 add_executable (onyx
   src/main.cpp
   src/Common.cpp

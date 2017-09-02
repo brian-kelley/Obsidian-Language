@@ -52,8 +52,9 @@ void createBuiltinTypes()
   //primitives has same size as the enum Parser::TypeNT::Prim
   primitives.resize(13);
   primitives[TypeNT::BOOL] = new BoolType;
-  primitives[TypeNT::CHAR] = new IntegerType("char", 1, true);
-  primitives[TypeNT::UCHAR] = new IntegerType("uchar", 1, false);
+  primitives[TypeNT::CHAR] = new CharType;
+  primitives[TypeNT::BYTE] = new IntegerType("byte", 1, true);
+  primitives[TypeNT::UBYTE] = new IntegerType("ubyte", 1, false);
   primitives[TypeNT::SHORT] = new IntegerType("short", 2, true);
   primitives[TypeNT::USHORT] = new IntegerType("ushort", 2, false);
   primitives[TypeNT::INT] = new IntegerType("int", 4, true);
@@ -66,7 +67,8 @@ void createBuiltinTypes()
   primitives[TypeNT::VOID] = new VoidType;
   primNames["bool"] = primitives[TypeNT::BOOL];
   primNames["char"] = primitives[TypeNT::CHAR];
-  primNames["uchar"] = primitives[TypeNT::UCHAR];
+  primNames["byte"] = primitives[TypeNT::BYTE];
+  primNames["ubyte"] = primitives[TypeNT::UBYTE];
   primNames["short"] = primitives[TypeNT::SHORT];
   primNames["ushort"] = primitives[TypeNT::USHORT];
   primNames["int"] = primitives[TypeNT::INT];
@@ -77,8 +79,8 @@ void createBuiltinTypes()
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["string"] = primitives[TypeNT::STRING];
   primNames["void"] = primitives[TypeNT::VOID];
-  new AliasType("i8", primitives[TypeNT::CHAR], global);
-  new AliasType("u8", primitives[TypeNT::UCHAR], global);
+  new AliasType("i8", primitives[TypeNT::BYTE], global);
+  new AliasType("u8", primitives[TypeNT::UBYTE], global);
   new AliasType("i16", primitives[TypeNT::SHORT], global);
   new AliasType("u16", primitives[TypeNT::USHORT], global);
   new AliasType("i32", primitives[TypeNT::INT], global);
@@ -177,8 +179,8 @@ Type* getIntegerType(int bytes, bool isSigned)
   switch(bytes)
   {
     case 1:
-      if(isSigned)  return primitives[TypeNT::CHAR];
-      else          return primitives[TypeNT::UCHAR];
+      if(isSigned)  return primitives[TypeNT::BYTE];
+      else          return primitives[TypeNT::UBYTE];
     case 2:
       if(isSigned)  return primitives[TypeNT::SHORT];
       else          return primitives[TypeNT::USHORT];
@@ -713,6 +715,15 @@ bool StringType::isString()
 bool StringType::isPrimitive()
 {
   return true;
+}
+
+/*************/
+/* Char Type */
+/*************/
+
+bool CharType::canConvert(Type* other)
+{
+  return other->isInteger();
 }
 
 /*************/
