@@ -32,6 +32,20 @@ bool Type::canConvert(Expression* other)
   return false;
 }
 
+Type* Type::getArrayType(int dims)
+{
+  //lazily check & create array type
+  if((int) dimTypes.size() < dims)
+  {
+    //create + add
+    for(int i = dimTypes.size() + 1; i <= dims; i++)
+    {
+      dimTypes.push_back(new ArrayType(this, i));
+    }
+  }
+  return dimTypes[dims - 1];
+}
+
 void createBuiltinTypes()
 {
   using Parser::TypeNT;
@@ -98,18 +112,7 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
     }
     else
     {
-      //lazily check & create array type
-      if(elemType->dimTypes.size() < dims)
-      {
-        //create + add
-        //size = 1 -> max dim = 1
-        for(size_t i = elemType->dimTypes.size() + 1; i <= dims; i++)
-        {
-          elemType->dimTypes.push_back(new ArrayType(elemType, i));
-        }
-        //now return the needed type
-      }
-      return elemType->dimTypes[dims - 1];
+      return elemType->getArrayType(dims);
     }
   }
   else if(type->t.is<TypeNT::Prim>())
@@ -148,13 +151,6 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
         return nullptr;
       }
     }
-    cout << "searching for existing tuple type with types: ";
-    for(auto mem : members)
-    {
-      cout << mem->getName() << ' ';
-    }
-    cout << '\n';
-    cout << "Looking in list of " << tuples.size() << " tuple types\n";
     for(auto tt : tuples)
     {
       if(tt->matchesTypes(members))

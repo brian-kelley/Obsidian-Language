@@ -6,7 +6,7 @@
 
 namespace C
 {
-  //Generate C source, then run C compiler, and if !keep delete the source
+  //Generate C source file to outputStem.c, then run C compiler, and if !keep delete the source file
   void generate(string outputStem, bool keep);
   //add file label and basic libc includes
   void genCommon();
@@ -17,8 +17,6 @@ namespace C
   void genGlobals();
   //forward-declare all subroutines, then actually provide impls
   void genSubroutines();
-
-  //Utilities
 
   //Generate a unique C identifier (also won't collide with any existing C name)
   string getIdentifier();
@@ -35,6 +33,8 @@ namespace C
   //generate the code to print expr (may use getPrintFunction)
   void generatePrint(ostream& c, Block* b, Expression* expr);
   void generateCharLiteral(ostream& c, char character);
+  //generate function to allocate an array (taking one uint64 for each dimension)
+  void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at);
 }
 
 #endif

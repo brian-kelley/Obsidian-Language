@@ -28,6 +28,7 @@ struct TupleLiteral;
 struct Indexed;
 struct CallExpr;
 struct VarExpr;
+struct NewArray;
 
 //Create a new Expression given one of the ExprN nonterminals
 template<typename NT>
@@ -179,6 +180,16 @@ struct VarExpr : public Expression
   {
     //all variables are lvalues (there is no const)
     return true;
+  }
+};
+
+struct NewArray : public Expression
+{
+  NewArray(Scope* s, Parser::NewArrayNT* ast);
+  vector<Expression*> dims;
+  bool assignable()
+  {
+    return false;
   }
 };
 

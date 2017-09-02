@@ -7,14 +7,19 @@ unordered_map<Type*, bool> typesImplemented;
 unordered_map<Subroutine*, string> subrs;
 unordered_map<Variable*, string> vars;
 unordered_map<Type*, string> printFuncs;
+unordered_map<ArrayType*, string> arrayAllocFuncs;
 size_t identCount;
 ofstream c;
-Oss typeDecls;
-Oss varDecls;
-Oss printFuncDecls;
-Oss printFuncDefs;
-Oss funcDecls;
+//different stringstreams to build the C file (in this order)
+Oss typeDecls;      //all typedefs (including forward-declarations as necessary)
+Oss varDecls;       //all global/static variables
+Oss utilFuncDecls;  //util functions are print, array creation, deep copy, etc
+Oss utilFuncDefs;
+Oss funcDecls;      //the actual subroutines in the onyx program
 Oss funcDefs;
+
+//The C type to use for array indices (could possibly be uint64_t for more portability)
+const char* size_type = "uint32_t";
 
 namespace C
 {
@@ -24,8 +29,8 @@ namespace C
     string exeName = outputStem + ".exe";
     typeDecls = Oss();
     varDecls = Oss();
-    printFuncDecls = Oss();
-    printFuncDefs = Oss();
+    utilFuncDecls = Oss();
+    utilFuncDefs = Oss();
     funcDecls = Oss();
     funcDefs = Oss();
     genTypeDecls();
@@ -38,8 +43,8 @@ namespace C
     //write types, vars, func decls, func defs in the ostringstreams
     c.write(typeDecls.str().c_str(), typeDecls.tellp());
     c.write(varDecls.str().c_str(), varDecls.tellp());
-    c.write(printFuncDecls.str().c_str(), printFuncDecls.tellp());
-    c.write(printFuncDefs.str().c_str(), printFuncDefs.tellp());
+    c.write(utilFuncDecls.str().c_str(), utilFuncDecls.tellp());
+    c.write(utilFuncDefs.str().c_str(), utilFuncDefs.tellp());
     c.write(funcDecls.str().c_str(), funcDecls.tellp());
     c.write(funcDefs.str().c_str(), funcDefs.tellp());
     c << '\n';
@@ -87,7 +92,6 @@ namespace C
       });
     for(auto tt : TypeSystem::tuples)
     {
-      cout << "Adding tuple type: " << tt->getName() << '\n';
       allTypes.push_back(tt);
     }
     size_t nonArrayTypes = allTypes.size();
@@ -132,15 +136,17 @@ namespace C
         types[t] = ident;
         typesImplemented[t] = false;
         //forward-declare the type
-        typeDecls << "struct " << ident << "; //" << t->getName() << '\n';
+        typeDecls << "typedef struct " << ident << ' ' << ident << "; //" << t->getName() << '\n';
       }
     }
     typeDecls << '\n';
+    /*
     cout << "All types:\n";
     for(auto t : allTypes)
     {
       cout << t->getName() << '\n';
     }
+    */
     //implement all compound types
     for(auto t : allTypes)
     {
@@ -164,7 +170,7 @@ namespace C
           {
             string ident = getIdentifier();
             vars[v] = ident;
-            varDecls << types[v->type] << " " << ident << ";\n";
+            varDecls << types[v->type] << " " << ident << "; //" << v->name << '\n';
             numGlobals = 0;
           }
         }
@@ -348,6 +354,10 @@ namespace C
     else if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
     {
       c << vars[var->var];
+    }
+    else if(NewArray* na = dynamic_cast<NewArray*>(expr))
+    {
+      //need to 
     }
   }
 
@@ -563,7 +573,7 @@ namespace C
       for(int dim = 0; dim < arrayType->dims; dim++)
       {
         string counter = getIdentifier();
-        c << "for(uint64_t " << counter << " = 0; " << counter << " < ";
+        c << "for(" << size_type << ' ' << counter << " = 0; " << counter << " < ";
         generateExpression(c, b, expr);
         c << ".dim" << dim << "; " << counter << "++)\n{\n";
         //generate print for single element
@@ -571,6 +581,36 @@ namespace C
       }
       c << "putchar(']');\n";
     }
+  }
+
+  void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at)
+  {
+    c << types[at] << ' ' << ident << '(';
+    for(int i = 0; i < at->dims; i++)
+    {
+      c << size_type << " d" << i;
+      if(i != at->dims - 1)
+      {
+        c << ", ";
+      }
+    }
+    c << ")\n{\n";
+    c << types[at] << " arr;\n";
+    for(int i = 0; i < at->dims; i++)
+    {
+      c << "arr.dim" << i << " = dim" << i << ";\n";
+    }
+    c << "arr.data = malloc(";
+    for(int i = 0; i < at->dims; i++)
+    {
+      c << "dim" << i;
+      if(i != at->dims - 1)
+      {
+        c << " * ";
+      }
+    }
+    c << ");\n";
+    c << "return arr;\n}\n";
   }
 
   string getIdentifier()
@@ -619,34 +659,21 @@ namespace C
 
   void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t)
   {
-    string indexType = "uint64_t";
     auto at = dynamic_cast<ArrayType*>(t);
     auto st = dynamic_cast<StructType*>(t);
     auto ut = dynamic_cast<UnionType*>(t);
     auto tt = dynamic_cast<TupleType*>(t);
     auto et = dynamic_cast<EnumType*>(t);
-    //C type to use for array types
+    //first, make sure all necessary types have already been defined
     if(at)
     {
       if(!typesImplemented[at->elem])
       {
         generateCompoundType(c, types[at->elem], at->elem);
       }
-      c << "typedef struct " << "\n{\n";
-      //add dims
-      for(int dim = 0; dim < at->dims; dim++)
-      {
-        c << indexType << " dim" << dim << ";\n";
-      }
-      //add pointer to element type
-      c << types[at->elem] << "* data;\n";
     }
     else if(st)
     {
-      //add all members (as pointer)
-      //  since there is no possible name collision among the member names, don't
-      //  need to replace them with mangled identifiers
-      //first make sure all members are already implemented
       for(auto mem : st->members)
       {
         if(!typesImplemented[mem])
@@ -654,18 +681,6 @@ namespace C
           generateCompoundType(c, types[mem], mem);
         }
       }
-      //then add the members to the actual struct definition
-      c << "typedef struct " << "\n{\n";
-      for(size_t i = 0; i < st->members.size(); i++)
-      {
-        c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
-      }
-    }
-    else if(ut)
-    {
-      c << "typedef struct " << "\n{\n";
-      c << "void* data;\n";
-      c << "int option;\n";
     }
     else if(tt)
     {
@@ -676,14 +691,43 @@ namespace C
           generateCompoundType(c, types[mem], mem);
         }
       }
-      c << "typedef struct " << "\n{\n";
+    }
+    //open a struct declaration
+    c << "struct " << cName << "\n{\n";
+    if(at)
+    {
+      //add dims
+      for(int dim = 0; dim < at->dims; dim++)
+      {
+        c << size_type << " dim" << dim << ";\n";
+      }
+      //add pointer to element type
+      c << types[at->elem] << "* data;\n";
+    }
+    else if(st)
+    {
+      //add all members (as pointer)
+      //  since there is no possible name collision among the member names, don't
+      //  need to replace them with mangled identifiers
+      for(size_t i = 0; i < st->members.size(); i++)
+      {
+        c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
+      }
+    }
+    else if(ut)
+    {
+      c << "void* data;\n";
+      c << "int option;\n";
+    }
+    else if(tt)
+    {
       for(size_t i = 0; i < tt->members.size(); i++)
       {
         //tuple members are anonymous so just use memN as the name
         c << types[tt->members[i]] << " mem" << i << ";\n";
       }
     }
-    c << "} " << cName << ";\n";
+    c << "};\n";
     typesImplemented[t] = true;
   }
 

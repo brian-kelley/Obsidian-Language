@@ -352,6 +352,10 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     return new Indexed(s, &(expr->e.get<Parser::Expr12::ArrayIndex>()));
   }
+  else if(expr->e.is<Parser::NewArrayNT*>())
+  {
+    return new NewArray(s, expr->e.get<Parser::NewArrayNT*>());
+  }
   else
   {
     cout << "ERROR: Expr12 with tag " << expr->e.which() << '\n';
@@ -712,5 +716,27 @@ VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
 VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
 {
   this->type = v->type;
+}
+
+/************
+ * NewArray *
+ ************/
+
+NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
+{
+  auto elemType = TypeSystem::lookupType(ast->elemType, s);
+  this->type = elemType->getArrayType(ast->dimensions.size());
+  for(auto dim : ast->dimensions)
+  {
+    dims.push_back(getExpression(s, dim));
+  }
+  //make sure all dimensions are integers
+  for(auto dim : dims)
+  {
+    if(!dim->type->isInteger())
+    {
+      ERR_MSG("array dimensions must be integers");
+    }
+  }
 }
 

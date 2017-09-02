@@ -101,7 +101,7 @@ namespace Parser
   struct Expr10RHS;
   struct Expr11;
   struct Expr12;
-  struct NewArray;
+  struct NewArrayNT;
 
   struct Module
   {
@@ -660,6 +660,12 @@ namespace Parser
       UnaryExpr> e;
   };
 
+  struct NewArrayNT
+  {
+    TypeNT* elemType;
+    vector<ExpressionNT*> dimensions;
+  };
+
   struct Expr12
   {
     Expr12() : e(None()) {}
@@ -683,14 +689,8 @@ namespace Parser
       TupleLit*,
       CallNT*,
       ArrayIndex,
-      NewArray> e;
+      NewArrayNT*> e;
   }; 
-
-  struct NewArray
-  {
-    TypeNT* elemType;
-    vector<ExpressionNT*> dimensions;
-  };
 
   //Parse a nonterminal of type NT
   template<typename NT>

@@ -84,7 +84,7 @@ namespace Parser
   template<> Expr10RHS* parse<Expr10RHS>();
   template<> Expr11* parse<Expr11>();
   template<> Expr12* parse<Expr12>();
-  template<> NewArray* parse<NewArray>();
+  template<> NewArrayNT* parse<NewArrayNT>();
 
   Module* parseProgram(vector<Token*>& toks)
   {
@@ -1259,10 +1259,10 @@ namespace Parser
   }
 
   template<>
-  NewArray* parse<NewArray>()
+  NewArrayNT* parse<NewArrayNT>()
   {
     expectKeyword(keywordMap["array"]);
-    NewArray* na = new NewArray;
+    NewArrayNT* na = new NewArrayNT;
     na->elemType = parse<TypeNT>();
     //check that elem type isn't itself an array type
     if(na->elemType->arrayDims > 0)
