@@ -260,10 +260,9 @@ namespace C
     {
       //all int literals are unsigned
       c << intLit->value << "U";
-      //add "long long" suffix if necessary
-      if(intLit->value >= 0x7FFFFFFF)
+      if(intLit->value >= 0xFFFFFFFF)
       {
-        c << "LL";
+        c << "ULL";
       }
     }
     else if(FloatLiteral* floatLit = dynamic_cast<FloatLiteral*>(expr))
@@ -279,7 +278,7 @@ namespace C
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
-      c << '\'' << charLit->value << '\'';
+      generateCharLiteral(c , charLit->value);
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
@@ -293,6 +292,16 @@ namespace C
     }
     else if(TupleLiteral* tupLit = dynamic_cast<TupleLiteral*>(expr))
     {
+      //Tuple literal is just a C struct
+      c << "((" << types[expr->type] << ") {";
+      for(size_t i = 0; i < tupLit->members.size(); i++)
+      {
+        generateExpression(c, b, tupLit->members[i]);
+        if(i != tupLit->members.size() - 1)
+        {
+          c << ", ";
+        }
+      }
     }
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
@@ -357,7 +366,31 @@ namespace C
     }
     else if(NewArray* na = dynamic_cast<NewArray*>(expr))
     {
-      //need to 
+      //need to call the correct new array function
+      //create if it doesn't exist yet
+      auto arrayType = (TypeSystem::ArrayType*) na->type;
+      auto it = arrayAllocFuncs.find(arrayType);
+      string newArrayFunc;
+      if(it == arrayAllocFuncs.end())
+      {
+        newArrayFunc = getIdentifier();
+        generateNewArrayFunction(utilFuncDefs, newArrayFunc, arrayType);
+      }
+      else
+      {
+        newArrayFunc = it->second;
+      }
+      //now generate the call to newArrayFunc
+      c << newArrayFunc << '(';
+      for(size_t dim = 0; dim < na->dims.size(); dim++)
+      {
+        generateExpression(c, b, na->dims[dim]);
+        if(dim != na->dims.size() - 1)
+        {
+          c << ", ";
+        }
+      }
+      c << ')';
     }
   }
 
@@ -479,6 +512,29 @@ namespace C
 
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
   {
+    //if rhs is a compound literal, assignment depends on lhs type
+    if(auto compLit = dynamic_cast<CompoundLiteral*>(rhs))
+    {
+      if(auto at = dynamic_cast<TypeSystem::ArrayType*>(lhs->type))
+      {
+      }
+      else if(auto st = dynamic_cast<TypeSystem::StructType*>(lhs->type))
+      {
+        //add assignment of each member individually
+
+      }
+      else if(auto tt = dynamic_cast<TypeSystem::TupleType*>(lhs->type))
+      {
+      }
+    }
+    //other cases of assignment to variable can just use simple C assignment
+    else if(ve = dynamic_cast<VarExpr*>(lhs))
+    {
+    }
+    //if lhs is a tuple literal, 
+    else 
+    {
+    }
   }
 
   string getPrintFunction(Type* t)
@@ -505,7 +561,7 @@ namespace C
       switch(intType->size)
       {
         case 1:
-          fmt = intType->isSigned ? "c" : "hhu";
+          fmt = intType->isSigned ? "hhd" : "hhu";
           isChar = intType->isSigned;
           break;
         case 2:
@@ -521,11 +577,21 @@ namespace C
           INTERNAL_ERROR;
       }
       c << "printf(\"%" << fmt << "\", ";
-      auto cl = dynamic_cast<CharLiteral*>(expr);
-      if(isChar && cl)
-        generateCharLiteral(c, cl->value);
-      else
-        generateExpression(c, b, expr);
+      generateExpression(c, b, expr);
+      c << ");\n";
+    }
+    else if(dynamic_cast<CharType*>(type))
+    {
+      //note: same printf code %f used for both float and double
+      c << "printf(\"%c\", ";
+      generateExpression(c, b, expr);
+      c << ");\n";
+    }
+    else if(FloatType* floatType = dynamic_cast<FloatType*>(type))
+    {
+      //note: same printf code %f used for both float and double
+      c << "printf(\"%f\", ";
+      generateExpression(c, b, expr);
       c << ");\n";
     }
     else if(FloatType* floatType = dynamic_cast<FloatType*>(type))
@@ -594,7 +660,8 @@ namespace C
         c << ", ";
       }
     }
-    c << ")\n{\n";
+    c << ") //allocation of  " << at->getName();
+    c << "\n{\n";
     c << types[at] << " arr;\n";
     for(int i = 0; i < at->dims; i++)
     {
