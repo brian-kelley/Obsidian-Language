@@ -287,9 +287,11 @@ namespace C
       else
         c << "false";
     }
+    /*
     else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(expr))
     {
     }
+    */
     else if(TupleLiteral* tupLit = dynamic_cast<TupleLiteral*>(expr))
     {
       //Tuple literal is just a C struct
@@ -303,6 +305,7 @@ namespace C
         }
       }
     }
+    /*
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
       //Indexed expression must be either a tuple or array
@@ -351,6 +354,7 @@ namespace C
         c << ".mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
       }
     }
+    */
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
       c << call->subr << '(';
@@ -512,6 +516,7 @@ namespace C
 
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
   {
+  /*
     //if rhs is a compound literal, assignment depends on lhs type
     if(auto compLit = dynamic_cast<CompoundLiteral*>(rhs))
     {
@@ -527,27 +532,27 @@ namespace C
       {
       }
     }
-    //other cases of assignment to variable can just use simple C assignment
-    else if(ve = dynamic_cast<VarExpr*>(lhs))
+    //if lhs is a tuple literal
+    else if(auto tupLit = dynamic_cast<TupleLiteral*>(rhs))
     {
     }
-    //if lhs is a tuple literal, 
-    else 
+    //other cases of assignment to variable or member can just use simple C assignment
+    else if(auto ve = dynamic_cast<VarExpr*>(lhs))
     {
     }
+    */
   }
 
   string getPrintFunction(Type* t)
   {
     //lazily look up or create print function
+    auto it = printFuncs.find(t);
+    if(it != printFuncs.end())
     {
-      auto it = printFuncs.find(t);
-      if(it != printFuncs.end())
-      {
-        return it->second;
-      }
+      return it->second;
     }
     //otherwise, add decl/def for print function and return that
+    return "";
   }
 
   void generatePrint(ostream& c, Block* b, Expression* expr)
@@ -557,12 +562,10 @@ namespace C
     {
       //printf format code
       string fmt;
-      bool isChar = false;
       switch(intType->size)
       {
         case 1:
           fmt = intType->isSigned ? "hhd" : "hhu";
-          isChar = intType->isSigned;
           break;
         case 2:
           fmt = intType->isSigned ? "hd" : "hu";
@@ -587,14 +590,7 @@ namespace C
       generateExpression(c, b, expr);
       c << ");\n";
     }
-    else if(FloatType* floatType = dynamic_cast<FloatType*>(type))
-    {
-      //note: same printf code %f used for both float and double
-      c << "printf(\"%f\", ";
-      generateExpression(c, b, expr);
-      c << ");\n";
-    }
-    else if(FloatType* floatType = dynamic_cast<FloatType*>(type))
+    else if(dynamic_cast<FloatType*>(type))
     {
       //note: same printf code %f used for both float and double
       c << "printf(\"%f\", ";
@@ -626,12 +622,14 @@ namespace C
       //print each member, comma separated
       c << "putchar('}');\n";
     }
+    /*
     else if(UnionType* unionType = dynamic_cast<UnionType*>(type))
     {
     }
     else if(TupleType* tupleType = dynamic_cast<TupleType*>(type))
     {
     }
+    */
     else if(ArrayType* arrayType = dynamic_cast<ArrayType*>(type))
     {
       c << "putchar('[');\n";
@@ -759,42 +757,50 @@ namespace C
         }
       }
     }
-    //open a struct declaration
-    c << "struct " << cName << "\n{\n";
-    if(at)
+    if(et)
     {
-      //add dims
-      for(int dim = 0; dim < at->dims; dim++)
+      //enum type represented as signed integer
+      c << "typedef int" << 8 * et->bytes << "_t " << cName << ";\n";
+    }
+    else
+    {
+      //open a struct declaration
+      c << "struct " << cName << "\n{\n";
+      if(at)
       {
-        c << size_type << " dim" << dim << ";\n";
+        //add dims
+        for(int dim = 0; dim < at->dims; dim++)
+        {
+          c << size_type << " dim" << dim << ";\n";
+        }
+        //add pointer to element type
+        c << types[at->elem] << "* data;\n";
       }
-      //add pointer to element type
-      c << types[at->elem] << "* data;\n";
-    }
-    else if(st)
-    {
-      //add all members (as pointer)
-      //  since there is no possible name collision among the member names, don't
-      //  need to replace them with mangled identifiers
-      for(size_t i = 0; i < st->members.size(); i++)
+      else if(st)
       {
-        c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
+        //add all members (as pointer)
+        //  since there is no possible name collision among the member names, don't
+        //  need to replace them with mangled identifiers
+        for(size_t i = 0; i < st->members.size(); i++)
+        {
+          c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
+        }
       }
-    }
-    else if(ut)
-    {
-      c << "void* data;\n";
-      c << "int option;\n";
-    }
-    else if(tt)
-    {
-      for(size_t i = 0; i < tt->members.size(); i++)
+      else if(ut)
       {
-        //tuple members are anonymous so just use memN as the name
-        c << types[tt->members[i]] << " mem" << i << ";\n";
+        c << "void* data;\n";
+        c << "int option;\n";
       }
+      else if(tt)
+      {
+        for(size_t i = 0; i < tt->members.size(); i++)
+        {
+          //tuple members are anonymous so just use memN as the name
+          c << types[tt->members[i]] << " mem" << i << ";\n";
+        }
+      }
+      c << "};\n";
     }
-    c << "};\n";
     typesImplemented[t] = true;
   }
 

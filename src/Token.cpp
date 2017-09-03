@@ -60,7 +60,7 @@ void initTokens()
   SET_KEY("nonterm", NONTERM)
   SET_KEY("T", T_TYPE);
   SET_KEY("static", STATIC);
-  SET_KEY("array", STATIC);
+  SET_KEY("array", ARRAY);
   keywordTable.resize(keywordMap.size());
   for(auto& it : keywordMap)
   {

@@ -571,8 +571,8 @@ bool AliasType::canConvert(Expression* other)
 EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
 {
   name = e->name;
-  set<int> usedVals;
-  vector<int> vals(e->items.size(), 0);
+  set<int64_t> usedVals;
+  vector<int64_t> vals(e->items.size(), 0);
   vector<bool> valsSet(e->items.size(), false);
   //first, process all specified values
   for(size_t i = 0; i < e->items.size(); i++)
@@ -612,6 +612,38 @@ EnumType::EnumType(Parser::Enum* e, Scope* current) : Type(current)
   for(size_t i = 0; i < e->items.size(); i++)
   {
     values[e->items[i]->name] = vals[i];
+  }
+  if(vals.size() == 0)
+  {
+    bytes = 1;
+  }
+  else
+  {
+    //get the min and max values
+    int64_t minVal = vals[0];
+    int64_t maxVal = vals[0];
+    for(size_t i = 1; i < vals.size(); i++)
+    {
+      if(vals[i] < minVal)
+        minVal = vals[i];
+      if(vals[i] > maxVal)
+        maxVal = vals[i];
+    }
+    int64_t absMax = std::max(-minVal, maxVal);
+    if(absMax <= 0xFF)
+      bytes = 1;
+    else if(absMax <= 0xFFFF)
+    {
+      bytes = 2;
+    }
+    else if(absMax <= 0xFFFFFFFF)
+    {
+      bytes = 4;
+    }
+    else
+    {
+      bytes = 8;
+    }
   }
 }
 

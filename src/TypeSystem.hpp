@@ -252,7 +252,8 @@ struct EnumType : public Type
 {
   EnumType(Parser::Enum* e, Scope* enclosingScope);
   string name;
-  map<string, int> values;
+  map<string, int64_t> values;
+  int bytes;    //number of bytes required to store all possible values (signed)
   bool canConvert(Type* other);
   //Enum values are equivalent to plain "int"s
   bool isEnum();

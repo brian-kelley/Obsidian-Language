@@ -73,8 +73,8 @@ namespace x86
     openStackFrame(assembly);
     //lazily generate the native types for all local variables
     //note: everything in a block scope is local (stack)
-    size_t stackCounter = 0;
-    auto scope = s->body->scope;
+    //size_t stackCounter = 0;
+    //auto scope = s->body->scope;
     closeStackFrame(assembly);
     assembly << "ret\n\n";
   }

@@ -160,7 +160,7 @@ vector<Scope*> Scope::findSub(vector<string>& names)
 
 /* ModuleScope */
 
-ModuleScope::ModuleScope(string nameIn, Scope* parent, Parser::Module* astIn) : Scope(parent)
+ModuleScope::ModuleScope(string nameIn, Scope* par, Parser::Module* astIn) : Scope(par)
 {
   name = nameIn;
   ast = astIn;
@@ -173,7 +173,7 @@ string ModuleScope::getLocalName()
 
 /* StructScope */
 
-StructScope::StructScope(string nameIn, Scope* parent, Parser::StructDecl* astIn) : Scope(parent), ast(astIn), name(nameIn) {}
+StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), ast(astIn), name(nameIn) {}
 
 string StructScope::getLocalName()
 {
@@ -182,12 +182,12 @@ string StructScope::getLocalName()
 
 /* BlockScope */
 
-BlockScope::BlockScope(Scope* parent, Parser::Block* astIn) : Scope(parent), ast(astIn), index(nextBlockIndex++)
+BlockScope::BlockScope(Scope* par, Parser::Block* astIn) : Scope(par), ast(astIn), index(nextBlockIndex++)
 {
   ast->bs = this;
 }
 
-BlockScope::BlockScope(Scope* parent) : Scope(parent), ast(nullptr), index(nextBlockIndex++) {}
+BlockScope::BlockScope(Scope* par) : Scope(par), ast(nullptr), index(nextBlockIndex++) {}
 
 string BlockScope::getLocalName()
 {
