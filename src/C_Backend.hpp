@@ -25,13 +25,14 @@ namespace C
   void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t);
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
-  void generateExpression(ostream& c, Block* b, Expression* expr);
+  void generateExpression(ostream& c, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  //lazily generate (or return existing) print function for given compound type
-  //for primitives, don't use this, just generate a single inline printf call
-  string getPrintFunction(TypeSystem::Type* t);
-  //generate the code to print expr (may use getPrintFunction)
-  void generatePrint(ostream& c, Block* b, Expression* expr);
+  //create print functions for all compound types (in utilFuncDecls/Defs)
+  void generateAllPrintFuncs();
+  //generate exactly one statement to print expr (may call printf directly or may call another function)
+  void generatePrint(ostream& c, Expression* expr);
+  //print a C expression
+  void generatePrint(ostream& c, string expr, TypeSystem::Type* t);
   void generateCharLiteral(ostream& c, char character);
   //generate function to allocate an array (taking one uint64 for each dimension)
   void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at);

@@ -6,6 +6,7 @@ unordered_map<Type*, string> types;
 unordered_map<Type*, bool> typesImplemented;
 unordered_map<Subroutine*, string> subrs;
 unordered_map<Variable*, string> vars;
+//printFuncs contains all types that are not primitives
 unordered_map<Type*, string> printFuncs;
 unordered_map<ArrayType*, string> arrayAllocFuncs;
 size_t identCount;
@@ -234,14 +235,14 @@ namespace C
       });
   }
 
-  void generateExpression(ostream& c, Block* b, Expression* expr)
+  void generateExpression(ostream& c, Expression* expr)
   {
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
       c << operatorTable[unary->op];
       c << '(';
-      generateExpression(c, b, unary->expr);
+      generateExpression(c, unary->expr);
       c << ')';
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
@@ -249,11 +250,11 @@ namespace C
       //emit this so that it works even if onyx uses different
       //operator precedence than C
       c << "((";
-      generateExpression(c, b, binary->lhs);
+      generateExpression(c, binary->lhs);
       c << ')';
       c << operatorTable[binary->op];
       c << '(';
-      generateExpression(c, b, binary->rhs);
+      generateExpression(c, binary->rhs);
       c << "))";
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
@@ -298,7 +299,7 @@ namespace C
       c << "((" << types[expr->type] << ") {";
       for(size_t i = 0; i < tupLit->members.size(); i++)
       {
-        generateExpression(c, b, tupLit->members[i]);
+        generateExpression(c, tupLit->members[i]);
         if(i != tupLit->members.size() - 1)
         {
           c << ", ";
@@ -319,18 +320,18 @@ namespace C
           //add all dimensions, except highest
           for(int dim = 1; dim < at->dims; dim++)
           {
-            generateExpression(c, b, indexed->group);
+            generateExpression(c, indexed->group);
             c << ".dim" << dim << ", ";
           }
           //now add the data pointer from expr, but with offset
-          generateExpression(c, b, indexed->group);
+          generateExpression(c, indexed->group);
           c << ".data + ";
-          generateExpression(c, b, indexed->index);
+          generateExpression(c, indexed->index);
           //offset is produce of index and all lesser dimensions
           for(int dim = 1; dim < at->dims; dim++)
           {
             c << " * (";
-            generateExpression(c, b, indexed->group);
+            generateExpression(c, indexed->group);
             c << ".dim" << dim << ")";
           }
           c << "})";
@@ -339,9 +340,9 @@ namespace C
         {
           //just index into data
           c << '(';
-          generateExpression(c, b, indexed->group);
+          generateExpression(c, indexed->group);
           c << ".data[";
-          generateExpression(c, b, indexed->index);
+          generateExpression(c, indexed->index);
           c << "])";
         }
       }
@@ -349,7 +350,7 @@ namespace C
       {
         //tuple: simply reference the requested member
         c << '(';
-        generateExpression(c, b, indexed->group);
+        generateExpression(c, indexed->group);
         //index must be an IntLiteral (has already been checked)
         c << ".mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
       }
@@ -360,7 +361,7 @@ namespace C
       c << call->subr << '(';
       for(auto arg : call->args)
       {
-        generateExpression(c, b, arg);
+        generateExpression(c, arg);
       }
       c << ')';
     }
@@ -372,7 +373,7 @@ namespace C
     {
       //need to call the correct new array function
       //create if it doesn't exist yet
-      auto arrayType = (TypeSystem::ArrayType*) na->type;
+      auto arrayType = (ArrayType*) na->type;
       auto it = arrayAllocFuncs.find(arrayType);
       string newArrayFunc;
       if(it == arrayAllocFuncs.end())
@@ -388,7 +389,7 @@ namespace C
       c << newArrayFunc << '(';
       for(size_t dim = 0; dim < na->dims.size(); dim++)
       {
-        generateExpression(c, b, na->dims[dim]);
+        generateExpression(c, na->dims[dim]);
         if(dim != na->dims.size() - 1)
         {
           c << ", ";
@@ -435,7 +436,7 @@ namespace C
         {
           c << ", ";
         }
-        generateExpression(c, b, cs->args[i]);
+        generateExpression(c, cs->args[i]);
       }
       c << ");\n";
     }
@@ -443,7 +444,7 @@ namespace C
     {
       c << "for(";
       generateStatement(c, b, f->init);
-      generateExpression(c, b, f->condition);
+      generateExpression(c, f->condition);
       generateStatement(c, b, f->increment);
       c << ")\n";
       generateBlock(c, f->loopBlock);
@@ -451,7 +452,7 @@ namespace C
     else if(While* w = dynamic_cast<While*>(stmt))
     {
       c << "while(";
-      generateExpression(c, b, w->condition);
+      generateExpression(c, w->condition);
       c << ")\n";
       c << "{\n";
       generateBlock(c, w->loopBlock);
@@ -460,14 +461,14 @@ namespace C
     else if(If* i = dynamic_cast<If*>(stmt))
     {
       c << "if(";
-      generateExpression(c, b, i->condition);
+      generateExpression(c, i->condition);
       c << ")\n";
       generateStatement(c, b, i->body);
     }
     else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
     {
       c << "if(";
-      generateExpression(c, b, ie->condition);
+      generateExpression(c, ie->condition);
       c << ")\n";
       generateStatement(c, b, ie->trueBody);
       c << "else\n";
@@ -478,7 +479,7 @@ namespace C
       if(r->value)
       {
         c << "return ";
-        generateExpression(c, b, r->value);
+        generateExpression(c, r->value);
         c << ";\n";
       }
       else
@@ -499,13 +500,13 @@ namespace C
       //emit printf calls for each expression
       for(auto expr : p->exprs)
       {
-        generatePrint(c, b, expr);
+        generatePrint(c, expr);
       }
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(stmt))
     {
       c << "if(";
-      generateExpression(c, b, assertion->asserted);
+      generateExpression(c, assertion->asserted);
       c << ")\n";
       c << "{\n";
       c << "puts(\"Assertion failed.\");\n";
@@ -520,15 +521,15 @@ namespace C
     //if rhs is a compound literal, assignment depends on lhs type
     if(auto compLit = dynamic_cast<CompoundLiteral*>(rhs))
     {
-      if(auto at = dynamic_cast<TypeSystem::ArrayType*>(lhs->type))
+      if(auto at = dynamic_cast<ArrayType*>(lhs->type))
       {
       }
-      else if(auto st = dynamic_cast<TypeSystem::StructType*>(lhs->type))
+      else if(auto st = dynamic_cast<StructType*>(lhs->type))
       {
         //add assignment of each member individually
 
       }
-      else if(auto tt = dynamic_cast<TypeSystem::TupleType*>(lhs->type))
+      else if(auto tt = dynamic_cast<TupleType*>(lhs->type))
       {
       }
     }
@@ -543,19 +544,55 @@ namespace C
     */
   }
 
-  string getPrintFunction(Type* t)
+  void generateAllPrintFuncs()
   {
-    //lazily look up or create print function
-    auto it = printFuncs.find(t);
-    if(it != printFuncs.end())
+    //declare print functions for every non-primitive
+    for(auto type : types)
     {
-      return it->second;
+      Type* t = type.first;
+      if(!t->isPrimitive())
+      {
+        string func = "print_" + type.second;
+        printFuncs[t] = func;
+        utilFuncDecls << "void " << func << '(' << type.second << " data_);\n";
+        utilFuncDecls << "//print function for " << t->getName() << '\n';
+      }
     }
-    //otherwise, add decl/def for print function and return that
-    return "";
+    for(auto type : types)
+    {
+      Type* t = type.first;
+      if(!t->isPrimitive())
+      {
+        string func = printFuncs[t];
+        string argname = getIdentifier();
+        utilFuncDefs << "void " << func << '(' << type.second << " data_)\n";
+        utilFuncDefs << "{\n";
+        if(ArrayType* at = dynamic_cast<ArrayType*>(t))
+        {
+          vector<string> counters;
+          for(int dim = 0; dim < at->dims; dim++)
+          {
+            string count = getIdentifier();
+            utilFuncDefs << "for(uint64_t " << count < " = 0; ";
+            utilFuncDefs << count << " < data_.dim" << dim << "; " << count << "++)\n";
+            counters.push_back(count);
+          }
+        }
+        else if(TupleType* tt = dynamic_cast<TupleType*>(t))
+        {
+        }
+        else if(StructType* st = dynamic_cast<StructType*>(t))
+        {
+        }
+        else if(UnionType* ut = dynamic_cast<UnionType*>(t))
+        {
+        }
+        utilFuncDefs << "}\n";
+      }
+    }
   }
 
-  void generatePrint(ostream& c, Block* b, Expression* expr)
+  void generatePrint(ostream& c, Expression* expr)
   {
     auto type = expr->type;
     if(IntegerType* intType = dynamic_cast<IntegerType*>(type))
@@ -580,21 +617,21 @@ namespace C
           INTERNAL_ERROR;
       }
       c << "printf(\"%" << fmt << "\", ";
-      generateExpression(c, b, expr);
+      generateExpression(c, expr);
       c << ");\n";
     }
     else if(dynamic_cast<CharType*>(type))
     {
       //note: same printf code %f used for both float and double
       c << "printf(\"%c\", ";
-      generateExpression(c, b, expr);
+      generateExpression(c, expr);
       c << ");\n";
     }
     else if(dynamic_cast<FloatType*>(type))
     {
       //note: same printf code %f used for both float and double
       c << "printf(\"%f\", ";
-      generateExpression(c, b, expr);
+      generateExpression(c, expr);
       c << ");\n";
     }
     else if(dynamic_cast<VoidType*>(type))
@@ -604,7 +641,7 @@ namespace C
     else if(dynamic_cast<BoolType*>(type))
     {
       c << "if(";
-      generateExpression(c, b, expr);
+      generateExpression(c, expr);
       c << ")\n";
       c << "printf(\"true\");\n";
       c << "else\n";
@@ -613,7 +650,7 @@ namespace C
     else if(dynamic_cast<StringType*>(type))
     {
       c << "printf(";
-      generateExpression(c, b, expr);
+      generateExpression(c, expr);
       c << ".data);\n";
     }
     else if(StructType* structType = dynamic_cast<StructType*>(type))
@@ -638,13 +675,17 @@ namespace C
       {
         string counter = getIdentifier();
         c << "for(" << size_type << ' ' << counter << " = 0; " << counter << " < ";
-        generateExpression(c, b, expr);
+        generateExpression(c, expr);
         c << ".dim" << dim << "; " << counter << "++)\n{\n";
         //generate print for single element
         c << "}\n";
       }
       c << "putchar(']');\n";
     }
+  }
+
+  void generatePrint(ostream& c, string expr, TypeSystem::Type* t)
+  {
   }
 
   void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at)
