@@ -34,7 +34,6 @@ namespace C
   //print a C expression
   void generatePrint(ostream& c, string expr, TypeSystem::Type* t);
   void generateCharLiteral(ostream& c, char character);
-  //generate function to allocate an array (taking one uint64 for each dimension)
   void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at);
 }
 

@@ -653,42 +653,16 @@ namespace C
       generateExpression(c, expr);
       c << ".data);\n";
     }
-    else if(StructType* structType = dynamic_cast<StructType*>(type))
+    else
     {
-      c << "printf(\"" << structType->name << "{\");\n";
-      //print each member, comma separated
-      c << "putchar('}');\n";
-    }
-    /*
-    else if(UnionType* unionType = dynamic_cast<UnionType*>(type))
-    {
-    }
-    else if(TupleType* tupleType = dynamic_cast<TupleType*>(type))
-    {
-    }
-    */
-    else if(ArrayType* arrayType = dynamic_cast<ArrayType*>(type))
-    {
-      c << "putchar('[');\n";
-      //generate nested for loops to iterate over each dimension
-      for(int dim = 0; dim < arrayType->dims; dim++)
-      {
-        string counter = getIdentifier();
-        c << "for(" << size_type << ' ' << counter << " = 0; " << counter << " < ";
-        generateExpression(c, expr);
-        c << ".dim" << dim << "; " << counter << "++)\n{\n";
-        //generate print for single element
-        c << "}\n";
-      }
-      c << "putchar(']');\n";
+      //compound type: use a pregenerated function to print
+      c << printFuncs[type] << '(';
+      generateExpression(c, expr);
+      c << ");\n";
     }
   }
 
-  void generatePrint(ostream& c, string expr, TypeSystem::Type* t)
-  {
-  }
-
-  void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at)
+  void generateNewArrayFunction(ostream& c, string ident, ArrayType* at)
   {
     c << types[at] << ' ' << ident << '(';
     for(int i = 0; i < at->dims; i++)
