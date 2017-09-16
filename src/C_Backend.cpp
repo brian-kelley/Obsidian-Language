@@ -565,15 +565,14 @@ namespace C
       {
         string func = printFuncs[t];
         string argname = getIdentifier();
-        utilFuncDefs << "void " << func << '(' << type.second << " data_)\n";
+        utilFuncDefs << "void " << func << '(' << type.second << ' ' << argname << ")\n";
         utilFuncDefs << "{\n";
         if(ArrayType* at = dynamic_cast<ArrayType*>(t))
         {
-          vector<string> counters;
           for(int dim = 0; dim < at->dims; dim++)
           {
             string count = getIdentifier();
-            utilFuncDefs << "for(uint64_t " << count < " = 0; ";
+            utilFuncDefs << "for(uint64_t " << count << " = 0; ";
             utilFuncDefs << count << " < data_.dim" << dim << "; " << count << "++)\n";
             counters.push_back(count);
           }

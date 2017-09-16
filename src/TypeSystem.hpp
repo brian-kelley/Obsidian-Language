@@ -168,7 +168,10 @@ struct UnionType : public Type
 struct ArrayType : public Type
 {
   ArrayType(Type* elemType, int dims);
+  //Type of single element (0-dimensional)
   Type* elem;
+  //Type of element of this array type (can be (dims-1) dimensional array, or same as elem)
+  Type* subtype;
   Parser::TypeNT* elemNT;
   int dims;
   bool canConvert(Type* other);

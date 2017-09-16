@@ -641,16 +641,15 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
     ERR_MSG("Can't index a compound literal - assign it to an array first.");
   }
   //note: ok if this is null
-  auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type);
   //in all other cases, group must have a type now
-  if(tt)
+  if(auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type))
   {
     //group's type is a Tuple, whether group is a literal, var or call
     //make sure the index is an IntLit
     auto intIndex = dynamic_cast<IntLiteral*>(index);
     if(intIndex)
     {
-      //val is unsigned and so always positive
+      //int literals are always unsigned (in lexer) so always positive
       auto val = intIndex->value;
       if(val >= tt->members.size())
       {
@@ -663,18 +662,14 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
       ERR_MSG("Tuple subscript must be an integer constant.");
     }
   }
-  else
+  else if(auto at = dynamic_cast<TypeSystem::ArrayType*>(group->type))
   {
     //group must be an array
-    auto at = dynamic_cast<TypeSystem::ArrayType*>(group->type);
-    if(at)
-    {
-      type = at->elem;
-    }
-    else
-    {
-      ERR_MSG("expression can't be subscripted.");
-    }
+    type = at->subtype;
+  }
+  else
+  {
+    ERR_MSG("expression can't be subscripted.");
   }
 }
 

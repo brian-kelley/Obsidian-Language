@@ -405,7 +405,15 @@ ArrayType::ArrayType(Type* elemType, int ndims) : Type(NULL)
   assert(elemType);
   this->dims = ndims;
   this->elem = elemType;
-  //If an ArrayType is being constructed, it must be the next dimension for elemType
+  if(ndims == 1)
+  {
+    this->subtype = elemType;
+  }
+  else
+  {
+    this->subtype = this->elem->dimTypes[ndims - 2];
+  }
+  //If an ArrayType is being constructed, it should always be the next dimension for elemType
   assert((int) elemType->dimTypes.size() == ndims - 1);
 }
 
