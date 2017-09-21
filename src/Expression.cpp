@@ -567,7 +567,7 @@ FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
 StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
 {
   value = a->val;
-  type = TypeSystem::primitives[Parser::TypeNT::STRING];
+  type = TypeSystem::primitives[Parser::TypeSystem::CHAR]->getArrayType(1);
 }
 
 CharLiteral::CharLiteral(CharLit* a) : Expression(NULL)

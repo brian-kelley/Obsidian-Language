@@ -190,6 +190,10 @@ void lex(string& code, vector<Token*>& tokList)
       }
       int identEnd = cs.iter;
       string ident = code.substr(identStart, identEnd - identStart);
+      if(ident[ident.length() - 1] == '_')
+      {
+        cs.err("identifier can't end with an underscore.");
+      }
       //check if keyword
       auto kwIter = keywordMap.find(ident);
       if(kwIter == keywordMap.end())

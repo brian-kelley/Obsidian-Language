@@ -95,7 +95,6 @@ struct Type
   virtual bool isInteger()  {return false;}
   virtual bool isNumber()   {return false;}
   virtual bool isChar()     {return false;}
-  virtual bool isString()   {return false;}
   virtual bool isBool()     {return false;}
   virtual bool isConcrete() {return true;}
   virtual bool isVoid()     {return false;}
@@ -239,7 +238,6 @@ struct AliasType : public Type
   bool isFunc()     {return actual->isFunc();}
   bool isInteger()  {return actual->isInteger();}
   bool isNumber()   {return actual->isNumber();}
-  bool isString()   {return actual->isString();}
   bool isBool()     {return actual->isBool();}
   bool isConcrete() {return actual->isConcrete();}
   bool isVoid()     {return actual->isVoid();}
@@ -298,18 +296,6 @@ struct FloatType : public Type
   string getName()
   {
     return name;
-  }
-};
-
-struct StringType : public Type
-{
-  StringType();
-  bool canConvert(Type* other);
-  bool isString();
-  bool isPrimitive();
-  string getName()
-  {
-    return "string";
   }
 };
 

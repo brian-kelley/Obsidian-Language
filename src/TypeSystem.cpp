@@ -50,7 +50,7 @@ void createBuiltinTypes()
 {
   using Parser::TypeNT;
   //primitives has same size as the enum Parser::TypeNT::Prim
-  primitives.resize(14);
+  primitives.resize(13);
   primitives[TypeNT::BOOL] = new BoolType;
   primitives[TypeNT::CHAR] = new CharType;
   primitives[TypeNT::BYTE] = new IntegerType("byte", 1, true);
@@ -63,7 +63,6 @@ void createBuiltinTypes()
   primitives[TypeNT::ULONG] = new IntegerType("ulong", 8, false);
   primitives[TypeNT::FLOAT] = new FloatType("float", 4);
   primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
-  primitives[TypeNT::STRING] = new StringType;
   primitives[TypeNT::VOID] = new VoidType;
   primNames["bool"] = primitives[TypeNT::BOOL];
   primNames["char"] = primitives[TypeNT::CHAR];
@@ -79,6 +78,8 @@ void createBuiltinTypes()
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["string"] = primitives[TypeNT::STRING];
   primNames["void"] = primitives[TypeNT::VOID];
+  //string is visible to user as primitive, but is really just char[]
+  new AliasType("string", primitives[TypeNT::CHAR]->getArrayType(1), global);
   new AliasType("i8", primitives[TypeNT::BYTE], global);
   new AliasType("u8", primitives[TypeNT::UBYTE], global);
   new AliasType("i16", primitives[TypeNT::SHORT], global);

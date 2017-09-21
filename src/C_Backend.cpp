@@ -6,9 +6,15 @@ unordered_map<Type*, string> types;
 unordered_map<Type*, bool> typesImplemented;
 unordered_map<Subroutine*, string> subrs;
 unordered_map<Variable*, string> vars;
-//printFuncs contains all types that are not primitives
+//Tables of utility functions
+//(all types) get default-initialized value
+unordered_map<Type*, string> initFuncs;
+//(all types) deep copy
+unordered_amp<Type*, string> copyFuncs;
+//(non-primitives) print a value
 unordered_map<Type*, string> printFuncs;
-unordered_map<ArrayType*, string> arrayAllocFuncs;
+//(array types) take N dimensions and returns an allocated rectangular array
+unordered_map<Type*, string> arrayAllocFuncs;
 size_t identCount;
 ofstream c;
 //different stringstreams to build the C file (in this order)
@@ -51,7 +57,7 @@ namespace C
     c << '\n';
     c.close();
     //wait for cc to terminate
-    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -Os -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
     if(!keep)
     {
       remove(cName.c_str());
@@ -544,6 +550,57 @@ namespace C
     */
   }
 
+  void generateAllInitFuncs()
+  {
+    for(auto type : types)
+    {
+      Type* t = type.first;
+      string typeName = type.second;
+      string func = "init_" + typeName;
+      utilFuncDecls << typeName << ' ' << func << "();\n";
+      utilFuncDefs << typeName << ' ' << func << "()\n{\n";
+      if(t->isNumber() || t->isChar())
+      {
+        utilFuncDefs << "return 0;\n";
+      }
+      else if(t->isBool())
+      {
+        utilFuncDefs << "return false;\n";
+      }
+      else if(t->isString())
+      {
+        utilFuncDefs << "return ((ostring) {NULL, 0});\n";
+      }
+      else if(t->isStruct() || t->isTuple())
+      {
+        auto st = dynamic_cast<StructType*>(t);
+        auto tt = dynamic_cast<TupleType*>(t);
+        utilFuncDefs << typeName << " temp_;\n";
+        if(st)
+        {
+          for(size_t i = 0; i < st->members.size(); i++)
+          {
+            utilFuncDefs << "temp_." << st->memberNames[i] << " = " << "init_" << types[st->members[i]] << "();\n";
+          }
+        }
+        else
+        {
+          for(size_t i = 0; i < tt->members.size(); i++)
+          {
+            utilFuncDefs << "temp_.mem" << i << " = " << "init_" << types[tt->members[i]] << "();\n";
+          }
+        }
+        utilFuncDefs << "return temp_;\n";
+      }
+      else if(t->isArray())
+      {
+        //empty array doesn't need any allocation (leave data null)
+        utilFuncDefs << "return ((" << typeName << ") {NULL, 0});\n";
+      }
+      utilFuncDefs << "}\n";
+    }
+  }
+
   void generateAllPrintFuncs()
   {
     //declare print functions for every non-primitive
@@ -773,7 +830,7 @@ namespace C
     }
     if(et)
     {
-      //enum type represented as signed integer
+      //enum type always represented as signed integer
       c << "typedef int" << 8 * et->bytes << "_t " << cName << ";\n";
     }
     else
@@ -783,12 +840,9 @@ namespace C
       if(at)
       {
         //add dims
-        for(int dim = 0; dim < at->dims; dim++)
-        {
-          c << size_type << " dim" << dim << ";\n";
-        }
+        c << size_type << " dim;\n";
         //add pointer to element type
-        c << types[at->elem] << "* data;\n";
+        c << types[at->subtype] << "* data;\n";
       }
       else if(st)
       {

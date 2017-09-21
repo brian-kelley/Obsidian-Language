@@ -27,6 +27,8 @@ namespace C
   void generateBlock(ostream& c, Block* b);
   void generateExpression(ostream& c, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
+  //create initialization functions for all types - including primitives - in utilFuncDecls/Defs)
+  void generateAllInitFuncs();
   //create print functions for all compound types (in utilFuncDecls/Defs)
   void generateAllPrintFuncs();
   //generate exactly one statement to print expr (may call printf directly or may call another function)
