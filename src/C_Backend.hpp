@@ -34,10 +34,10 @@ namespace C
   void generateCopyFuncs();
   void generateAllocFuncs();
   void generatePrintFuncs();
-  string getInitFunc(Type* t);
-  string getCopyFunc(Type* t);
-  string getAllocFunc(Type* t);
-  string getPrintFunc(Type* t);
+  string getInitFunc(TypeSystem::Type* t);
+  string getCopyFunc(TypeSystem::Type* t);
+  string getAllocFunc(TypeSystem::Type* t);
+  string getPrintFunc(TypeSystem::Type* t);
 }
 
 #endif

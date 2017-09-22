@@ -94,6 +94,7 @@ struct Type
   virtual bool isFunc()     {return false;}
   virtual bool isInteger()  {return false;}
   virtual bool isNumber()   {return false;}
+  virtual bool isFloat()    {return false;}
   virtual bool isChar()     {return false;}
   virtual bool isBool()     {return false;}
   virtual bool isConcrete() {return true;}
@@ -293,6 +294,7 @@ struct FloatType : public Type
   bool canConvert(Type* other);
   bool isNumber();
   bool isPrimitive();
+  bool isFloat() {return true;};
   string getName()
   {
     return name;

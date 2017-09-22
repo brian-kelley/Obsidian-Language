@@ -301,8 +301,8 @@ namespace C
       auto indexedType = indexed->group->type;
       if(ArrayType* at = dynamic_cast<ArrayType*>(indexedType))
       {
-        auto elementType = at->elem;
-        if(ArrayType* subArray = dynamic_cast<ArrayType*>(elementType))
+        auto subtype = at->subtype;
+        if(subtype->isArray())
         {
           c << "((" << types[indexedType] << ") {";
           //add all dimensions, except highest
@@ -334,13 +334,13 @@ namespace C
           c << "])";
         }
       }
-      else if(TupleType* tt = dynamic_cast<TupleType*>(indexedType))
+      else if(dynamic_cast<TupleType*>(indexedType))
       {
         //tuple: simply reference the requested member
         c << '(';
         generateExpression(c, indexed->group);
         //index must be an IntLiteral (has already been checked)
-        c << ".mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
+        c << ").mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
       }
     }
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
@@ -358,29 +358,13 @@ namespace C
     }
     else if(NewArray* na = dynamic_cast<NewArray*>(expr))
     {
-      //need to call the correct new array function
-      //create if it doesn't exist yet
-      auto arrayType = (ArrayType*) na->type;
-      auto it = arrayAllocFuncs.find(arrayType);
-      string newArrayFunc;
-      if(it == arrayAllocFuncs.end())
+      //call the new array function with na's dimensions
+      c << getAllocFunc(na->type) << '(';
+      for(size_t i = 0; i < na->dims.size(); i++)
       {
-        newArrayFunc = getIdentifier();
-        generateNewArrayFunction(utilFuncDefs, newArrayFunc, arrayType);
-      }
-      else
-      {
-        newArrayFunc = it->second;
-      }
-      //now generate the call to newArrayFunc
-      c << newArrayFunc << '(';
-      for(size_t dim = 0; dim < na->dims.size(); dim++)
-      {
-        generateExpression(c, na->dims[dim]);
-        if(dim != na->dims.size() - 1)
-        {
+        generateExpression(c, na->dims[i]);
+        if(i != na->dims.size() - 1)
           c << ", ";
-        }
       }
       c << ')';
     }
@@ -445,12 +429,13 @@ namespace C
       generateBlock(c, w->loopBlock);
       c << "}\n";
     }
-    else if(If* i = dynamic_cast<If*>(stmt))
+    else if(If* ii = dynamic_cast<If*>(stmt))
     {
       c << "if(";
-      generateExpression(c, i->condition);
-      c << ")\n";
-      generateStatement(c, b, i->body);
+      generateExpression(c, ii->condition);
+      c << ")\n{\n";
+      generateStatement(c, b, ii->body);
+      c << "}\n";
     }
     else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
     {
@@ -484,10 +469,12 @@ namespace C
     }
     else if(Print* p = dynamic_cast<Print*>(stmt))
     {
-      //emit printf calls for each expression
-      for(auto expr : p->exprs)
+      //call printf on the expression
+      for(size_t i = 0; i < p->exprs.size(); i++)
       {
-        generatePrint(c, expr);
+        c << getPrintFunc(p->exprs[i]->type) << '(';
+        generateExpression(c, p->exprs[i]);
+        c << ");\n";
       }
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(stmt))
@@ -592,9 +579,11 @@ namespace C
         utilFuncDecls << prototype.str() << ";\n";
         utilFuncDefs << prototype.str() << "\n{\n";
       }
-      if(t->isPrimitive())
+      //note: void doesn't get a copy function because it will never be called
+      //cannot have variable or argument of type void (checked in middle end)
+      if(!t->isVoid() && t->isPrimitive())
       {
-        //primitives are always trivially copyable
+        //primitives (integers, bool, are always trivially copyable
         utilFuncDefs << "return data_;\n";
       }
       else if(auto at = dynamic_cast<ArrayType*>(t))
@@ -602,8 +591,8 @@ namespace C
         string& subtype = types[at->subtype];
         utilFuncDefs << subtype << "* temp_ = malloc(sizeof(" << subtype << ") * data_.dim);\n";
         utilFuncDefs << "for(" << size_type << " i_ = 0; i_ < data_.dim; i_++)\n{\n";
-        utilFuncDefs << "temp_[i_] = " << getCopyFunc(subtype) << "(data_.data_[i_]);\n";
-        utilFuncDefS << "}\n";
+        utilFuncDefs << "temp_[i_] = " << getCopyFunc(at->subtype) << "(data_.data[i_]);\n";
+        utilFuncDefs << "}\n";
         utilFuncDefs << "return ((" << subtype << ") {temp_, data_.dim});\n";
       }
       else if(auto st = dynamic_cast<StructType*>(t))
@@ -618,10 +607,28 @@ namespace C
       else if(auto ut = dynamic_cast<UnionType*>(t))
       {
         utilFuncDefs << typeName << " temp_;\n";
-        utilFuncDefs << 
+        utilFuncDefs << "temp_.option = data_.option;\n";
+        utilFuncDefs << "switch(data_.option)\n";
+        for(size_t i = 0; i < ut->options.size(); i++)
+        {
+          utilFuncDefs << "case " << i << ":\n";
+          //allocate space in temp
+          string& optionType = types[ut->options[i]];
+          utilFuncDefs << "temp_.data = malloc(sizeof(" << optionType << ");\n";
+          //deep copy data_'s underlying type into temp_
+          utilFuncDefs << "*((" << optionType << "*) temp_.data) = " << getCopyFunc(ut->options[i]) << "(*((" << optionType << "*) data_.data));\n";
+          utilFuncDefs << "break;\n";
+        }
       }
       else if(auto tt = dynamic_cast<TupleType*>(t))
       {
+        //like struct, copy one member at a time
+        utilFuncDefs << typeName << " temp_;\n";
+        for(size_t i = 0; i < tt->members.size(); i++)
+        {
+          utilFuncDefs << "temp_.mem" << i << " = " << getCopyFunc(tt->members[i]) << "(data_.mem" << i << ");\n";
+        }
+        utilFuncDefs << "return temp_;\n";
       }
       utilFuncDefs << "}\n";
     }
@@ -636,7 +643,7 @@ namespace C
       {
         int ndims = at->dims;
         string typeName = type.second;
-        string func = getAllocFunc(typeName);
+        string func = getAllocFunc(at);
         vector<string> dimArgs;
         {
           Oss prototype;
@@ -652,12 +659,12 @@ namespace C
             }
           }
           prototype << ')';
+          utilFuncDecls << prototype.str();
+          utilFuncDecls << ";\n";
+          utilFuncDefs << prototype.str();
+          utilFuncDefs << "\n{\n";
         }
         //add prototype to both util decls and defs
-        utilFuncDecls << prototype.str();
-        utilFuncDecls << ";\n";
-        utilFuncDefs << prototype.str();
-        utilFuncDefs << "\n{\n";
         //allocate an array of the subtype
         string& subtype = types[at->subtype];
         utilFuncDefs << subtype << "* temp_ = malloc(sizeof(" << subtype << ") * " << dimArgs[0] << ");\n";
@@ -691,27 +698,22 @@ namespace C
 
   void generatePrintFuncs()
   {
-    //declare print functions for every non-primitive
     for(auto type : types)
     {
       Type* t = type.first;
-      if(!t->isPrimitive())
+      string& typeName = type.second;
+      string func = getPrintFunc(t);
+      utilFuncDecls << "void " << func << "(" << typeName << " data_);";
+      utilFuncDefs << "void " << func << "(" << typeName << " data_)\n{\n";
+      if(t->isPrimitive() && !t->isBool())
       {
-        string func = getPrintFunc(t);
-        printFuncs[t] = func;
-        utilFuncDecls << "void " << func << '(' << type.second << " data_);\n";
-        utilFuncDecls << "//print function for " << t->getName() << '\n';
-      }
-    }
-    for(auto type : types)
-    {
-      Type* t = type.first;
-      if(t->isPrimitive())
-      {
-        if(IntegerType* intType = dynamic_cast<IntegerType*>(type))
+        //all primitives (except bool) can be printed as a printf call with a single %
+        //so just determine the %format
+        string fmt;
+        if(t->isInteger())
         {
+          auto intType = dynamic_cast<IntegerType*>(t);
           //printf format code
-          string fmt;
           switch(intType->size)
           {
             case 1:
@@ -729,52 +731,24 @@ namespace C
             default:
               INTERNAL_ERROR;
           }
-          c << "printf(\"%" << fmt << "\", ";
-          generateExpression(c, expr);
-          c << ");\n";
         }
-        else if(dynamic_cast<CharType*>(type))
+        else if(t->isChar())
         {
-          //note: same printf code %f used for both float and double
-          c << "printf(\"%c\", ";
-          generateExpression(c, expr);
-          c << ");\n";
+          fmt = "c";
         }
-        else if(dynamic_cast<FloatType*>(type))
+        else if(t->isFloat())
         {
-          //note: same printf code %f used for both float and double
-          c << "printf(\"%f\", ";
-          generateExpression(c, expr);
-          c << ");\n";
+          fmt = "f";
         }
-        else if(dynamic_cast<VoidType*>(type))
-        {
-          c << "printf(\"void\");\n";
-        }
-        else if(dynamic_cast<BoolType*>(type))
-        {
-          c << "if(";
-          generateExpression(c, expr);
-          c << ")\n";
-          c << "printf(\"true\");\n";
-          c << "else\n";
-          c << "printf(\"false\");\n";
-        }
-        else
-        {
-          //compound type: use a pregenerated function to print
-          c << printFuncs[type] << '(';
-          generateExpression(c, expr);
-          c << ");\n";
-        }
+        c << "printf(\"%" << fmt << "\", data_);\n";
+      }
+      else if(t->isBool())
+      {
+        c << "if(data_)\nprintf(\"true\");\nelse\nprintf(\"false\");\n";
       }
       else
       {
         //compound types
-        string func = printFuncs[t];
-        string argname = getIdentifier();
-        utilFuncDefs << "void " << func << '(' << type.second << ' ' << argname << ")\n";
-        utilFuncDefs << "{\n";
         if(ArrayType* at = dynamic_cast<ArrayType*>(t))
         {
           if(at->subtype->isChar())
@@ -821,9 +795,9 @@ namespace C
         }
         else if(UnionType* ut = dynamic_cast<UnionType*>(t))
         {
-          utilFuncDefs << "printf(\"" << ut->getName << " @%i\", data_.option);\n";
+          utilFuncDefs << "printf(\"" << ut->getName() << " @%i\", data_.option);\n";
           utilFuncDefs << "switch(data_.option)\n{\n";
-          for(int i = 0; i < ut->options; i++)
+          for(int i = 0; i < ut->options.size(); i++)
           {
             utilFuncDefs << "case " << i << ":\n";
             utilFuncDefs << getPrintFunc(ut->options[i]) << "(*((" << types[ut->options[i]] << ") data_.data));\n";
