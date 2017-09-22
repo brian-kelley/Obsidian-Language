@@ -27,16 +27,17 @@ namespace C
   void generateBlock(ostream& c, Block* b);
   void generateExpression(ostream& c, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  //create initialization functions for all types - including primitives - in utilFuncDecls/Defs)
-  void generateAllInitFuncs();
-  //create print functions for all compound types (in utilFuncDecls/Defs)
-  void generateAllPrintFuncs();
-  //generate exactly one statement to print expr (may call printf directly or may call another function)
-  void generatePrint(ostream& c, Expression* expr);
-  //print a C expression
-  void generatePrint(ostream& c, string expr, TypeSystem::Type* t);
+  //produce a char literal (escaped as needed)
   void generateCharLiteral(ostream& c, char character);
-  void generateNewArrayFunction(ostream& c, string ident, TypeSystem::ArrayType* at);
+  //utility functions
+  void generateInitFuncs();
+  void generateCopyFuncs();
+  void generateAllocFuncs();
+  void generatePrintFuncs();
+  string getInitFunc(Type* t);
+  string getCopyFunc(Type* t);
+  string getAllocFunc(Type* t);
+  string getPrintFunc(Type* t);
 }
 
 #endif
