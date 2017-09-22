@@ -76,20 +76,19 @@ void createBuiltinTypes()
   primNames["ulong"] = primitives[TypeNT::ULONG];
   primNames["float"] = primitives[TypeNT::FLOAT];
   primNames["double"] = primitives[TypeNT::DOUBLE];
-  primNames["string"] = primitives[TypeNT::STRING];
   primNames["void"] = primitives[TypeNT::VOID];
   //string is visible to user as primitive, but is really just char[]
-  new AliasType("string", primitives[TypeNT::CHAR]->getArrayType(1), global);
-  new AliasType("i8", primitives[TypeNT::BYTE], global);
-  new AliasType("u8", primitives[TypeNT::UBYTE], global);
-  new AliasType("i16", primitives[TypeNT::SHORT], global);
-  new AliasType("u16", primitives[TypeNT::USHORT], global);
-  new AliasType("i32", primitives[TypeNT::INT], global);
-  new AliasType("u32", primitives[TypeNT::UINT], global);
-  new AliasType("i64", primitives[TypeNT::LONG], global);
-  new AliasType("u64", primitives[TypeNT::ULONG], global);
-  new AliasType("f32", primitives[TypeNT::FLOAT], global);
-  new AliasType("f64", primitives[TypeNT::DOUBLE], global);
+  global->types.push_back(new AliasType("string", primitives[TypeNT::CHAR]->getArrayType(1), global));
+  global->types.push_back(new AliasType("i8", primitives[TypeNT::BYTE], global));
+  global->types.push_back(new AliasType("u8", primitives[TypeNT::UBYTE], global));
+  global->types.push_back(new AliasType("i16", primitives[TypeNT::SHORT], global));
+  global->types.push_back(new AliasType("u16", primitives[TypeNT::USHORT], global));
+  global->types.push_back(new AliasType("i32", primitives[TypeNT::INT], global));
+  global->types.push_back(new AliasType("u32", primitives[TypeNT::UINT], global));
+  global->types.push_back(new AliasType("i64", primitives[TypeNT::LONG], global));
+  global->types.push_back(new AliasType("u64", primitives[TypeNT::ULONG], global));
+  global->types.push_back(new AliasType("f32", primitives[TypeNT::FLOAT], global));
+  global->types.push_back(new AliasType("f64", primitives[TypeNT::DOUBLE], global));
 }
 
 string typeErrorMessage(TypeLookup& lookup)
@@ -733,27 +732,6 @@ bool FloatType::isNumber()
 }
 
 bool FloatType::isPrimitive()
-{
-  return true;
-}
-
-/***************/
-/* String Type */
-/***************/
-
-StringType::StringType() : Type(global) {}
-
-bool StringType::canConvert(Type* other)
-{
-  return other->isString();
-}
-
-bool StringType::isString()
-{
-  return true;
-}
-
-bool StringType::isPrimitive()
 {
   return true;
 }

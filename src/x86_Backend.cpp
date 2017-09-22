@@ -3,8 +3,8 @@
 
 static size_t symbolCounter = 0;
 
-unordered_map<Subroutine*, string> textSyms;
-unordered_map<Variable*, string> dataSyms;
+map<Subroutine*, string> textSyms;
+map<Variable*, string> dataSyms;
 
 namespace x86
 {

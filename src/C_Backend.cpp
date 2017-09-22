@@ -2,19 +2,19 @@
 
 using namespace TypeSystem;
 
-unordered_map<Type*, string> types;
-unordered_map<Type*, bool> typesImplemented;
-unordered_map<Subroutine*, string> subrs;
-unordered_map<Variable*, string> vars;
+map<Type*, string> types;
+map<Type*, bool> typesImplemented;
+map<Subroutine*, string> subrs;
+map<Variable*, string> vars;
 //Tables of utility functions
 //(all types) get default-initialized value
-unordered_map<Type*, string> initFuncs;
+map<Type*, string> initFuncs;
 //(all types) deep copy
-unordered_amp<Type*, string> copyFuncs;
-//(non-primitives) print a value
-unordered_map<Type*, string> printFuncs;
+map<Type*, string> copyFuncs;
+//(all types) print a value
+map<Type*, string> printFuncs;
 //(array types) take N dimensions and returns an allocated rectangular array
-unordered_map<Type*, string> arrayAllocFuncs;
+map<Type*, string> arrayAllocFuncs;
 size_t identCount;
 ofstream c;
 //different stringstreams to build the C file (in this order)
@@ -77,6 +77,12 @@ namespace C
     c << "#include \"stdint.h\"\n";
     c << "#include \"stdbool.h\"\n";
     c << '\n';
+    c << "char* strdup_(const char* str) \n";
+    c << "{\n";
+    c << "char* temp = malloc(1 + strlen(str)); \n";
+    c << "strcpy(temp, str);\n";
+    c << "return temp;\n";
+    c << "}\n\n";
   }
 
   void genTypeDecls()
@@ -147,13 +153,6 @@ namespace C
       }
     }
     typeDecls << '\n';
-    /*
-    cout << "All types:\n";
-    for(auto t : allTypes)
-    {
-      cout << t->getName() << '\n';
-    }
-    */
     //implement all compound types
     for(auto t : allTypes)
     {
@@ -279,13 +278,13 @@ namespace C
     }
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
-      //generate an ostring struct using C struct literal
-      c << "((ostring) {\"" << stringLit->value << "\", ";
-      c << stringLit->value.length() << "})";
+      //generate a char[] struct using C struct literal
+      c << "((" << types[TypeSystem::primNames["char"]->getArrayType(1)] << ") {strdup_(\"";
+      c << stringLit->value << "\"), " << stringLit->value.length() << "})";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
-      generateCharLiteral(c , charLit->value);
+      generateCharLiteral(c, charLit->value);
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
@@ -294,11 +293,6 @@ namespace C
       else
         c << "false";
     }
-    /*
-    else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(expr))
-    {
-    }
-    */
     else if(TupleLiteral* tupLit = dynamic_cast<TupleLiteral*>(expr))
     {
       //Tuple literal is just a C struct
@@ -312,7 +306,6 @@ namespace C
         }
       }
     }
-    /*
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
       //Indexed expression must be either a tuple or array
@@ -361,7 +354,6 @@ namespace C
         c << ".mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
       }
     }
-    */
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
       c << call->subr << '(';
@@ -567,10 +559,6 @@ namespace C
       {
         utilFuncDefs << "return false;\n";
       }
-      else if(t->isString())
-      {
-        utilFuncDefs << "return ((ostring) {NULL, 0});\n";
-      }
       else if(t->isStruct() || t->isTuple())
       {
         auto st = dynamic_cast<StructType*>(t);
@@ -626,13 +614,9 @@ namespace C
         utilFuncDefs << "{\n";
         if(ArrayType* at = dynamic_cast<ArrayType*>(t))
         {
-          for(int dim = 0; dim < at->dims; dim++)
-          {
-            string count = getIdentifier();
-            utilFuncDefs << "for(uint64_t " << count << " = 0; ";
-            utilFuncDefs << count << " < data_.dim" << dim << "; " << count << "++)\n";
-            counters.push_back(count);
-          }
+          string count = getIdentifier();
+          utilFuncDefs << "for(uint64_t " << count << " = 0; ";
+          utilFuncDefs << count << " < data_.dim; " << count << "++)\n";
         }
         else if(TupleType* tt = dynamic_cast<TupleType*>(t))
         {
@@ -703,12 +687,6 @@ namespace C
       c << "else\n";
       c << "printf(\"false\");\n";
     }
-    else if(dynamic_cast<StringType*>(type))
-    {
-      c << "printf(";
-      generateExpression(c, expr);
-      c << ".data);\n";
-    }
     else
     {
       //compound type: use a pregenerated function to print
@@ -751,7 +729,7 @@ namespace C
 
   string getIdentifier()
   {
-    //use a base-36 encoding of identCount: 0-9 A-Z
+    //use a base-36 encoding of identCount using 0-9 A-Z
     char buf[32];
     buf[31] = 0;
     auto val = identCount;
@@ -773,7 +751,7 @@ namespace C
     }
     //now buf + iter is the string
     identCount++;
-    return string("o") + (buf + iter);
+    return string("o") + (buf + iter) + '_';
   }
 
   template<typename F>

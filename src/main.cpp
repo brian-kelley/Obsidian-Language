@@ -1,6 +1,5 @@
 #include "Common.hpp"
 #include "Options.hpp"
-#include "x86_Backend.hpp"
 #include "C_Backend.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
@@ -73,7 +72,6 @@ int main(int argc, const char** argv)
   */
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
-  //generateC(op.outputStem, op.emitC, ast);
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
   return 0;

@@ -2,7 +2,6 @@
 #define X86_BACKEND
 
 #include "MiddleEnd.hpp"
-#include <unordered_map>
 #include <sstream>
 
 extern ModuleScope* global;

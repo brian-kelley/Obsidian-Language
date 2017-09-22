@@ -120,9 +120,6 @@ namespace AstPrinter
         case TypeNT::Prim::DOUBLE:
           cout << "double";
           break;
-        case TypeNT::Prim::STRING:
-          cout << "string";
-          break;
         default:
           cout << "invalid primitive";
       }

@@ -489,12 +489,16 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     }
     case CMPEQ:
     case CMPNEQ:
+    case CMPL:
+    case CMPLE:
+    case CMPG:
+    case CMPGE:
     {
       //Can't directly compare two compound literals (ok because there is no reason to do that)
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       if(typesNull)
       {
-        ERR_MSG("can't compare two compound literals for equality.");
+        ERR_MSG("can't compare two compound literals.");
       }
       //here, use the canConvert that takes an expression
       if((ltype && ltype->canConvert(r)) || (rtype && rtype->canConvert(l)))
@@ -503,22 +507,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       }
       else
       {
-        ERR_MSG("types can't be compared for equality.");
-      }
-      break;
-    }
-    case CMPL:
-    case CMPLE:
-    case CMPG:
-    case CMPGE:
-    {
-      if((ltype->isNumber() && rtype->isNumber()) || (ltype->isString() && rtype->isString()))
-      {
-        this->type = TypeSystem::primitives[TypeNT::BOOL];
-      }
-      else
-      {
-        ERR_MSG("incompatible types for ordered comparison - can only compare numbers and strings to each other.");
+        ERR_MSG("types can't be compared.");
       }
       break;
     }
@@ -567,7 +556,7 @@ FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
 StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
 {
   value = a->val;
-  type = TypeSystem::primitives[Parser::TypeSystem::CHAR]->getArrayType(1);
+  type = TypeSystem::primitives[Parser::TypeNT::CHAR]->getArrayType(1);
 }
 
 CharLiteral::CharLiteral(CharLit* a) : Expression(NULL)

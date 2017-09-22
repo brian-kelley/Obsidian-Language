@@ -6,7 +6,6 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <unordered_map>
 #include <string>
 #include <cstdio>
 #include <cstdlib>
@@ -20,7 +19,6 @@
 using std::string;
 using std::vector;
 using std::map;
-using std::unordered_map;
 using std::set;
 using std::ostream;
 using std::ofstream;
@@ -34,7 +32,7 @@ using std::to_string;
 typedef ostringstream Oss;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
-//#define DEBUG
+#define DEBUG
 
 //Read string from file, and append \n
 string loadFile(string filename);
@@ -68,7 +66,7 @@ bool runCommand(string command);
 { \
   auto _startClock = clock(); \
   stmt; \
-  std::cout << name << " took " << ((double) (clock() - _startClock)) / CLOCKS_PER_SEC << '\n'; \
+  std::cout << name << " took " << ((double) (clock() - _startClock)) / CLOCKS_PER_SEC << " sec.\n"; \
 }
 #else
 #define TIMEIT(name, stmt) stmt

@@ -24,7 +24,6 @@ namespace MiddleEnd
     VarLoading::visitScope(global);
     DEBUG_DO(cout << "Loading functions and procedures...\n";);
     SubroutineLoading::visitScope(global);
-    DEBUG_DO(cout << "Middle end done.\n";);
   }
 
   namespace ScopeTypeLoading

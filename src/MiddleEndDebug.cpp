@@ -142,11 +142,6 @@ namespace MiddleEndDebug
       FloatType* ft = (FloatType*) t;
       cout << "Float type: " << ft->name << ", " << ft->size * 8 << "-bit\n";
     }
-    else if(dynamic_cast<StringType*>(t))
-    {
-      indent(ind);
-      cout << "string\n";
-    }
     else if(dynamic_cast<BoolType*>(t))
     {
       indent(ind);

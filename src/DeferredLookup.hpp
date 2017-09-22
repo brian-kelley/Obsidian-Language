@@ -2,6 +2,7 @@
 #define DEFERRED_LOOKUP
 
 #include "Common.hpp"
+#include "Parser.hpp"
 
 /*
  * Deferred lookup is a generalized way to look up something that doesn't

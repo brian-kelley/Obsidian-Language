@@ -31,7 +31,6 @@ enum
   UINT,
   LONG,
   ULONG,
-  STRING,
   FLOAT,
   DOUBLE,
   PRINT,
