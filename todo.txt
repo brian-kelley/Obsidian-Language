@@ -1,6 +1,10 @@
 ---------------------
       TODO:
 ---------------------
+-Delete tuple literals: the job can be done by compound literal
+  -Must allow compound literals to be lvalues
+  -Removes threat for parsing ambiguity
+  -Simplifies assignment in type checking and C gen
 -Unified name searching
   -Prevent name collision across multiple kinds of things (no overloading yet, but later)
 -Actually make sure (in Subroutine) that the target of Assign statements in functions are in function scope (no side effects)
@@ -37,6 +41,7 @@ LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a
     -Mesh utilities (loading, saving, refinement, decimation)
   -Font rendering (full TrueType/Unicode support)
   -Input (keyboard, mouse, gamepad - portable across all machines)
+    -Keyboard: want both events and state checking
   -UI (nice libUI interface, or something similar from scratch?)
   -OpenAL (audio)
   -zlib (compression)

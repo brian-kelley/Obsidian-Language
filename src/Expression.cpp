@@ -340,10 +340,6 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     return new CompoundLiteral(s, expr->e.get<Parser::StructLit*>());
   }
-  else if(expr->e.is<Parser::TupleLit*>())
-  {
-    return new TupleLiteral(s, expr->e.get<Parser::TupleLit*>());
-  }
   else if(expr->e.is<Parser::CallNT*>())
   {
     return new CallExpr(s, expr->e.get<Parser::CallNT*>());
@@ -358,7 +354,6 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else
   {
-    cout << "ERROR: Expr12 with tag " << expr->e.which() << '\n';
     INTERNAL_ERROR;
     return NULL;
   }
@@ -388,12 +383,12 @@ UnaryArith::UnaryArith(int o, Expression* e) : Expression(NULL)
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
+BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL), lhs(l), rhs(r)
 {
   using Parser::TypeNT;
   //Type check the operation
-  auto ltype = l->type;
-  auto rtype = r->type;
+  auto ltype = lhs->type;
+  auto rtype = rhs->type;
   bool typesNull = ltype == NULL || rtype == NULL;
   op = o;
   switch(o)
@@ -580,35 +575,16 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a) : Expression(s)
   this->ast = a;
   //type cannot be determined for a compound literal
   type = NULL;
+  //this is an lvalue if all of its members are lvalues
+  lvalue = true;
   for(auto v : ast->vals)
   {
     //add member expression
     members.push_back(getExpression(s, v));
-  }
-}
-
-/****************
- * TupleLiteral *
- ****************/
-
-TupleLiteral::TupleLiteral(Scope* s, Parser::TupleLit* a) : Expression(s)
-{
-  this->ast = a;
-  vector<TypeSystem::Type*> memTypes;
-  bool typeResolved = true;
-  for(auto it : ast->vals)
-  {
-    members.push_back(getExpression(s, it));
-    memTypes.push_back(members.back()->type);
-    if(!memTypes.back())
+    if(!members.back()->assignable())
     {
-      typeResolved = false;
+      lvalue = false;
     }
-  }
-  //if all members' types are known, can get this type also (otherwise leave it null)
-  if(typeResolved)
-  {
-    type = new TypeSystem::TupleType(memTypes);
   }
 }
 

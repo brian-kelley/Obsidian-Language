@@ -24,7 +24,6 @@ struct StringLiteral;
 struct CharLiteral;
 struct BoolLiteral;
 struct CompoundLiteral;
-struct TupleLiteral;
 struct Indexed;
 struct CallExpr;
 struct VarExpr;
@@ -121,31 +120,10 @@ struct CompoundLiteral : public Expression
   Parser::StructLit* ast;
   bool assignable()
   {
-    return false;
+    return lvalue;
   }
   vector<Expression*> members;
-};
-
-//Unlike CompoundLiteral, can get the type of TupleLiteral by itself
-//as long as all members' types are known, so
-//"auto tup = (1, 2, 3, 4.5, "hello");" is valid
-struct TupleLiteral : public Expression
-{
-  TupleLiteral(Scope* s, Parser::TupleLit* ast);
-  Parser::TupleLit* ast;
-  bool assignable()
-  {
-    //a tuple expr is assignable as a whole only if all its members are
-    for(auto m : members)
-    {
-      if(!m->assignable())
-      {
-        return false;
-      }
-    }
-    return true;
-  }
-  vector<Expression*> members;
+  bool lvalue;
 };
 
 struct Indexed : public Expression
@@ -178,7 +156,7 @@ struct VarExpr : public Expression
   Variable* var;  //var must be looked up from current scope
   bool assignable()
   {
-    //all variables are lvalues (there is no const)
+    //all variables are lvalues
     return true;
   }
 };

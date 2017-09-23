@@ -269,15 +269,17 @@ namespace C
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
+      c << '(';
       c << operatorTable[unary->op];
       c << '(';
       generateExpression(c, unary->expr);
       c << ')';
+      c << ')';
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
-      //emit this so that it works even if onyx uses different
-      //operator precedence than C
+      //fully parenthesize binary exprs so that it works
+      //in case onyx ends up with different precedence than C
       c << "((";
       generateExpression(c, binary->lhs);
       c << ')';
@@ -323,19 +325,6 @@ namespace C
         c << "true";
       else
         c << "false";
-    }
-    else if(TupleLiteral* tupLit = dynamic_cast<TupleLiteral*>(expr))
-    {
-      //Tuple literal is just a C struct
-      c << "((" << types[expr->type] << ") {";
-      for(size_t i = 0; i < tupLit->members.size(); i++)
-      {
-        generateExpression(c, tupLit->members[i]);
-        if(i != tupLit->members.size() - 1)
-        {
-          c << ", ";
-        }
-      }
     }
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
@@ -409,6 +398,10 @@ namespace C
           c << ", ";
       }
       c << ')';
+    }
+    else
+    {
+      INTERNAL_ERROR;
     }
   }
 
@@ -533,8 +526,7 @@ namespace C
 
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
   {
-  /*
-    //if rhs is a compound literal, assignment depends on lhs type
+    //if lhs is a compound literal, need to copy each member, one at a time
     if(auto compLit = dynamic_cast<CompoundLiteral*>(rhs))
     {
       if(auto at = dynamic_cast<ArrayType*>(lhs->type))
@@ -549,15 +541,10 @@ namespace C
       {
       }
     }
-    //if lhs is a tuple literal
-    else if(auto tupLit = dynamic_cast<TupleLiteral*>(rhs))
-    {
-    }
     //other cases of assignment to variable or member can just use simple C assignment
     else if(auto ve = dynamic_cast<VarExpr*>(lhs))
     {
     }
-    */
   }
 
   void generateInitFuncs()
@@ -984,9 +971,14 @@ namespace C
     typesImplemented[t] = true;
   }
 
-  void generateChar(ostream& c, char character)
+  void generateChar(ostream& c, char ch)
   {
-    switch(character)
+    if(isgraph(ch))
+    {
+      c << ch;
+      return;
+    }
+    switch(ch)
     {
       case 0:
         c << "\\0";
@@ -1000,8 +992,19 @@ namespace C
       case '\r':
         c << "\\r";
         break;
+      case '"':
+        c << "\\\"";
+        break;
+      case '\'':
+        c << "\\'";
+        break;
       default:
-        c << character;
+      {
+        //fall back to 8-bit hex literal
+        char buf[8];
+        sprintf(buf, "\\x%02hhx", ch);
+        c << buf;
+      }
     }
   }
 

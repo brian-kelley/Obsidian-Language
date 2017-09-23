@@ -327,7 +327,6 @@ bool StructType::canConvert(Expression* other)
     return false;
   //if compound literal or tuple literal, check if those match members
   CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
   if(cl)
   {
     if(cl->members.size() != members.size())
@@ -338,23 +337,6 @@ bool StructType::canConvert(Expression* other)
     for(size_t i = 0; i < members.size(); i++)
     {
       if(!(members[i]->canConvert(cl->members[i])))
-      {
-        canConvert = false;
-        break;
-      }
-    }
-    return canConvert;
-  }
-  else if(tl)
-  {
-    if(tl->members.size() != members.size())
-    {
-      return false;
-    }
-    bool canConvert = true;
-    for(size_t i = 0; i < members.size(); i++)
-    {
-      if(!(members[i]->canConvert(tl->members[i])))
       {
         canConvert = false;
         break;
@@ -448,21 +430,9 @@ bool ArrayType::canConvert(Expression* other)
     return true;
   }
   CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
   if(cl)
   {
     for(auto m : cl->members)
-    {
-      if(!(elem->canConvert(m)))
-      {
-        return false;
-      }
-    }
-    return true;
-  }
-  else if(tl)
-  {
-    for(auto m : tl->members)
     {
       if(!(elem->canConvert(m)))
       {
@@ -499,7 +469,6 @@ bool TupleType::canConvert(Expression* other)
   if(other->type && canConvert(other->type))
     return true;
   CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  TupleLiteral* tl = dynamic_cast<TupleLiteral*>(other);
   if(cl)
   {
     if(cl->members.size() != members.size())
@@ -509,21 +478,6 @@ bool TupleType::canConvert(Expression* other)
     for(size_t i = 0; i < members.size(); i++)
     {
       if(!(members[i]->canConvert(cl->members[i])))
-      {
-        return false;
-      }
-    }
-    return true;
-  }
-  else if(tl)
-  {
-    if(tl->members.size() != members.size())
-    {
-      return false;
-    }
-    for(size_t i = 0; i < members.size(); i++)
-    {
-      if(!(members[i]->canConvert(tl->members[i])))
       {
         return false;
       }

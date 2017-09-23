@@ -73,7 +73,6 @@ namespace Parser
   struct UnionDecl;
   struct TraitDecl;
   struct StructLit;
-  struct TupleLit;
   struct Member;
   struct TraitType;
   struct TupleTypeNT;
@@ -446,11 +445,6 @@ namespace Parser
     vector<ExpressionNT*> vals;
   };
 
-  struct TupleLit
-  {
-    vector<ExpressionNT*> vals;
-  };
-
   struct Member
   {
     vector<string> scopes;
@@ -686,7 +680,6 @@ namespace Parser
       ExpressionNT*,
       Member*,
       StructLit*,
-      TupleLit*,
       CallNT*,
       ArrayIndex,
       NewArrayNT*> e;

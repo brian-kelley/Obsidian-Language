@@ -47,7 +47,7 @@ int main(int argc, const char** argv)
   /*
   DEBUG_DO({
     cout << "************************************\n";
-    cout << "*             AST                  *\n";
+    cout << "*            Parse Tree            *\n";
     cout << "************************************\n";
     printAST(ast);
   });

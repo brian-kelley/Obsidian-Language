@@ -58,7 +58,6 @@ namespace Parser
   template<> UnionDecl* parse<UnionDecl>();
   template<> TraitDecl* parse<TraitDecl>();
   template<> StructLit* parse<StructLit>();
-  template<> TupleLit* parse<TupleLit>();
   template<> Member* parse<Member>();
   template<> TraitType* parse<TraitType>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
@@ -814,22 +813,6 @@ namespace Parser
   }
 
   template<>
-  TupleLit* parse<TupleLit>()
-  {
-    TupleLit* sl = new TupleLit;
-    expectPunct(LPAREN);
-    sl->vals = parseSomeCommaSeparated<ExpressionNT>();
-    //this check avoids ambiguity with the "Expr12 := ( Expression )" rule
-    if(sl->vals.size() < 2)
-    {
-      err("Tuple literal must have at least 2 values (a singleton "
-          "is exactly equivalent to its value without parentheses)");
-    }
-    expectPunct(RPAREN);
-    return sl;
-  }
-
-  template<>
   Member* parse<Member>()
   {
     Member* m = new Member;
@@ -1218,11 +1201,10 @@ namespace Parser
   Expr12* parse<Expr12>()
   {
     Expr12* e12 = new Expr12;
-    e12->e = parseOptional<TupleLit>();
     if(acceptKeyword(keywordMap["array"]))
     {
     }
-    else if(e12->e.get<TupleLit*>() == nullptr)
+    else
     {
       if(acceptPunct(LPAREN))
       {
@@ -1249,7 +1231,7 @@ namespace Parser
         //previously parsed expr12 is the array/tuple expression
         ai.arr = e12;
         ai.index = parse<ExpressionNT>();
-        Expr12* outer =new Expr12;
+        Expr12* outer = new Expr12;
         outer->e = ai;
         expectPunct(RBRACKET);
         return outer;
