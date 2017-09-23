@@ -70,6 +70,7 @@ int main(int argc, const char** argv)
   TIMEIT("Back end", assembly = x86::generateAsm(););
   TIMEIT("Assembler/linker", x86::buildExecutable(assembly, true, op.outputStem););
   */
+  DEBUG_DO(cout << "Running C backend.\n";)
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
