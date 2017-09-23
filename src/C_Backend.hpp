@@ -27,8 +27,9 @@ namespace C
   void generateBlock(ostream& c, Block* b);
   void generateExpression(ostream& c, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  //produce a char literal (escaped as needed)
-  void generateCharLiteral(ostream& c, char character);
+  //produce a char (escaped as needed) - doesn't add ''
+  void generateChar(ostream& c, char character);
+  void generateSectionHeader(ostream& c, string name);
   //utility functions
   void generateInitFuncs();
   void generateCopyFuncs();

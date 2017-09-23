@@ -33,18 +33,38 @@ namespace C
     funcDecls = Oss();
     funcDefs = Oss();
     cout << "  > Generating type declarations\n";
+    generateSectionHeader(typeDecls, "Type Decls");
     genTypeDecls();
     cout << "  > Generating global funcs\n";
+    generateSectionHeader(varDecls, "Global Variables");
     genGlobals();
     cout << "  > Generating init funcs\n";
+    generateSectionHeader(utilFuncDecls, "Type init functions");
+    generateSectionHeader(utilFuncDefs, "Type init functions");
     generateInitFuncs();
+    utilFuncDecls << "\n";
+    utilFuncDefs << "\n";
     cout << "  > Generating print funcs\n";
+    generateSectionHeader(utilFuncDecls, "Type print functions");
+    generateSectionHeader(utilFuncDefs, "Type print functions");
     generatePrintFuncs();
+    utilFuncDecls << "\n";
+    utilFuncDefs << "\n";
     cout << "  > Generating copy funcs\n";
+    generateSectionHeader(utilFuncDecls, "Type copy functions");
+    generateSectionHeader(utilFuncDefs, "Type copy functions");
     generateCopyFuncs();
+    utilFuncDecls << "\n";
+    utilFuncDefs << "\n";
     cout << "  > Generating array allocation funcs\n";
+    generateSectionHeader(utilFuncDecls, "Type alloc functions");
+    generateSectionHeader(utilFuncDefs, "Type alloc functions");
     generateAllocFuncs();
+    utilFuncDecls << "\n";
+    utilFuncDefs << "\n";
     cout << "  > Generating Onyx subroutines\n";
+    generateSectionHeader(funcDecls, "Functions and Procedures");
+    generateSectionHeader(funcDefs, "Functions and Procedures");
     genSubroutines();
     cout << "  > Done, writing everything to C source\n";
     c = ofstream(cName);
@@ -53,10 +73,15 @@ namespace C
     genCommon();
     //write types, vars, func decls, func defs in the ostringstreams
     c.write(typeDecls.str().c_str(), typeDecls.tellp());
+    c << "\n\n";
     c.write(varDecls.str().c_str(), varDecls.tellp());
+    c << "\n\n";
     c.write(utilFuncDecls.str().c_str(), utilFuncDecls.tellp());
+    c << "\n\n";
     c.write(utilFuncDefs.str().c_str(), utilFuncDefs.tellp());
+    c << "\n\n";
     c.write(funcDecls.str().c_str(), funcDecls.tellp());
+    c << "\n\n";
     c.write(funcDefs.str().c_str(), funcDefs.tellp());
     c << '\n';
     c.close();
@@ -279,11 +304,18 @@ namespace C
     {
       //generate a char[] struct using C struct literal
       c << "((" << types[TypeSystem::primNames["char"]->getArrayType(1)] << ") {" << stringLit->value.length() << ", strdup_(\"";
-      c << stringLit->value << "\")})";
+      //generate the characters of the string literal one at a time, using escapes as needed
+      for(char ch : stringLit->value)
+      {
+        generateChar(c, ch);
+      }
+      c << "\")})";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
-      generateCharLiteral(c, charLit->value);
+      c << '\'';
+      generateChar(c, charLit->value);
+      c << '\'';
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
@@ -952,9 +984,8 @@ namespace C
     typesImplemented[t] = true;
   }
 
-  void generateCharLiteral(ostream& c, char character)
+  void generateChar(ostream& c, char character)
   {
-    c << '\'';
     switch(character)
     {
       case 0:
@@ -972,7 +1003,6 @@ namespace C
       default:
         c << character;
     }
-    c << '\'';
   }
 
   string getPrintFunc(Type* t)
@@ -993,6 +1023,20 @@ namespace C
   string getAllocFunc(Type* t)
   {
     return "alloc_" + types[t];
+  }
+
+  void generateSectionHeader(ostream& c, string name)
+  {
+    c << "//////////////////////////////\n";
+    int space = 13 - name.length() / 2;
+    c << "//";
+    for(int i = 0; i < space; i++)
+      c << ' ';
+    c << name;
+    for(int i = 2 + space + name.length(); i < 28; i++)
+      c << ' ';
+    c << "//\n";
+    c << "//////////////////////////////\n\n";
   }
 }
 
