@@ -309,14 +309,14 @@ namespace C
       //generate the characters of the string literal one at a time, using escapes as needed
       for(char ch : stringLit->value)
       {
-        generateChar(c, ch);
+        c << generateChar(ch);
       }
       c << "\")})";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
       c << '\'';
-      generateChar(c, charLit->value);
+      c << generateChar(charLit->value);
       c << '\'';
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
@@ -969,43 +969,6 @@ namespace C
       c << "};\n";
     }
     typesImplemented[t] = true;
-  }
-
-  void generateChar(ostream& c, char ch)
-  {
-    if(isgraph(ch))
-    {
-      c << ch;
-      return;
-    }
-    switch(ch)
-    {
-      case 0:
-        c << "\\0";
-        break;
-      case '\n':
-        c << "\\n";
-        break;
-      case '\t':
-        c << "\\t";
-        break;
-      case '\r':
-        c << "\\r";
-        break;
-      case '"':
-        c << "\\\"";
-        break;
-      case '\'':
-        c << "\\'";
-        break;
-      default:
-      {
-        //fall back to 8-bit hex literal
-        char buf[8];
-        sprintf(buf, "\\x%02hhx", ch);
-        c << buf;
-      }
-    }
   }
 
   string getPrintFunc(Type* t)

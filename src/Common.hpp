@@ -72,5 +72,9 @@ bool runCommand(string command);
 #define TIMEIT(name, stmt) stmt
 #endif
 
+//generate a character for use in C code (i.e. "a" or "\n" or "\x4A")
+//doesn't add any quotes
+string generateChar(char ch);
+
 #endif
 

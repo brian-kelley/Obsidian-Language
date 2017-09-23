@@ -29,18 +29,17 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks;
   TIMEIT("Lexing", lex(code, toks););
-  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*            TOKENS                *\n";
     cout << "************************************\n";
     for(auto& it : toks)
     {
+      cout << "Print token of type " << typeid(*it).name() << '\n';
       cout << it->getDesc() << " : " << it->getStr() << "\n";
     }
     cout << '\n';
   });
-  */
   //Parse the global/root module
   Parser::Module* ast;
   TIMEIT("Parsing", ast = Parser::parseProgram(toks););

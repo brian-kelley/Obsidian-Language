@@ -201,28 +201,26 @@ void lex(string& code, vector<Token*>& tokList)
       else
         cs.addToken(new Keyword(kwIter->second));
     }
-    else if(c == '0' && tolower(cs.peek()) == 'x' && isxdigit(cs.peek(1)))
+    else if(c == '0' && tolower(cs.peek(0)) == 'x' && isxdigit(cs.peek(1)))
     {
       //hex int literal, OR int 0 followed by ??? (if not valid hex num)
       cs.getNext();
-      cs.getNext();
       char* numEnd;
-      unsigned long long val = strtoull(code.c_str(), &numEnd, 16);
+      unsigned long long val = strtoull(code.c_str() + cs.iter, &numEnd, 16);
       cs.addToken(new IntLit(val));
-      for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
-      {
+      while(isxdigit(cs.peek(0)))
         cs.getNext();
-      }
     }
-    else if(c == '0' && tolower(cs.peek()) == 'b' &&
-        (cs.peek(1) == '0' || cs.peek(1) == '1'))
+    else if(c == '0' && tolower(cs.peek(1)) == 'b' &&
+        (cs.peek(2) == '0' || cs.peek(2) == '1'))
     {
       //binary int literal, OR int 0 followed by ??? (if not valid bin num)
       cs.getNext();
-      cs.getNext();
       char* numEnd;
-      unsigned long long val = strtoull(code.c_str(), &numEnd, 2);
+      unsigned long long val = strtoull(code.c_str() + cs.iter, &numEnd, 2);
       cs.addToken(new IntLit(val));
+      while(cs.peek(0) == '0' || cs.peek(0) == '1')
+        cs.getNext();
       for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
       {
         cs.getNext();
@@ -230,8 +228,8 @@ void lex(string& code, vector<Token*>& tokList)
     }
     else if(isdigit(c))
     {
+      //decimal integer or float literal
       uint64_t intVal = 0;
-      //int (hex or dec) or float literal
       //take the integer conversion, or the double conversion if it uses more chars
       const char* numStart = code.c_str() + cs.iter - 1;
       char* intEnd;

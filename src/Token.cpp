@@ -259,7 +259,13 @@ int StrLit::getType()
 
 string StrLit::getStr()
 {
-  return string("\"") + val + "\"";
+  string str = "\"";
+  for(size_t i = 0; i < val.length(); i++)
+  {
+    str += generateChar(val[i]);
+  }
+  str += '\"';
+  return str;
 }
 
 string StrLit::getDesc()

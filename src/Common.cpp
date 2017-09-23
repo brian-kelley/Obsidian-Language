@@ -41,3 +41,33 @@ bool runCommand(string command)
   return system(silencedCommand.c_str()) == 0;
 }
 
+string generateChar(char ch)
+{
+  if(isgraph(ch))
+  {
+    return string(1, ch);
+  }
+  switch(ch)
+  {
+    case 0:
+      return "\\0";
+    case '\n':
+      return "\\n";
+    case '\t':
+      return "\\t";
+    case '\r':
+      return "\\r";
+    case '"':
+      return "\\\"";
+    case '\'':
+      return "\\'";
+    default:
+    {
+      //fall back to 8-bit hex literal
+      char buf[8];
+      sprintf(buf, "\\x%02hhx", ch);
+      return buf;
+    }
+  }
+}
+
