@@ -278,8 +278,8 @@ namespace C
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //generate a char[] struct using C struct literal
-      c << "((" << types[TypeSystem::primNames["char"]->getArrayType(1)] << ") {strdup_(\"";
-      c << stringLit->value << "\"), " << stringLit->value.length() << "})";
+      c << "((" << types[TypeSystem::primNames["char"]->getArrayType(1)] << ") {" << stringLit->value.length() << ", strdup_(\"";
+      c << stringLit->value << "\")})";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
@@ -772,7 +772,7 @@ namespace C
           if(at->subtype->isChar())
           {
             //t is string, so write it to stdout all at once
-            utilFuncDefs << "fwrite(data_.data, data_.dim, 1, stdout);\n";
+            utilFuncDefs << "fwrite(data_.data, 1, data_.dim, stdout);\n";
           }
           else
           {
