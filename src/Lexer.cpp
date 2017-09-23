@@ -211,8 +211,8 @@ void lex(string& code, vector<Token*>& tokList)
       while(isxdigit(cs.peek(0)))
         cs.getNext();
     }
-    else if(c == '0' && tolower(cs.peek(1)) == 'b' &&
-        (cs.peek(2) == '0' || cs.peek(2) == '1'))
+    else if(c == '0' && tolower(cs.peek(0)) == 'b' &&
+        (cs.peek(1) == '0' || cs.peek(1) == '1'))
     {
       //binary int literal, OR int 0 followed by ??? (if not valid bin num)
       cs.getNext();
@@ -221,10 +221,6 @@ void lex(string& code, vector<Token*>& tokList)
       cs.addToken(new IntLit(val));
       while(cs.peek(0) == '0' || cs.peek(0) == '1')
         cs.getNext();
-      for(const char* i = code.c_str() + cs.iter; i != numEnd; i++)
-      {
-        cs.getNext();
-      }
     }
     else if(isdigit(c))
     {
