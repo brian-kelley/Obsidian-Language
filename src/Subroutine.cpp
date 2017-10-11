@@ -116,6 +116,10 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     return new Assertion(stmt->s.get<Parser::Assertion*>(), scope);
   }
+  else if(stmt->s.is<Parser::EmptyStatement*>())
+  {
+  }
+  cout << "About to internal error, actual Parser Statement tag: " << stmt->s.which() << '\n';
   INTERNAL_ERROR;
   return nullptr;
 }
@@ -239,13 +243,26 @@ For::For(Parser::For* f, Block* b)
   {
     //introduce counter (counter type must be integer and is determined from the upper bound expression)
     //counter var names start at i and go to z, after that there is error
-    Expression* lowerBound;
-    Expression* upperBound;
+    Expression* lowerBound = nullptr;
+    Expression* upperBound = nullptr;
     if(f->f.is<Parser::ForRange1*>())
     {
       auto f1 = f->f.get<Parser::ForRange1*>();
-      lowerBound = new IntLiteral((uint64_t) 0);
-      upperBound = getExpression(enclosing, f1->expr);
+      //ForRange1 has a single expression, can be integer counter or array
+      auto expr = getExpression(enclosing, f1->expr);
+      if(expr->type && expr->type->isInteger())
+      {
+        lowerBound = new IntLiteral((uint64_t) 0);
+        upperBound = expr;
+      }
+      else if(expr->type && expr->type->isArray())
+      {
+        errAndQuit("for loop over array isn't supported (yet)");
+      }
+      else
+      {
+        errAndQuit("invalid type as for loop range: must be integer or (not yet) array");
+      }
     }
     else
     {
@@ -285,10 +302,6 @@ For::For(Parser::For* f, Block* b)
     condition = new BinaryArith(counterExpr, CMPL, upperBound);
     //the increment is counter = counter + one
     increment = new Assign(counter, new BinaryArith(counterExpr, PLUS, one), loopScope);
-  }
-  else if(f->f.is<Parser::ForArray*>())
-  {
-    ERR_MSG("for loop over array isn't suppoted (yet)...");
   }
   loopBlock->addStatements();
 }

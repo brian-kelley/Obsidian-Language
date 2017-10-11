@@ -66,7 +66,8 @@ struct IntLiteral : public Expression
   {
     return false;
   }
-  void setType();
+  private:
+  void setType(); //called by both constructors
 };
 
 struct FloatLiteral : public Expression
@@ -129,24 +130,32 @@ struct CompoundLiteral : public Expression
 struct Indexed : public Expression
 {
   Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
+  Indexed(Scope* s, Expression* grp, Expression* ind);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
-  Parser::Expr12::ArrayIndex* ast;
   bool assignable()
   {
     return group->assignable();
   }
+  private:
+  void semanticCheck(); //called by both constructors
 };
 
 struct CallExpr : public Expression
 {
-  CallExpr(Scope* s, Parser::CallNT* ast);
+  CallExpr(Scope* s, Subroutine* subr, vector<Expression*>& args);
   Subroutine* subr;
   vector<Expression*> args;
   bool assignable()
   {
     return false;
   }
+};
+
+struct MethodExpr : public Expression
+{
+  MethodExpr(Scope* s, Expression* thisObject, Subroutine* subr, vector<Expression*>& args);
+  Subroutine* subr;
 };
 
 struct VarExpr : public Expression
@@ -161,6 +170,13 @@ struct VarExpr : public Expression
   }
 };
 
+struct StructMem : public Expression
+{
+  StructMem(Scope* s, Expression* base, vector<string>& names);
+  Expression* base;           //base->type is always a StructType
+  vector<int> memberIndices;  //index of the member in base->type->members
+};
+
 struct NewArray : public Expression
 {
   NewArray(Scope* s, Parser::NewArrayNT* ast);
@@ -168,6 +184,18 @@ struct NewArray : public Expression
   bool assignable()
   {
     return false;
+  }
+};
+
+//Temporary variable (only used in backend)
+//id should always come from C::getIdentifier()
+struct TempVar : public Expression
+{
+  TempVar(string id, TypeSystem::Type* t, Scope* s);
+  string ident;
+  bool assignable()
+  {
+    return true;
   }
 };
 

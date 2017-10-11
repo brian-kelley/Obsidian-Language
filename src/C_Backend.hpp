@@ -33,10 +33,13 @@ namespace C
   void generateInitFuncs();
   void generateCopyFuncs();
   void generateAllocFuncs();
+  bool typeNeedsDealloc(TypeSystem::Type* t);
+  void generateDeallocFuncs();
   void generatePrintFuncs();
   string getInitFunc(TypeSystem::Type* t);
   string getCopyFunc(TypeSystem::Type* t);
   string getAllocFunc(TypeSystem::Type* t);
+  string getDeallocFunc(TypeSystem::Type* t);
   string getPrintFunc(TypeSystem::Type* t);
 }
 

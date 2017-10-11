@@ -16,6 +16,26 @@ namespace TypeSystem
 struct Subroutine;
 struct Variable;
 
+// Unified name lookup system
+struct Name
+{
+  enum TYPE
+  {
+    SCOPE,
+    STRUCT,
+    UNION,
+    ENUM,
+    TYPEDEF,
+    TRAIT,
+    SUBROUTINE,
+    VARIABLE
+  };
+  Name(void* ptr, TYPE t) : item(ptr), type(t) {}
+  void* item;
+  //All named declaration types
+  TYPE type;
+};
+
 //Scopes own all funcs/structs/traits/etc
 struct Scope
 {
@@ -37,6 +57,13 @@ struct Scope
   Variable* findVariable(Parser::Member* mem);
   //TypeSystem::Trait* findTrait(Parser::Member* mem);
   Subroutine* findSubroutine(Parser::Member* mem);
+  //unified name handling
+  map<string, Name> names;
+  //add name to scope
+  template<typename Decl> void addName(Decl* d);
+  //look up a name until a non-scope item is reached
+  //return the name and provide the remaining compound ident
+  bool lookup(vector<string> names, Name& found, vector<string>& remain);
   private:
   void findSubImpl(vector<string>& names, vector<Scope*>& matches);
 };

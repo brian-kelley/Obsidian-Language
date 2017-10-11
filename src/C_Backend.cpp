@@ -6,6 +6,7 @@ map<Type*, string> types;
 map<Type*, bool> typesImplemented;
 map<Subroutine*, string> subrs;
 map<Variable*, string> vars;
+map<Type*, bool> needsDealloc;   //whether each type needs a non-trivial deallocator
 size_t identCount;
 ofstream c;
 //different stringstreams to build the C file (in this order)
@@ -60,6 +61,12 @@ namespace C
     generateSectionHeader(utilFuncDecls, "Type alloc functions");
     generateSectionHeader(utilFuncDefs, "Type alloc functions");
     generateAllocFuncs();
+    utilFuncDecls << "\n";
+    utilFuncDefs << "\n";
+    cout << "  > Generating free funcs\n";
+    generateSectionHeader(utilFuncDecls, "Type free functions");
+    generateSectionHeader(utilFuncDefs, "Type free functions");
+    generateDeallocFuncs();
     utilFuncDecls << "\n";
     utilFuncDefs << "\n";
     cout << "  > Generating Onyx subroutines\n";
@@ -399,8 +406,14 @@ namespace C
       }
       c << ')';
     }
+    else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
+    {
+      //in C code, this is just the temporary variable's name
+      c << tv->ident;
+    }
     else
     {
+      //compound literal, or anything else that hasn't been covered
       INTERNAL_ERROR;
     }
   }
@@ -526,24 +539,86 @@ namespace C
 
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
   {
-    //if lhs is a compound literal, need to copy each member, one at a time
-    if(auto compLit = dynamic_cast<CompoundLiteral*>(rhs))
+    //generateExpression can't be used with compound literals, so
+    //  any case where LHS and/or RHS are compound literals needs to be handled separately
+    //LHS is compound literal:
+    //  -RHS can be another compound lit, or anything else is tuple, struct
+    //LHS is variable or indexed:
+    //  -RHS can be anything that matches type
+    if(dynamic_cast<CallExpr*>(clRHS))
     {
-      if(auto at = dynamic_cast<ArrayType*>(lhs->type))
+      //regardless of the types of lhs and rhs,
+      //make sure subroutine only gets called once by saving return value
+      c << "{\n";
+      string tempName = getIdentifier();
+      TempVar temp(tempName, lhs->type, b->scope);
+      //now assign temp to lhs
+      generateAssignment(c, b, lhs, &temp);
+      c << "}\n";
+    }
+    else if(auto clLHS = dynamic_cast<CompoundLiteral*>(lhs))
+    {
+      //only compound literals, tuples and structs may be assigned to a compound literal
+      if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
       {
+        //copy members directly, one at a time
+        for(size_t i = 0; i < clLHS->members.size(); i++)
+        {
+          generateAssignment(c, b, clLHS->members[i], clRHS->members[i]);
+        }
       }
-      else if(auto st = dynamic_cast<StructType*>(lhs->type))
+      else if(clRHS->type->isTuple())
       {
-        //add assignment of each member individually
-
+        auto tt = dynamic_cast<TupleType*>(clRHS->type);
+        for(size_t i = 0; i < clLHS->members.size(); i++)
+        {
+          //create tuple index
+          IntLiteral index(i);
+          Indexed rhsMember(b->scope, rhs, &index);
+          generateAssignment(c, b, clLHS->members[i], rhsMember);
+        }
       }
-      else if(auto tt = dynamic_cast<TupleType*>(lhs->type))
+      else if(clRHS->type->isStruct())
       {
+        //generate assignment for each member
+        auto st = dynamic_cast<StructType*>(clRHS->type);
+        for(size_t i = 0; i < clLHS->members.size(); i++)
+        {
+          Indexed rhsMember(b->scope, rhs, &index);
+          generateAssignment(c, b, clLHS->members[i], rhsMember);
+        }
       }
     }
-    //other cases of assignment to variable or member can just use simple C assignment
-    else if(auto ve = dynamic_cast<VarExpr*>(lhs))
+    else if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
     {
+    }
+    else
+    {
+      //direct assignment of one expression to another, where neither
+      //lhs nor rhs are CompoundLiterals and rhs is not a subroutine call
+      //  -call free on lhs before assignment (if necessary for its type)
+      //  -if rhs is assignable, it is persistent, so need to deep copy
+      //  -if rhs is not persistent, can shallow copy it
+      if(lhs->assignable() && needsDealloc(lhs->type))
+      {
+        c << getDeallocFunc(lhs->type) << "(";
+        generateExpression(c, lhs);
+        c << ");\n";
+      }
+      if(rhs->assignable())
+      {
+        generateExpression(c, lhs);
+        c << " = " << getCopyFunc(rhs->type) << "(";
+        generateExpression(c, rhs);
+        c << ");\n";
+      }
+      else
+      {
+        generateExpression(c, lhs);
+        c << " = ";
+        generateExpression(c, rhs);
+        c << ";";
+      }
     }
   }
 
@@ -724,6 +799,118 @@ namespace C
           //if subtype is not an array, call the initialization function for it
           utilFuncDefs << "for(" << size_type << " i_ = 0; i_ < " << dimArgs[0] << "; i_++)\n{\n";
           utilFuncDefs << "temp_[i_] = " << getInitFunc(at->subtype) << "();\n";
+          utilFuncDefs << "}\n";
+        }
+        utilFuncDefs << "}\n";
+      }
+    }
+  }
+
+  bool typeNeedsDealloc(TypeSystem::Type* t)
+  {
+    //lazily populate needsDealloc
+    auto it = needsDealloc.find(t);
+    if(it == needsDealloc.end())
+    {
+      bool value = false;
+      if(t->isPrimitive())
+      {
+        value = false;
+      }
+      else if(auto st = dynamic_cast<StructType*>(t))
+      {
+        for(auto mem : st->members)
+        {
+          if(typeNeedsDealloc(mem))
+          {
+            value = true;
+            break;
+          }
+        }
+      }
+      else if(auto tt = dynamic_cast<TupleType*>(t))
+      {
+        for(auto mem : tt->members)
+        {
+          if(typeNeedsDealloc(mem))
+          {
+            value = true;
+            break;
+          }
+        }
+      }
+      else if(auto ut = dynamic_cast<UnionType*>(t))
+      {
+        value = true;
+      }
+      else if(auto at = dynamic_cast<ArrayType*>(t))
+      {
+        value = true;
+      }
+      needsDealloc[t] = value;
+      return value;
+    }
+    return it->second;
+  }
+
+  void generateDeallocFuncs()
+  {
+    for(auto type : types)
+    {
+      if(typeNeedsDealloc(type.first))
+      {
+        auto t = type.first;
+        string& typeName = type.second;
+        string func = getDeallocFunc(t);
+        //only struct, tuple, array and unions need to be freed
+        utilFuncDecls << "void " << func << "(" << typeName << " data_);\n";
+        utilFuncDefs << "inline void " << func << "(" << typeName << " data_)\n{\n";
+        if(auto st = dynamic_cast<StructType*>(t))
+        {
+          for(size_t i = 0; i < st->members.size(); i++)
+          {
+            if(typeNeedsDealloc(st->members[i]))
+            {
+              utilFuncDefs << getDeallocFunc(st->members[i]) << "(data_." << st->memberNames[i] << ");\n";
+            }
+          }
+        }
+        else if(auto tt = dynamic_cast<TupleType*>(t))
+        {
+          for(size_t i = 0; i < tt->members.size(); i++)
+          {
+            if(typeNeedsDealloc(tt->members[i]))
+            {
+              utilFuncDefs << getDeallocFunc(tt->members[i]) << "(data_.mem" << i << ");\n";
+            }
+          }
+        }
+        else if(auto ut = dynamic_cast<UnionType*>(t))
+        {
+          utilFuncDefs << "switch(data_.option)\n{\n";
+          for(size_t i = 0; i < ut->options.size(); i++)
+          {
+            utilFuncDefs << "case " << i << ":\n";
+            if(typeNeedsDealloc(ut->options[i]))
+            {
+              utilFuncDefs << getDeallocFunc(ut->options[i]) << "(*((" << types[ut->options[i]] << "*) data_.data));\n";
+            }
+            utilFuncDefs << "break;\n";
+          }
+          utilFuncDefs << "free(data_.data);\n";
+          utilFuncDefs << "}\n";
+        }
+        else if(auto at = dynamic_cast<ArrayType*>(t))
+        {
+          utilFuncDefs << "if(data_.data != NULL)\n{\n";
+          //add free calls for each element, if subtype has nontrivial deallocator
+          if(typeNeedsDealloc(at->subtype))
+          {
+            utilFuncDefs << "for(size_t i_ = 0; i_ < data_.dim; i_++)\n{\n";
+            utilFuncDefs << getDeallocFunc(at->subtype) << "(data_.data[i_]);\n";
+            utilFuncDefs << "}\n";
+          }
+          utilFuncDefs << "free(data_.data);\n";
           utilFuncDefs << "}\n";
         }
         utilFuncDefs << "}\n";
@@ -978,17 +1165,22 @@ namespace C
 
   string getInitFunc(Type* t)
   {
-    return "init_" + types[t];
+    return "init_" + types[t] + '_';
   }
 
   string getCopyFunc(Type* t)
   {
-    return "copy_" + types[t];
+    return "copy_" + types[t] + '_';
   }
 
   string getAllocFunc(Type* t)
   {
-    return "alloc_" + types[t];
+    return "alloc_" + types[t] + '_';
+  }
+
+  string getDeallocFunc(TypeSystem::Type* t)
+  {
+    return "free_" + types[t] + '_';
   }
 
   void generateSectionHeader(ostream& c, string name)

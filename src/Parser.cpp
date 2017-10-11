@@ -8,10 +8,6 @@ namespace Parser
   size_t pos;
   vector<Token*>* tokens;
 
-  //Furthest the recursive descent reached, and associated error message if parsing failed there
-  size_t deepest = 0;
-  string deepestErr;
-
   template<typename NT>
   NT* parse()
   {
@@ -32,7 +28,6 @@ namespace Parser
   template<> ForC* parse<ForC>();
   template<> ForRange1* parse<ForRange1>();
   template<> ForRange2* parse<ForRange2>();
-  template<> ForArray* parse<ForArray>();
   template<> For* parse<For>();
   template<> While* parse<While>();
   template<> If* parse<If>();
@@ -45,7 +40,7 @@ namespace Parser
   template<> VarAssign* parse<VarAssign>();
   template<> PrintNT* parse<PrintNT>();
   template<> ExpressionNT* parse<ExpressionNT>();
-  template<> CallNT* parse<CallNT>();
+  template<> CallOp* parse<CallOp>();
   template<> Arg* parse<Arg>();
   template<> FuncDecl* parse<FuncDecl>();
   template<> FuncDef* parse<FuncDef>();
@@ -91,7 +86,7 @@ namespace Parser
     tokens = &toks;
     Module* globalModule = new Module;
     globalModule->name = "";
-    globalModule->decls = parseSome<ScopedDecl>();
+    globalModule->decls = parseSome<ScopedDecl>(PastEOF());
     if(pos != tokens->size())
     {
       //If not all tokens were used, there was a parse error
@@ -108,31 +103,70 @@ namespace Parser
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    m->decls = parseSome<ScopedDecl>();
-    expectPunct(RBRACE);
+    m->decls = parseSome<ScopedDecl>(Punct(RBRACE));
     return m;
   }
 
   template<>
   ScopedDecl* parse<ScopedDecl>()
   {
-    ScopedDecl* sd =new ScopedDecl;
+    ScopedDecl* sd = new ScopedDecl;
+    //peek at next token to check for keywords that start decls
     //use short-circuit evaluation to find the pattern that parses successfully
-    if(!(sd->decl = parseOptional<Module>()) &&
-        !(sd->decl = parseOptional<VarDecl>()) &&
-        !(sd->decl = parseOptional<StructDecl>()) &&
-        !(sd->decl = parseOptional<UnionDecl>()) &&
-        !(sd->decl = parseOptional<TraitDecl>()) &&
-        !(sd->decl = parseOptional<Enum>()) &&
-        !(sd->decl = parseOptional<Typedef>()) &&
-        !(sd->decl = parseOptional<TestDecl>()) &&
-        !(sd->decl = parseOptional<FuncDecl>()) &&
-        !(sd->decl = parseOptional<FuncDef>()) &&
-        !(sd->decl = parseOptional<ProcDecl>()) &&
-        !(sd->decl = parseOptional<ProcDef>()))
+    Keyword* nextKeyword = (Keyword*) accept(KEYWORD);
+    if(nextKeyword)
     {
-      err("invalid scoped declaration");
+      accept();
+      bool found = true;
+      switch(nextKeyword->kw)
+      {
+        case MODULE:
+          sd->decl = parse<Module>(); break;
+        case STRUCT:
+          sd->decl = parse<StructDecl>(); break;
+        case UNION:
+          sd->decl = parse<UnionDecl>(); break;
+        case TRAIT:
+          sd->decl = parse<TraitDecl>(); break;
+        case ENUM:
+          sd->decl = parse<Enum>(); break;
+        case TYPEDEF:
+          sd->decl = parse<Typedef>(); break;
+        case FUNC:
+          sd->decl = parse<FuncDef>(); break;
+        case PROC:
+          sd->decl = parse<ProcDef>(); break;
+        default: found = false;
+      }
+      if(found)
+        return sd;
     }
+    //only other possibility is VarDecl
+    sd->decl = parse<VarDecl>();
+    return sd;
+  }
+
+  //Parse a ScopedDecl, given that it begins with a Member
+  //The only rule that works is VarDecl, where Member is the type
+  //This is called by parse<StatementNT>()
+  ScopedDecl* parseScopedDeclGivenMember(mem)
+  {
+    ScopedDecl* sd = new ScopedDecl;
+    VarDecl* vd = new VarDecl;
+    TypeNT* type = new TypeNT;
+    type->t = mem;
+    vd->type = type;
+    if(acceptOper(ASSIGN))
+    {
+      //vd has an rhs expression
+      vd->val = parse<ExpressionNT>();
+    }
+    else
+    {
+      vd->val = nullptr;
+    }
+    sd->decl = vd;
+    expectPunct(SEMICOLON);
     return sd;
   }
 
@@ -141,45 +175,65 @@ namespace Parser
   {
     TypeNT* type = new TypeNT;
     type->arrayDims = 0;
-    #define TRY_PRIMITIVE(p) { \
-      if(type->t.is<None>() && acceptKeyword(p)) { \
-        type->t = TypeNT::Prim::p; \
-      } \
-    }
-    TRY_PRIMITIVE(BOOL);
-    TRY_PRIMITIVE(CHAR);
-    TRY_PRIMITIVE(BYTE);
-    TRY_PRIMITIVE(UBYTE);
-    TRY_PRIMITIVE(SHORT);
-    TRY_PRIMITIVE(USHORT);
-    TRY_PRIMITIVE(INT);
-    TRY_PRIMITIVE(UINT);
-    TRY_PRIMITIVE(LONG);
-    TRY_PRIMITIVE(ULONG);
-    TRY_PRIMITIVE(FLOAT);
-    TRY_PRIMITIVE(DOUBLE);
-    TRY_PRIMITIVE(VOID);
-    #undef TRY_PRIMITIVE
-    if(type->t.is<None>())
+    //check for keyword
+    Keyword* keyword = (Keyword*) accept(KEYWORD);
+    bool found = true;
+    if(keyword)
     {
-      if(acceptKeyword(T_TYPE))
+      switch(keyword->kw)
       {
-        type->t = TypeNT::Wildcard();
+        case BOOL:
+          type->t = TypeNT::Prim::BOOL; break;
+        case CHAR:
+          type->t = TypeNT::Prim::CHAR; break;
+        case BYTE:
+          type->t = TypeNT::Prim::BYTE; break;
+        case SHORT:
+          type->t = TypeNT::Prim::SHORT; break;
+        case USHORT:
+          type->t = TypeNT::Prim::USHORT; break;
+        case INT:
+          type->t = TypeNT::Prim::INT; break;
+        case UINT:
+          type->t = TypeNT::Prim::UINT; break;
+        case LONG:
+          type->t = TypeNT::Prim::LONG; break;
+        case ULONG:
+          type->t = TypeNT::Prim::ULONG; break;
+        case FLOAT:
+          type->t = TypeNT::Prim::FLOAT; break;
+        case DOUBLE:
+          type->t = TypeNT::Prim::DOUBLE; break;
+        case VOID:
+          type->t = TypeNT::Prim::VOID; break;
+        case FUNCTYPE:
+          unget();
+          type->t = parse<FuncTypeNT>(); break;
+        case PROCTYPE:
+          unget();
+          type->t = parse<ProcTypeNT>(); break;
+        default:
+          err("expected type");
       }
-      else if(!(type->t = parseOptional<Member>()) &&
-          !(type->t = parseOptional<TupleTypeNT>()) &&
-          !(type->t = parseOptional<FuncTypeNT>()) &&
-          !(type->t = parseOptional<ProcTypeNT>()) &&
-          !(type->t = parseOptional<TraitType>()))
-      {
-        err("Invalid type");
-      }
+    }
+    else if(acceptPunct(LPAREN))
+    {
+      unget();
+      type->t = parse<TupleTypeNT>();
+    }
+    else if(lookAhead(0)->getType() == IDENTIFIER)
+    {
+      //must be a member
+      type->t = parse<Member>();
+    }
+    else
+    {
+      //unexpected token type
+      err("expected type");
     }
     //check for square bracket pairs after, indicating array type
-    while(true)
+    while(acceptPunct(LBRACKET))
     {
-      if(!acceptPunct(LBRACKET))
-        break;
       expectPunct(RBRACKET);
       type->arrayDims++;
     }
@@ -197,32 +251,99 @@ namespace Parser
   template<>
   StatementNT* parse<StatementNT>()
   {
+    //Get some possibilities for the next token
+    Keyword* keyword = dynamic_cast<Keyword*>(lookAhead(0));
+    Punct* punct = dynamic_cast<Punct*>(lookAhead(0));
+    Ident* ident = dynamic_cast<Ident*>(lookAhead(0));
     StatementNT* s = new StatementNT;
-    if((s->s = parseOptional<ScopedDecl>()) ||
-        (s->s = parseOptional<VarAssign>()) ||
-        (s->s = parseOptional<PrintNT>()) ||
-        (s->s = parseOptional<CallNT>()) ||
-        (s->s = parseOptional<Block>()) ||
-        (s->s = parseOptional<Return>()) ||
-        (s->s = parseOptional<Continue>()) ||
-        (s->s = parseOptional<Break>()) ||
-        (s->s = parseOptional<Switch>()) ||
-        (s->s = parseOptional<For>()) ||
-        (s->s = parseOptional<While>()) ||
-        (s->s = parseOptional<If>()) ||
-        (s->s = parseOptional<Assertion>()) ||
-        (s->s = parseOptional<EmptyStatement>()))
-    {}
-    else if((s->s = parseOptional<CallNT>()))
+    if(keyword)
     {
-      //call doesn't include the semicolon
-      expectPunct(SEMICOLON);
+      switch(keyword->kw)
+      {
+        case PRINT:
+          s->s = parse<PrintNT>(); break;
+        case RETURN:
+          s->s = parse<Return>(); break;
+        case CONTINUE:
+          s->s = parse<Continue>(); break;
+        case BREAK:
+          s->s = parse<Break>(); break;
+        case SWITCH:
+          s->s = parse<Switch>(); break;
+        case FOR:
+          s->s = parse<For>(); break;
+        case WHILE:
+          s->s = parse<While>(); break;
+        case IF:
+          s->s = parse<If>(); break;
+        case ASSERTION:
+          s->s = parse<Assertion>(); break;
+        default: err("expected statement");
+      }
+      return s;
+    }
+    else if(punct && punct->val == LBRACE)
+    {
+      s->s = parse<Block>();
+      return s;
+    }
+    //at this point, need to distinguish between ScopedDecl, VarAssign and Call (as Expr12)
+    //All 3 can begin as Member
+    //If next token is Ident, parse a whole Member
+    //  If token after that is also Ident, is a ScopedDecl
+    //Otherwise, definitely not a ScopedDecl
+    //  Parse an Expr12
+    //  If next token is '=', is a VarAssign
+    //  Otherwise, must be a Call (check tail)
+    Expr12* leadingExpr12;
+    if(ident)
+    {
+      //this must succeed when starting with an Ident
+      Member* mem = parse<Member>();
+      //now peek at next token
+      Token* afterMem = lookAhead(0);
+      Oper* amOp = dynamic_cast<Oper*>(afterMem);
+      Punct* amPunct = dynamic_cast<Punct*>(afterMem);
+      if(afterMem->type == IDENTIFIER)
+      {
+        //definitely have a VarDecl
+        //parse it, starting with the member as a type
+        s->s = parseScopedDeclGivenMember(mem);
+        return s;
+      }
+      else
+      {
+        //parse Expr12 using member
+        leadingExpr12 = parseExpr12GivenMember(mem);
+      }
     }
     else
     {
-      err("invalid statement");
+      //Don't have a member, but parse an Expr12
+      leadingExpr12 = parse<Expr12>();
     }
-    return s;
+    //if '=' after Expr12, is an assign
+    //if Expr12 tail back is CallOp, is a call
+    //otherwise is an error
+    if(acceptOper(ASSIGN))
+    {
+      ExpressionNT* rhs = parse<ExpressionNT>();
+      VarAssign* va = new VarAssign;
+      va->target = leadingExpr12;
+      va->rhs = rhs;
+      s->s = va;
+      return s;
+    }
+    else if(leadingExpr12->tail.size() && leadingExpr12->tail.back()->e.is<CallOp*>())
+    {
+      //call
+      s->s = leadingExpr12;
+      return s;
+    }
+    //parsing leadingExpr12 must have succeeded, so give
+    //error message knowing that there was some valid expression there
+    err("expected call or assignment, but got some other expression");
+    return nullptr;
   }
 
   template<>
@@ -340,21 +461,12 @@ namespace Parser
   }
 
   template<>
-  ForArray* parse<ForArray>()
-  {
-    ForArray* fa = new ForArray;
-    fa->container = parse<ExpressionNT>();
-    return fa;
-  }
-
-  template<>
   For* parse<For>()
   {
     For* f = new For;
     if((f->f = parseOptional<ForC>()) ||
         (f->f = parseOptional<ForRange1>()) ||
-        (f->f = parseOptional<ForRange2>()) ||
-        (f->f = parseOptional<ForArray>()))
+        (f->f = parseOptional<ForRange2>()))
     {
       f->body = parseBlockWrappedStatement();
     }
@@ -406,8 +518,9 @@ namespace Parser
   {
     TestDecl* t = new TestDecl;
     expectKeyword(TEST);
-    t->call = parse<CallNT>();
-    expectPunct(SEMICOLON);
+    //test statement is executed, and the test
+    //passes if no assertions fail
+    t->stmt = parse<StatementNT*>();
     return t;
   }
 
@@ -490,6 +603,7 @@ namespace Parser
     {
       err("invalid operator for variable assignment/update: " + operatorTable[otype]);
     }
+    expectPunct(SEMICOLON);
     switch(otype)
     {
       case ASSIGN:
@@ -614,32 +728,21 @@ namespace Parser
   }
 
   template<>
-  CallNT* parse<CallNT>()
-  {
-    CallNT* c = new CallNT;
-    c->callable = parse<Member>();
-    expectPunct(LPAREN);
-    c->args = parseSomeCommaSeparated<ExpressionNT>();
-    expectPunct(RPAREN);
-    return c;
-  }
-
-  template<>
   Arg* parse<Arg>()
   {
     Arg* a = new Arg;
-    a->type = parse<TypeNT>();
-    Ident* name = (Ident*) accept(IDENTIFIER);
-    if(name)
-    {
-      a->haveName = true;
-      a->name = name->name;
-    }
-    else
-    {
-      a->haveName = false;
-    }
+    a->matched = acceptOper(MATCH);
+    a->expr = parse<ExpressionNT>();
     return a;
+  }
+
+  template<>
+  Parameter* parse<Parameter>()
+  {
+    Parameter* p = new Parameter;
+    p->type = parse<TypeNT>();
+    p->name = (Ident*) expect(IDENTIFIER);
+    return p;
   }
 
   template<>
@@ -766,7 +869,9 @@ namespace Parser
     UnionDecl* vd = new UnionDecl;
     expectKeyword(UNION);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
+    expectPunct(LBRACE);
     vd->types = parseSomeCommaSeparated<TypeNT>();
+    expectPunct(RBRACE);
     return vd;
   }
 
@@ -806,9 +911,9 @@ namespace Parser
   StructLit* parse<StructLit>()
   {
     StructLit* sl = new StructLit;
-    expectPunct(LBRACE);
+    expectPunct(LBRACKET);
     sl->vals = parseSomeCommaSeparated<ExpressionNT>();
-    expectPunct(RBRACE);
+    expectPunct(RBRACKET);
     return sl;
   }
 
@@ -832,6 +937,8 @@ namespace Parser
   template<>
   TraitType* parse<TraitType>()
   {
+    // <ident> : <trait1, trait2, ... traitN>
+    // Given the ':', there must be one or more trait names
     TraitType* tt = new TraitType;
     tt->localName = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
@@ -977,8 +1084,15 @@ namespace Parser
   Expr1* parse<Expr1>()
   {
     Expr1* e1 = new Expr1;
-    e1->head = parse<Expr2>();
-    e1->tail = parseSome<Expr1RHS>();
+    if(acceptKeyword(ARRAY))
+    {
+      e1->e = parse<NewArrayNT*>();
+    }
+    else
+    {
+      e1->e.head = parse<Expr2>();
+      e1->tail = parseSome<Expr1RHS>();
+    }
     return e1;
   }
 
@@ -1201,43 +1315,115 @@ namespace Parser
   Expr12* parse<Expr12>()
   {
     Expr12* e12 = new Expr12;
-    if(acceptKeyword(keywordMap["array"]))
+    Token* next = lookAhead(0);
+    switch(next->type)
     {
+      case PUNCTUATION:
+      {
+        Punct* punct = (Punct*) next;
+        if(next->val == LPAREN)
+        {
+          //expression in parentheses
+          getNext();
+          e12->e = parse<ExpressionNT>();
+          expectPunct(RPAREN);
+        }
+        else if(next->val == LBRACKET)
+        {
+          //struct lit
+          e12->e = parse<StructLit>();
+        }
+        else
+        {
+          //nothing else valid
+          err("invalid punctuation in expression");
+        }
+        break;
+      }
+      case KEYWORD:
+      {
+        Keyword* kw = (Keyword*) next;
+        if(kw->kw == TRUE)
+          e12->e = new BoolLit(true);
+        else if(kw->kw == FALSE)
+          e12->e = new BoolLit(true);
+        else
+          err("invalid keyword in expression");
+        break;
+      }
+      case INT_LITERAL:
+        e12->e = (IntLit*) getNext();
+        break;
+      case FLOAT_LITERAL:
+        e12->e = (FloatLit*) getNext();
+        break;
+      case CHAR_LITERAL:
+        e12->e = (CharLit*) getNext();
+        break;
+      case STRING_LITERAL:
+        e12->e = (StrLit*) getNext();
+        break;
+      case IDENTIFIER:
+        e12->e = (Ident*) getNext();
+        break;
+      default: err("unexpected token in expression");
     }
-    else
+    parseExpr12Tail(e12);
+    return e12;
+  }
+
+  void parseExpr12Tail(Expr12* head)
+  {
+    Punct lparen(LPAREN);
+    while(true)
     {
-      if(acceptPunct(LPAREN))
-      {
-        //any expression inside parentheses
-        e12->e = parse<ExpressionNT>();
-        expectPunct(RPAREN);
-      }
-      else if(
-          !(e12->e = (IntLit*) accept(INT_LITERAL)) &&
-          !(e12->e = (CharLit*) accept(CHAR_LITERAL)) &&
-          !(e12->e = (StrLit*) accept(STRING_LITERAL)) &&
-          !(e12->e = (FloatLit*) accept(FLOAT_LITERAL)) &&
-          !(e12->e = parseOptional<BoolLit>()) &&
-          !(e12->e = parseOptional<Member>()) &&
-          !(e12->e = parseOptional<StructLit>()) &&
-          !(e12->e = parseOptional<CallNT>()))
-      {
-        err("invalid expression");
-      }
-      //check for array indexing
       if(acceptPunct(LBRACKET))
       {
-        Expr12::ArrayIndex ai;
-        //previously parsed expr12 is the array/tuple expression
-        ai.arr = e12;
-        ai.index = parse<ExpressionNT>();
-        Expr12* outer = new Expr12;
-        outer->e = ai;
-        expectPunct(RBRACKET);
-        return outer;
+        //"[ Expr ]"
+        e12->tail.push_back(new Expr12RHS);
+        e12->tail.back()->e = parse<ExpressionNT>();
+      }
+      else if(acceptPunct(DOT))
+      {
+        //". Ident"
+        e12->tail.push_back(new Expr12RHS);
+        e12->tail.back()->e = (Ident*) expect(IDENTIFIER);
+      }
+      else if(lookAhead(0)->compareTo(&lparen))
+      {
+        //"( Args )" - aka a CallOp
+        e12->tail.push_back(new Expr12RHS);
+        e12->tail.back()->e = parse<CallOp>();
       }
     }
-    return e12;
+  }
+
+  Expr12* parseExpr12GivenMember(Member* mem)
+  {
+    //first, consume the member by using a chain of "member" operators
+    Expr12* e12 = new Expr12;
+    if(mem->head.size())
+    {
+      e12->e = head[0];
+      for(size_t i = 1; i < mem->head.size(); i++)
+      {
+        e12->tail.push_back(new Expr12RHS);
+        e12->tail.back()->e = mem->head[i];
+      }
+    }
+    e12->tail.push_back(new Expr12RHS);
+    e12->tail.back()->e = mem->tail;
+    parseExpr12Tail(e12);
+  }
+
+  template<>
+  CallOp* parse<CallOp>()
+  {
+    CallOp* co = new CallOp;
+    expectPunct(LPAREN);
+    Punct term(RPAREN);
+    co->args = parseStarComma<Arg>(term);
+    return co;
   }
 
   template<>
@@ -1357,24 +1543,21 @@ namespace Parser
       return (*tokens)[pos + ahead];
   }
 
-  void unget()
-  {
-    pos--;
-  }
-
   void err(string msg)
   {
-    string fullMsg = string("Parse error on line ") + to_string(getNext()->line) + ", col " + to_string(getNext()->col);
+    string fullMsg = string("Syntax error at line ") + to_string(getNext()->line) + ", column " + to_string(getNext()->col);
     if(msg.length())
       fullMsg += string(": ") + msg;
     else
       fullMsg += '.';
-    if(pos > deepest)
-    {
-      deepest = pos;
-      deepestErr = fullMsg;
-    }
-    throw ParseErr(deepestErr);
+    //display error and terminate
+    errAndQuit(fullMsg);
+  }
+
+  void unget()
+  {
+    if(pos > 0)
+      pos--;
   }
 }
 

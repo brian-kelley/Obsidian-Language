@@ -334,7 +334,31 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::Member*>())
   {
-    return new VarExpr(s, expr->e.get<Parser::Member*>());
+    auto member = expr->e.get<Parser::Member*>();
+    //lookup name
+    vector<string> ident = member->scopes;
+    ident.push_back(member->ident);
+    vector<string> remain;
+    Name name;
+    if(!(s->lookup(ident, name, remain)))
+    {
+      ERR_MSG("no variable named " << *member);
+    }
+    //name must be a variable
+    if(name.type != Name::VARIABLE)
+    {
+      ERR_MSG(*member << " is not a variable");
+    }
+    VarExpr* ve = new VarExpr(s, (Variable*) name.item);
+    if(remain.size())
+    {
+      //is really a member of a variable, so construct a StructMem
+      return new StructMem(s, ve, remain);
+    }
+    else
+    {
+      return ve;
+    }
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
@@ -342,7 +366,70 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::CallNT*>())
   {
-    return new CallExpr(s, expr->e.get<Parser::CallNT*>());
+    auto call = expr->e.get<Parser::CallNT*>();
+    //get argument list first, because that's common to all cases
+    vector<Expression*> args;
+    for(auto argAst : call->args)
+    {
+      args.push_back(getExpression(s, argAst));
+    }
+    vector<string> ident;
+    {
+      Parser::Member* subrName = call->callable;
+      ident = subrName->scopes;
+      ident.push_back(subrName->ident);
+    }
+    vector<string> remain;
+    Name name;
+    if(!(s->lookup(ident, name, remain)))
+    {
+      ERR_MSG("no subroutine named " << call->callable);
+    }
+    //name.type can be anything but only variable and subroutine are valid
+    if(name.type == Name::VARIABLE)
+    {
+      //method call
+      Expression* root = new VarExpr(s, (Variable*) name.item);
+      //the last element in remain must be the subroutine name
+      //anything before the last must be a struct member chain
+      string subrName = remain.back();
+      if(remain.size() > 1)
+      {
+        remain.pop_back();
+        root = new StructMem(s, root, remain);
+      }
+      //make sure root is in fact a struct
+      auto rootST = dynamic_cast<StructType*>(root->type);
+      if(!rootST)
+      {
+        ERR_MSG("cannot call method " << subrName << " on non-struct type " << root->type->getName());
+      }
+      //find the subroutine within struct scope, and make sure it is non-static
+      Name methodName;
+      vector<string> unused;
+      {
+        vector<string> temp(1, subrName);
+        if(!rootST->structScope->lookup(temp, methodName, unused))
+        {
+          ERR_MSG("struct type " << rootST->getName() << " has no member named " << subrName);
+        }
+      }
+      if(methodName.type != Name::SUBROUTINE)
+      {
+        ERR_MSG("struct type " << rootST->getName() << " member " << subrName << " is not a subroutine.");
+      }
+      return new MethodExpr(s, root, (Subroutine*) methodName.item, args);
+    }
+    else if(name.type == Name::SUBROUTINE)
+    {
+      //static call: easy, name already contains the Subroutine*
+      return new CallExpr(s, (Subroutine*) name.item, args);
+    }
+    else
+    {
+      ERR_MSG(call->callable << " is not a subroutine");
+      return NULL;
+    }
   }
   else if(expr->e.is<Parser::Expr12::ArrayIndex>())
   {
@@ -366,7 +453,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
 Expression::Expression(Scope* s)
 {
   scope = s;
-  //type is set by a subclass constructor
+  //type is set by subclass constructors
 }
 
 /**************
@@ -594,10 +681,21 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a) : Expression(s)
 
 Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
 {
-  this->ast = a;
   //get expressions for the index and the indexed object
-  group = getExpression(s, ast->arr);
-  index = getExpression(s, ast->index);
+  group = getExpression(s, a->arr);
+  index = getExpression(s, a->index);
+  semanticCheck();
+}
+
+Indexed::Indexed(Scope* s, Expression* grp, Expression* ind) : Expression(s)
+{
+  group = grp;
+  index = ind;
+  semanticCheck();
+}
+
+void Indexed::semanticCheck()
+{
   //Indexing a CompoundLiteral is not allowed at all
   //Indexing a Tuple (literal, variable or call) requires the index to be an IntLit
   //Anything else is assumed to be an array and then the index can be any integer expression
@@ -678,6 +776,49 @@ VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
   this->type = v->type;
 }
 
+/*************
+ * StructMem *
+ *************/
+
+StructMem::StructMem(Scope* s, Expression* base, vector<string>& names)
+{
+  //recursively walk members for all names
+  //at the same time, make sure the name is actually a data member
+  StructType* st = dynamic_cast<StructType*>(base->type);
+  if(!st)
+  {
+    ERR_MSG("error: type " << base->type->getName() << " is not a struct, so cannot access any named members");
+  }
+  for(size_t i = 0; i < names.size(); i++)
+  {
+    string& name = names[i];
+    bool foundName = false;
+    for(size_t j = 0; j < st->memberNames.size(); j++)
+    {
+      if(st->memberNames[i] == name)
+      {
+        memberIndices.push_back(j);
+        foundName = true;
+        break;
+      }
+    }
+    if(!foundName)
+    {
+      ERR_MSG("type " << st->getName() << " has no member named " << name);
+    }
+    else if(i != names.size() - 1)
+    {
+      //not the last name in chain, so find the next struct type
+      Type* next = st->members[memberIndices.back()];
+      st = dynamic_cast<StructType*>(next);
+      if(!st)
+      {
+        ERR_MSG("type " << next->getName() << " is not a struct, so cannot access any named members");
+      }
+    }
+  }
+}
+
 /************
  * NewArray *
  ************/
@@ -699,4 +840,10 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
     }
   }
 }
+
+/************
+ * NewArray *
+ ************/
+
+TempVar::TempVar(string id, Type* t, Scope* s) : Expression(s), ident(id) {}
 

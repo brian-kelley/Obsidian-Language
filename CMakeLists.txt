@@ -23,5 +23,6 @@ add_executable (onyx
   src/x86_Backend.cpp
   src/MiddleEndDebug.cpp
   src/AST_Printer.cpp
+  src/PoolAlloc.cpp
 )
 

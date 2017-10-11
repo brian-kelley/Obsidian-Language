@@ -1,26 +1,25 @@
 ---------------------
       TODO:
 ---------------------
--Delete tuple literals: the job can be done by compound literal
-  -Must allow compound literals to be lvalues
-  -Removes threat for parsing ambiguity
-  -Simplifies assignment in type checking and C gen
 -Unified name searching
   -Prevent name collision across multiple kinds of things (no overloading yet, but later)
+-Need to modify grammar
+-Expr12 might be a callable (first-class subroutines: functype/proctype as type for variable decl)
+  -generalize CallNT parsing to be "Expr12 ( Args )"
+-Will need to deal with methods in scopes 
+-Modify Expression and Subroutine middle end
+  -Call always parses as "Member ( Args )" (both expression and stmt)
+  -Expr 12 can parse as just Member
+  -In both cases, use Scope::lookup to find the actual root expression or subroutine
+    -As statement, this is just one subroutine call
+    -As expression, this can be an arbitrarily long chain of calls/indexing/member
+      -This will be a chain of Expressions in middle end
 -Actually make sure (in Subroutine) that the target of Assign statements in functions are in function scope (no side effects)
--Make sure that types are never recursive
-  -depth-first search through members (applies to structs, arrays and tuples)
 -Make sure alias types don't alias themselves
 -C backend: need to track value lifetimes
-  -Functions should all take primitives by value and string/all other types by pointer
-    -In middle end, keep track of which arguments get modified inside each subroutine
-  -malloc and free for array creations
-    -make sure leaks are impossible
-    -assigning to an array always frees existing dest array
-    -all arrays in scope are freed at end of scope
   -NO SEGFAULTS
     -in debug (default for now) build, runtime bounds checking for arrays (segfaults impossible)
-    -graceful program exit with error message for allocation failure
+    -graceful program exit with error message for malloc failure 
 
 ------------------------------
   DATA DEPENDENCY TRACKING:
@@ -28,9 +27,9 @@
 -Expressions are temporary unless they are variables, members or indices of variables
   -so data dependencies only matter for variables
 
----------------------
-    Much later:
----------------------
+--------------------------
+   After core language:
+--------------------------
 LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):
   -Term (stdin/stdout/formatting/parsing, commands)
   -Sys (File I/O, filesystem, sockets, time)
@@ -44,6 +43,6 @@ LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a
     -Keyboard: want both events and state checking
   -UI (nice libUI interface, or something similar from scratch?)
   -OpenAL (audio)
-  -zlib (compression)
+  -zlib or something better (compression)
   -Graphs (nice data structure, shortest path, finding cycles, reachability, etc)
 

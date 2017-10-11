@@ -9,6 +9,46 @@ int BlockScope::nextBlockIndex = 0;
 *   Scope & subclasses impl    *
 *******************************/
 
+template<> void Scope::addName(Scope* s)
+{
+  names[s->getLocalName()] = Name(s, Name::SCOPE);
+}
+
+template<> void Scope::addName(TypeSystem::StructType* s)
+{
+  names[s->getName()] = Name(s, Name::STRUCT);
+}
+
+template<> void Scope::addName(TypeSystem::UnionType* u)
+{
+  names[u->getName()] = Name(u, Name::UNION);
+}
+
+template<> void Scope::addName(TypeSystem::EnumType* e)
+{
+  names[e->getName()] = Name(e, Name::ENUM);
+}
+
+template<> void Scope::addName(TypeSystem::AliasType* a)
+{
+  names[a->getName()] = Name(a, Name::TYPEDEF);
+}
+
+template<> void Scope::addName(Variable* v)
+{
+  names[s->getName()] = Name(s, Name::VARIABLE);
+}
+
+template<> void Scope::addName(Subroutine* s)
+{
+  names[s->name] = Name(s, Name::SUBROUTINE);
+}
+
+/* template<> void Scope::addName(TypeSystem::Trait* t)
+{
+  names[t->name] = Name(s, Name::SUBROUTINE);
+} */
+
 Scope::Scope(Scope* parentIn)
 {
   parent = parentIn;
@@ -156,6 +196,56 @@ vector<Scope*> Scope::findSub(vector<string>& names)
   vector<Scope*> matches;
   findSubImpl(names, matches);
   return matches;
+}
+
+bool Scope::lookup(vector<string> names, Name& found, vector<string>& remain)
+{
+  //Rules for name lookup:
+  //  -find names in this scope or any parent, up to global
+  //  -In a scope, no name can shadow any names in scopes above
+  //    -so never ambiguous
+  for(Scope* start = this; start; start = start->parent)
+  {
+    Scope* search = start;
+    for(size_t i = 0; i < names.size(); i++)
+    {
+      auto it = search->names.find(names[i]);
+      if(it != search.end())
+      {
+        //found the next name in search
+        if(i == names.size() - 1)
+        {
+          //found the last name is the correct one
+          found = it->second;
+          //no remaining names
+          remain.resize(0);
+          return true;
+        }
+        else if(it->second.type != Name::SCOPE)
+        {
+          //found the first non-scope name, return it
+          found = it->second;
+          remain.clear();
+          for(size_t j = i + 1; j < names.size(); j++)
+          {
+            remain.push_back(names[j]);
+          }
+          return true;
+        }
+        else
+        {
+          //continue searching from scope it->second
+          search = (Scope*) it->second.item;
+        }
+      }
+      else
+      {
+        //name not found, look from a different start scope
+        break;
+      }
+    }
+  }
+  found = false;
 }
 
 /* ModuleScope */

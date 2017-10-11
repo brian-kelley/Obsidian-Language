@@ -303,14 +303,6 @@ namespace AstPrinter
       cout << "Upper bound:\n";
       printExpressionNT(forRange2->end, ind + indentLevel);
     }
-    else if(f->f.is<ForArray*>())
-    {
-      cout << "container\n";
-      auto& forArray = f->f.get<ForArray*>();
-      indent(ind + indentLevel);
-      cout << "Container:\n";
-      printExpressionNT(forArray->container, ind + indentLevel);
-    }
     indent(ind);
     cout << "Body:\n";
     printBlock(f->body, ind + indentLevel);

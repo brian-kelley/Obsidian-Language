@@ -43,14 +43,12 @@ int main(int argc, const char** argv)
   //Parse the global/root module
   Parser::Module* ast;
   TIMEIT("Parsing", ast = Parser::parseProgram(toks););
-  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*            Parse Tree            *\n";
     cout << "************************************\n";
     printAST(ast);
   });
-  */
   TIMEIT("Middle end", MiddleEnd::load(ast););
   /*
   DEBUG_DO({

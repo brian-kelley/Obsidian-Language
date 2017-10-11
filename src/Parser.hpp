@@ -1,12 +1,13 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "PoolAlloc.h"
 #include "Common.hpp"
 #include "Token.hpp"
 
 #include "variadic-variant/variant.h"
 
-//Use empty struct as default value in some variants
+//Use empty struct as default (first) value for variants (always trivially constructible)
 struct None{};
 struct BlockScope;
 typedef runtime_error ParseErr;
@@ -19,8 +20,9 @@ namespace Parser
 
   //Token stream & utilities
   extern size_t pos;                //token iterator
-  extern vector<Token*>* tokens;    //tokens from lexer
+  extern vector<Token*>* tokens;    //all tokens from lexer
 
+  void unget();                 //back up one token (no-op if at start of token string)
   bool accept(Token& t);
   Token* accept(int tokType);   //return NULL if tokType doesn't match next
   bool acceptKeyword(int type);
@@ -32,7 +34,6 @@ namespace Parser
   void expectOper(int type);
   void expectPunct(int type);
   Token* getNext();
-  void unget();
   Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
   void err(string msg = "");
 
@@ -50,7 +51,6 @@ namespace Parser
   struct ForC;
   struct ForRange1;
   struct ForRange2;
-  struct ForArray;
   struct While;
   struct If;
   struct Using;
@@ -61,7 +61,7 @@ namespace Parser
   struct VarDecl;
   struct VarAssign;
   struct PrintNT;
-  struct CallNT;
+  struct CallOp;
   struct Arg;
   struct FuncDecl;
   struct FuncDef;
@@ -100,15 +100,16 @@ namespace Parser
   struct Expr10RHS;
   struct Expr11;
   struct Expr12;
+  struct Expr12RHS;
   struct NewArrayNT;
 
-  struct Module
+  struct Module : public PoolAllocated
   {
     string name;
     vector<ScopedDecl*> decls;
   };
-
-  struct ScopedDecl
+  
+  struct ScopedDecl : public PoolAllocated
   {
     ScopedDecl() : decl(None()) {}
     variant<
@@ -127,7 +128,9 @@ namespace Parser
       TestDecl*> decl;
   };
 
-  struct TypeNT
+  ScopedDecl* parseScopedDeclGivenMember(Member* mem);
+
+  struct TypeNT : public PoolAllocated
   {
     TypeNT() : t(None()), arrayDims(0) {}
     enum Prim
@@ -159,7 +162,7 @@ namespace Parser
     int arrayDims;
   };
 
-  struct StatementNT
+  struct StatementNT : public PoolAllocated
   {
     StatementNT() : s(None()) {}
     variant<
@@ -181,28 +184,28 @@ namespace Parser
     StatementNT* stmt;
   };
 
-  struct Typedef
+  struct Typedef : public PoolAllocated
   {
     Typedef() : type(nullptr) {}
     TypeNT* type;
     string ident;
   };
 
-  struct Return
+  struct Return : public PoolAllocated
   {
     Return() : ex(nullptr) {}
     //optional returned expression (NULL if unused)
     ExpressionNT* ex;
   };
 
-  struct SwitchCase
+  struct SwitchCase : public PoolAllocated
   {
     SwitchCase() : matchVal(nullptr), s(nullptr) {}
     ExpressionNT* matchVal;
     StatementNT* s;
   };
 
-  struct Switch
+  struct Switch : public PoolAllocated
   {
     Switch() : sw(nullptr), defaultStatement(nullptr) {}
     ExpressionNT* sw;
@@ -215,19 +218,18 @@ namespace Parser
   struct Break {};
   struct EmptyStatement {};
 
-  struct For
+  struct For : public PoolAllocated
   {
     For() : f(None()), body(nullptr) {}
     variant<
       None,
       ForC*,
       ForRange1*,
-      ForRange2*,
-      ForArray*> f;
+      ForRange2*> f;
     Block* body;
   };
 
-  struct ForC
+  struct ForC : public PoolAllocated
   {
     ForC() : decl(nullptr), condition(nullptr), incr(nullptr) {}
     //for(decl; condition; incr) <body>
@@ -237,26 +239,20 @@ namespace Parser
     StatementNT* incr;
   };
 
-  struct ForRange1
+  struct ForRange1 : public PoolAllocated
   {
     ForRange1() : expr(nullptr) {}
     ExpressionNT* expr;
   };
 
-  struct ForRange2
+  struct ForRange2 : public PoolAllocated
   {
     ForRange2() : start(nullptr), end(nullptr) {}
     ExpressionNT* start;
     ExpressionNT* end;
   };
 
-  struct ForArray
-  {
-    ForArray() : container(nullptr) {}
-    ExpressionNT* container;
-  };
-
-  struct While
+  struct While : public PoolAllocated
   {
     While() : cond(nullptr), body(nullptr), scope(nullptr) {}
     ExpressionNT* cond;
@@ -264,7 +260,7 @@ namespace Parser
     BlockScope* scope;
   };
 
-  struct If
+  struct If : public PoolAllocated
   {
     If() : cond(nullptr), ifBody(nullptr), elseBody(nullptr) {}
     ExpressionNT* cond;
@@ -284,25 +280,25 @@ namespace Parser
      */
   };
 
-  struct Using
+  struct Using : public PoolAllocated
   {
     Using() : mem(nullptr) {}
     Member* mem;
   };
 
-  struct Assertion
+  struct Assertion : public PoolAllocated
   {
     Assertion() : expr(nullptr) {}
     ExpressionNT* expr;
   };
 
-  struct TestDecl
+  struct TestDecl : public PoolAllocated
   {
     TestDecl() : call(nullptr) {}
-    CallNT* call;
+    StatementNT* stmt;
   };
 
-  struct EnumItem
+  struct EnumItem : public PoolAllocated
   {
     EnumItem() : value(nullptr) {}
     string name;
@@ -311,19 +307,19 @@ namespace Parser
     IntLit* value;
   };
 
-  struct Enum
+  struct Enum : public PoolAllocated
   {
     string name;
     vector<EnumItem*> items;
   };
 
-  struct Block
+  struct Block : public PoolAllocated
   {
     vector<StatementNT*> statements;
     BlockScope* bs;
   };
 
-  struct VarDecl
+  struct VarDecl : public PoolAllocated
   {
     VarDecl() : type(nullptr), val(nullptr) {}
     //NULL if "auto"
@@ -337,50 +333,51 @@ namespace Parser
     bool isStatic;
   };
 
-  struct VarAssign
+  struct VarAssign : public PoolAllocated
   {
     VarAssign() : target(nullptr), rhs(nullptr) {}
-    //note: target must be an lvalue (this will be checked in middle end)
-    ExpressionNT* target;
+    //note: target must be an lvalue (checked in middle end)
+    //but all lvalues are Expr12 so that is used here
+    Expr12* target;
     ExpressionNT* rhs;
   };
 
-  struct PrintNT
+  struct PrintNT : public PoolAllocated
   {
     vector<ExpressionNT*> exprs;
   };
 
-  struct CallNT
-  {
-    CallNT() : callable(nullptr) {}
-    //name of func/proc
-    Member* callable;
-    vector<ExpressionNT*> args;
-  };
-
-  struct Arg
+  //Arg - used inside CallOp
+  struct Arg : public PoolAllocated
   {
     Arg() : type(nullptr) {}
-    TypeNT* type;
-    //arg name is optional in some contexts
-    bool haveName;
-    string name;
+    ExpressionNT* expr;
+    bool matched; //whether preceded by '@'
+    //'@' is a pseudo-operator with lower precedence than everything else
   };
 
-  struct FuncTypeNT
+  //Parameter - used by Func/Proc Def (not decl)
+  struct Parameter : public PoolAllocated
+  {
+    Parameter() : type(nullptr), name(nullptr) {}
+    TypeNT* type;
+    Ident* name;
+  };
+
+  struct FuncTypeNT : public PoolAllocated
   {
     FuncTypeNT() : retType(nullptr) {}
     TypeNT* retType;
     vector<Arg*> args;
   };
 
-  struct FuncDecl
+  struct FuncDecl : public PoolAllocated
   {
     string name;
     FuncTypeNT type;
   };
 
-  struct FuncDef
+  struct FuncDef : public PoolAllocated
   {
     FuncDef() : body(nullptr) {}
     string name;
@@ -388,7 +385,7 @@ namespace Parser
     Block* body;
   };
 
-  struct ProcTypeNT
+  struct ProcTypeNT : public PoolAllocated
   {
     ProcTypeNT() : retType(nullptr) {}
     bool nonterm;
@@ -396,13 +393,13 @@ namespace Parser
     vector<Arg*> args;
   };
 
-  struct ProcDecl
+  struct ProcDecl : public PoolAllocated
   {
     string name;
     ProcTypeNT type;
   };
 
-  struct ProcDef
+  struct ProcDef : public PoolAllocated
   {
     ProcDef() : body(nullptr) {}
     string name;
@@ -410,7 +407,7 @@ namespace Parser
     Block* body;
   };
 
-  struct StructMem
+  struct StructMem : public PoolAllocated
   {
     StructMem() : sd(nullptr) {}
     ScopedDecl* sd;
@@ -418,20 +415,20 @@ namespace Parser
     bool compose;
   };
 
-  struct StructDecl
+  struct StructDecl : public PoolAllocated
   {
     string name;
     vector<Member*> traits;
     vector<StructMem*> members;
   };
 
-  struct UnionDecl
+  struct UnionDecl : public PoolAllocated
   {
     string name;
     vector<TypeNT*> types;
   };
 
-  struct TraitDecl
+  struct TraitDecl : public PoolAllocated
   {
     string name;
     vector<variant<
@@ -440,18 +437,18 @@ namespace Parser
       ProcDecl*>> members;
   };
 
-  struct StructLit
+  struct StructLit : public PoolAllocated
   {
     vector<ExpressionNT*> vals;
   };
 
-  struct Member
+  struct Member : public PoolAllocated
   {
-    vector<string> scopes;
-    string ident;
+    vector<Ident*> head;
+    Ident* tail;
   };
 
-  struct TraitType
+  struct TraitType : public PoolAllocated
   {
     //trait types of the form "<localName>: <traitNames> <argName>"
     //i.e.: int f(T: Num, IO.Printable value)
@@ -459,18 +456,20 @@ namespace Parser
     vector<Member*> traits;
   };
 
-  struct TupleTypeNT
+  struct TupleTypeNT : public PoolAllocated
   {
     //cannot be empty
     vector<TypeNT*> members;
   };
 
-  struct BoolLit
+  struct BoolLit : public PoolAllocated
   {
+    BoolLit() : val(false) {}
+    BoolLit(bool v) : val(v) {}
     bool val;
   };
 
-  struct Expr1
+  struct Expr1 : public PoolAllocated
   {
     Expr1() : head(nullptr) {}
     Expr1(Expr2* e);
@@ -484,18 +483,20 @@ namespace Parser
     Expr1(Expr10* e);
     Expr1(Expr11* e);
     Expr1(Expr12* e12);
+    variant<Expr2*, NewArrayNT*> e;
     Expr2* head;
+    //note: if e.is<NewArrayNT*>, tail is empty and unused
     vector<Expr1RHS*> tail;
   };
 
-  struct Expr1RHS
+  struct Expr1RHS : public PoolAllocated
   {
     Expr1RHS() : rhs(nullptr) {}
     // || is only op
     Expr2* rhs;
   };
 
-  struct Expr2
+  struct Expr2 : public PoolAllocated
   {
     Expr2() : head(nullptr) {}
     Expr2(Expr3* e) : head(e) {}
@@ -504,14 +505,14 @@ namespace Parser
     vector<Expr2RHS*> tail;
   };
 
-  struct Expr2RHS
+  struct Expr2RHS : public PoolAllocated
   {
     Expr2RHS() : rhs(nullptr) {}
     // && is only op
     Expr3* rhs;
   };
 
-  struct Expr3
+  struct Expr3 : public PoolAllocated
   {
     Expr3() : head(nullptr) {}
     Expr3(Expr4* e) : head(e) {}
@@ -520,14 +521,14 @@ namespace Parser
     vector<Expr3RHS*> tail;
   };
 
-  struct Expr3RHS
+  struct Expr3RHS : public PoolAllocated
   {
     Expr3RHS() : rhs(nullptr) {}
     // | is only op
     Expr4* rhs;
   };
 
-  struct Expr4
+  struct Expr4 : public PoolAllocated
   {
     Expr4() : head(nullptr) {}
     Expr4(Expr5* e) : head(e) {}
@@ -536,14 +537,14 @@ namespace Parser
     vector<Expr4RHS*> tail;
   };
 
-  struct Expr4RHS
+  struct Expr4RHS : public PoolAllocated
   {
     Expr4RHS() : rhs(nullptr) {}
     // ^ is only op
     Expr5* rhs;
   };
 
-  struct Expr5
+  struct Expr5 : public PoolAllocated
   {
     Expr5() : head(nullptr) {}
     Expr5(Expr6* e) : head(e) {}
@@ -552,14 +553,14 @@ namespace Parser
     vector<Expr5RHS*> tail;
   };
 
-  struct Expr5RHS
+  struct Expr5RHS : public PoolAllocated
   {
     Expr5RHS() : rhs(nullptr) {}
     // & is only op
     Expr6* rhs;
   };
 
-  struct Expr6
+  struct Expr6 : public PoolAllocated
   {
     Expr6() : head(nullptr) {}
     Expr6(Expr7* e) : head(e) {}
@@ -568,14 +569,14 @@ namespace Parser
     vector<Expr6RHS*> tail;
   };
 
-  struct Expr6RHS
+  struct Expr6RHS : public PoolAllocated
   {
     Expr6RHS() : rhs(nullptr) {}
     int op; //CMPEQ or CMPNEQ
     Expr7* rhs;
   };
 
-  struct Expr7
+  struct Expr7 : public PoolAllocated
   {
     Expr7() : head(nullptr) {}
     Expr7(Expr8* e) : head(e) {}
@@ -584,14 +585,14 @@ namespace Parser
     vector<Expr7RHS*> tail;
   };
 
-  struct Expr7RHS
+  struct Expr7RHS : public PoolAllocated
   {
     Expr7RHS() : rhs(nullptr) {}
     int op;  //CMPL, CMPLE, CMPG, CMPGE
     Expr8* rhs;
   };
 
-  struct Expr8
+  struct Expr8 : public PoolAllocated
   {
     Expr8() : head(nullptr) {}
     Expr8(Expr9* e) : head(e) {}
@@ -600,14 +601,14 @@ namespace Parser
     vector<Expr8RHS*> tail;
   };
 
-  struct Expr8RHS
+  struct Expr8RHS : public PoolAllocated
   {
     Expr8RHS() : rhs(nullptr) {}
     int op; //SHL, SHR
     Expr9* rhs;
   };
 
-  struct Expr9
+  struct Expr9 : public PoolAllocated
   {
     Expr9() : head(nullptr) {}
     Expr9(Expr10* e) : head(e) {}
@@ -616,14 +617,14 @@ namespace Parser
     vector<Expr9RHS*> tail;
   };
 
-  struct Expr9RHS
+  struct Expr9RHS : public PoolAllocated
   {
     Expr9RHS() : rhs(nullptr) {}
     int op; //PLUS, SUB
     Expr10* rhs;
   };
 
-  struct Expr10
+  struct Expr10 : public PoolAllocated
   {
     Expr10() : head(nullptr) {}
     Expr10(Expr11* e) : head(e) {}
@@ -632,7 +633,7 @@ namespace Parser
     vector<Expr10RHS*> tail;
   };
 
-  struct Expr10RHS
+  struct Expr10RHS : public PoolAllocated
   {
     Expr10RHS() : rhs(nullptr) {}
     int op; //MUL, DIV, MOD
@@ -640,7 +641,7 @@ namespace Parser
   };
 
   //Expr11 can be Expr12 or <op>Expr11
-  struct Expr11
+  struct Expr11 : public PoolAllocated
   {
     Expr11() : e(None()) {}
     Expr11(Expr12* e12);
@@ -654,22 +655,16 @@ namespace Parser
       UnaryExpr> e;
   };
 
-  struct NewArrayNT
+  struct NewArrayNT : public PoolAllocated
   {
     TypeNT* elemType;
     vector<ExpressionNT*> dimensions;
   };
 
-  struct Expr12
+  struct Expr12 : public PoolAllocated
   {
     Expr12() : e(None()) {}
     Expr12(ExpressionNT* expr) : e(expr) {}
-    struct ArrayIndex
-    {
-      //arr[index]
-      Expr12* arr;
-      ExpressionNT* index;
-    };
     variant<
       None,
       IntLit*,
@@ -677,18 +672,38 @@ namespace Parser
       StrLit*,
       FloatLit*,
       BoolLit*,
-      ExpressionNT*,
-      Member*,
+      ExpressionNT*,      //for expression inside parentheses
       StructLit*,
-      CallNT*,
-      ArrayIndex,
-      NewArrayNT*> e;
-  }; 
+      Ident*> e;
+    vector<Expr12RHS*> tail;  //tail is a chain of 0 or more member acesses, array indices and member calls
+  };
+
+  void parseExpr12Tail(Expr12* head);
+  Expr12* parseExpr12GivenMember(Member* mem);
+
+  struct CallOp
+  {
+    //the arguments inside parens (each may have the match operator)
+    vector<Arg*> args;
+  };
+
+  struct Expr12RHS : public PoolAllocated
+  {
+    //to parse, get Member first, then if (...) seen is call, otherwise is member
+    Expr12RHS() : e(None()) {}
+    variant<
+      Ident*,      //struct member: ". Identifier"
+      CallOp*,      //call operator: "( Args )"
+      Expression*   //index operator: "[ Expr ]"
+        > e;
+  };
 
   //Parse a nonterminal of type NT
   template<typename NT>
   NT* parse();
 
+  //phasing out optional/speculative parsing and backtracking
+  /*
   template<typename NT>
   NT* parseOptional()
   {
@@ -706,54 +721,56 @@ namespace Parser
       return nt;
     }
   }
+  */
 
-  //Parse some NTs
+  //Parse zero or more nonterminals (NT*)
+  //Accept end token to stop
+  //  So all calls to parse<NT> must succeed
   template<typename NT>
-  vector<NT*> parseSome()
+  vector<NT*> parseStar(Token& end)
   {
     vector<NT*> nts;
-    while(true)
+    while(!accept(end))
     {
-      NT* nt = parseOptional<NT>();
-      if(!nt)
-      {
-        break;
-      }
-      else
-      {
-        nts.push_back(nt);
-      }
+      nts.push_back(parse<NT>());
     }
     return nts;
   }
 
-  //Parse some comma-separated NTs
+  //Parse 0 or more comma-separated nonterminals: "(NT(,NT)*)?"
+  //until end token is accepted
   template<typename NT>
-  vector<NT*> parseSomeCommaSeparated()
+  vector<NT*> parseStarComma(Token& end)
   {
     vector<NT*> nts;
-    while(true)
+    if(!accept(end))
     {
-      if(nts.size() == 0)
+      NT* nt = parseOptional<NT>();
+      if(nt)
       {
-        NT* nt = parseOptional<NT>();
-        if(nt)
+        nts.push_back(nt);
+        while(acceptPunct(COMMA))
         {
-          nts.push_back(nt);
-        }
-        else
-        {
-          break;
+          nts.push_back(parse<NT>());
         }
       }
-      else
-      {
-        if(!acceptPunct(COMMA))
-        {
-          break;
-        }
-        nts.push_back(parse<NT>());
-      }
+      expect(end);
+    }
+    return nts;
+  }
+
+  //Parse 1 or more comma-separated nonterminals "NT(,NT)*"
+  //  First nonterminal must succeed
+  //  As long as there is a comma, all subsequent nonterminals must also succeed
+  //    So no end token is necessary
+  template<typename NT>
+  vector<NT*> parsePlusComma()
+  {
+    vector<NT*> nts;
+    nts.push_back(parse<NT>());
+    while(acceptPunct(COMMA))
+    {
+      nts.push_back(parse<NT>());
     }
     return nts;
   }

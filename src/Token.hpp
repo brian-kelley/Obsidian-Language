@@ -100,7 +100,8 @@ enum
   CMPGE,
   ASSIGN,
   INC,
-  DEC
+  DEC,
+  MATCH
 };
 
 enum
@@ -133,7 +134,7 @@ enum
   NUM_TOKEN_TYPES
 };
 
-struct Token
+struct Token : public PoolAllocated
 {
   Token();
   virtual bool compareTo(Token* rhs) = 0;
