@@ -47,6 +47,7 @@ void errAndQuit(string message);
 bool runCommand(string command);
 
 #define ERR_MSG(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
+#define ERR_MSG_LOC(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
 
 #define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; exit(1);}
 

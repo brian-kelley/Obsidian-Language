@@ -46,11 +46,16 @@ struct CodeStream
       return '\0';
     return src[iter + ahead];
   }
+  void setNextTokenLoc()
+  {
+    nextTokLine = line;
+    nextTokCol = col;
+  }
   void addToken(Token* tok)
   {
+    tok->line = nextTokLine;
+    tok->col = nextTokCol;
     toks.push_back(tok);
-    toks.back()->line = line;
-    toks.back()->col = col;
   }
   //bool value is "eof?"
   operator bool()
@@ -70,10 +75,15 @@ struct CodeStream
   string& src;
   vector<Token*>& toks;
   size_t iter;
+  //current location in stream
   int line;
   int col;
+  //location in stream one source character ago
   int prevLine;
   int prevCol;
+  //location of the next token to be added
+  int nextTokLine;
+  int nextTokCol;
 };
 
 void lex(string& code, vector<Token*>& tokList)
@@ -83,6 +93,7 @@ void lex(string& code, vector<Token*>& tokList)
   //note: i is incremented various amounts depending on the tokens
   while(cs)
   {
+    cs.setNextTokenLoc();
     char c = cs.getNext();
     if(c == ' ' || c == '\t' || c == '\n')
     {

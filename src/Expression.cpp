@@ -3,6 +3,8 @@
 #include "Scope.hpp"
 #include "Subroutine.hpp"
 
+using namespace TypeSystem;
+
 /**********************
  * Expression loading *
  **********************/
@@ -23,27 +25,36 @@ template<> Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* a
 template<>
 Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
 {
-  //Get a list of the Expr2s
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
+  //Expr1 can either be an "array Type[dim1][dim2]...[dimN]"
+  //expression or a binary expr chain like the others
+  if(expr->e.is<Parser::NewArrayNT*>())
   {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
+    return new NewArray(s, expr->e.get<Parser::NewArrayNT*>());
   }
   else
   {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], LOR, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
+    //Get a list of the Expr2s
+    vector<Expression*> leaves;
+    leaves.push_back(getExpression(s, expr->head));
+    for(auto e : expr->tail)
     {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, LOR, leaves[i]);
+      leaves.push_back(getExpression(s, e->rhs));
     }
-    return chain;
+    if(leaves.size() == 1)
+    {
+      return leaves.front();
+    }
+    else
+    {
+      //build chain of BinaryAriths that evaluates left to right
+      BinaryArith* chain = new BinaryArith(leaves[0], LOR, leaves[1]);
+      for(size_t i = 2; i < leaves.size(); i++)
+      {
+        //form another BinaryArith with root and expr2[i] as operands
+        chain = new BinaryArith(chain, LOR, leaves[i]);
+      }
+      return chain;
+    }
   }
 }
 
@@ -308,141 +319,94 @@ Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* expr)
 template<>
 Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
 {
+  Expression* root = nullptr;
   if(expr->e.is<IntLit*>())
   {
-    return new IntLiteral(expr->e.get<IntLit*>());
+    root = new IntLiteral(expr->e.get<IntLit*>());
   }
   else if(expr->e.is<FloatLit*>())
   {
-    return new FloatLiteral(expr->e.get<FloatLit*>());
+    root = new FloatLiteral(expr->e.get<FloatLit*>());
   }
   else if(expr->e.is<CharLit*>())
   {
-    return new CharLiteral(expr->e.get<CharLit*>());
+    root = new CharLiteral(expr->e.get<CharLit*>());
   }
   else if(expr->e.is<StrLit*>())
   {
-    return new StringLiteral(expr->e.get<StrLit*>());
+    root = new StringLiteral(expr->e.get<StrLit*>());
   }
   else if(expr->e.is<Parser::BoolLit*>())
   {
-    return new BoolLiteral(expr->e.get<Parser::BoolLit*>());
+    root = new BoolLiteral(expr->e.get<Parser::BoolLit*>());
   }
   else if(expr->e.is<Parser::ExpressionNT*>())
   {
-    return getExpression(s, expr->e.get<Parser::ExpressionNT*>());
+    root = getExpression(s, expr->e.get<Parser::ExpressionNT*>());
   }
   else if(expr->e.is<Parser::Member*>())
   {
     auto member = expr->e.get<Parser::Member*>();
     //lookup name
-    vector<string> ident = member->scopes;
-    ident.push_back(member->ident);
+    vector<string> ident;
+    for(auto id : member->head)
+    {
+      ident.push_back(id->name);
+    }
+    ident.push_back(member->tail->name);
     vector<string> remain;
     Name name;
     if(!(s->lookup(ident, name, remain)))
     {
       ERR_MSG("no variable named " << *member);
     }
-    //name must be a variable
-    if(name.type != Name::VARIABLE)
+    //name can be a variable or subroutine
+    if(name.type == Name::VARIABLE)
     {
-      ERR_MSG(*member << " is not a variable");
+      root = new VarExpr(s, (Variable*) name.item);
     }
-    VarExpr* ve = new VarExpr(s, (Variable*) name.item);
-    if(remain.size())
+    else if(name.type == Name::SUBROUTINE)
     {
-      //is really a member of a variable, so construct a StructMem
-      return new StructMem(s, ve, remain);
+      //expect tail to be 
     }
     else
     {
-      return ve;
+      ERR_MSG("name is not an expression");
     }
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
-    return new CompoundLiteral(s, expr->e.get<Parser::StructLit*>());
-  }
-  else if(expr->e.is<Parser::CallNT*>())
-  {
-    auto call = expr->e.get<Parser::CallNT*>();
-    //get argument list first, because that's common to all cases
-    vector<Expression*> args;
-    for(auto argAst : call->args)
-    {
-      args.push_back(getExpression(s, argAst));
-    }
-    vector<string> ident;
-    {
-      Parser::Member* subrName = call->callable;
-      ident = subrName->scopes;
-      ident.push_back(subrName->ident);
-    }
-    vector<string> remain;
-    Name name;
-    if(!(s->lookup(ident, name, remain)))
-    {
-      ERR_MSG("no subroutine named " << call->callable);
-    }
-    //name.type can be anything but only variable and subroutine are valid
-    if(name.type == Name::VARIABLE)
-    {
-      //method call
-      Expression* root = new VarExpr(s, (Variable*) name.item);
-      //the last element in remain must be the subroutine name
-      //anything before the last must be a struct member chain
-      string subrName = remain.back();
-      if(remain.size() > 1)
-      {
-        remain.pop_back();
-        root = new StructMem(s, root, remain);
-      }
-      //make sure root is in fact a struct
-      auto rootST = dynamic_cast<StructType*>(root->type);
-      if(!rootST)
-      {
-        ERR_MSG("cannot call method " << subrName << " on non-struct type " << root->type->getName());
-      }
-      //find the subroutine within struct scope, and make sure it is non-static
-      Name methodName;
-      vector<string> unused;
-      {
-        vector<string> temp(1, subrName);
-        if(!rootST->structScope->lookup(temp, methodName, unused))
-        {
-          ERR_MSG("struct type " << rootST->getName() << " has no member named " << subrName);
-        }
-      }
-      if(methodName.type != Name::SUBROUTINE)
-      {
-        ERR_MSG("struct type " << rootST->getName() << " member " << subrName << " is not a subroutine.");
-      }
-      return new MethodExpr(s, root, (Subroutine*) methodName.item, args);
-    }
-    else if(name.type == Name::SUBROUTINE)
-    {
-      //static call: easy, name already contains the Subroutine*
-      return new CallExpr(s, (Subroutine*) name.item, args);
-    }
-    else
-    {
-      ERR_MSG(call->callable << " is not a subroutine");
-      return NULL;
-    }
-  }
-  else if(expr->e.is<Parser::Expr12::ArrayIndex>())
-  {
-    return new Indexed(s, &(expr->e.get<Parser::Expr12::ArrayIndex>()));
-  }
-  else if(expr->e.is<Parser::NewArrayNT*>())
-  {
-    return new NewArray(s, expr->e.get<Parser::NewArrayNT*>());
+    root = new CompoundLiteral(s, expr->e.get<Parser::StructLit*>());
   }
   else
   {
+    //some option for the Expr12::e variant wasn't covered
     INTERNAL_ERROR;
     return NULL;
+  }
+}
+
+Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12)
+{
+  if(e12->e.is<Ident*>())
+  {
+    return new StructMem(s, root, e12->e.get<Ident*>()->name);
+  }
+  else if(e12->e.is<CallOp*>())
+  {
+    //method call (root is the object)
+    //first, make sure that root is a struct
+    auto st = dynamic_cast<StructType*>(root->type);
+    if(!st)
+    {
+      ERR_MSG("tried to call method on expression of a non-struct type");
+    }
+    auto co = e12->e.get<CallOp*>();
+    return new MethodExpr(s, root, Subroutine* subr, vector<Expression*>& args);
+  }
+  else if(e12->e.is<ExpressionNT*>())
+  {
+    return new ArrayIndex(s, root, getExpression(s, e12->e.get<ExpressionNT*>()));
   }
 }
 
@@ -483,13 +447,13 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     case LOR:
     case LAND:
     {
-      if(ltype != TypeSystem::primitives[TypeNT::BOOL] ||
-         rtype != TypeSystem::primitives[TypeNT::BOOL])
+      if(ltype != primitives[TypeNT::BOOL] ||
+         rtype != primitives[TypeNT::BOOL])
       {
         ERR_MSG("operands to || and && must both be booleans.");
       }
       //type of expression is always bool
-      this->type = TypeSystem::primitives[TypeNT::BOOL];
+      this->type = primitives[TypeNT::BOOL];
       break;
     }
     case BOR:
@@ -502,13 +466,13 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
         ERR_MSG("operands to bitwise operators must be integers.");
       }
       //the resulting type is the wider of the two integers, favoring unsigned
-      typedef TypeSystem::IntegerType IT;
+      typedef IntegerType IT;
       IT* lhsInt = dynamic_cast<IT*>(ltype);
       IT* rhsInt = dynamic_cast<IT*>(rtype);
       int size = std::max(lhsInt->size, rhsInt->size);
       bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
       //now look up the integer type with given size and signedness
-      this->type = TypeSystem::getIntegerType(size, isSigned);
+      this->type = getIntegerType(size, isSigned);
       break;
     }
     case PLUS:
@@ -526,12 +490,12 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //double > float, float > integers, unsigned > signed, wider integer > narrower integer
       if(ltype->isInteger() && rtype->isInteger())
       {
-        auto lhsInt = dynamic_cast<TypeSystem::IntegerType*>(ltype);
-        auto rhsInt = dynamic_cast<TypeSystem::IntegerType*>(rtype);
+        auto lhsInt = dynamic_cast<IntegerType*>(ltype);
+        auto rhsInt = dynamic_cast<IntegerType*>(rtype);
         int size = std::max(lhsInt->size, rhsInt->size);
         bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
         //now look up the integer type with given size and signedness
-        this->type = TypeSystem::getIntegerType(size, isSigned);
+        this->type = getIntegerType(size, isSigned);
       }
       else if(ltype->isInteger())
       {
@@ -545,8 +509,8 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       else
       {
         //both floats, so pick the bigger one
-        auto lhsFloat = dynamic_cast<TypeSystem::FloatType*>(ltype);
-        auto rhsFloat = dynamic_cast<TypeSystem::FloatType*>(rtype);
+        auto lhsFloat = dynamic_cast<FloatType*>(ltype);
+        auto rhsFloat = dynamic_cast<FloatType*>(rtype);
         if(lhsFloat->size >= rhsFloat->size)
         {
           this->type = ltype;
@@ -585,7 +549,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
       //here, use the canConvert that takes an expression
       if((ltype && ltype->canConvert(r)) || (rtype && rtype->canConvert(l)))
       {
-        this->type = TypeSystem::primitives[TypeNT::BOOL];
+        this->type = primitives[TypeNT::BOOL];
       }
       else
       {
@@ -617,40 +581,40 @@ void IntLiteral::setType()
   //when in doubt, don't use auto
   if(value > 0x7FFFFFFF)
   {
-    type = TypeSystem::primitives[Parser::TypeNT::ULONG];
+    type = primitives[Parser::TypeNT::ULONG];
   }
   else
   {
-    type = TypeSystem::primitives[Parser::TypeNT::UINT];
+    type = primitives[Parser::TypeNT::UINT];
   }
 }
 
 FloatLiteral::FloatLiteral(FloatLit* a) : Expression(NULL), value(a->val)
 {
-  type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
+  type = primitives[Parser::TypeNT::DOUBLE];
 }
 
 FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
 {
-  type = TypeSystem::primitives[Parser::TypeNT::DOUBLE];
+  type = primitives[Parser::TypeNT::DOUBLE];
 }
 
 StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
 {
   value = a->val;
-  type = TypeSystem::primitives[Parser::TypeNT::CHAR]->getArrayType(1);
+  type = primitives[Parser::TypeNT::CHAR]->getArrayType(1);
 }
 
 CharLiteral::CharLiteral(CharLit* a) : Expression(NULL)
 {
   value = a->val;
-  type = TypeSystem::primitives[Parser::TypeNT::CHAR];
+  type = primitives[Parser::TypeNT::CHAR];
 }
 
 BoolLiteral::BoolLiteral(Parser::BoolLit* a) : Expression(NULL)
 {
   value = a->val;
-  type = TypeSystem::primitives[Parser::TypeNT::BOOL];
+  type = primitives[Parser::TypeNT::BOOL];
 }
 
 /*******************
@@ -705,7 +669,7 @@ void Indexed::semanticCheck()
   }
   //note: ok if this is null
   //in all other cases, group must have a type now
-  if(auto tt = dynamic_cast<TypeSystem::TupleType*>(group->type))
+  if(auto tt = dynamic_cast<TupleType*>(group->type))
   {
     //group's type is a Tuple, whether group is a literal, var or call
     //make sure the index is an IntLit
@@ -725,7 +689,7 @@ void Indexed::semanticCheck()
       ERR_MSG("Tuple subscript must be an integer constant.");
     }
   }
-  else if(auto at = dynamic_cast<TypeSystem::ArrayType*>(group->type))
+  else if(auto at = dynamic_cast<ArrayType*>(group->type))
   {
     //group must be an array
     type = at->subtype;
@@ -825,7 +789,7 @@ StructMem::StructMem(Scope* s, Expression* base, vector<string>& names)
 
 NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
 {
-  auto elemType = TypeSystem::lookupType(ast->elemType, s);
+  auto elemType = lookupType(ast->elemType, s);
   this->type = elemType->getArrayType(ast->dimensions.size());
   for(auto dim : ast->dimensions)
   {
@@ -841,9 +805,22 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
   }
 }
 
-/************
- * NewArray *
- ************/
+/*************
+ * MatchExpr *
+ *************/
+
+MatchExpr::MatchExpr(Scope* s, Expression* e) : Expression(s)
+{
+  if(!dynamic_cast<UnionType*>(e->type))
+  {
+    ERR_MSG("matched expression (preceded by @) must be a union");
+  }
+  expr = e;
+}
+
+/***********
+ * TempVar *
+ ***********/
 
 TempVar::TempVar(string id, Type* t, Scope* s) : Expression(s), ident(id) {}
 

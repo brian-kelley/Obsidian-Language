@@ -1,6 +1,8 @@
 #ifndef POOLALLOC_H
 #define POOLALLOC_H
 
+#include "Common.hpp"
+
 void* oalloc(size_t bytes);
 
 //Base class that uses extremely fast pool allocator for new

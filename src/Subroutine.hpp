@@ -76,8 +76,10 @@ struct Assign : public Statement
 
 struct CallStmt : public Statement
 {
-  CallStmt(Parser::CallNT* c, BlockScope* s);
+  //Ctor for when it is known that Expr12 is a call
+  CallStmt(Parser::Expr12* call, BlockScope* s);
   Procedure* called;
+  Expression* base; //null for static call
   //a standalone procedure call just has arguments
   vector<Expression*> args;
 };

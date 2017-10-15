@@ -221,7 +221,7 @@ namespace Parser
       unget();
       type->t = parse<TupleTypeNT>();
     }
-    else if(lookAhead(0)->getType() == IDENTIFIER)
+    else if(lookAhead()->getType() == IDENTIFIER)
     {
       //must be a member
       type->t = parse<Member>();
@@ -252,9 +252,10 @@ namespace Parser
   StatementNT* parse<StatementNT>()
   {
     //Get some possibilities for the next token
-    Keyword* keyword = dynamic_cast<Keyword*>(lookAhead(0));
-    Punct* punct = dynamic_cast<Punct*>(lookAhead(0));
-    Ident* ident = dynamic_cast<Ident*>(lookAhead(0));
+    Token* next = lookAhead();
+    Keyword* keyword = dynamic_cast<Keyword*>(next);
+    Punct* punct = dynamic_cast<Punct*>(next);
+    Ident* ident = dynamic_cast<Ident*>(next);
     StatementNT* s = new StatementNT;
     if(keyword)
     {
@@ -1087,11 +1088,18 @@ namespace Parser
     if(acceptKeyword(ARRAY))
     {
       e1->e = parse<NewArrayNT*>();
+      //no tail for NewArrayNT (not compatible with any operands)
     }
     else
     {
       e1->e.head = parse<Expr2>();
-      e1->tail = parseSome<Expr1RHS>();
+      //check whether parse<Expr1RHS>() should succeed
+      Token* next = lookAhead();
+      while(next->type == OPERATOR && ((Oper*) next)->op == LOR)
+      {
+        e1->tail.push_back(parse<Expr1RHS>());
+        next = lookAhead();
+      }
     }
     return e1;
   }
@@ -1099,7 +1107,7 @@ namespace Parser
   template<>
   Expr1RHS* parse<Expr1RHS>()
   {
-    Expr1RHS* e1r =new Expr1RHS;
+    Expr1RHS* e1r = new Expr1RHS;
     expectOper(LOR);
     e1r->rhs = parse<Expr2>();
     return e1r;
@@ -1108,9 +1116,14 @@ namespace Parser
   template<>
   Expr2* parse<Expr2>()
   {
+    //
     Expr2* e2 = new Expr2;
-    e2->head = parse<Expr3>();
-    e2->tail = parseSome<Expr2RHS>();
+    Token* next = lookAhead();
+    while(next->type == OPERATOR && ((Oper*) next)->op == LAND)
+    {
+      e2->tail.push_back(parse<Expr2RHS>());
+      next = lookAhead();
+    }
     return e2;
   }
 
@@ -1128,7 +1141,12 @@ namespace Parser
   {
     Expr3* e3 = new Expr3;
     e3->head = parse<Expr4>();
-    e3->tail = parseSome<Expr3RHS>();
+    Token* next = lookAhead();
+    while(next->type == OPERATOR && ((Oper*) next)->op == BOR)
+    {
+      e3->tail.push_back(parse<Expr3RHS>());
+      next = lookAhead();
+    }
     return e3;
   }
 
@@ -1146,7 +1164,12 @@ namespace Parser
   {
     Expr4* e4 = new Expr4;
     e4->head = parse<Expr5>();
-    e4->tail = parseSome<Expr4RHS>();
+    Token* next = lookAhead();
+    while(next->type == OPERATOR && ((Oper*) next)->op == BXOR)
+    {
+      e4->tail.push_back(parse<Expr4RHS>());
+      next = lookAhead();
+    }
     return e4;
   }
 
@@ -1164,7 +1187,12 @@ namespace Parser
   {
     Expr5* e5 = new Expr5;
     e5->head = parse<Expr6>();
-    e5->tail = parseSome<Expr5RHS>();
+    Token* next = lookAhead();
+    while(next->type == OPERATOR && ((Oper*) next)->op == BAND)
+    {
+      e5->tail.push_back(parse<Expr5RHS>());
+      next = lookAhead();
+    }
     return e5;
   }
 
@@ -1182,7 +1210,12 @@ namespace Parser
   {
     Expr6* e6 = new Expr6;
     e6->head = parse<Expr7>();
-    e6->tail = parseSome<Expr6RHS>();
+    Token* next = lookAhead();
+    while(next->type == OPERATOR && (((Oper*) next)->op == CMPEQ || ((Oper*) next)->op == CMPNEQ))
+    {
+      e6->tail.push_back(parse<Expr6RHS>());
+      next = lookAhead();
+    }
     return e6;
   }
 
@@ -1205,6 +1238,12 @@ namespace Parser
     Expr7* e7 = new Expr7;
     e7->head = parse<Expr8>();
     e7->tail = parseSome<Expr7RHS>();
+    Oper* next = dynamic_cast<Oper*>(lookAhead());
+    while(next && (next->op == CMPL || next->op == CMPLE || next->op == CMPG || next->op == CMPGE))
+    {
+      e7->tail.push_back(parse<Expr7RHS>());
+      next = dynamic_cast<Oper*>(lookAhead());
+    }
     return e7;
   }
 
@@ -1227,7 +1266,12 @@ namespace Parser
   {
     Expr8* e8 = new Expr8;
     e8->head = parse<Expr9>();
-    e8->tail = parseSome<Expr8RHS>();
+    Oper* next = dynamic_cast<Oper*>(lookAhead());
+    while(next && (next->op == SHL || next->op == SHR))
+    {
+      e8->tail.push_back(parse<Expr8RHS>());
+      next = dynamic_cast<Oper*>(lookAhead());
+    }
     return e8;
   }
 
@@ -1249,7 +1293,12 @@ namespace Parser
   {
     Expr9* e9 = new Expr9;
     e9->head = parse<Expr10>();
-    e9->tail = parseSome<Expr9RHS>();
+    Oper* next = dynamic_cast<Oper*>(lookAhead());
+    while(next && (next->op == PLUS || next->op == SUB))
+    {
+      e9->tail.push_back(parse<Expr9RHS>());
+      next = dynamic_cast<Oper*>(lookAhead());
+    }
     return e9;
   }
 
@@ -1271,7 +1320,12 @@ namespace Parser
   {
     Expr10* e10 = new Expr10;
     e10->head = parse<Expr11>();
-    e10->tail = parseSome<Expr10RHS>();
+    Oper* next = dynamic_cast<Oper*>(lookAhead());
+    while(next && (next->op == MUL || next->op == DIV || next->op == MOD))
+    {
+      e10->tail.push_back(parse<Expr10RHS>());
+      next = dynamic_cast<Oper*>(lookAhead());
+    }
     return e10;
   }
 
@@ -1292,13 +1346,9 @@ namespace Parser
   Expr11* parse<Expr11>()
   {
     Expr11* e11 = new Expr11;
-    Oper* oper = (Oper*) accept(OPERATOR);
+    Oper* oper = accept(OPERATOR);
     if(oper)
     {
-      if(oper->op != SUB && oper->op != LNOT && oper->op != BNOT)
-      {
-        ERR_MSG('\"' << oper->getStr() << "\" is an invalid unary operator.");
-      }
       Expr11::UnaryExpr ue;
       ue.op = oper->op;
       ue.rhs = parse<Expr11>();
@@ -1324,7 +1374,7 @@ namespace Parser
         if(next->val == LPAREN)
         {
           //expression in parentheses
-          getNext();
+          accept();
           e12->e = parse<ExpressionNT>();
           expectPunct(RPAREN);
         }
@@ -1352,19 +1402,19 @@ namespace Parser
         break;
       }
       case INT_LITERAL:
-        e12->e = (IntLit*) getNext();
+        e12->e = accept(INT_LITERAL);
         break;
       case FLOAT_LITERAL:
-        e12->e = (FloatLit*) getNext();
+        e12->e = accept(FLOAT_LITERAL);
         break;
       case CHAR_LITERAL:
-        e12->e = (CharLit*) getNext();
+        e12->e = accept(CHAR_LITERAL);
         break;
       case STRING_LITERAL:
-        e12->e = (StrLit*) getNext();
+        e12->e = accept(STRING_LITERAL);
         break;
       case IDENTIFIER:
-        e12->e = (Ident*) getNext();
+        e12->e = accept(IDENTIFIER);
         break;
       default: err("unexpected token in expression");
     }
@@ -1389,7 +1439,7 @@ namespace Parser
         e12->tail.push_back(new Expr12RHS);
         e12->tail.back()->e = (Ident*) expect(IDENTIFIER);
       }
-      else if(lookAhead(0)->compareTo(&lparen))
+      else if(lookAhead()->compareTo(&lparen))
       {
         //"( Args )" - aka a CallOp
         e12->tail.push_back(new Expr12RHS);
@@ -1447,9 +1497,14 @@ namespace Parser
     return na;
   }
 
+  void accept()
+  {
+    pos++;
+  }
+
   bool accept(Token& t)
   {
-    bool res = getNext()->compareTo(&t);
+    bool res = lookAhead()->compareTo(&t);
     if(res)
       pos++;
     return res;
@@ -1457,7 +1512,7 @@ namespace Parser
 
   Token* accept(int tokType)
   {
-    Token* next = getNext();
+    Token* next = lookAhead();
     bool res = next->getType() == tokType;
     if(res)
     {
@@ -1488,7 +1543,7 @@ namespace Parser
 
   void expect(Token& t)
   {
-    Token* next = getNext();
+    Token* next = lookAhead();
     bool res = t.compareTo(next);
     if(res)
     {
@@ -1500,7 +1555,7 @@ namespace Parser
 
   Token* expect(int tokType)
   {
-    Token* next = getNext();
+    Token* next = lookAhead();
     bool res = next->getType() == tokType;
     if(res)
       pos++;
@@ -1527,7 +1582,7 @@ namespace Parser
     expect(p);
   }
 
-  Token* getNext()
+  Token* lookAhead()
   {
     if(pos >= tokens->size())
       return &PastEOF::inst;
@@ -1535,17 +1590,9 @@ namespace Parser
       return (*tokens)[pos];
   }
 
-  Token* lookAhead(int ahead)
-  {
-    if(pos + ahead >= tokens->size())
-      return &PastEOF::inst;
-    else
-      return (*tokens)[pos + ahead];
-  }
-
   void err(string msg)
   {
-    string fullMsg = string("Syntax error at line ") + to_string(getNext()->line) + ", column " + to_string(getNext()->col);
+    string fullMsg = string("Syntax error at line ") + to_string(lookAhead()->line) + ", column " + to_string(lookAhead()->col);
     if(msg.length())
       fullMsg += string(": ") + msg;
     else

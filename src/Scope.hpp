@@ -30,6 +30,7 @@ struct Name
     SUBROUTINE,
     VARIABLE
   };
+  Name() : item(nullptr), type(SCOPE) {}
   Name(void* ptr, TYPE t) : item(ptr), type(t) {}
   void* item;
   //All named declaration types

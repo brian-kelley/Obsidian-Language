@@ -33,6 +33,9 @@ struct NewArray;
 template<typename NT>
 Expression* getExpression(Scope* s, NT* expr);
 
+//apply a single Expr12RHS to the right of an expression
+Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12);
+
 struct UnaryArith : public Expression
 {
   //Precondition: ast->e is an Expr11::UnaryExpr
@@ -129,7 +132,7 @@ struct CompoundLiteral : public Expression
 
 struct Indexed : public Expression
 {
-  Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
+  //Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
   Indexed(Scope* s, Expression* grp, Expression* ind);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
@@ -145,6 +148,7 @@ struct CallExpr : public Expression
 {
   CallExpr(Scope* s, Subroutine* subr, vector<Expression*>& args);
   Subroutine* subr;
+  Expression* base;
   vector<Expression*> args;
   bool assignable()
   {
@@ -155,6 +159,7 @@ struct CallExpr : public Expression
 struct MethodExpr : public Expression
 {
   MethodExpr(Scope* s, Expression* thisObject, Subroutine* subr, vector<Expression*>& args);
+  Expression* thisObject;
   Subroutine* subr;
 };
 
@@ -173,8 +178,13 @@ struct VarExpr : public Expression
 struct StructMem : public Expression
 {
   StructMem(Scope* s, Expression* base, vector<string>& names);
+  StructMem(Scope* s, Expresssion* base, string member);
   Expression* base;           //base->type is always a StructType
   vector<int> memberIndices;  //index of the member in base->type->members
+  bool assignable()
+  {
+    return base->assignable();
+  }
 };
 
 struct NewArray : public Expression
@@ -185,6 +195,12 @@ struct NewArray : public Expression
   {
     return false;
   }
+};
+
+struct MatchExpr : public Expression
+{
+  MatchExpr(Scope* s, Expression* e);
+  Expression* expr;
 };
 
 //Temporary variable (only used in backend)

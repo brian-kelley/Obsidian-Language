@@ -1,8 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "PoolAlloc.h"
 #include "Common.hpp"
+#include "PoolAlloc.hpp"
 #include "Token.hpp"
 
 #include "variadic-variant/variant.h"
@@ -23,6 +23,7 @@ namespace Parser
   extern vector<Token*>* tokens;    //all tokens from lexer
 
   void unget();                 //back up one token (no-op if at start of token string)
+  void accept();                //accept any token
   bool accept(Token& t);
   Token* accept(int tokType);   //return NULL if tokType doesn't match next
   bool acceptKeyword(int type);
@@ -33,8 +34,7 @@ namespace Parser
   void expectKeyword(int type);
   void expectOper(int type);
   void expectPunct(int type);
-  Token* getNext();
-  Token* lookAhead(int ahead);  //get token ahead elements ahead iter (0 means next token)
+  Token* lookAhead();  //get the next token without advancing pos
   void err(string msg = "");
 
   //lots of mutual recursion in nonterminal structs so just forward-declare all of them
@@ -103,6 +103,19 @@ namespace Parser
   struct Expr12RHS;
   struct NewArrayNT;
 
+  struct ParseNode : public PoolAllocated
+  {
+    ParseNode() : line(0), col(0) {}
+    //set location, given the first token in the nonterminal
+    void setLoc(Token* t)
+    {
+      line = t->line;
+      col = t->col;
+    }
+    int line;
+    int col;
+  };
+
   struct Module : public PoolAllocated
   {
     string name;
@@ -170,7 +183,7 @@ namespace Parser
       ScopedDecl*,
       VarAssign*,
       PrintNT*,
-      CallNT*,
+      Expr12*,
       Block*,
       Return*,
       Continue*,
@@ -254,10 +267,9 @@ namespace Parser
 
   struct While : public PoolAllocated
   {
-    While() : cond(nullptr), body(nullptr), scope(nullptr) {}
+    While() : cond(nullptr), body(nullptr) {}
     ExpressionNT* cond;
     Block* body;
-    BlockScope* scope;
   };
 
   struct If : public PoolAllocated
@@ -294,7 +306,7 @@ namespace Parser
 
   struct TestDecl : public PoolAllocated
   {
-    TestDecl() : call(nullptr) {}
+    TestDecl() : stmt(nullptr) {}
     StatementNT* stmt;
   };
 
@@ -350,7 +362,7 @@ namespace Parser
   //Arg - used inside CallOp
   struct Arg : public PoolAllocated
   {
-    Arg() : type(nullptr) {}
+    Arg() : expr(nullptr), matched(false) {}
     ExpressionNT* expr;
     bool matched; //whether preceded by '@'
     //'@' is a pseudo-operator with lower precedence than everything else
@@ -692,9 +704,10 @@ namespace Parser
     //to parse, get Member first, then if (...) seen is call, otherwise is member
     Expr12RHS() : e(None()) {}
     variant<
-      Ident*,      //struct member: ". Identifier"
+      None,
+      Ident*,       //struct member: ". Identifier"
       CallOp*,      //call operator: "( Args )"
-      Expression*   //index operator: "[ Expr ]"
+      ExpressionNT* //index operator: "[ Expr ]"
         > e;
   };
 
@@ -745,7 +758,7 @@ namespace Parser
     vector<NT*> nts;
     if(!accept(end))
     {
-      NT* nt = parseOptional<NT>();
+      NT* nt = parse<NT>();
       if(nt)
       {
         nts.push_back(nt);
