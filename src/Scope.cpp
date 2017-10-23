@@ -281,7 +281,17 @@ BlockScope::BlockScope(Scope* par) : Scope(par), ast(nullptr), index(nextBlockIn
 
 string BlockScope::getLocalName()
 {
-  //TODO: prevent all other identifiers from having a name which could be confused as a block name
+  //note: Onyx identifiers can't begin with underscore, so if it ever
+  //matters this local name can't conflict with any other scope name
   return string("_B") + to_string(index);
+}
+
+/* TraitScope */
+
+TraitScope::TraitScope(Scope* par, Parser::TraitDecl* astIn) : Scope(par), ast(astIn) {}
+
+string TraitScope::getLocalName()
+{
+  return ast->name;
 }
 

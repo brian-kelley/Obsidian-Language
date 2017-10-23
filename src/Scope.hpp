@@ -10,7 +10,7 @@ namespace TypeSystem
   struct Type;
   struct FuncType;
   struct ProcType;
-  //struct Trait;
+  struct Trait;
 }
 
 struct Subroutine;
@@ -90,10 +90,19 @@ struct BlockScope : public Scope
   //constructor sets index automatically
   BlockScope(Scope* parent, Parser::Block* astIn);
   BlockScope(Scope* parent);
-  string getLocalName();
+  string getLocalName();  //local name uses index to produce a unique name
   Parser::Block* ast;
   int index;
   static int nextBlockIndex;
+};
+
+//Need a scope for traits so that T can be created locally as a type
+struct TraitScope : public Scope
+{
+  TraitScope(Scope* parent, Parser::TraitDecl* astIn);
+  string getLocalName();
+  Parser::TraitDecl* ast;
+  string name; //local name
 };
 
 #endif

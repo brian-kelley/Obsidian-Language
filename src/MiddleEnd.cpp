@@ -101,6 +101,14 @@ namespace MiddleEnd
       current->types.push_back(new TypeSystem::StructType(sd, current, sscope));
     }
 
+    void visitTrait(Scope* current, Parser::TraitDecl* td)
+    {
+      TraitScope* tscope = new TraitScope(current, td->name);
+      //Create the trait
+      current->traits.push_back(new TypeSystem::Trait(td, tscope));
+      //trait scope can't have child scopes, so done here
+    }
+
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
     {
       if(sd->decl.is<Parser::Enum*>())
@@ -131,12 +139,10 @@ namespace MiddleEnd
       {
         visitBlock(current, sd->decl.get<Parser::ProcDef*>()->body);
       }
-      /*
       else if(sd->decl.is<Parser::TraitDecl*>())
       {
-        new TypeSystem::Trait(sd->decl.get<Parser::TraitDecl*>(), current);
+        visitTrait(current, sd->decl.get<Parser::TraitDecl*>());
       }
-      */
     }
   }
 

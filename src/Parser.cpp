@@ -86,7 +86,7 @@ namespace Parser
     tokens = &toks;
     Module* globalModule = new Module;
     globalModule->name = "";
-    globalModule->decls = parseSome<ScopedDecl>(PastEOF());
+    globalModule->decls = parseStar<ScopedDecl>(PastEOF());
     if(pos != tokens->size())
     {
       //If not all tokens were used, there was a parse error
@@ -103,7 +103,7 @@ namespace Parser
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    m->decls = parseSome<ScopedDecl>(Punct(RBRACE));
+    m->decls = parseStar<ScopedDecl>(Punct(RBRACE));
     return m;
   }
 
@@ -208,10 +208,12 @@ namespace Parser
           type->t = TypeNT::Prim::VOID; break;
         case FUNCTYPE:
           unget();
-          type->t = parse<FuncTypeNT>(); break;
+          type->t = (SubroutineTypeNT*) parse<FuncTypeNT>(); break;
         case PROCTYPE:
           unget();
-          type->t = parse<ProcTypeNT>(); break;
+          type->t = (SubroutineTypeNT*) parse<ProcTypeNT>(); break;
+        case TTYPE:
+          type->t = TypeNT::TTypeNT; break;
         default:
           err("expected type");
       }
@@ -410,12 +412,21 @@ namespace Parser
     sw->sw = parse<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
-    sw->cases = parseSome<SwitchCase>();
+    //parse cases until either default or rbrace is found
+    Keyword defaultKW(DEFAULT);
+    Punct rbrace(RBRACE);
+    while(*lookAhead() != defaultKW && *lookAhead() != rbrace)
+    {
+      sw->cases.push_back(parse<SwitchCase>());
+    }
     if(acceptKeyword(DEFAULT))
     {
       expectPunct(COLON);
       sw->defaultStatement = parse<StatementNT>();
-      //otherwise, leave defaultStatment NULL
+    }
+    else
+    {
+      sw->defaultStatement = nullptr;
     }
     expectPunct(RBRACE);
     return sw;
@@ -544,7 +555,7 @@ namespace Parser
     expectKeyword(ENUM);
     e->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    e->items = parseSomeCommaSeparated<EnumItem>();
+    e->items = parsePlusComma<EnumItem>();
     expectPunct(RBRACE);
     return e;
   }
@@ -554,8 +565,8 @@ namespace Parser
   {
     Block* b = new Block;
     expectPunct(LBRACE);
-    b->statements = parseSome<StatementNT>();
-    expectPunct(RBRACE);
+    Punct rbrace(RBRACE);
+    b->statements = parseStar<StatementNT>(rbrace);
     b->bs = nullptr;
     return b;
   }
@@ -722,7 +733,7 @@ namespace Parser
     PrintNT* p = new PrintNT;
     expectKeyword(PRINT);
     expectPunct(LPAREN);
-    p->exprs = parseSomeCommaSeparated<ExpressionNT>();
+    p->exprs = parsePlusComma<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return p;
@@ -754,7 +765,8 @@ namespace Parser
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    fd->type.args = parseSomeCommaSeparated<Arg>();
+    Punct rparen(RPAREN);
+    fd->type.args = parseStarComma<Arg>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return fd;

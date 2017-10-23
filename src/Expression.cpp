@@ -367,7 +367,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     }
     else if(name.type == Name::SUBROUTINE)
     {
-      //expect tail to be 
+      //if first tail item is CallOp, generate 
     }
     else
     {
@@ -380,16 +380,27 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else
   {
-    //some option for the Expr12::e variant wasn't covered
+    //some option for the Expr12::e variant wasn't covered here (an error in the compiler)
     INTERNAL_ERROR;
-    return NULL;
   }
+  if(e12->tail.size())
+  {
+    //apply each rhs to e12 to get the final expression
+  }
+  return root;
 }
 
 Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12)
 {
   if(e12->e.is<Ident*>())
   {
+    //special case: <array>.len
+    //len is not a keyword so it's allowed for a non-array to have "len" as member
+    auto id = e12->e.get<Ident*>();
+    if(root->type && root->type->isArray() && id->name == "len")
+    {
+      return new ArrayLength(s, root);
+    }
     return new StructMem(s, root, e12->e.get<Ident*>()->name);
   }
   else if(e12->e.is<CallOp*>())
@@ -417,7 +428,7 @@ Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12)
 Expression::Expression(Scope* s)
 {
   scope = s;
-  //type is set by subclass constructors
+  //expression type is set by subclass constructors
 }
 
 /**************
@@ -481,7 +492,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     case DIV:
     case MOD:
     {
-      //TODO: warn on div by 0
+      //TODO: warn on div by 0 (when RHS is known at compile-time)
       if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
       {
         ERR_MSG("operands to arithmetic operators must be numbers.");
@@ -740,6 +751,22 @@ VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
   this->type = v->type;
 }
 
+/******************
+ * SubroutineExpr *
+ ******************/
+
+SubroutineExpr::SubroutineExpr(Scope* scope, Subroutine* s) : Expression(s)
+{
+  this->subr = s;
+  //expr type is the callable type for subr
+  bool pure = s->isPure();
+  StructType* owner = s->owner;
+  Type* returnType = s->retType; 
+  vector<Type*>& args = s->argTypes;
+  //find the type of the subroutine
+  type = CallableType::lookup(owner, pure, returnType, args);
+}
+
 /*************
  * StructMem *
  *************/
@@ -805,17 +832,14 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
   }
 }
 
-/*************
- * MatchExpr *
- *************/
+/***************
+ * ArrayLength *
+ ***************/
 
-MatchExpr::MatchExpr(Scope* s, Expression* e) : Expression(s)
+ArrayLength::ArrayLength(Scope* s, Expression* arr) : Expression(s)
 {
-  if(!dynamic_cast<UnionType*>(e->type))
-  {
-    ERR_MSG("matched expression (preceded by @) must be a union");
-  }
-  expr = e;
+  array = arr;
+  this->type = Type::primitives[TypeNT::UINT];
 }
 
 /***********

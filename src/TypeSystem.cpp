@@ -11,6 +11,7 @@ using namespace Parser;
 struct ModuleScope;
 
 extern ModuleScope* global;
+TType* TType::inst;
 
 namespace TypeSystem
 {
@@ -19,8 +20,10 @@ vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
+vector<CallableType*> callables;
 
 DeferredTypeLookup* typeLookup;
+DeferredTraitLookup* traitLookup;
 
 Type::Type(Scope* enclosingScope) : enclosing(enclosingScope) {}
 
@@ -77,8 +80,10 @@ void createBuiltinTypes()
   primNames["float"] = primitives[TypeNT::FLOAT];
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["void"] = primitives[TypeNT::VOID];
-  //string is visible to user as primitive, but is really just char[]
-  global->types.push_back(new AliasType("string", primitives[TypeNT::CHAR]->getArrayType(1), global));
+  //string is a builtin alias for char[] (not a primitive)
+  global->types.push_back(new AliasType(
+        "string", primitives[TypeNT::CHAR]->getArrayType(1), global));
+  TType::inst = new TType;
   global->types.push_back(new AliasType("i8", primitives[TypeNT::BYTE], global));
   global->types.push_back(new AliasType("u8", primitives[TypeNT::UBYTE], global));
   global->types.push_back(new AliasType("i16", primitives[TypeNT::SHORT], global));
@@ -164,6 +169,24 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
     tuples.push_back(newTuple);
     return newTuple;
   }
+  else if(type->t.is<SubroutineTypeNT*>())
+  {
+    SubroutineTypeNT* subr = type->t.get<SubroutineTypeNT*>();
+  }
+  else if(type->t.is<TraitType*>())
+  {
+    //look up the traits, then sort the pointers
+    //find existing bounded type that matches, or create new one
+    //if lookup of any trait fails, must return NULL for now
+    //Note: Trait types 
+    vector<Trait*> typeTraits;
+    auto tt = type->t.get<TraitType*>();
+    for(auto trait : tt->traits)
+    {
+      //using deferred trait lookup here
+      Trait* 
+    }
+  }
   return nullptr;
 }
 
@@ -172,10 +195,14 @@ Type* lookupTypeDeferred(TypeLookup& args)
   return lookupType(args.type, args.scope);
 }
 
+Trait* lookupTypeDeferred(TypeLookup& args)
+{
+  return lookupTrait(args.type, args.scope);
+}
+
 Type* getIntegerType(int bytes, bool isSigned)
 {
   using Parser::TypeNT;
-  //TODO: arbitrary fixed-size integer types available on-demand
   switch(bytes)
   {
     case 1:
@@ -190,10 +217,8 @@ Type* getIntegerType(int bytes, bool isSigned)
     case 8:
       if(isSigned)  return primitives[TypeNT::LONG];
       else          return primitives[TypeNT::ULONG];
-    default:;
+    default: INTERNAL_ERROR;
   }
-  cout << "<!> Error: requested integer type but size is out of range or is not a power of 2.\n";
-  INTERNAL_ERROR;
   return NULL;
 }
 
@@ -201,7 +226,6 @@ Type* getIntegerType(int bytes, bool isSigned)
 /* Bounded Type */
 /****************/
 
-/*
 BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
 {
   traits.resize(tt->traits.size());
@@ -210,13 +234,11 @@ BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
     traits[i] = getTrait(tt->traits[i], s, &traits[i], false);
   }
 }
-*/
 
 /***********/
 /*  Trait  */
 /***********/
 
-/*
 Trait::Trait(Parser::TraitDecl* td, Scope* s)
 {
   //pre-allocate func and proc list (and their names)
@@ -251,9 +273,7 @@ Trait::Trait(Parser::TraitDecl* td, Scope* s)
       procIndex++;
     }
   }
-  s->traits.push_back(this);
 }
-*/
 
 /***************/
 /* Struct Type */
@@ -277,7 +297,6 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   }
   members.resize(numMemberVars);
   memberNames.resize(numMemberVars);
-  //TODO: actually handle the struct's traits here as well (also use 2nd pass for resolution)
   size_t membersAdded = 0;
   for(auto& it : sd->members)
   {
@@ -291,26 +310,12 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
       membersAdded++;
     }
   }
-  /*
   //Load traits
   traits.resize(sd->traits.size());
   for(size_t i = 0; i < sd->traits.size(); i++)
   {
     traits[i] = getTrait(sd->traits[i], enclosingScope, &traits[i], false);
   }
-  */
-}
-
-bool StructType::hasFunc(FuncType* type)
-{
-  //TODO
-  return false;
-}
-
-bool StructType::hasProc(ProcType* type)
-{
-  //TODO
-  return false;
 }
 
 //direct conversion requires other to be the same type
@@ -347,9 +352,10 @@ bool StructType::canConvert(Expression* other)
   return false;
 }
 
-bool StructType::isStruct()
+bool StructType::implementsAllTraits()
 {
-  return true;
+  //go through each trait, and make sure there is an exactly matching
+  //subroutine (names, 
 }
 
 /**************/
@@ -741,19 +747,47 @@ bool VoidType::isPrimitive()
   return true;
 }
 
-/**********/
-/* T Type */
-/**********/
+/*****************/
+/* Callable Type */
+/*****************/
 
-/*
-TType::TType() : Type(NULL) {}
-
-bool TType::canConvert(Type* other)
+CallableType::CallableType(StructType* thisT, bool isPure, Type* retType, vector<Type*>& args) : Type(NULL)
 {
-  //All TTypes are equivalent before instantiation
-  return dynamic_cast<TType*>(other);
+  this->returnType = retType;
+  this->pure = isPure;
+  this->thisType = thisT;
+  this->argTypes = args;
 }
-*/
+
+bool CallableType::matches(StructType* thisT, bool isPure, Type* returnT, vector<Type*>& args)
+{
+  if(pure != isPure)
+    return false;
+  //for callable, all types must match exactly (no implicit conversions)
+  if(thisType != thisT || this->returnType != returnT)
+    return false;
+  if(argTypes.size() != args.size())
+    return false;
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    if(argTypes[i] != args[i])
+      return false;
+  }
+  return true;
+}
+
+CallableType* CallableType::lookup(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args)
+{
+  for(auto ct : callables)
+  {
+    if(ct->matches(thisT, isPure, returnT, args))
+      return ct;
+  }
+  //need to create a new type
+  CallableType* newType = new CallableType(thisT, isPure, returnType, args);
+  callables.push_back(newType);
+  return newType;
+}
 
 } //namespace TypeSystem
 

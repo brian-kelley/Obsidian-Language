@@ -63,6 +63,7 @@ namespace Parser
   struct PrintNT;
   struct CallOp;
   struct Arg;
+  struct SubroutineTypeNT;
   struct FuncDecl;
   struct FuncDef;
   struct FuncTypeNT;
@@ -162,16 +163,15 @@ namespace Parser
       DOUBLE,
       VOID
     };
-    struct Wildcard {};
+    struct TTypeNT {};
     variant<
       None,
       Prim,
       Member*,
       TupleTypeNT*,
-      FuncTypeNT*,
-      ProcTypeNT*,
+      SubroutineTypeNT*,
       TraitType*,
-      Wildcard> t;
+      TTypeNT> t;
     int arrayDims;
   };
 
@@ -359,15 +359,6 @@ namespace Parser
     vector<ExpressionNT*> exprs;
   };
 
-  //Arg - used inside CallOp
-  struct Arg : public PoolAllocated
-  {
-    Arg() : expr(nullptr), matched(false) {}
-    ExpressionNT* expr;
-    bool matched; //whether preceded by '@'
-    //'@' is a pseudo-operator with lower precedence than everything else
-  };
-
   //Parameter - used by Func/Proc Def (not decl)
   struct Parameter : public PoolAllocated
   {
@@ -376,12 +367,15 @@ namespace Parser
     Ident* name;
   };
 
-  struct FuncTypeNT : public PoolAllocated
+  struct SubroutineTypeNT : public PoolAllocated
   {
-    FuncTypeNT() : retType(nullptr) {}
+    SubroutineTypeNT() : retType(nullptr) {}
     TypeNT* retType;
     vector<Arg*> args;
   };
+
+  struct FuncTypeNT : public SubroutineTypeNT
+  {};
 
   struct FuncDecl : public PoolAllocated
   {
@@ -397,12 +391,9 @@ namespace Parser
     Block* body;
   };
 
-  struct ProcTypeNT : public PoolAllocated
+  struct ProcTypeNT : public SubroutineTypeNT
   {
-    ProcTypeNT() : retType(nullptr) {}
     bool nonterm;
-    TypeNT* retType;
-    vector<Arg*> args;
   };
 
   struct ProcDecl : public PoolAllocated
@@ -423,7 +414,7 @@ namespace Parser
   {
     StructMem() : sd(nullptr) {}
     ScopedDecl* sd;
-    //composition only used if sd is a VarDecl
+    //composition can only apply to VarDecls
     bool compose;
   };
 
@@ -463,7 +454,7 @@ namespace Parser
   struct TraitType : public PoolAllocated
   {
     //trait types of the form "<localName>: <traitNames> <argName>"
-    //i.e.: int f(T: Num, IO.Printable value)
+    //i.e.: int f(T: Num, Drawable value)
     string localName;
     vector<Member*> traits;
   };
@@ -696,7 +687,7 @@ namespace Parser
   struct CallOp
   {
     //the arguments inside parens (each may have the match operator)
-    vector<Arg*> args;
+    vector<ExpressionNT*> args;
   };
 
   struct Expr12RHS : public PoolAllocated
@@ -714,27 +705,6 @@ namespace Parser
   //Parse a nonterminal of type NT
   template<typename NT>
   NT* parse();
-
-  //phasing out optional/speculative parsing and backtracking
-  /*
-  template<typename NT>
-  NT* parseOptional()
-  {
-    int prevPos = pos;
-    NT* nt = nullptr;
-    try
-    {
-      nt = parse<NT>();
-      return nt;
-    }
-    catch(...)
-    {
-      //backtrack
-      pos = prevPos;
-      return nt;
-    }
-  }
-  */
 
   //Parse zero or more nonterminals (NT*)
   //Accept end token to stop

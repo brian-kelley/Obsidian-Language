@@ -34,7 +34,7 @@ template<typename NT>
 Expression* getExpression(Scope* s, NT* expr);
 
 //apply a single Expr12RHS to the right of an expression
-Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12);
+Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12);
 
 struct UnaryArith : public Expression
 {
@@ -175,10 +175,16 @@ struct VarExpr : public Expression
   }
 };
 
+//Expression to represent constant callable
+struct SubroutineExpr : public Expression
+{
+  SubroutineExpr(Scope* scope, Subroutine* s);
+  Subroutine* subr;
+};
+
 struct StructMem : public Expression
 {
-  StructMem(Scope* s, Expression* base, vector<string>& names);
-  StructMem(Scope* s, Expresssion* base, string member);
+  StructMem(Scope* s, Expression* base, string member);
   Expression* base;           //base->type is always a StructType
   vector<int> memberIndices;  //index of the member in base->type->members
   bool assignable()
@@ -197,10 +203,10 @@ struct NewArray : public Expression
   }
 };
 
-struct MatchExpr : public Expression
+struct ArrayLength : public Expression
 {
-  MatchExpr(Scope* s, Expression* e);
-  Expression* expr;
+  ArrayLength(Expression* arr);
+  Expression* array;
 };
 
 //Temporary variable (only used in backend)

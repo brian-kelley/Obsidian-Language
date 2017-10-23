@@ -32,11 +32,15 @@ namespace TypeSystem
 {
 
 struct Type;
+struct Trait;
 struct TupleType;
 struct ArrayType;
 struct StructType;
 struct UnionType;
 struct AliasType;
+struct BoundedType;
+
+struct CallableType;
 
 struct TypeLookup
 {
@@ -51,17 +55,25 @@ string typeErrorMessage(TypeLookup& lookup);
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
 Type* lookupTypeDeferred(TypeLookup& args);
 
+Trait* lookupTrait(Parser::TypeNT* type, Scope* scope);
+Trait* lookupTraitDeferred(TraitLookup& args);
+
 Type* getIntegerType(int bytes, bool isSigned);
 
 void createBuiltinTypes();
 
 extern vector<TupleType*> tuples;
 extern vector<Type*> primitives;
+extern vector<CallableType*> callables;
+extern vector<BoundedType*> bounded;
 extern map<string, Type*> primNames;
 
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
 //global type lookup to be used by some type constructors
 extern DeferredTypeLookup* typeLookup;
+
+typedef DeferredLookup<Trait, Trait* (*)(TraitLookup&), TraitLookup, string (*)(TraitLookup&)> DeferredTraitLookup;
+extern DeferredTraitLookup* traitLookup;
 
 struct Type
 {
@@ -77,9 +89,6 @@ struct Type
   virtual bool canConvert(Expression* other);
   //get the type's name
   virtual string getName() = 0;
-  //Use this getType() for scope tree building
-  //Need "usage" so 2nd pass of type resolution can directly assign the resolved type
-  //Other variations (so above getType() 
   //"primitives" maps TypeNT::Prim values to corresponding Type*
   //quickly lookup (or create) unique TupleType for given members
   TupleType* lookupTuple(vector<Type*>& members);
@@ -101,20 +110,16 @@ struct Type
   virtual bool isVoid()     {return false;}
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
+  virtual bool isBounded()  {return false;}
 };
 
-/*
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
-//  ex: func string doThing(T: Printable val);
-//Can only be used in argument lists.
-//When polymorphic callable is instantiated,
-//the BoundedType becomes an alias type within the function
+//Only used in subroutine declarations
 struct BoundedType : public Type
 {
-  //a bounded type is called TraitType in the parser
   BoundedType(Parser::TraitType* tt, Scope* s);
-  vector<Trait*> traits;
   string name;
+  vector<Trait*> traits;
   bool canConvert(Type* other)
   {
     return false;
@@ -123,18 +128,24 @@ struct BoundedType : public Type
   {
     return false;
   }
+  bool isBounded()
+  {
+    return true;
+  }
 };
-*/
+
+struct Trait
+{
+  Trait(Parser::TraitDecl* td, TraitScope* parent);
+  vector<string> subrNames;
+  vector<CallableType*> callables;
+};
 
 struct StructType : public Type
 {
   StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
   string name;
-  //check for member functions
-  //note: self doesn't count as an argument but it is the 1st arg internally
-  bool hasFunc(FuncType* type);
-  bool hasProc(ProcType* type);
-  //vector<Trait*> traits;
+  vector<Trait*> traits;
   vector<Type*> members;
   vector<string> memberNames; //1-1 correspondence with members
   vector<bool> composed;      //1-1 correspondence with members
@@ -144,7 +155,8 @@ struct StructType : public Type
   StructScope* structScope;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
-  bool isStruct();
+  bool isStruct() {return true;}
+  bool implementsAllTraits(); //called once at end of semantic checking
   string getName()
   {
     return name;
@@ -337,14 +349,57 @@ struct VoidType : public Type
   }
 };
 
-/*
+struct CallableType : public Type
+{
+  CallableType(Scope* s);
+  CallableType(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
+  string getName()
+  {
+    Oss oss;
+    if(pure)
+      oss << "func ";
+    else
+      oss << "proc ";
+    oss << returnType->getName();
+    oss << "(";
+    for(size_t i = 0; i < argTypes.size(); i++)
+    {
+      oss << argTypes[i]->getName();
+      if(i < argTypes.size() - 1)
+      {
+        oss << ", ";
+      }
+    }
+    oss << ")";
+    return oss.str();
+  }
+  Type* returnType;
+  vector<Type*> argTypes;
+  StructType* thisType; //null for static/standalone subroutines
+  bool pure;            //true for functions, false for procedures
+  bool isCallable()
+  {
+    return true;
+  }
+  bool isFunc()
+  {
+    return pure;
+  }
+  bool isProc()
+  {
+    return !pure;
+  }
+  bool canConvert(Type* other) {return this == other;}
+  bool canConvert(Expression* other) {return this == other;}
+  bool matches(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
+  static CallableType* lookup(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
+};
+
 struct TType : public Type
 {
-  TType();
-  static TType inst;
-  bool canConvert(Type* other);
+  TType() : Type(NULL);
+  static TType* inst;
 };
-*/
 
 } //namespace TypeSystem
 

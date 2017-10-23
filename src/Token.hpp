@@ -101,8 +101,7 @@ enum
   CMPGE,
   ASSIGN,
   INC,
-  DEC,
-  MATCH
+  DEC
 };
 
 enum

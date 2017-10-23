@@ -109,7 +109,6 @@ void initTokens()
   operatorMap["="] = ASSIGN;
   operatorMap["++"] = INC;
   operatorMap["--"] = DEC;
-  operatorMap["@"] = MATCH;
   operatorTable.resize(operatorMap.size());
   for(auto& it : operatorMap)
   {

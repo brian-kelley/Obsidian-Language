@@ -34,6 +34,7 @@ namespace MiddleEnd
     void visitBlock(Scope* current, Parser::Block* b);
     void visitStatement(Scope* current, Parser::StatementNT* s);
     void visitStruct(Scope* current, Parser::StructDecl* sd);
+    void visitTrait(Scope* current, Parser::TraitDecl* td);
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
     //for loops are special becuase they always introduce a block scope (for the counter),
     //even if its body is not a block
