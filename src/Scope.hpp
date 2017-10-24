@@ -15,6 +15,7 @@ namespace TypeSystem
 
 struct Subroutine;
 struct Variable;
+struct Scope;
 
 // Unified name lookup system
 struct Name

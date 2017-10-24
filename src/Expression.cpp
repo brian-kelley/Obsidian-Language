@@ -373,6 +373,11 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     {
       ERR_MSG("name does not refer to an expression");
     }
+    //names in remain must be applied before the rest of tail
+    //this requires that root is now a StructType
+    //the result after applying all the names is a Name, which
+    //will then become root
+    root = applyNamesToExpr12(root, remain);
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
@@ -420,6 +425,72 @@ Expression* applyExpr12RHS(Scope* s, Expression* root, Expr12RHS* e12)
   {
     return new ArrayIndex(s, root, getExpression(s, e12->e.get<ExpressionNT*>()));
   }
+}
+
+Expression* applyNamesToExpr12(Expression* root, vector<string>& names)
+{
+  Scope* search = scopeForExpr(root);
+  //will search for names within scope corresponding to st
+  //copy names to itemNames so struct members can be found
+  vector<string> itemNames;
+  for(size_t i = 0; i < names.size(); i++)
+  {
+    string& name = names[i];
+    auto it = search->names.find(name);
+    if(it == search->names.end())
+    {
+      ERR_MSG("no member " << name << " in scope " << search->getFullPath());
+    }
+    Name& n = it->second;
+    switch(n.type)
+    {
+      case Name::SCOPE:
+        //if this is the last name, error
+        if(i == names.size() - 1)
+        {
+          ERR_MSG("member " << name << " of scope " << search->getFullPath() << " is a scope, not an expression");
+        }
+        //continue the search from this scope
+        search = (Scope*) n.item;
+        itemNames.push_back(name);
+        break;
+      case Name::VARIABLE:
+        //set root to the struct mem
+        root = new StructMem(root->scope, root, itemNames);
+        if(i == names.size() - 1)
+          return root;
+        //have more names after this, so need to continue search from new struct scope
+        itemNames.clear();
+        search = scopeForExpr(root);
+        break;
+      case Name::SUBROUTINE:
+        root = new SubroutineExpr(root->scope, root, (Subroutine*) n.item);
+        if(i == names.size() - 1)
+          return root;
+        ERR_MSG("function or procedure has no members");
+        break;
+      case Name::ENUM:
+        //TODO
+        INTERNAL_ERROR;
+        break;
+      default: ERR_MSG("member " << name << " of scope " << search->getFullPath() << " is not an expression or scope");
+    }
+  }
+}
+
+StructScope* scopeForExpr(Expression* expr)
+{
+  Type* t = root->type;
+  if(!t)
+  {
+    ERR_MSG("cannot directly access members of compound literal");
+  }
+  StructType* st = dynamic_cast<StructType*>(t);
+  if(!st)
+  {
+    ERR_MSG("cannot access members of non-struct type");
+  }
+  return st->structScope;
 }
 
 /**************
@@ -493,7 +564,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     case DIV:
     case MOD:
     {
-      //TODO: warn on div by 0 (when RHS is known at compile-time)
+      //TODO (CTE): catch div by 0
       if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
       {
         ERR_MSG("operands to arithmetic operators must be numbers.");
@@ -537,7 +608,8 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     case SHL:
     case SHR:
     {
-      //TODO: if rhs is a constant, warn if evaluates to negative or greater than the width of the lhs type.
+      //TODO (CTE): if rhs is known, warn if rhs is negative or
+      //greater than the width of the lhs type.
       if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
       {
         ERR_MSG("operands to bit shifting operators must be integers.");
@@ -552,7 +624,6 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
     case CMPG:
     case CMPGE:
     {
-      //Can't directly compare two compound literals (ok because there is no reason to do that)
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       if(typesNull)
       {
@@ -659,6 +730,9 @@ Indexed::Indexed(Scope* s, Parser::Expr12::ArrayIndex* a) : Expression(s)
 {
   //get expressions for the index and the indexed object
   group = getExpression(s, a->arr);
+  //TODO (CTE): if index known, present error on negative index
+  //if index and group's dimension are both known,
+  //present error for any out of bounds access
   index = getExpression(s, a->index);
   semanticCheck();
 }
@@ -731,6 +805,16 @@ CallExpr::CallExpr(Scope* s, Parser::CallNT* ast) : Expression(s)
   this->type = subr->retType;
 }
 
+/**************
+ * MethodExpr *
+ **************/
+
+MethodExpr::MethodExpr(Scope* s, Expression* base, Expression* callable, vector<Expression*>& args)
+{
+  this->callable = callable;
+  this->type = callable->subr->retType;
+}
+
 /***********
  * VarExpr *
  ***********/
@@ -772,7 +856,7 @@ SubroutineExpr::SubroutineExpr(Scope* scope, Subroutine* s) : Expression(s)
  * StructMem *
  *************/
 
-StructMem::StructMem(Scope* s, Expression* base, vector<string>& names)
+StructMem::StructMem(Scope* s, Expression* base, vector<string>& names) : Expression(s)
 {
   //recursively walk members for all names
   //at the same time, make sure the name is actually a data member

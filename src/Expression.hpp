@@ -35,6 +35,12 @@ Expression* getExpression(Scope* s, NT* expr);
 //apply a single Expr12RHS to the right of an expression
 Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12);
 
+Expression* applyNamesToExpr12(Expression* root, vector<string>& names);
+
+//Assuming expr is a struct type, get the struct scope
+//Otherwise, display relevant errors
+StructScope* scopeForExpr(Expression* expr);
+
 struct UnaryArith : public Expression
 {
   //Precondition: ast->e is an Expr11::UnaryExpr
@@ -145,9 +151,8 @@ struct Indexed : public Expression
 
 struct CallExpr : public Expression
 {
-  CallExpr(Scope* s, Subroutine* subr, vector<Expression*>& args);
-  Subroutine* subr;
-  Expression* base;
+  CallExpr(Scope* s, Expression* callable, vector<Expression*>& args);
+  SubroutineExpr* callable;
   vector<Expression*> args;
   bool assignable()
   {
@@ -157,9 +162,13 @@ struct CallExpr : public Expression
 
 struct MethodExpr : public Expression
 {
-  MethodExpr(Scope* s, Expression* thisObject, Subroutine* subr, vector<Expression*>& args);
-  Expression* thisObject;
-  Subroutine* subr;
+  //note: MethodExpr is used when callable->thisObject != NULL, otherwise CallExpr is used
+  MethodExpr(Scope* s, Expression* callable, vector<Expression*>& args);
+  Expression* callable;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 struct VarExpr : public Expression
@@ -175,17 +184,20 @@ struct VarExpr : public Expression
 };
 
 //Expression to represent constant callable
+//May be standalone, or may be applied to an object
 struct SubroutineExpr : public Expression
 {
   SubroutineExpr(Scope* scope, Subroutine* s);
+  SubroutineExpr(Scope* scope, Expression* thisObj, Subroutine* s);
   Subroutine* subr;
+  Expression* thisObject;
 };
 
 struct StructMem : public Expression
 {
-  StructMem(Scope* s, Expression* base, string member);
+  StructMem(Scope* s, Expression* base, vector<string>& names);
   Expression* base;           //base->type is always a StructType
-  vector<int> memberIndices;  //index of the member in base->type->members
+  vector<string> members;     //list of names that allow lookup from base->type's StructScope
   bool assignable()
   {
     return base->assignable();
