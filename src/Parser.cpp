@@ -762,11 +762,14 @@ namespace Parser
   {
     FuncDecl* fd = new FuncDecl;
     expectKeyword(FUNC);
+    fd->isStatic = false;
+    if(acceptKeyword(STATIC))
+      fd->isStatic = true;
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    fd->type.args = parseStarComma<Arg>();
+    fd->type.args = parseStarComma<Parameter>();
     expectPunct(RPAREN);
     expectPunct(SEMICOLON);
     return fd;
@@ -777,11 +780,14 @@ namespace Parser
   {
     FuncDef* fd = new FuncDef;
     expectKeyword(FUNC);
+    fd->type.isStatic = false;
+    if(acceptKeyword(STATIC))
+      fd->type.isStatic = true;
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    fd->type.args = parseSomeCommaSeparated<Arg>();
-    expectPunct(RPAREN);
+    Punct rparen(RPAREN);
+    fd->type.args = parseStarComma<Parameter>(rparen);
     fd->body = parse<Block>();
     return fd;
   }
@@ -791,6 +797,9 @@ namespace Parser
   {
     FuncTypeNT* ft = new FuncTypeNT;
     expectKeyword(FUNCTYPE);
+    ft->isStatic = false;
+    if(acceptKeyword(STATIC))
+      ft->isStatic = true;
     ft->retType = parse<TypeNT>();
     expectPunct(LPAREN);
     ft->args = parseSomeCommaSeparated<Arg>();
@@ -805,6 +814,9 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pd->type.nonterm = true;
     expectKeyword(PROC);
+    pd->isStatic = false;
+    if(acceptKeyword(STATIC))
+      pd->isStatic = true;
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
@@ -821,6 +833,9 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pd->type.nonterm = true;
     expectKeyword(PROC);
+    pd->type.isStatic = false;
+    if(acceptKeyword(STATIC))
+      pd->type.isStatic = true;
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
@@ -837,6 +852,9 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pt->nonterm = true;
     expectKeyword(PROCTYPE);
+    pt->isStatic = false;
+    if(acceptKeyword(STATIC))
+      pt->isStatic = true;
     pt->retType = parse<TypeNT>();
     expectPunct(LPAREN);
     pt->args = parseSomeCommaSeparated<Arg>();

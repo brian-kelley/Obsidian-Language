@@ -11,9 +11,8 @@ Variable::Variable(Scope* s, Parser::VarDecl* ast)
     ERR_MSG("Tried to declare var \"" + name + "\" in scope \"" +
         s->getLocalName() + "\" static, but scope is not a struct.");
   }
-  //find type (this must succeed)
-  //failureIsError true, so TypeSystem will produce the error
-  this->type = TypeSystem::lookupType(ast->type, scope);
+  //find type (not using deferred lookup)
+  this->type = TypeSystem::lookupType(ast->type, nullptr, scope);
   if(!this->type)
   {
     errAndQuit("variable " + name + " type could not be determined");

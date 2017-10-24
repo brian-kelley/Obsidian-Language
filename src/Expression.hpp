@@ -10,7 +10,6 @@ struct Expression
   //Expression constructor will determine the type (implemented in subclasses)
   Expression(Scope* s);
   Scope* scope;
-  //TODO: throw if any var decl with "auto" as type has an untyped RHS
   TypeSystem::Type* type;
   virtual bool assignable() = 0;
 };

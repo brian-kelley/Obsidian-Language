@@ -14,6 +14,8 @@ namespace MiddleEnd
     //set up deferred type lookup
     TypeSystem::typeLookup = new TypeSystem::DeferredTypeLookup(
         TypeSystem::lookupTypeDeferred, TypeSystem::typeErrorMessage);
+    TypeSystem::traitLookup = new TypeSystem::DeferredTraitLookup(
+        TypeSystem::lookupTraitDeferred, TypeSystem::traitErrorMessage);
     for(auto& it : ast->decls)
     {
       ScopeTypeLoading::visitScopedDecl(global, it);

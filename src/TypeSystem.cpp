@@ -22,6 +22,7 @@ vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
 vector<CallableType*> callables;
 
+//these are created in MiddleEnd
 DeferredTypeLookup* typeLookup;
 DeferredTraitLookup* traitLookup;
 
@@ -98,94 +99,123 @@ void createBuiltinTypes()
 
 string typeErrorMessage(TypeLookup& lookup)
 {
-  return "";
+  Oss oss;
+  oss << "unknown type";
+  return oss.str();
 }
 
-Type* lookupType(Parser::TypeNT* type, Scope* scope)
+string traitErrorMessage(TraitLookup& lookup)
 {
-  //handle array immediately - just make an array and then handle the singular element type
-  if(type->arrayDims)
+  Oss oss;
+  oss << "unknown trait: " << *(lookup.name);
+  return oss.str();
+}
+
+Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* scope)
+{
+  if(type->t.is<Parser::SubroutineTypeNT*>())
   {
-    size_t dims = type->arrayDims;
-    type->arrayDims = 0;
-    //now look up the type for the element type
-    Type* elemType = lookupType(type, scope);
-    //restore original type to preserve AST
-    type->arrayDims = dims;
-    if(!elemType)
-    {
-      //elem lookup type failed, so wait to get the array type
-      return NULL;
-    }
-    else
-    {
-      return elemType->getArrayType(dims);
-    }
+    subr = type->t.get<Parser::SubroutineTypeNT*>();
+    type = NULL;
   }
-  else if(type->t.is<TypeNT::Prim>())
+  if(type)
   {
-    return primitives[(int) type->t.get<TypeNT::Prim>()];
-  }
-  else if(type->t.is<Member*>())
-  {
-    auto mem = type->t.get<Member*>();
-    auto typeSearch = scope->findSub(mem->scopes);
-    for(auto s : typeSearch)
+    //handle array immediately - just make an array and then handle the singular element type
+    if(type->arrayDims)
     {
-      for(auto t : s->types)
+      size_t dims = type->arrayDims;
+      type->arrayDims = 0;
+      //now look up the type for the element type
+      Type* elemType = lookupType(type, scope);
+      //restore original type to preserve AST
+      type->arrayDims = dims;
+      if(!elemType)
       {
-        if(t->getName() == mem->ident)
+        //elem lookup type failed, so wait to get the array type
+        return NULL;
+      }
+      else
+      {
+        return elemType->getArrayType(dims);
+      }
+    }
+    else if(type->t.is<TypeNT::Prim>())
+    {
+      return primitives[(int) type->t.get<TypeNT::Prim>()];
+    }
+    else if(type->t.is<Member*>())
+    {
+      auto mem = type->t.get<Member*>();
+      auto typeSearch = scope->findSub(mem->scopes);
+      for(auto s : typeSearch)
+      {
+        for(auto t : s->types)
         {
-          if(AliasType* at = dynamic_cast<AliasType*>(t))
+          if(t->getName() == mem->ident)
           {
-            return at->actual;
+            if(AliasType* at = dynamic_cast<AliasType*>(t))
+            {
+              return at->actual;
+            }
+            return t;
           }
-          return t;
         }
       }
+      return nullptr;
     }
-    return nullptr;
-  }
-  else if(type->t.is<TupleTypeNT*>())
-  {
-    //get a list of member types
-    vector<Type*> members;
-    for(auto mem : type->t.get<TupleTypeNT*>()->members)
+    else if(type->t.is<TupleTypeNT*>())
     {
-      members.push_back(lookupType(mem, scope));
-      if(members.back() == nullptr)
+      //get a list of member types
+      vector<Type*> members;
+      for(auto mem : type->t.get<TupleTypeNT*>()->members)
       {
-        return nullptr;
+        members.push_back(lookupType(mem, scope));
+        if(members.back() == nullptr)
+        {
+          return nullptr;
+        }
+      }
+      for(auto tt : tuples)
+      {
+        if(tt->matchesTypes(members))
+        {
+          return tt;
+        }
+      }
+      TupleType* newTuple = new TupleType(members);
+      tuples.push_back(newTuple);
+      return newTuple;
+    }
+    else if(type->t.is<TraitType*>())
+    {
+      //look up the traits, then sort the pointers
+      //find existing bounded type that matches, or create new one
+      //if lookup of any trait fails, can return NULL for now
+      //Note: Trait types 
+      vector<Trait*> typeTraits;
+      auto tt = type->t.get<TraitType*>();
+      for(auto trait : tt->traits)
+      {
+        //using deferred trait lookup here
+        typeTraits->push_back(lookupTrait
       }
     }
-    for(auto tt : tuples)
-    {
-      if(tt->matchesTypes(members))
-      {
-        return tt;
-      }
-    }
-    TupleType* newTuple = new TupleType(members);
-    tuples.push_back(newTuple);
-    return newTuple;
   }
-  else if(type->t.is<SubroutineTypeNT*>())
+  else
   {
-    SubroutineTypeNT* subr = type->t.get<SubroutineTypeNT*>();
-  }
-  else if(type->t.is<TraitType*>())
-  {
-    //look up the traits, then sort the pointers
-    //find existing bounded type that matches, or create new one
-    //if lookup of any trait fails, must return NULL for now
-    //Note: Trait types 
-    vector<Trait*> typeTraits;
-    auto tt = type->t.get<TraitType*>();
-    for(auto trait : tt->traits)
+    assert(subr);
+    Type* retType = lookupType(subr->retType, NULL, scope);
+    if(!retType)
+      return NULL;
+    vector<Type*> argTypes;
+    for(auto arg : subr->args)
     {
-      //using deferred trait lookup here
-      Trait* 
+      argTypes.push_back(lookupType(subr->args[i], NULL, scope));
+      if(argTypes.back() == NULL)
+        return NULL;
     }
+    bool isPure = dynamic_cast<Parser::FuncTypeNT*>(subr);
+    CallableType* ct = CallableType::lookup(isPure, retType, argTypes);
   }
   return nullptr;
 }
@@ -195,9 +225,14 @@ Type* lookupTypeDeferred(TypeLookup& args)
   return lookupType(args.type, args.scope);
 }
 
-Trait* lookupTypeDeferred(TypeLookup& args)
+Trait* lookupTrait(Parser::Member* name, Scope* scope)
 {
-  return lookupTrait(args.type, args.scope);
+  return scope->findTrait(name);
+}
+
+Trait* lookupTraitDeferred(TraitLookup& args)
+{
+  return lookupTrait(args.name, args.scope);
 }
 
 Type* getIntegerType(int bytes, bool isSigned)
@@ -241,37 +276,25 @@ BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
 
 Trait::Trait(Parser::TraitDecl* td, Scope* s)
 {
-  //pre-allocate func and proc list (and their names)
-  int numFuncs = 0;
-  int numProcs = 0;
-  for(auto& callable : td->members)
+  //pre-allocate subr and names vectors
+  subrNames.resize(td->members.size());
+  callables.resize(td->members.size());
+  //use deferred type lookup for callables
+  for(size_t i = 0; i < td->members.size(); i++)
   {
-    if(callable.is<FuncDecl*>())
-      numFuncs++;
-    else
-      numProcs++;
-  }
-  funcs.resize(numFuncs);
-  procs.resize(numProcs);
-  int funcIndex = 0;
-  int procIndex = 0;
-  //now, look up
-  for(auto& callable : td->members)
-  {
-    if(callable.is<FuncDecl*>())
+    auto mem = td->members[i];
+    Parser::SubroutineTypeNT* subrType = nullptr;
+    if(member.is<Parser::FuncDecl*>())
     {
-      auto fdecl = callable.get<FuncDecl*>();
-      funcs[funcIndex].type = getFuncType(&fdecl->type, s, (Type**) &funcs[funcIndex].type, false);
-      funcs[funcIndex].name = fdecl->name;
-      funcIndex++;
+      subrType = member.get<Parser::FuncDecl*>();
     }
     else
     {
-      auto pdecl = callable.get<ProcDecl*>();
-      procs[procIndex].type = getProcType(&pdecl->type, s, (Type**) &procs[procIndex].type, false);
-      procs[procIndex].name = pdecl->name;
-      procIndex++;
+      subrType = member.get<Parser::ProcDecl*>();
     }
+    subrNames[i] = fd->name;
+    TypeLookup lookupArgs(subrType, s);
+    typeLookup->lookup(lookupArgs, callables[i]);
   }
 }
 
@@ -310,11 +333,12 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
       membersAdded++;
     }
   }
-  //Load traits
+  //Load traits using deferred trait lookup
   traits.resize(sd->traits.size());
   for(size_t i = 0; i < sd->traits.size(); i++)
   {
-    traits[i] = getTrait(sd->traits[i], enclosingScope, &traits[i], false);
+    TraitLookup lookupArgs(sd->traits[i], enclosingScope);
+    traitLookup->lookup(lookupArgs, traits[i]);
   }
 }
 
@@ -751,17 +775,24 @@ bool VoidType::isPrimitive()
 /* Callable Type */
 /*****************/
 
-CallableType::CallableType(StructType* thisT, bool isPure, Type* retType, vector<Type*>& args) : Type(NULL)
+CallableType::CallableType(bool isPure, bool isStatic, Type* retType, vector<Type*>& args) : Type(NULL)
 {
   this->returnType = retType;
   this->pure = isPure;
-  this->thisType = thisT;
+  this->isStatic= isStatic;
   this->argTypes = args;
 }
 
-bool CallableType::matches(StructType* thisT, bool isPure, Type* returnT, vector<Type*>& args)
+bool CallableType::canConvert(Expression* other);
 {
-  if(pure != isPure)
+  return this == other->type;
+}
+
+bool CallableType::matches(bool isPure, bool isStatic, Type* returnT, vector<Type*>& args)
+{
+  if(this->pure != isPure)
+    return false;
+  if(this->isStatic != isStatic)
     return false;
   //for callable, all types must match exactly (no implicit conversions)
   if(thisType != thisT || this->returnType != returnT)
@@ -776,15 +807,15 @@ bool CallableType::matches(StructType* thisT, bool isPure, Type* returnT, vector
   return true;
 }
 
-CallableType* CallableType::lookup(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args)
+CallableType* CallableType::lookup(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args)
 {
   for(auto ct : callables)
   {
-    if(ct->matches(thisT, isPure, returnT, args))
+    if(ct->matches(isPure, isStatic, returnT, args))
       return ct;
   }
   //need to create a new type
-  CallableType* newType = new CallableType(thisT, isPure, returnType, args);
+  CallableType* newType = new CallableType(isPure, isStatic, returnType, args);
   callables.push_back(newType);
   return newType;
 }

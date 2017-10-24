@@ -1,48 +1,53 @@
 ---------------------
       TODO:
 ---------------------
--Unified name searching
-  -Prevent name collision across multiple kinds of things (no overloading yet, but later)
--Need to modify grammar
--Expr12 might be a callable (first-class subroutines: functype/proctype as type for variable decl)
-  -generalize CallNT parsing to be "Expr12 ( Args )"
--Will need to deal with methods in scopes 
--Modify Expression and Subroutine middle end
-  -Call always parses as "Member ( Args )" (both expression and stmt)
-  -Expr 12 can parse as just Member
-  -In both cases, use Scope::lookup to find the actual root expression or subroutine
-    -As statement, this is just one subroutine call
-    -As expression, this can be an arbitrarily long chain of calls/indexing/member
-      -This will be a chain of Expressions in middle end
--Actually make sure (in Subroutine) that the target of Assign statements in functions are in function scope (no side effects)
+MIDDLE END:
+
+-All callables are now expressions of callable type (see Expr12 parsing)
+  -(in progress) Need full callable support in type system (like tuples, avoid duplication and support fast lookup)
+    -Callable type consist of purity (true/false), return type, and argument type
+  -(done) Make a new expression type for constant callable (just a ptr to Subroutine)
+    -Simplifies C backend (don't want to evaluate a callable expr when it is just a constant)
+-Subroutines need their own scope to hold argument variables and bounded types in parameter list
+  -Body (block) is child scope of subroutine scope
+  -Necessary so that bounded type definitions can be used in other arguments or return type, i.e.:
+    T doThing(T: Drawable, Serializable thing, T other);
+  -Remove keyword T (want T to be allowed as identifier for cases like above example)
+    -T has special meaning within TraitDecl, but is regular ident everywhere else
+-Unified name searching (mostly done)
+  -still need to catch name conflicts in middle end
+
+-Final middle end pass:
+  -Check that functions are pure (don't read/write anything outside func scope)
+  -For each subroutine, figure out which argument values are modified in body
+    -Important for backend (avoid deep copy)
+  -Check that void main() OR void main(string[]) exists in global scope
+
 -Make sure alias types don't alias themselves
--C backend: need to track value lifetimes
+
+-C backend: need to track value lifetimes to prevent leaks
   -NO SEGFAULTS
     -in debug (default for now) build, runtime bounds checking for arrays (segfaults impossible)
     -graceful program exit with error message for malloc failure 
+    -in optimized build, no runtime checks
 
-------------------------------
-  DATA DEPENDENCY TRACKING:
-------------------------------
--Expressions are temporary unless they are variables, members or indices of variables
-  -so data dependencies only matter for variables
-
---------------------------
-   After core language:
---------------------------
-LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - "just work" with a clean Onyx installation):
+-----------------------------------
+   After core language compiler:
+-----------------------------------
+LANGUAGE BUILT-IN MODULES (all must be fully cross-platform - need to "just work" with a clean Onyx installation):
   -Term (stdin/stdout/formatting/parsing, commands)
   -Sys (File I/O, filesystem, sockets, time)
-  -Modern OpenGL, plus some nice utilties, like:
+  -Modern OpenGL (4.1+), plus some nice utilties, like:
     -GLM-style math
     -OBJ model loading
     -Shader utilities
-    -Mesh utilities (loading, saving, refinement, decimation)
+    -Mesh utilities (half-edge structure, loading, saving)
   -Font rendering (full TrueType/Unicode support)
   -Input (keyboard, mouse, gamepad - portable across all machines)
-    -Keyboard: want both events and state checking
+    -Want to be able to poll for events like SDL,
+     check for button states directly, and set up callbacks
   -UI (nice libUI interface, or something similar from scratch?)
-  -OpenAL (audio)
-  -zlib or something better (compression)
+  -Native audio wrapper
+  -Compression (also use for serialization): zlib?
   -Graphs (nice data structure, shortest path, finding cycles, reachability, etc)
 

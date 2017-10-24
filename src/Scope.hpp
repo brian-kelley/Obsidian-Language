@@ -31,10 +31,11 @@ struct Name
     VARIABLE
   };
   Name() : item(nullptr), type(SCOPE) {}
-  Name(void* ptr, TYPE t) : item(ptr), type(t) {}
+  Name(void* ptr, TYPE t, Scope* s) : item(ptr), type(t), scope(s) {}
   void* item;
   //All named declaration types
   TYPE type;
+  Scope* scope;
 };
 
 //Scopes own all funcs/structs/traits/etc
@@ -46,17 +47,17 @@ struct Scope
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
   vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
-  //vector<TypeSystem::Trait*> traits;  //traits declared here
+  vector<TypeSystem::Trait*> traits;  //traits declared here
   vector<Variable*> vars;             //variables declared here - first globals & statics and then locals (in order of declaration)
   //subroutines (funcs and procs) defined in scope
   vector<Subroutine*> subr;
   //Find a sub scope of this (or a parent) with given relative "path"
   //"names" will probably come from Parser::Member::scopes
   vector<Scope*> findSub(vector<string>& names);
-  //Look up types, variables, subroutines (return NULL if not found)
+  //Look up types, variables, subroutines (return NULL if not found, or wrong type)
   TypeSystem::Type* findType(Parser::Member* mem);
   Variable* findVariable(Parser::Member* mem);
-  //TypeSystem::Trait* findTrait(Parser::Member* mem);
+  TypeSystem::Trait* findTrait(Parser::Member* mem);
   Subroutine* findSubroutine(Parser::Member* mem);
   //unified name handling
   map<string, Name> names;
@@ -99,7 +100,7 @@ struct BlockScope : public Scope
 //Need a scope for traits so that T can be created locally as a type
 struct TraitScope : public Scope
 {
-  TraitScope(Scope* parent, Parser::TraitDecl* astIn);
+  TraitScope(Scope* parent, string n);
   string getLocalName();
   Parser::TraitDecl* ast;
   string name; //local name

@@ -19,7 +19,7 @@
  */
 
 /**************************
-*   Type System Structs   *
+*   type system structs   *
 **************************/
 
 struct Scope;
@@ -45,17 +45,29 @@ struct CallableType;
 struct TypeLookup
 {
   TypeLookup(Parser::TypeNT* t, Scope* s) : type(t), scope(s) {}
-  Parser::TypeNT* type;
+  TypeLookup(Parser::SubroutineTypeNT* t, Scope* s) : type(t), scope(s) {}
+  //Even though SubroutineTypeNT is an option for TypeNT,
+  //need it here separately for looking up trait subroutine types
+  variant<Parser::TypeNT*,
+          Parser::SubroutineTypeNT*> type;
+  Scope* scope;
+};
+
+struct TraitLookup
+{
+  TraitLookup(Parser::Member* n, Scope* s) : name(n), scope(s) {}
+  Parser::Member* name;
   Scope* scope;
 };
 
 //type error message function, to be used by DeferredLookup on types
 string typeErrorMessage(TypeLookup& lookup);
+string traitErrorMessage(TraitLookup& lookup);
 
-Type* lookupType(Parser::TypeNT* type, Scope* scope);
+Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* scope);
 Type* lookupTypeDeferred(TypeLookup& args);
 
-Trait* lookupTrait(Parser::TypeNT* type, Scope* scope);
+Trait* lookupTrait(Parser::Member* type, Scope* scope);
 Trait* lookupTraitDeferred(TraitLookup& args);
 
 Type* getIntegerType(int bytes, bool isSigned);
@@ -352,7 +364,7 @@ struct VoidType : public Type
 struct CallableType : public Type
 {
   CallableType(Scope* s);
-  CallableType(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
+  CallableType(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
   string getName()
   {
     Oss oss;
@@ -375,8 +387,8 @@ struct CallableType : public Type
   }
   Type* returnType;
   vector<Type*> argTypes;
-  StructType* thisType; //null for static/standalone subroutines
   bool pure;            //true for functions, false for procedures
+  bool isStatic;        //true for globals and static members, false for others
   bool isCallable()
   {
     return true;
@@ -390,14 +402,14 @@ struct CallableType : public Type
     return !pure;
   }
   bool canConvert(Type* other) {return this == other;}
-  bool canConvert(Expression* other) {return this == other;}
-  bool matches(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
-  static CallableType* lookup(StructType* thisT, bool isPure, Type* returnType, vector<Type*>& args);
+  bool canConvert(Expression* other);
+  bool matches(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
+  static CallableType* lookup(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
 };
 
 struct TType : public Type
 {
-  TType() : Type(NULL);
+  TType() : Type(NULL) {}
   static TType* inst;
 };
 

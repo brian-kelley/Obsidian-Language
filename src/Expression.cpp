@@ -367,11 +367,11 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     }
     else if(name.type == Name::SUBROUTINE)
     {
-      //if first tail item is CallOp, generate 
+      root = new SubroutineExpr(s, (Subroutine*) name.item);
     }
     else
     {
-      ERR_MSG("name is not an expression");
+      ERR_MSG("name does not refer to an expression");
     }
   }
   else if(expr->e.is<Parser::StructLit*>())
@@ -380,7 +380,8 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else
   {
-    //some option for the Expr12::e variant wasn't covered here (an error in the compiler)
+    //some option for the Expr12::e variant wasn't covered here
+    //(a simple error in the compiler)
     INTERNAL_ERROR;
   }
   if(e12->tail.size())
@@ -760,11 +761,11 @@ SubroutineExpr::SubroutineExpr(Scope* scope, Subroutine* s) : Expression(s)
   this->subr = s;
   //expr type is the callable type for subr
   bool pure = s->isPure();
-  StructType* owner = s->owner;
   Type* returnType = s->retType; 
   vector<Type*>& args = s->argTypes;
-  //find the type of the subroutine
-  type = CallableType::lookup(owner, pure, returnType, args);
+  //type lookup will always succeed, because the subroutine exists already
+  //so its return/argument types have already been checked
+  type = CallableType::lookup(pure, s->isStatic, returnType, args);
 }
 
 /*************

@@ -371,7 +371,8 @@ namespace Parser
   {
     SubroutineTypeNT() : retType(nullptr) {}
     TypeNT* retType;
-    vector<Arg*> args;
+    vector<Parameter*> params;
+    bool isStatic;
   };
 
   struct FuncTypeNT : public SubroutineTypeNT

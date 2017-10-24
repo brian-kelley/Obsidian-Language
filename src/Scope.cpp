@@ -157,7 +157,6 @@ Variable* Scope::findVariable(Parser::Member* mem)
   return nullptr;
 }
 
-/*
 TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
 {
   auto search = findSub(mem->scopes);
@@ -173,7 +172,6 @@ TypeSystem::Trait* Scope::findTrait(Parser::Member* mem)
   }
   return nullptr;
 }
-*/
 
 Subroutine* Scope::findSubroutine(Parser::Member* mem)
 {
@@ -288,10 +286,10 @@ string BlockScope::getLocalName()
 
 /* TraitScope */
 
-TraitScope::TraitScope(Scope* par, Parser::TraitDecl* astIn) : Scope(par), ast(astIn) {}
+TraitScope::TraitScope(Scope* par, string n) : Scope(par), name(n) {}
 
 string TraitScope::getLocalName()
 {
-  return ast->name;
+  return name;
 }
 
