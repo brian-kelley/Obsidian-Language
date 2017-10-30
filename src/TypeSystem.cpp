@@ -11,15 +11,16 @@ using namespace Parser;
 struct ModuleScope;
 
 extern ModuleScope* global;
-TType* TType::inst;
 
 namespace TypeSystem
 {
+TType* TType::inst;
 
 vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<TupleType*> tuples;
 vector<ArrayType*> arrays;
+set<TraitType*> traitTypes;
 vector<CallableType*> callables;
 
 //these are created in MiddleEnd
@@ -111,12 +112,11 @@ string traitErrorMessage(TraitLookup& lookup)
   return oss.str();
 }
 
-Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* scope)
+Type* lookupType(Parser::TypeNT* type, Scope* scope)
 {
   if(type->t.is<Parser::SubroutineTypeNT*>())
   {
-    subr = type->t.get<Parser::SubroutineTypeNT*>();
-    type = NULL;
+    return lookupType(type->t.get<Parser::SubroutineTypeNT*>(), scope);
   }
   if(type)
   {
@@ -145,23 +145,12 @@ Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* sc
     }
     else if(type->t.is<Member*>())
     {
-      auto mem = type->t.get<Member*>();
-      auto typeSearch = scope->findSub(mem->scopes);
-      for(auto s : typeSearch)
+      Type* t = scope->findType(type->t.get<Member*>());
+      if(auto at = dynamic_cast<AliasType*>(t))
       {
-        for(auto t : s->types)
-        {
-          if(t->getName() == mem->ident)
-          {
-            if(AliasType* at = dynamic_cast<AliasType*>(t))
-            {
-              return at->actual;
-            }
-            return t;
-          }
-        }
+        return at->actual;
       }
-      return nullptr;
+      return t;
     }
     else if(type->t.is<TupleTypeNT*>())
     {
@@ -197,27 +186,36 @@ Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* sc
       for(auto trait : tt->traits)
       {
         //using deferred trait lookup here
-        typeTraits->push_back(lookupTrait
+        typeTraits.push_back(lookupTrait(trait, scope));
+        if(!typeTraits.back())
+        {
+          return nullptr;
+        }
       }
+      std::sort(typeTraits.begin(), typeTraits.end());
+      //try to find matching trait type
+      TraitType search(
+      auto it = traitTypes.
     }
-  }
-  else
-  {
-    assert(subr);
-    Type* retType = lookupType(subr->retType, NULL, scope);
-    if(!retType)
-      return NULL;
-    vector<Type*> argTypes;
-    for(auto arg : subr->args)
-    {
-      argTypes.push_back(lookupType(subr->args[i], NULL, scope));
-      if(argTypes.back() == NULL)
-        return NULL;
-    }
-    bool isPure = dynamic_cast<Parser::FuncTypeNT*>(subr);
-    CallableType* ct = CallableType::lookup(isPure, retType, argTypes);
   }
   return nullptr;
+}
+
+Type* lookupType(Parser::SubroutineTypeNT* subr, Scope* scope)
+{
+  assert(subr);
+  Type* retType = lookupType(subr->retType, NULL, scope);
+  if(!retType)
+  return NULL;
+  vector<Type*> argTypes;
+  for(auto arg : subr->args)
+  {
+    argTypes.push_back(lookupType(subr->args[i], NULL, scope));
+    if(argTypes.back() == NULL)
+      return NULL;
+  }
+  bool isPure = dynamic_cast<Parser::FuncTypeNT*>(subr);
+  return CallableType::lookup(isPure, retType, argTypes);
 }
 
 Type* lookupTypeDeferred(TypeLookup& args)

@@ -152,7 +152,7 @@ struct Indexed : public Expression
 struct CallExpr : public Expression
 {
   CallExpr(Scope* s, Expression* callable, vector<Expression*>& args);
-  SubroutineExpr* callable;
+  Expression* callable;
   vector<Expression*> args;
   bool assignable()
   {
@@ -160,16 +160,8 @@ struct CallExpr : public Expression
   }
 };
 
-struct MethodExpr : public Expression
-{
-  //note: MethodExpr is used when callable->thisObject != NULL, otherwise CallExpr is used
-  MethodExpr(Scope* s, Expression* callable, vector<Expression*>& args);
-  Expression* callable;
-  bool assignable()
-  {
-    return false;
-  }
-};
+//helper to verify argument number and types
+void checkArgs(TypeSystem::CallableType* callable, vector<Expression*>& args);
 
 struct VarExpr : public Expression
 {
@@ -191,13 +183,17 @@ struct SubroutineExpr : public Expression
   SubroutineExpr(Scope* scope, Expression* thisObj, Subroutine* s);
   Subroutine* subr;
   Expression* thisObject;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 struct StructMem : public Expression
 {
-  StructMem(Scope* s, Expression* base, vector<string>& names);
+  StructMem(Scope* s, Expression* base, Variable* v);
   Expression* base;           //base->type is always a StructType
-  vector<string> members;     //list of names that allow lookup from base->type's StructScope
+  Variable* member;
   bool assignable()
   {
     return base->assignable();
@@ -216,8 +212,12 @@ struct NewArray : public Expression
 
 struct ArrayLength : public Expression
 {
-  ArrayLength(Expression* arr);
+  ArrayLength(Scope* s, Expression* arr);
   Expression* array;
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 //Temporary variable (only used in backend)

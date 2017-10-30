@@ -678,7 +678,7 @@ namespace Parser
       BoolLit*,
       ExpressionNT*,      //for expression inside parentheses
       StructLit*,
-      Ident*> e;
+      Member*> e;
     vector<Expr12RHS*> tail;  //tail is a chain of 0 or more member acesses, array indices and member calls
   };
 

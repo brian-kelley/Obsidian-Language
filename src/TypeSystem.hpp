@@ -64,7 +64,8 @@ struct TraitLookup
 string typeErrorMessage(TypeLookup& lookup);
 string traitErrorMessage(TraitLookup& lookup);
 
-Type* lookupType(Parser::TypeNT* type, Parser::SubroutineTypeNT* subr, Scope* scope);
+Type* lookupType(Parser::TypeNT* type, Scope* scope);
+Type* lookupType(Parser::SubroutineTypeNT* subr, Scope* scope);
 Type* lookupTypeDeferred(TypeLookup& args);
 
 Trait* lookupTrait(Parser::Member* type, Scope* scope);
@@ -129,7 +130,7 @@ struct Type
 //Only used in subroutine declarations
 struct BoundedType : public Type
 {
-  BoundedType(Parser::TraitType* tt, Scope* s);
+  BoundedType(string n, vector<Trait*> t, Scope* s) : Type(s), name(n), traits(t) {}
   string name;
   vector<Trait*> traits;
   bool canConvert(Type* other)
@@ -411,6 +412,22 @@ struct TType : public Type
 {
   TType() : Type(NULL) {}
   static TType* inst;
+  //canConvert should never be called, because TType
+  //is only used inside interface decl, which can only contain func/proc decls
+  bool canConvert(Type* other)
+  {
+    INTERNAL_ERROR;
+    return false;
+  }
+  bool canConvert(Expression* other)
+  {
+    INTERNAL_ERROR;
+    return false;
+  }
+  string getName()
+  {
+    return "T";
+  }
 };
 
 } //namespace TypeSystem

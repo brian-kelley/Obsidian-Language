@@ -1444,7 +1444,7 @@ namespace Parser
         e12->e = accept(STRING_LITERAL);
         break;
       case IDENTIFIER:
-        e12->e = accept(IDENTIFIER);
+        e12->e = parse<Member*>();
         break;
       default: err("unexpected token in expression");
     }

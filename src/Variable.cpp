@@ -12,7 +12,7 @@ Variable::Variable(Scope* s, Parser::VarDecl* ast)
         s->getLocalName() + "\" static, but scope is not a struct.");
   }
   //find type (not using deferred lookup)
-  this->type = TypeSystem::lookupType(ast->type, nullptr, scope);
+  this->type = TypeSystem::lookupType(ast->type, scope);
   if(!this->type)
   {
     errAndQuit("variable " + name + " type could not be determined");
