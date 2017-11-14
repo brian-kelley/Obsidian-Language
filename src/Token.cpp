@@ -178,14 +178,7 @@ int Ident::getType()
 
 string Ident::getStr()
 {
-  if(name.length())
-  {
-    return name;
-  }
-  else
-  {
-    return "identifier";
-  }
+  return string("ident \"") + name + "\"";
 }
 
 string Ident::getDesc()

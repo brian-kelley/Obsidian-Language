@@ -1,12 +1,12 @@
 #include "Common.hpp"
 #include "Options.hpp"
-#include "C_Backend.hpp"
+//#include "C_Backend.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
-#include "MiddleEnd.hpp"
-#include "AST_Printer.hpp"
-#include "MiddleEndDebug.hpp"
+#include "ParseTreeOutput.hpp"
+//#include "MiddleEnd.hpp"
+//#include "MiddleEndDebug.hpp"
 
 void init()
 {
@@ -35,22 +35,18 @@ int main(int argc, const char** argv)
     cout << "************************************\n";
     for(auto& it : toks)
     {
-      cout << "Print token of type " << typeid(*it).name() << '\n';
       cout << it->getDesc() << " : " << it->getStr() << "\n";
     }
     cout << '\n';
   });
   //Parse the global/root module
-  Parser::Module* ast;
-  TIMEIT("Parsing", ast = Parser::parseProgram(toks););
+  Parser::Module* parseTree;
+  TIMEIT("Parsing", parseTree = Parser::parseProgram(toks););
   DEBUG_DO({
-    cout << "************************************\n";
-    cout << "*            Parse Tree            *\n";
-    cout << "************************************\n";
-    printAST(ast);
+      outputParseTree(parseTree, "parse.dot");
   });
-  TIMEIT("Middle end", MiddleEnd::load(ast););
   /*
+  TIMEIT("Middle end", MiddleEnd::load(ast););
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*          Scopes/Types            *\n";
@@ -66,10 +62,10 @@ int main(int argc, const char** argv)
   string assembly;
   TIMEIT("Back end", assembly = x86::generateAsm(););
   TIMEIT("Assembler/linker", x86::buildExecutable(assembly, true, op.outputStem););
-  */
   DEBUG_DO(cout << "Running C backend.\n";)
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
+  */
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
   return 0;

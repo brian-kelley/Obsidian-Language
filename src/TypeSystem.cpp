@@ -195,7 +195,6 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
       std::sort(typeTraits.begin(), typeTraits.end());
       //try to find matching trait type
       TraitType search(
-      auto it = traitTypes.
     }
   }
   return nullptr;
@@ -266,6 +265,11 @@ BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
   {
     traits[i] = getTrait(tt->traits[i], s, &traits[i], false);
   }
+}
+
+bool BoundedType::canConvert(Expression* other)
+{
+  return other->type == this;
 }
 
 /***********/

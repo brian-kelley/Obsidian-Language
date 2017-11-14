@@ -1,6 +1,6 @@
-#include "PoolAlloc.h"
+#include "PoolAlloc.hpp"
 
-void* block = NULL;
+unsigned char* block = NULL;
 size_t top = 0;
 
 void* oalloc(size_t bytes)
@@ -10,13 +10,13 @@ void* oalloc(size_t bytes)
     return malloc(bytes);
   }
   if(block == NULL)
-    block = malloc(65536);
+    block = (unsigned char*) malloc(65536);
   if(65536 - bytes > top)
   {
-    block = malloc(65536);
+    block = (unsigned char*) malloc(65536);
     top = 0;
   }
-  void* ptr = block + top;
+  unsigned char* ptr = block + top;
   top += bytes;
   return ptr;
 }

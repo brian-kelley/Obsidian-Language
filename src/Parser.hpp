@@ -10,7 +10,6 @@
 //Use empty struct as default (first) value for variants (always trivially constructible)
 struct None{};
 struct BlockScope;
-typedef runtime_error ParseErr;
 
 namespace Parser
 {
@@ -34,7 +33,7 @@ namespace Parser
   void expectKeyword(int type);
   void expectOper(int type);
   void expectPunct(int type);
-  Token* lookAhead();  //get the next token without advancing pos
+  Token* lookAhead(int n = 0);  //get the next token without advancing pos
   void err(string msg = "");
 
   //lots of mutual recursion in nonterminal structs so just forward-declare all of them
@@ -49,8 +48,8 @@ namespace Parser
   struct EmptyStatement;
   struct For;
   struct ForC;
-  struct ForRange1;
-  struct ForRange2;
+  struct ForOverArray;
+  struct ForRange;
   struct While;
   struct If;
   struct Using;
@@ -62,7 +61,8 @@ namespace Parser
   struct VarAssign;
   struct PrintNT;
   struct CallOp;
-  struct Arg;
+  struct Parameter;
+  struct ParamType;
   struct SubroutineTypeNT;
   struct FuncDecl;
   struct FuncDef;
@@ -75,7 +75,7 @@ namespace Parser
   struct TraitDecl;
   struct StructLit;
   struct Member;
-  struct TraitType;
+  struct BoundedTypeNT;
   struct TupleTypeNT;
   struct BoolLit;
   struct Expr1;
@@ -170,7 +170,6 @@ namespace Parser
       Member*,
       TupleTypeNT*,
       SubroutineTypeNT*,
-      TraitType*,
       TTypeNT> t;
     int arrayDims;
   };
@@ -194,7 +193,6 @@ namespace Parser
       If*,
       Assertion*,
       EmptyStatement*> s;
-    StatementNT* stmt;
   };
 
   struct Typedef : public PoolAllocated
@@ -227,9 +225,9 @@ namespace Parser
     StatementNT* defaultStatement;
   };
 
-  struct Continue {};
-  struct Break {};
-  struct EmptyStatement {};
+  struct Continue : public PoolAllocated {};
+  struct Break : public PoolAllocated {};
+  struct EmptyStatement : public PoolAllocated {};
 
   struct For : public PoolAllocated
   {
@@ -237,8 +235,8 @@ namespace Parser
     variant<
       None,
       ForC*,
-      ForRange1*,
-      ForRange2*> f;
+      ForOverArray*,
+      ForRange*> f;
     Block* body;
   };
 
@@ -252,15 +250,17 @@ namespace Parser
     StatementNT* incr;
   };
 
-  struct ForRange1 : public PoolAllocated
+  struct ForOverArray : public PoolAllocated
   {
-    ForRange1() : expr(nullptr) {}
+    ForOverArray() : expr(nullptr) {}
+    StructLit* tup;
     ExpressionNT* expr;
   };
 
-  struct ForRange2 : public PoolAllocated
+  struct ForRange : public PoolAllocated
   {
-    ForRange2() : start(nullptr), end(nullptr) {}
+    ForRange() : start(nullptr), end(nullptr) {}
+    Ident* name;
     ExpressionNT* start;
     ExpressionNT* end;
   };
@@ -290,12 +290,6 @@ namespace Parser
      * else
      *   c
      */
-  };
-
-  struct Using : public PoolAllocated
-  {
-    Using() : mem(nullptr) {}
-    Member* mem;
   };
 
   struct Assertion : public PoolAllocated
@@ -336,7 +330,6 @@ namespace Parser
     VarDecl() : type(nullptr), val(nullptr) {}
     //NULL if "auto"
     TypeNT* type;
-    //var decl's name can only be a single identifier (but variables can be referenced via compound idents)
     string name;
     //initializing expression (optional)
     ExpressionNT* val;
@@ -362,8 +355,9 @@ namespace Parser
   //Parameter - used by Func/Proc Def (not decl)
   struct Parameter : public PoolAllocated
   {
-    Parameter() : type(nullptr), name(nullptr) {}
-    TypeNT* type;
+    Parameter() : name(nullptr) {}
+    variant<None, TypeNT*, BoundedTypeNT*> type;
+    //name is optional
     Ident* name;
   };
 
@@ -452,7 +446,7 @@ namespace Parser
     Ident* tail;
   };
 
-  struct TraitType : public PoolAllocated
+  struct BoundedTypeNT : public PoolAllocated
   {
     //trait types of the form "<localName>: <traitNames> <argName>"
     //i.e.: int f(T: Num, Drawable value)
@@ -462,7 +456,7 @@ namespace Parser
 
   struct TupleTypeNT : public PoolAllocated
   {
-    //cannot be empty
+    //must have 2 or more members
     vector<TypeNT*> members;
   };
 

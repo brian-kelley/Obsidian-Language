@@ -4,7 +4,6 @@
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
-#include "AST_Printer.hpp"
 #include "DeferredLookup.hpp"
 
 /* Type system: 3 main categories of types
@@ -78,7 +77,6 @@ void createBuiltinTypes();
 extern vector<TupleType*> tuples;
 extern vector<Type*> primitives;
 extern vector<CallableType*> callables;
-extern vector<BoundedType*> bounded;
 extern map<string, Type*> primNames;
 
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
@@ -119,7 +117,6 @@ struct Type
   virtual bool isFloat()    {return false;}
   virtual bool isChar()     {return false;}
   virtual bool isBool()     {return false;}
-  virtual bool isConcrete() {return true;}
   virtual bool isVoid()     {return false;}
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
@@ -135,12 +132,9 @@ struct BoundedType : public Type
   vector<Trait*> traits;
   bool canConvert(Type* other)
   {
-    return false;
+    return other == this;
   }
-  bool isConcrete()
-  {
-    return false;
-  }
+  bool canConvert(Expression* other);
   bool isBounded()
   {
     return true;
@@ -265,7 +259,6 @@ struct AliasType : public Type
   bool isInteger()  {return actual->isInteger();}
   bool isNumber()   {return actual->isNumber();}
   bool isBool()     {return actual->isBool();}
-  bool isConcrete() {return actual->isConcrete();}
   bool isVoid()     {return actual->isVoid();}
   bool isPrimitive(){return actual->isPrimitive();}
   bool isAlias()    {return true;}

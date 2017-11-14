@@ -1,5 +1,4 @@
 #include "Parser.hpp"
-#include "AST_Printer.hpp"
 
 struct BlockScope;
 
@@ -23,11 +22,13 @@ namespace Parser
   template<> StatementNT* parse<StatementNT>();
   template<> Typedef* parse<Typedef>();
   template<> Return* parse<Return>();
+  template<> Break* parse<Break>();
+  template<> Continue* parse<Continue>();
   template<> SwitchCase* parse<SwitchCase>();
   template<> Switch* parse<Switch>();
   template<> ForC* parse<ForC>();
-  template<> ForRange1* parse<ForRange1>();
-  template<> ForRange2* parse<ForRange2>();
+  template<> ForOverArray* parse<ForOverArray>();
+  template<> ForRange* parse<ForRange>();
   template<> For* parse<For>();
   template<> While* parse<While>();
   template<> If* parse<If>();
@@ -41,7 +42,7 @@ namespace Parser
   template<> PrintNT* parse<PrintNT>();
   template<> ExpressionNT* parse<ExpressionNT>();
   template<> CallOp* parse<CallOp>();
-  template<> Arg* parse<Arg>();
+  template<> Parameter* parse<Parameter>();
   template<> FuncDecl* parse<FuncDecl>();
   template<> FuncDef* parse<FuncDef>();
   template<> FuncTypeNT* parse<FuncTypeNT>();
@@ -53,8 +54,9 @@ namespace Parser
   template<> UnionDecl* parse<UnionDecl>();
   template<> TraitDecl* parse<TraitDecl>();
   template<> StructLit* parse<StructLit>();
+  template<> BoolLit* parse<BoolLit>();
   template<> Member* parse<Member>();
-  template<> TraitType* parse<TraitType>();
+  template<> BoundedTypeNT* parse<BoundedTypeNT>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
   template<> Expr1* parse<Expr1>();
   template<> Expr1RHS* parse<Expr1RHS>();
@@ -86,12 +88,11 @@ namespace Parser
     tokens = &toks;
     Module* globalModule = new Module;
     globalModule->name = "";
-    globalModule->decls = parseStar<ScopedDecl>(PastEOF());
-    if(pos != tokens->size())
+    PastEOF eof;
+    while(!accept(eof))
     {
-      //If not all tokens were used, there was a parse error
-      //print the deepest error message produced
-      ERR_MSG(deepestErr);
+      globalModule->decls.push_back(parse<ScopedDecl>());
+      expectPunct(SEMICOLON);
     }
     return globalModule;
   }
@@ -103,7 +104,11 @@ namespace Parser
     expectKeyword(MODULE);
     m->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    m->decls = parseStar<ScopedDecl>(Punct(RBRACE));
+    while(!acceptPunct(RBRACE))
+    {
+      m->decls.push_back(parse<ScopedDecl>());
+      expectPunct(SEMICOLON);
+    }
     return m;
   }
 
@@ -149,7 +154,7 @@ namespace Parser
   //Parse a ScopedDecl, given that it begins with a Member
   //The only rule that works is VarDecl, where Member is the type
   //This is called by parse<StatementNT>()
-  ScopedDecl* parseScopedDeclGivenMember(mem)
+  ScopedDecl* parseScopedDeclGivenMember(Member* mem)
   {
     ScopedDecl* sd = new ScopedDecl;
     VarDecl* vd = new VarDecl;
@@ -166,7 +171,6 @@ namespace Parser
       vd->val = nullptr;
     }
     sd->decl = vd;
-    expectPunct(SEMICOLON);
     return sd;
   }
 
@@ -177,7 +181,6 @@ namespace Parser
     type->arrayDims = 0;
     //check for keyword
     Keyword* keyword = (Keyword*) accept(KEYWORD);
-    bool found = true;
     if(keyword)
     {
       switch(keyword->kw)
@@ -212,8 +215,8 @@ namespace Parser
         case PROCTYPE:
           unget();
           type->t = (SubroutineTypeNT*) parse<ProcTypeNT>(); break;
-        case TTYPE:
-          type->t = TypeNT::TTypeNT; break;
+        case T_TYPE:
+          type->t = TypeNT::TTypeNT(); break;
         default:
           err("expected type");
       }
@@ -250,8 +253,7 @@ namespace Parser
     return b;
   }
 
-  template<>
-  StatementNT* parse<StatementNT>()
+  StatementNT* parseStatementGeneral(bool semicolon)
   {
     //Get some possibilities for the next token
     Token* next = lookAhead();
@@ -264,13 +266,25 @@ namespace Parser
       switch(keyword->kw)
       {
         case PRINT:
-          s->s = parse<PrintNT>(); break;
+          s->s = parse<PrintNT>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         case RETURN:
-          s->s = parse<Return>(); break;
+          s->s = parse<Return>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         case CONTINUE:
-          s->s = parse<Continue>(); break;
+          s->s = parse<Continue>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         case BREAK:
-          s->s = parse<Break>(); break;
+          s->s = parse<Break>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         case SWITCH:
           s->s = parse<Switch>(); break;
         case FOR:
@@ -279,8 +293,11 @@ namespace Parser
           s->s = parse<While>(); break;
         case IF:
           s->s = parse<If>(); break;
-        case ASSERTION:
-          s->s = parse<Assertion>(); break;
+        case ASSERT:
+          s->s = parse<Assertion>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         default: err("expected statement");
       }
       return s;
@@ -305,13 +322,13 @@ namespace Parser
       Member* mem = parse<Member>();
       //now peek at next token
       Token* afterMem = lookAhead(0);
-      Oper* amOp = dynamic_cast<Oper*>(afterMem);
-      Punct* amPunct = dynamic_cast<Punct*>(afterMem);
       if(afterMem->type == IDENTIFIER)
       {
         //definitely have a VarDecl
         //parse it, starting with the member as a type
         s->s = parseScopedDeclGivenMember(mem);
+        if(semicolon)
+          expectPunct(SEMICOLON);
         return s;
       }
       else
@@ -335,18 +352,33 @@ namespace Parser
       va->target = leadingExpr12;
       va->rhs = rhs;
       s->s = va;
+      if(semicolon)
+        expectPunct(SEMICOLON);
       return s;
     }
     else if(leadingExpr12->tail.size() && leadingExpr12->tail.back()->e.is<CallOp*>())
     {
       //call
       s->s = leadingExpr12;
+      if(semicolon)
+        expectPunct(SEMICOLON);
       return s;
     }
     //parsing leadingExpr12 must have succeeded, so give
     //error message knowing that there was some valid expression there
     err("expected call or assignment, but got some other expression");
     return nullptr;
+  }
+  
+  StatementNT* parseStatementWithoutSemicolon()
+  {
+    return parseStatementGeneral(false);
+  }
+
+  template<>
+  StatementNT* parse<StatementNT>()
+  {
+    return parseStatementGeneral(true);
   }
 
   template<>
@@ -388,7 +420,9 @@ namespace Parser
   {
     Return* r = new Return;
     expectKeyword(RETURN);
-    r->ex = parseOptional<ExpressionNT>();
+    r->ex = NULL;
+    if(!acceptPunct(SEMICOLON))
+      r->ex = parse<ExpressionNT>();
     expectPunct(SEMICOLON);
     return r;
   }
@@ -415,7 +449,7 @@ namespace Parser
     //parse cases until either default or rbrace is found
     Keyword defaultKW(DEFAULT);
     Punct rbrace(RBRACE);
-    while(*lookAhead() != defaultKW && *lookAhead() != rbrace)
+    while(!defaultKW.compareTo(lookAhead()) && !rbrace.compareTo(lookAhead()))
     {
       sw->cases.push_back(parse<SwitchCase>());
     }
@@ -437,55 +471,82 @@ namespace Parser
   {
     //try to parse C style for loop
     ForC* forC = new ForC;
-    expectKeyword(FOR);
     expectPunct(LPAREN);
     //all 3 parts of the loop are optional
-    forC->decl = parseOptional<StatementNT>();
-    if(!forC->decl)
+    forC->decl = nullptr;
+    forC->condition = nullptr;
+    forC->incr = nullptr;
+    if(!acceptPunct(SEMICOLON))
     {
+      //statement includes the semicolon
+      forC->decl = parse<StatementNT>();
+    }
+    if(!acceptPunct(SEMICOLON))
+    {
+      forC->condition = parse<ExpressionNT>();
       expectPunct(SEMICOLON);
     }
-    forC->condition = parseOptional<ExpressionNT>();
-    expectPunct(SEMICOLON);
-    forC->incr = parseOptional<StatementNT>();
-    expectPunct(RPAREN);
+    if(!acceptPunct(RPAREN))
+    {
+      forC->incr = parseStatementWithoutSemicolon();
+      expectPunct(RPAREN);
+    }
     return forC;
   }
 
   template<>
-  ForRange1* parse<ForRange1>()
+  ForOverArray* parse<ForOverArray>()
   {
-    ForRange1* fr1 = new ForRange1;
-    expectKeyword(FOR);
+    ForOverArray* fr1 = new ForOverArray;
+    fr1->tup = parse<StructLit>();
+    expectPunct(COLON);
     fr1->expr = parse<ExpressionNT>();
     return fr1;
   }
 
   template<>
-  ForRange2* parse<ForRange2>()
+  ForRange* parse<ForRange>()
   {
-    ForRange2* fr2 = new ForRange2;
-    expectKeyword(FOR);
+    ForRange* fr2 = new ForRange;
+    fr2->name = (Ident*) expect(IDENTIFIER);
     fr2->start = parse<ExpressionNT>();
-    expectPunct(COLON);
+    expectPunct(COMMA);
     fr2->end = parse<ExpressionNT>();
     return fr2;
   }
+
+  //New For syntax (3 variations):
+  //ForC:         for(<stmt>; <expr>; <stmt>) {body}
+  //ForOverArray: for [i, j, k, ..., it] : <expr> {body}
+  //ForRange:     for i : lo, hi {body}
+  //etc, size of tuple is arbitrary in parser,
+  //and checked in middle end against expr num dimensions
+
+  //Can figure out which variation with 1 token lookahead after "for":
+  //  ( ----> ForC
+  //  [ ----> ForOverArray
+  //  Ident ----> ForRange
 
   template<>
   For* parse<For>()
   {
     For* f = new For;
-    if((f->f = parseOptional<ForC>()) ||
-        (f->f = parseOptional<ForRange1>()) ||
-        (f->f = parseOptional<ForRange2>()))
+    expectKeyword(FOR);
+    auto t = lookAhead(0);
+    if(dynamic_cast<Ident*>(t))
     {
-      f->body = parseBlockWrappedStatement();
+      f->f = parse<ForRange>();
     }
-    else
+    else if(Punct* p = dynamic_cast<Punct*>(t))
     {
-      err("invalid for loop");
+      if(p->val == LBRACKET)
+        f->f = parse<ForOverArray>();
+      else if(p->val == LPAREN)
+        f->f = parse<ForC>();
+      else
+        err("invalid for loop");
     }
+    f->body = parseBlockWrappedStatement();
     return f;
   }
 
@@ -532,7 +593,7 @@ namespace Parser
     expectKeyword(TEST);
     //test statement is executed, and the test
     //passes if no assertions fail
-    t->stmt = parse<StatementNT*>();
+    t->stmt = parse<StatementNT>();
     return t;
   }
 
@@ -585,11 +646,11 @@ namespace Parser
     {
       vd->val = parse<ExpressionNT>();
     }
-    expectPunct(SEMICOLON);
     if(!vd->type && !vd->val)
     {
       err("auto declaration requires initialization");
     }
+    //note: semicolon must be handled by caller
     return vd;
   }
 
@@ -598,7 +659,7 @@ namespace Parser
   {
     VarAssign* va = new VarAssign;
     //need to determine lvalue and rvalue (target and rhs)
-    ExpressionNT* target = parse<ExpressionNT>();
+    Expr12* target = parse<Expr12>();
     ExpressionNT* rhs = nullptr;
     int otype = ((Oper*) expect(OPERATOR))->op;
     //unary assign operators don't have rhs
@@ -630,7 +691,7 @@ namespace Parser
         Expr12* oneLit = new Expr12;
         oneLit->e = new IntLit(1);
         //addition and subtraction encoded in Expr10
-        Expr9* sum = new Expr9(new Expr12(target));
+        Expr9* sum = new Expr9(target);
         Expr9RHS* oneRHS = new Expr9RHS;
         oneRHS->rhs = new Expr10(oneLit);
         if(otype == INC)
@@ -645,7 +706,7 @@ namespace Parser
       case PLUSEQ:
       case SUBEQ:
       {
-        Expr9* ex = new Expr9(new Expr12(target));
+        Expr9* ex = new Expr9(target);
         Expr9RHS* r = new Expr9RHS;
         if(otype == PLUSEQ)
           r->op = PLUS;
@@ -661,7 +722,7 @@ namespace Parser
       case DIVEQ:
       case MODEQ:
       {
-        Expr10* ex = new Expr10(new Expr12(target));
+        Expr10* ex = new Expr10(target);
         Expr10RHS* r = new Expr10RHS;
         if(otype == MULEQ)
           r->op = MUL;
@@ -677,7 +738,7 @@ namespace Parser
       }
       case BOREQ:
       {
-        Expr3* ex = new Expr3(new Expr12(target));
+        Expr3* ex = new Expr3(target);
         Expr3RHS* r = new Expr3RHS;
         r->rhs = new Expr4(new Expr12(rhs));
         ex->tail.push_back(r);
@@ -687,7 +748,7 @@ namespace Parser
       }
       case BANDEQ:
       {
-        Expr5* ex = new Expr5(new Expr12(target));
+        Expr5* ex = new Expr5(target);
         Expr5RHS* r = new Expr5RHS;
         r->rhs = new Expr6(new Expr12(rhs));
         ex->tail.push_back(r);
@@ -697,7 +758,7 @@ namespace Parser
       }
       case BXOREQ:
       {
-        Expr4* ex = new Expr4(new Expr12(target));
+        Expr4* ex = new Expr4(target);
         Expr4RHS* r = new Expr4RHS;
         r->rhs = new Expr5(new Expr12(rhs));
         ex->tail.push_back(r);
@@ -708,7 +769,7 @@ namespace Parser
       case SHLEQ:
       case SHREQ:
       {
-        Expr8* ex = new Expr8(new Expr12(target));
+        Expr8* ex = new Expr8(target);
         Expr8RHS* r = new Expr8RHS;
         r->rhs = new Expr9(new Expr12(rhs));
         if(otype == SHLEQ)
@@ -735,25 +796,27 @@ namespace Parser
     expectPunct(LPAREN);
     p->exprs = parsePlusComma<ExpressionNT>();
     expectPunct(RPAREN);
-    expectPunct(SEMICOLON);
     return p;
-  }
-
-  template<>
-  Arg* parse<Arg>()
-  {
-    Arg* a = new Arg;
-    a->matched = acceptOper(MATCH);
-    a->expr = parse<ExpressionNT>();
-    return a;
   }
 
   template<>
   Parameter* parse<Parameter>()
   {
     Parameter* p = new Parameter;
-    p->type = parse<TypeNT>();
-    p->name = (Ident*) expect(IDENTIFIER);
+    //look ahead for Ident followed by ':' (means bounded type)
+    //otherwise, just parse regular TypeNT
+    Ident* nextID = dynamic_cast<Ident*>(lookAhead(0));
+    Punct* punct = dynamic_cast<Punct*>(lookAhead(1));
+    if(nextID && punct && punct->val == COLON)
+    {
+      p->type = parse<BoundedTypeNT>();
+    }
+    else
+    {
+      p->type = parse<TypeNT>();
+    }
+    //optional parameter name
+    p->name = (Ident*) accept(IDENTIFIER);
     return p;
   }
 
@@ -762,15 +825,14 @@ namespace Parser
   {
     FuncDecl* fd = new FuncDecl;
     expectKeyword(FUNC);
-    fd->isStatic = false;
+    fd->type.isStatic = false;
     if(acceptKeyword(STATIC))
-      fd->isStatic = true;
+      fd->type.isStatic = true;
     fd->type.retType = parse<TypeNT>();
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    fd->type.args = parseStarComma<Parameter>();
-    expectPunct(RPAREN);
+    fd->type.params = parseStarComma<Parameter>(rparen);
     expectPunct(SEMICOLON);
     return fd;
   }
@@ -787,7 +849,7 @@ namespace Parser
     fd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    fd->type.args = parseStarComma<Parameter>(rparen);
+    fd->type.params = parseStarComma<Parameter>(rparen);
     fd->body = parse<Block>();
     return fd;
   }
@@ -802,8 +864,8 @@ namespace Parser
       ft->isStatic = true;
     ft->retType = parse<TypeNT>();
     expectPunct(LPAREN);
-    ft->args = parseSomeCommaSeparated<Arg>();
-    expectPunct(RPAREN);
+    Punct rparen(RPAREN);
+    ft->params = parseStarComma<Parameter>(rparen);
     return ft;
   }
 
@@ -814,14 +876,14 @@ namespace Parser
     if(acceptKeyword(NONTERM))
       pd->type.nonterm = true;
     expectKeyword(PROC);
-    pd->isStatic = false;
+    pd->type.isStatic = false;
     if(acceptKeyword(STATIC))
-      pd->isStatic = true;
+      pd->type.isStatic = true;
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    pd->type.args = parseSomeCommaSeparated<Arg>();
-    expectPunct(RPAREN);
+    Punct rparen(RPAREN);
+    pd->type.params = parseStarComma<Parameter>(rparen);
     expectPunct(SEMICOLON);
     return pd;
   }
@@ -839,8 +901,8 @@ namespace Parser
     pd->type.retType = parse<TypeNT>();
     pd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
-    pd->type.args = parseSomeCommaSeparated<Arg>();
-    expectPunct(RPAREN);
+    Punct rparen(RPAREN);
+    pd->type.params = parseStarComma<Parameter>(rparen);
     pd->body = parse<Block>();
     return pd;
   }
@@ -857,8 +919,8 @@ namespace Parser
       pt->isStatic = true;
     pt->retType = parse<TypeNT>();
     expectPunct(LPAREN);
-    pt->args = parseSomeCommaSeparated<Arg>();
-    expectPunct(RPAREN);
+    Punct rparen(RPAREN);
+    pt->params = parseStarComma<Parameter>(rparen);
     return pt;
   }
 
@@ -886,11 +948,11 @@ namespace Parser
     sd->name = ((Ident*) expect(IDENTIFIER))->name;
     if(acceptPunct(COLON))
     {
-      sd->traits = parseSomeCommaSeparated<Member>();
+      sd->traits = parsePlusComma<Member>();
     }
     expectPunct(LBRACE);
-    sd->members = parseSome<StructMem>();
-    expectPunct(RBRACE);
+    Punct rbrace(RBRACE);
+    sd->members = parseStar<StructMem>(rbrace);
     return sd;
   }
 
@@ -901,7 +963,7 @@ namespace Parser
     expectKeyword(UNION);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    vd->types = parseSomeCommaSeparated<TypeNT>();
+    vd->types = parsePlusComma<TypeNT>();
     expectPunct(RBRACE);
     return vd;
   }
@@ -915,24 +977,14 @@ namespace Parser
     expectPunct(LBRACE);
     while(true)
     {
-      FuncDecl* fd;
-      ProcDecl* pd;
-      if((fd = parseOptional<FuncDecl>()) ||
-          (pd = parseOptional<ProcDecl>()))
-      {
-        if(fd)
-        {
-          td->members.emplace_back(fd);
-        }
-        else
-        {
-          td->members.emplace_back(pd);
-        }
-      }
+      Keyword* kw = (Keyword*) expect(KEYWORD);
+      unget();
+      if(kw->kw == FUNC)
+        td->members.emplace_back(parse<FuncDecl>());
+      else if(kw->kw == PROC)
+        td->members.emplace_back(parse<ProcDecl>());
       else
-      {
-        break;
-      }
+        err("invalid trait member: expected function/procedure declaration");
     }
     expectPunct(RBRACE);
     return td;
@@ -943,8 +995,8 @@ namespace Parser
   {
     StructLit* sl = new StructLit;
     expectPunct(LBRACKET);
-    sl->vals = parseSomeCommaSeparated<ExpressionNT>();
-    expectPunct(RBRACKET);
+    Punct rbrack(RBRACKET);
+    sl->vals = parseStarComma<ExpressionNT>(rbrack);
     return sl;
   }
 
@@ -953,28 +1005,26 @@ namespace Parser
   {
     Member* m = new Member;
     //get a list of all strings separated by dots
-    m->scopes.push_back(((Ident*) expect(IDENTIFIER))->name);
+    m->head.push_back((Ident*) expect(IDENTIFIER));
     while(acceptPunct(DOT))
     {
-      m->scopes.push_back(((Ident*) expect(IDENTIFIER))->name);
+      m->head.push_back((Ident*) expect(IDENTIFIER));
     }
-    //the last item in scopes is the ident
-    //scopes must have size >= 1
-    m->ident = m->scopes.back();
-    m->scopes.pop_back();
+    m->tail = m->head.back();
+    m->head.pop_back();
     return m;
   }
 
   template<>
-  TraitType* parse<TraitType>()
+  BoundedTypeNT* parse<BoundedTypeNT>()
   {
     // <ident> : <trait1, trait2, ... traitN>
     // Given the ':', there must be one or more trait names
-    TraitType* tt = new TraitType;
-    tt->localName = ((Ident*) expect(IDENTIFIER))->name;
+    BoundedTypeNT* bt = new BoundedTypeNT;
+    bt->localName = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
-    tt->traits = parseSomeCommaSeparated<Member>();
-    return tt;
+    bt->traits = parsePlusComma<Member>();
+    return bt;
   }
 
   template<>
@@ -982,7 +1032,11 @@ namespace Parser
   {
     TupleTypeNT* tt = new TupleTypeNT;
     expectPunct(LPAREN);
-    tt->members = parseSomeCommaSeparated<TypeNT>();
+    tt->members = parsePlusComma<TypeNT>();
+    if(tt->members.size() == 1)
+    {
+      ERR_MSG("tuple type must have more than 1 member");
+    }
     expectPunct(RPAREN);
     return tt;
   }
@@ -1006,54 +1060,54 @@ namespace Parser
     return bl;
   }
 
-  Expr1::Expr1(Expr2* e)
+  Expr1::Expr1(Expr2* ex)
   {
-    head = e;
+    head = ex;
   }
 
-  Expr1::Expr1(Expr3* e)
+  Expr1::Expr1(Expr3* ex)
   {
-    head = new Expr2(e);
+    head = new Expr2(ex);
   }
 
-  Expr1::Expr1(Expr4* e)
+  Expr1::Expr1(Expr4* ex)
   {
-    head = new Expr2(new Expr3(e));
+    head = new Expr2(new Expr3(ex));
   }
 
-  Expr1::Expr1(Expr5* e)
+  Expr1::Expr1(Expr5* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(e)));
+    head = new Expr2(new Expr3(new Expr4(ex)));
   }
 
-  Expr1::Expr1(Expr6* e)
+  Expr1::Expr1(Expr6* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(e))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(ex))));
   }
 
-  Expr1::Expr1(Expr7* e)
+  Expr1::Expr1(Expr7* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(e)))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(ex)))));
   }
 
-  Expr1::Expr1(Expr8* e)
+  Expr1::Expr1(Expr8* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(e))))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(ex))))));
   }
 
-  Expr1::Expr1(Expr9* e)
+  Expr1::Expr1(Expr9* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(e)))))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(ex)))))));
   }
 
-  Expr1::Expr1(Expr10* e)
+  Expr1::Expr1(Expr10* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(e))))))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(ex))))))));
   }
 
-  Expr1::Expr1(Expr11* e)
+  Expr1::Expr1(Expr11* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(e)))))))));
+    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(ex)))))))));
   }
 
   Expr1::Expr1(Expr12* e12)
@@ -1117,12 +1171,12 @@ namespace Parser
     Expr1* e1 = new Expr1;
     if(acceptKeyword(ARRAY))
     {
-      e1->e = parse<NewArrayNT*>();
+      e1->e = parse<NewArrayNT>();
       //no tail for NewArrayNT (not compatible with any operands)
     }
     else
     {
-      e1->e.head = parse<Expr2>();
+      e1->e = parse<Expr2>();
       //check whether parse<Expr1RHS>() should succeed
       Token* next = lookAhead();
       while(next->type == OPERATOR && ((Oper*) next)->op == LOR)
@@ -1267,7 +1321,6 @@ namespace Parser
   {
     Expr7* e7 = new Expr7;
     e7->head = parse<Expr8>();
-    e7->tail = parseSome<Expr7RHS>();
     Oper* next = dynamic_cast<Oper*>(lookAhead());
     while(next && (next->op == CMPL || next->op == CMPLE || next->op == CMPG || next->op == CMPGE))
     {
@@ -1376,8 +1429,7 @@ namespace Parser
   Expr11* parse<Expr11>()
   {
     Expr11* e11 = new Expr11;
-    Oper* oper = accept(OPERATOR);
-    if(oper)
+    if(Oper* oper = (Oper*) accept(OPERATOR))
     {
       Expr11::UnaryExpr ue;
       ue.op = oper->op;
@@ -1401,14 +1453,14 @@ namespace Parser
       case PUNCTUATION:
       {
         Punct* punct = (Punct*) next;
-        if(next->val == LPAREN)
+        if(punct->val == LPAREN)
         {
           //expression in parentheses
           accept();
           e12->e = parse<ExpressionNT>();
           expectPunct(RPAREN);
         }
-        else if(next->val == LBRACKET)
+        else if(punct->val == LBRACKET)
         {
           //struct lit
           e12->e = parse<StructLit>();
@@ -1432,19 +1484,19 @@ namespace Parser
         break;
       }
       case INT_LITERAL:
-        e12->e = accept(INT_LITERAL);
+        e12->e = (IntLit*) accept(INT_LITERAL);
         break;
       case FLOAT_LITERAL:
-        e12->e = accept(FLOAT_LITERAL);
+        e12->e = (FloatLit*) accept(FLOAT_LITERAL);
         break;
       case CHAR_LITERAL:
-        e12->e = accept(CHAR_LITERAL);
+        e12->e = (CharLit*) accept(CHAR_LITERAL);
         break;
       case STRING_LITERAL:
-        e12->e = accept(STRING_LITERAL);
+        e12->e = (StrLit*) accept(STRING_LITERAL);
         break;
       case IDENTIFIER:
-        e12->e = parse<Member*>();
+        e12->e = parse<Member>();
         break;
       default: err("unexpected token in expression");
     }
@@ -1460,20 +1512,20 @@ namespace Parser
       if(acceptPunct(LBRACKET))
       {
         //"[ Expr ]"
-        e12->tail.push_back(new Expr12RHS);
-        e12->tail.back()->e = parse<ExpressionNT>();
+        head->tail.push_back(new Expr12RHS);
+        head->tail.back()->e = parse<ExpressionNT>();
       }
       else if(acceptPunct(DOT))
       {
         //". Ident"
-        e12->tail.push_back(new Expr12RHS);
-        e12->tail.back()->e = (Ident*) expect(IDENTIFIER);
+        head->tail.push_back(new Expr12RHS);
+        head->tail.back()->e = (Ident*) expect(IDENTIFIER);
       }
       else if(lookAhead()->compareTo(&lparen))
       {
         //"( Args )" - aka a CallOp
-        e12->tail.push_back(new Expr12RHS);
-        e12->tail.back()->e = parse<CallOp>();
+        head->tail.push_back(new Expr12RHS);
+        head->tail.back()->e = parse<CallOp>();
       }
     }
   }
@@ -1482,18 +1534,9 @@ namespace Parser
   {
     //first, consume the member by using a chain of "member" operators
     Expr12* e12 = new Expr12;
-    if(mem->head.size())
-    {
-      e12->e = head[0];
-      for(size_t i = 1; i < mem->head.size(); i++)
-      {
-        e12->tail.push_back(new Expr12RHS);
-        e12->tail.back()->e = mem->head[i];
-      }
-    }
-    e12->tail.push_back(new Expr12RHS);
-    e12->tail.back()->e = mem->tail;
+    e12->e = mem;
     parseExpr12Tail(e12);
+    return e12;
   }
 
   template<>
@@ -1502,7 +1545,7 @@ namespace Parser
     CallOp* co = new CallOp;
     expectPunct(LPAREN);
     Punct term(RPAREN);
-    co->args = parseStarComma<Arg>(term);
+    co->args = parseStarComma<ExpressionNT>(term);
     return co;
   }
 
@@ -1612,12 +1655,13 @@ namespace Parser
     expect(p);
   }
 
-  Token* lookAhead()
+  Token* lookAhead(int n)
   {
-    if(pos >= tokens->size())
+    int index = pos + n;
+    if(index >= tokens->size())
       return &PastEOF::inst;
     else
-      return (*tokens)[pos];
+      return (*tokens)[index];
   }
 
   void err(string msg)
@@ -1633,18 +1677,18 @@ namespace Parser
 
   void unget()
   {
-    if(pos > 0)
-      pos--;
+    assert(pos > 0);
+    pos--;
   }
 }
 
 ostream& operator<<(ostream& os, const Parser::Member& mem)
 {
-  for(auto s : mem.scopes)
+  for(auto s : mem.head)
   {
-    os << s << '.';
+    os << s->name << '.';
   }
-  os << mem.ident;
+  os << mem.tail->name;
   return os;
 }
 
