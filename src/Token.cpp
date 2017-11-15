@@ -295,7 +295,11 @@ int CharLit::getType()
 
 string CharLit::getStr()
 {
-  return string("'") + val + "'";
+  if(isgraph(val))
+    return string("'") + val + "'";
+  char buf[16];
+  sprintf(buf, "%#02hhx", val);
+  return buf;
 }
 
 string CharLit::getDesc()

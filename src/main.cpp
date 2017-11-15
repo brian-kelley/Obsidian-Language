@@ -29,6 +29,7 @@ int main(int argc, const char** argv)
   //Lexing
   vector<Token*> toks;
   TIMEIT("Lexing", lex(code, toks););
+  /*
   DEBUG_DO({
     cout << "************************************\n";
     cout << "*            TOKENS                *\n";
@@ -39,6 +40,7 @@ int main(int argc, const char** argv)
     }
     cout << '\n';
   });
+  */
   //Parse the global/root module
   Parser::Module* parseTree;
   TIMEIT("Parsing", parseTree = Parser::parseProgram(toks););

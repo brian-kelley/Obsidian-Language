@@ -3,7 +3,7 @@
 using namespace Parser;
 
 //The stream for writing dotfile (GraphViz) output
-FILE* dot;
+FILE* dot = NULL;
 
 int nodeIndex = 0;
 int nextNode()
@@ -14,6 +14,7 @@ int nextNode()
 template<typename T>
 int emit(T* n)
 {
+  cout << "ParseTreeOutput didn't implement emit<" << typeid(T).name() << ">\n";
   INTERNAL_ERROR;
   return 0;
 }
@@ -24,24 +25,27 @@ void outputParseTree(Parser::Module* tree, string filename)
 {
 #ifdef DEBUG
   dot = fopen(filename.c_str(), "w");
+  fputs("digraph ParseTree {\n", dot);
   emit<Module>(tree);
+  fputs("}\n", dot);
   fclose(dot);
 #endif
 }
 
+#ifdef DEBUG
 //Create a new node with given label
 //label can be anything, as long as special chars are escaped
 static int node(string label)
 {
   int n = nextNode();
-  fprintf(dot, "%i [label=\\\"%s\\\"];\n", n, label.c_str());
+  fprintf(dot, "N%i [label=\"%s\"];\n", n, label.c_str());
   return n;
 }
 
 //Create an edge from n1 to n2
 static void link(int n1, int n2)
 {
-  fprintf(dot, "%i -> %i;\n", n1, n2);
+  fprintf(dot, "N%i -> N%i;\n", n1, n2);
 }
 
 template<> int emit<ScopedDecl>(ScopedDecl* n);
@@ -67,6 +71,7 @@ template<> int emit<VarAssign>(VarAssign* n);
 template<> int emit<PrintNT>(PrintNT* n);
 template<> int emit<CallOp>(CallOp* n);
 template<> int emit<Parameter>(Parameter* n);
+template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n);
 template<> int emit<FuncDecl>(FuncDecl* n);
 template<> int emit<FuncDef>(FuncDef* n);
 template<> int emit<FuncTypeNT>(FuncTypeNT* n);
@@ -286,7 +291,7 @@ template<> int emit<Typedef>(Typedef* n)
 
 template<> int emit<Return>(Return* n)
 {
-  int root = emit("Return");
+  int root = node("Return");
   if(n->ex)
   {
     int ex = emit(n->ex);
@@ -492,6 +497,18 @@ template<> int emit<Parameter>(Parameter* n)
   return root;
 }
 
+template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n)
+{
+  auto ft = dynamic_cast<FuncTypeNT*>(n);
+  auto pt = dynamic_cast<ProcTypeNT*>(n);
+  if(ft)
+    return emit(ft);
+  else if(pt)
+    return emit(pt);
+  INTERNAL_ERROR;
+  return 0;
+}
+
 template<> int emit<FuncDecl>(FuncDecl* n)
 {
   int root = node("Func decl");
@@ -519,6 +536,10 @@ template<> int emit<FuncTypeNT>(FuncTypeNT* n)
   int retType = node("Return type");
   link(root, retType);
   link(retType, emit(n->retType));
+  if(n->params.size() == 0)
+  {
+    link(root, node("No parameters"));
+  }
   for(auto param : n->params)
   {
     link(root, emit(param));
@@ -557,12 +578,16 @@ template<> int emit<ProcTypeNT>(ProcTypeNT* n)
   qualifiers += ")";
   int root = 0;
   if(qualifiers.length() == 2)
-    root = node("Procedure");
+    root = node("Procedure type");
   else
-    root = node("Procedure " + qualifiers);
+    root = node("Procedure type " + qualifiers);
   int retType = node("Return type");
   link(root, retType);
   link(retType, emit(n->retType));
+  if(n->params.size() == 0)
+  {
+    link(root, node("No parameters"));
+  }
   for(auto param : n->params)
   {
     link(root, emit(param));
@@ -671,7 +696,7 @@ template<> int emit<Expr1>(Expr1* n)
 {
   if(n->e.is<NewArrayNT*>())
     return emit(n->e.get<NewArrayNT*>());
-  int base = emit(n->head);
+  int base = emit(n->e.get<Expr2*>());
   for(auto rhs : n->tail)
   {
     int newBase = node("||");
@@ -890,4 +915,6 @@ template<> int emit<NewArrayNT>(NewArrayNT* n)
     link(root, emit(dim));
   return root;
 }
+
+#endif //DEBUG
 

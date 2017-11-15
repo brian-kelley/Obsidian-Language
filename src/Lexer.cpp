@@ -307,6 +307,9 @@ void lex(string& code, vector<Token*>& tokList)
       ERR_MSG("unexpected character: '" << c << "'\n");
     }
   }
+  //set the proper location of EOF
+  PastEOF::inst.line = cs.line;
+  PastEOF::inst.col = cs.col;
 }
 
 char getEscapedChar(char ident)

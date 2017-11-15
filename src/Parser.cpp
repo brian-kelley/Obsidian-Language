@@ -88,11 +88,9 @@ namespace Parser
     tokens = &toks;
     Module* globalModule = new Module;
     globalModule->name = "";
-    PastEOF eof;
-    while(!accept(eof))
+    while(!accept(PastEOF::inst))
     {
       globalModule->decls.push_back(parse<ScopedDecl>());
-      expectPunct(SEMICOLON);
     }
     return globalModule;
   }
@@ -112,16 +110,14 @@ namespace Parser
     return m;
   }
 
-  template<>
-  ScopedDecl* parse<ScopedDecl>()
+  static ScopedDecl* parseScopedDeclGeneral(bool semicolon)
   {
     ScopedDecl* sd = new ScopedDecl;
     //peek at next token to check for keywords that start decls
     //use short-circuit evaluation to find the pattern that parses successfully
-    Keyword* nextKeyword = (Keyword*) accept(KEYWORD);
+    Keyword* nextKeyword = dynamic_cast<Keyword*>(lookAhead());
     if(nextKeyword)
     {
-      accept();
       bool found = true;
       switch(nextKeyword->kw)
       {
@@ -136,7 +132,10 @@ namespace Parser
         case ENUM:
           sd->decl = parse<Enum>(); break;
         case TYPEDEF:
-          sd->decl = parse<Typedef>(); break;
+          sd->decl = parse<Typedef>();
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
         case FUNC:
           sd->decl = parse<FuncDef>(); break;
         case PROC:
@@ -148,7 +147,15 @@ namespace Parser
     }
     //only other possibility is VarDecl
     sd->decl = parse<VarDecl>();
+    if(semicolon)
+      expectPunct(SEMICOLON);
     return sd;
+  }
+
+  template<>
+  ScopedDecl* parse<ScopedDecl>()
+  {
+    return parseScopedDeclGeneral(true);
   }
 
   //Parse a ScopedDecl, given that it begins with a Member
@@ -298,7 +305,32 @@ namespace Parser
           if(semicolon)
             expectPunct(SEMICOLON);
           break;
-        default: err("expected statement");
+        //handle various kinds of ScopedDecl
+        case MODULE:
+        case STRUCT:
+        case UNION:
+        case TRAIT:
+        case ENUM:
+        case FUNC:
+        case PROC:
+        case TYPEDEF:
+        case TEST:
+        //handle type keywords (the type for VarDecl)
+        case BOOL:
+        case CHAR:
+        case BYTE:
+        case UBYTE:
+        case SHORT:
+        case USHORT:
+        case INT:
+        case UINT:
+        case LONG:
+        case ULONG:
+        case FLOAT:
+        case DOUBLE:
+          s->s = parse<ScopedDecl>();
+          break;
+        default: err("expected statement or declaration, but got keyword " + keywordTable[keyword->kw]);
       }
       return s;
     }
@@ -345,13 +377,9 @@ namespace Parser
     //if '=' after Expr12, is an assign
     //if Expr12 tail back is CallOp, is a call
     //otherwise is an error
-    if(acceptOper(ASSIGN))
+    if(lookAhead()->type == OPERATOR)
     {
-      ExpressionNT* rhs = parse<ExpressionNT>();
-      VarAssign* va = new VarAssign;
-      va->target = leadingExpr12;
-      va->rhs = rhs;
-      s->s = va;
+      s->s = parseAssignGivenExpr12(leadingExpr12);
       if(semicolon)
         expectPunct(SEMICOLON);
       return s;
@@ -369,7 +397,7 @@ namespace Parser
     err("expected call or assignment, but got some other expression");
     return nullptr;
   }
-  
+
   StatementNT* parseStatementWithoutSemicolon()
   {
     return parseStatementGeneral(false);
@@ -385,7 +413,6 @@ namespace Parser
   Break* parse<Break>()
   {
     expectKeyword(BREAK);
-    expectPunct(SEMICOLON);
     return new Break;
   }
 
@@ -393,14 +420,12 @@ namespace Parser
   Continue* parse<Continue>()
   {
     expectKeyword(CONTINUE);
-    expectPunct(SEMICOLON);
     return new Continue;
   }
 
   template<>
   EmptyStatement* parse<EmptyStatement>()
   {
-    expectPunct(SEMICOLON);
     return new EmptyStatement;
   }
 
@@ -411,7 +436,6 @@ namespace Parser
     expectKeyword(TYPEDEF);
     td->type = parse<TypeNT>();
     td->ident = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(SEMICOLON);
     return td;
   }
 
@@ -423,7 +447,6 @@ namespace Parser
     r->ex = NULL;
     if(!acceptPunct(SEMICOLON))
       r->ex = parse<ExpressionNT>();
-    expectPunct(SEMICOLON);
     return r;
   }
 
@@ -637,6 +660,7 @@ namespace Parser
   {
     VarDecl* vd = new VarDecl;
     vd->isStatic = acceptKeyword(STATIC);
+    vd->type = nullptr;
     if(!acceptKeyword(AUTO))
     {
       vd->type = parse<TypeNT>();
@@ -653,13 +677,11 @@ namespace Parser
     //note: semicolon must be handled by caller
     return vd;
   }
-
-  template<>
-  VarAssign* parse<VarAssign>()
+  
+  VarAssign* parseAssignGivenExpr12(Expr12* target)
   {
     VarAssign* va = new VarAssign;
-    //need to determine lvalue and rvalue (target and rhs)
-    Expr12* target = parse<Expr12>();
+    va->target = target;
     ExpressionNT* rhs = nullptr;
     int otype = ((Oper*) expect(OPERATOR))->op;
     //unary assign operators don't have rhs
@@ -667,21 +689,18 @@ namespace Parser
     {
       rhs = parse<ExpressionNT>();
     }
-    if(
-        otype != ASSIGN &&
-        otype != INC && otype != DEC &&
-        otype != PLUSEQ && otype != SUBEQ && otype != MULEQ &&
-        otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
-        otype != BANDEQ && otype != BXOREQ)
+    if(otype != ASSIGN &&
+       otype != INC && otype != DEC &&
+       otype != PLUSEQ && otype != SUBEQ && otype != MULEQ &&
+       otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
+       otype != BANDEQ && otype != BXOREQ)
     {
       err("invalid operator for variable assignment/update: " + operatorTable[otype]);
     }
-    expectPunct(SEMICOLON);
     switch(otype)
     {
       case ASSIGN:
       {
-        va->target = target;
         va->rhs = rhs;
         return va;
       }
@@ -699,7 +718,6 @@ namespace Parser
         else
           oneRHS->op = SUB;
         sum->tail.push_back(oneRHS);
-        va->target = target;
         va->rhs = new ExpressionNT(sum);
         return va;
       }
@@ -732,7 +750,6 @@ namespace Parser
           r->op = MOD;
         r->rhs = new Expr11(new Expr12(rhs));
         ex->tail.push_back(r);
-        va->target = target;
         va->rhs = new ExpressionNT(ex);
         return va;
       }
@@ -742,7 +759,6 @@ namespace Parser
         Expr3RHS* r = new Expr3RHS;
         r->rhs = new Expr4(new Expr12(rhs));
         ex->tail.push_back(r);
-        va->target = target;
         va->rhs = new ExpressionNT(ex);
         return va;
       }
@@ -752,7 +768,6 @@ namespace Parser
         Expr5RHS* r = new Expr5RHS;
         r->rhs = new Expr6(new Expr12(rhs));
         ex->tail.push_back(r);
-        va->target = target;
         va->rhs = new ExpressionNT(ex);
         return va;
       }
@@ -762,7 +777,6 @@ namespace Parser
         Expr4RHS* r = new Expr4RHS;
         r->rhs = new Expr5(new Expr12(rhs));
         ex->tail.push_back(r);
-        va->target = target;
         va->rhs = new ExpressionNT(ex);
         return va;
       }
@@ -777,15 +791,20 @@ namespace Parser
         else
           r->op = SHR;
         ex->tail.push_back(r);
-        va->target = target;
         va->rhs = new ExpressionNT(ex);
         return va;
       }
       default: INTERNAL_ERROR;
     }
-    //like all statements, must be terminated with semicolon
-    expectPunct(SEMICOLON);
     return va;
+  }
+
+  template<>
+  VarAssign* parse<VarAssign>()
+  {
+    //need to determine lvalue and rvalue (target and rhs)
+    Expr12* target = parse<Expr12>();
+    return parseAssignGivenExpr12(target);
   }
 
   template<>
@@ -975,9 +994,8 @@ namespace Parser
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    while(true)
+    while(Keyword* kw = (Keyword*) accept(KEYWORD))
     {
-      Keyword* kw = (Keyword*) expect(KEYWORD);
       unget();
       if(kw->kw == FUNC)
         td->members.emplace_back(parse<FuncDecl>());
@@ -1062,57 +1080,57 @@ namespace Parser
 
   Expr1::Expr1(Expr2* ex)
   {
-    head = ex;
+    e = ex;
   }
 
   Expr1::Expr1(Expr3* ex)
   {
-    head = new Expr2(ex);
+    e = new Expr2(ex);
   }
 
   Expr1::Expr1(Expr4* ex)
   {
-    head = new Expr2(new Expr3(ex));
+    e = new Expr2(new Expr3(ex));
   }
 
   Expr1::Expr1(Expr5* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(ex)));
+    e = new Expr2(new Expr3(new Expr4(ex)));
   }
 
   Expr1::Expr1(Expr6* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(ex))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(ex))));
   }
 
   Expr1::Expr1(Expr7* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(ex)))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(ex)))));
   }
 
   Expr1::Expr1(Expr8* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(ex))))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(ex))))));
   }
 
   Expr1::Expr1(Expr9* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(ex)))))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(ex)))))));
   }
 
   Expr1::Expr1(Expr10* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(ex))))))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(ex))))))));
   }
 
   Expr1::Expr1(Expr11* ex)
   {
-    head = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(ex)))))))));
+    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(ex)))))))));
   }
 
   Expr1::Expr1(Expr12* e12)
   {
-    head = new Expr2(e12);
+    e = new Expr2(e12);
   }
 
   Expr2::Expr2(Expr12* e12)
@@ -1200,8 +1218,8 @@ namespace Parser
   template<>
   Expr2* parse<Expr2>()
   {
-    //
     Expr2* e2 = new Expr2;
+    e2->head = parse<Expr3>();
     Token* next = lookAhead();
     while(next->type == OPERATOR && ((Oper*) next)->op == LAND)
     {
@@ -1447,16 +1465,15 @@ namespace Parser
   Expr12* parse<Expr12>()
   {
     Expr12* e12 = new Expr12;
-    Token* next = lookAhead(0);
+    Token* next = lookAhead();
     switch(next->type)
     {
       case PUNCTUATION:
       {
-        Punct* punct = (Punct*) next;
+        Punct* punct = (Punct*) expect(PUNCTUATION);
         if(punct->val == LPAREN)
         {
           //expression in parentheses
-          accept();
           e12->e = parse<ExpressionNT>();
           expectPunct(RPAREN);
         }
@@ -1474,7 +1491,7 @@ namespace Parser
       }
       case KEYWORD:
       {
-        Keyword* kw = (Keyword*) next;
+        Keyword* kw = (Keyword*) expect(KEYWORD);
         if(kw->kw == TRUE)
           e12->e = new BoolLit(true);
         else if(kw->kw == FALSE)
@@ -1484,16 +1501,16 @@ namespace Parser
         break;
       }
       case INT_LITERAL:
-        e12->e = (IntLit*) accept(INT_LITERAL);
+        e12->e = (IntLit*) expect(INT_LITERAL);
         break;
       case FLOAT_LITERAL:
-        e12->e = (FloatLit*) accept(FLOAT_LITERAL);
+        e12->e = (FloatLit*) expect(FLOAT_LITERAL);
         break;
       case CHAR_LITERAL:
-        e12->e = (CharLit*) accept(CHAR_LITERAL);
+        e12->e = (CharLit*) expect(CHAR_LITERAL);
         break;
       case STRING_LITERAL:
-        e12->e = (StrLit*) accept(STRING_LITERAL);
+        e12->e = (StrLit*) expect(STRING_LITERAL);
         break;
       case IDENTIFIER:
         e12->e = parse<Member>();
@@ -1506,7 +1523,6 @@ namespace Parser
 
   void parseExpr12Tail(Expr12* head)
   {
-    Punct lparen(LPAREN);
     while(true)
     {
       if(acceptPunct(LBRACKET))
@@ -1514,6 +1530,7 @@ namespace Parser
         //"[ Expr ]"
         head->tail.push_back(new Expr12RHS);
         head->tail.back()->e = parse<ExpressionNT>();
+        expectPunct(RBRACKET);
       }
       else if(acceptPunct(DOT))
       {
@@ -1521,12 +1538,15 @@ namespace Parser
         head->tail.push_back(new Expr12RHS);
         head->tail.back()->e = (Ident*) expect(IDENTIFIER);
       }
-      else if(lookAhead()->compareTo(&lparen))
+      else if(acceptPunct(LPAREN))
       {
         //"( Args )" - aka a CallOp
+        unget();
         head->tail.push_back(new Expr12RHS);
         head->tail.back()->e = parse<CallOp>();
       }
+      else
+        break;
     }
   }
 

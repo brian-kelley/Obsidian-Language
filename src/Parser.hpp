@@ -338,6 +338,8 @@ namespace Parser
     bool isStatic;
   };
 
+  VarAssign* parseAssignGivenExpr12(Expr12* e12);
+
   struct VarAssign : public PoolAllocated
   {
     VarAssign() : target(nullptr), rhs(nullptr) {}
@@ -364,6 +366,7 @@ namespace Parser
   struct SubroutineTypeNT : public PoolAllocated
   {
     SubroutineTypeNT() : retType(nullptr) {}
+    virtual ~SubroutineTypeNT() {}
     TypeNT* retType;
     vector<Parameter*> params;
     bool isStatic;
@@ -469,7 +472,7 @@ namespace Parser
 
   struct Expr1 : public PoolAllocated
   {
-    Expr1() : head(nullptr) {}
+    Expr1() {}
     Expr1(Expr2* e);
     Expr1(Expr3* e);
     Expr1(Expr4* e);
@@ -481,8 +484,7 @@ namespace Parser
     Expr1(Expr10* e);
     Expr1(Expr11* e);
     Expr1(Expr12* e12);
-    variant<Expr2*, NewArrayNT*> e;
-    Expr2* head;
+    variant<None, Expr2*, NewArrayNT*> e;
     //note: if e.is<NewArrayNT*>, tail is empty and unused
     vector<Expr1RHS*> tail;
   };
