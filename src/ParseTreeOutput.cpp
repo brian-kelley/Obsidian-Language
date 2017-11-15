@@ -383,7 +383,7 @@ template<> int emit<If>(If* i)
   int root = node("If");
   int cond = emit(i->cond);
   link(root, cond);
-  link(cond, emit(i->ifBody));
+  link(root, emit(i->ifBody));
   if(i->elseBody)
   {
     int els = node("Else");
@@ -857,7 +857,7 @@ template<> int emit<Expr12>(Expr12* n)
   }
   else if(n->e.is<StrLit*>())
   {
-    root = node(string("String literal \"") + n->e.get<StrLit*>()->val + "\"");
+    root = node(string("String literal \\\"") + n->e.get<StrLit*>()->val + "\\\"");
   }
   else if(n->e.is<FloatLit*>())
   {

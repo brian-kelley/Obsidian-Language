@@ -255,6 +255,8 @@ namespace Parser
   Block* parseBlockWrappedStatement()
   {
     StatementNT* s = parse<StatementNT>();
+    if(s->s.is<Block*>())
+      return s->s.get<Block*>();
     Block* b = new Block;
     b->statements.push_back(s);
     return b;
@@ -532,6 +534,7 @@ namespace Parser
   {
     ForRange* fr2 = new ForRange;
     fr2->name = (Ident*) expect(IDENTIFIER);
+    expectPunct(COLON);
     fr2->start = parse<ExpressionNT>();
     expectPunct(COMMA);
     fr2->end = parse<ExpressionNT>();
@@ -1470,7 +1473,7 @@ namespace Parser
     {
       case PUNCTUATION:
       {
-        Punct* punct = (Punct*) expect(PUNCTUATION);
+        Punct* punct = (Punct*) next;
         if(punct->val == LPAREN)
         {
           //expression in parentheses
@@ -1485,7 +1488,7 @@ namespace Parser
         else
         {
           //nothing else valid
-          err("invalid punctuation in expression");
+          err(string("invalid punctuation in expression: ") + punctTable[punct->val]);
         }
         break;
       }
