@@ -127,7 +127,19 @@ namespace Parser
         case STRUCT:
           sd->decl = parse<StructDecl>(); break;
         case UNION:
-          sd->decl = parse<UnionDecl>(); break;
+        {
+          //parse union <name> { type1, type2, ... }
+          accept();
+          string name = ((Ident*) expect(IDENTIFIER))->name;
+          expectPunct(LBRACE);
+          UnionTypeNT* ut = new UnionTypeNT(parsePlusComma<TypeNT>());
+          TypeNT* t = new TypeNT;
+          t->t = ut;
+          expectPunct(RBRACE);
+          //alias the union type
+          sd->decl = new Typedef(name, t);
+          break;
+        }
         case TRAIT:
           sd->decl = parse<TraitDecl>(); break;
         case ENUM:

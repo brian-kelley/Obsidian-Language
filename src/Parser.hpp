@@ -71,7 +71,6 @@ namespace Parser
   struct ProcDef;
   struct ProcTypeNT;
   struct StructDecl;
-  struct UnionDecl;
   struct TraitDecl;
   struct StructLit;
   struct Member;
@@ -133,7 +132,6 @@ namespace Parser
       Module*,
       VarDecl*,
       StructDecl*,
-      UnionDecl*,
       TraitDecl*,
       Enum*,
       Typedef*,
@@ -202,8 +200,9 @@ namespace Parser
   struct Typedef
   {
     Typedef() : type(nullptr) {}
-    TypeNT* type;
+    Typedef(string n, TypeNT* t) : ident(n), type(t) {}
     string ident;
+    TypeNT* type;
   };
 
   struct Return
@@ -446,12 +445,6 @@ namespace Parser
     vector<StructMem*> members;
   };
 
-  struct UnionDecl
-  {
-    string name;
-    UnionTypeNT* type;
-  };
-
   struct TraitDecl
   {
     string name;
@@ -492,8 +485,8 @@ namespace Parser
 
   struct MapTypeNT
   {
-    Type* keyType;
-    Type* valueType;
+    TypeNT* keyType;
+    TypeNT* valueType;
   };
 
   struct BoolLit

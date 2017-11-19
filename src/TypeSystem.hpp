@@ -32,10 +32,11 @@ namespace TypeSystem
 
 struct Type;
 struct Trait;
+struct StructType;
 struct TupleType;
 struct ArrayType;
-struct StructType;
 struct UnionType;
+struct MapType;
 struct AliasType;
 struct BoundedType;
 
@@ -75,6 +76,7 @@ Type* getIntegerType(int bytes, bool isSigned);
 void createBuiltinTypes();
 
 extern vector<TupleType*> tuples;
+extern vector<MapType*> maps;
 extern vector<Type*> primitives;
 extern vector<CallableType*> callables;
 extern map<string, Type*> primNames;
