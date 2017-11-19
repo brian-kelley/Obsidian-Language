@@ -70,6 +70,8 @@ int main(int argc, const char** argv)
   */
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
+  int lines = PastEOF::inst.line;
+  cout << "Processed " << lines << " lines (" << lines / elapsed << " lines/s, or " << code.length() / (elapsed * 1000000) << " MB/s)\n";
   return 0;
 }
 

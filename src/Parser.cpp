@@ -58,6 +58,7 @@ namespace Parser
   template<> Member* parse<Member>();
   template<> BoundedTypeNT* parse<BoundedTypeNT>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
+  template<> MapTypeNT* parse<MapTypeNT>();
   template<> Expr1* parse<Expr1>();
   template<> Expr1RHS* parse<Expr1RHS>();
   template<> Expr2* parse<Expr2>();
@@ -230,8 +231,33 @@ namespace Parser
     }
     else if(acceptPunct(LPAREN))
     {
-      unget();
-      type->t = parse<TupleTypeNT>();
+      Type* first = parse<TypeNT>();
+      if(acceptPunct(COMMA))
+      {
+        //tuple
+        vector<TypeNT*> tupleMembers;
+        tupleMembers.push_back(first);
+        while(acceptPunct(COMMA))
+        {
+          tupleMembers.push_back(parse<TypeNT>());
+        }
+        if(tupleMembers.size() == 1)
+        {
+          //not really a tuple (just a single type in parens)
+          //this could be a union, so no need to cover union type here
+          type = first;
+        }
+        else
+        {
+          type->t = new TupleTypeNT(tupleMembers);
+        }
+      }
+      else if(acceptPunct(COLON))
+      {
+        Type* valueType = parse<TypeNT>();
+        type->t = new MapTypeNT(first, valueType);
+      }
+      expectPunct(RPAREN);
     }
     else if(lookAhead()->getType() == IDENTIFIER)
     {
@@ -248,6 +274,20 @@ namespace Parser
     {
       expectPunct(RBRACKET);
       type->arrayDims++;
+    }
+    //have parsed a type: now check for "|" indicating union
+    if(acceptOper(BOR))
+    {
+      vector<Type*> unionTypes;
+      unionTypes.push_back(type);
+      do
+      {
+        unionTypes.push_back(parse<TypeNT>());
+      }
+      while(acceptOper(BOR));
+      Type* wrapper = new Type;
+      wrapper->t = new UnionTypeNT(unionTypes);
+      return wrapper;
     }
     return type;
   }
@@ -453,42 +493,62 @@ namespace Parser
   }
 
   template<>
-  SwitchCase* parse<SwitchCase>()
-  {
-    SwitchCase* sc = new SwitchCase;
-    sc->matchVal = parse<ExpressionNT>();
-    expectPunct(COLON);
-    sc->s = parse<StatementNT>();
-    return sc;
-  }
-
-  template<>
   Switch* parse<Switch>()
   {
     Switch* sw = new Switch;
     expectKeyword(SWITCH);
     expectPunct(LPAREN);
-    sw->sw = parse<ExpressionNT>();
+    sw->value = parse<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
     //parse cases until either default or rbrace is found
-    Keyword defaultKW(DEFAULT);
-    Punct rbrace(RBRACE);
-    while(!defaultKW.compareTo(lookAhead()) && !rbrace.compareTo(lookAhead()))
+    while(!acceptPunct(RBRACE))
     {
-      sw->cases.push_back(parse<SwitchCase>());
-    }
-    if(acceptKeyword(DEFAULT))
-    {
+      expectKeyword(CASE);
+      TypeNT* t = parse<TypeNT>();
       expectPunct(COLON);
-      sw->defaultStatement = parse<StatementNT>();
+      sw->cases.emplace_back(t, parse<Block>());
     }
-    else
-    {
-      sw->defaultStatement = nullptr;
-    }
-    expectPunct(RBRACE);
     return sw;
+  }
+
+  template<>
+  Match* parse<Match>()
+  {
+    Match* m = new Match;
+    expectKeyword(MATCH);
+    expectPunct(LPAREN);
+    m->value = parse<ExpressionNT*>();
+    expectPunct(RPAREN);
+    expectPunct(LBRACE);
+    m->defaultPosition = -1;
+    while(!acceptPunct(RBRACE))
+    {
+      if(acceptKeyword(CASE))
+      {
+        m->labels.emplace_back(m->stmts.size(), parse<ExpressionNT>());
+        expectPunct(COLON);
+      }
+      else if(acceptKeyword(DEFAULT))
+      {
+        if(m->defaultPosition == -1)
+        {
+          err("default label redefined in match statement");
+        }
+        m->defaultPosition = stmts.size();
+        expectPunct(COLON);
+      }
+      else
+      {
+        m->stmts.push_back(parse<StatementNT>());
+      }
+    }
+    if(m->defaultPosition == -1)
+    {
+      //set implicit default: end of all statements
+      m->defaultPosition = stmts.size();
+    }
+    return m;
   }
 
   template<>
@@ -985,8 +1045,9 @@ namespace Parser
     expectKeyword(UNION);
     vd->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    vd->types = parsePlusComma<TypeNT>();
+    vector<TypeNT*> types = parsePlusComma<TypeNT>();
     expectPunct(RBRACE);
+    type = new UnionTypeNT(types);
     return vd;
   }
 
@@ -1054,12 +1115,20 @@ namespace Parser
     TupleTypeNT* tt = new TupleTypeNT;
     expectPunct(LPAREN);
     tt->members = parsePlusComma<TypeNT>();
-    if(tt->members.size() == 1)
-    {
-      ERR_MSG("tuple type must have more than 1 member");
-    }
     expectPunct(RPAREN);
     return tt;
+  }
+
+  template<>
+  MapTypeNT* parse<MapTypeNT>()
+  {
+    MapTypeNT* mt = new MapTypeNT;
+    expectPunct(LPAREN);
+    mt->keyType = parse<TypeNT>();
+    expectPunct(COLON);
+    mt->valueType = parse<TypeNT>();
+    expectPunct(RPAREN);
+    return mt;
   }
 
   template<>

@@ -5,6 +5,7 @@ size_t top = 0;
 
 void* oalloc(size_t bytes)
 {
+  /*
   if(bytes > 1024)
   {
     return malloc(bytes);
@@ -19,5 +20,7 @@ void* oalloc(size_t bytes)
   unsigned char* ptr = block + top;
   top += bytes;
   return ptr;
+  */
+  return malloc(bytes);
 }
 
