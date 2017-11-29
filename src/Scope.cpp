@@ -286,7 +286,7 @@ string BlockScope::getLocalName()
 
 /* TraitScope */
 
-TraitScope::TraitScope(Scope* par, string n) : Scope(par), name(n) {}
+TraitScope::TraitScope(Scope* par, string n) : Scope(par), ttype(nullptr), name(n) {}
 
 string TraitScope::getLocalName()
 {

@@ -100,9 +100,7 @@ struct Type
   //get the type's name
   virtual string getName() = 0;
   //"primitives" maps TypeNT::Prim values to corresponding Type*
-  //quickly lookup (or create) unique TupleType for given members
-  TupleType* lookupTuple(vector<Type*>& members);
-  //Note: the set stores TupleType pointers, but compares them by operator< on the dereferenced values
+  virtual bool implementsTrait(Trait* t) {return false;}
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
@@ -161,6 +159,7 @@ struct StructType : public Type
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isStruct() {return true;}
+  bool implementsTrait(Trait* t);
   void checkTraits(); //called once at end of semantic checking
   string getName()
   {
@@ -403,11 +402,13 @@ struct CallableType : public Type
   {
     return !pure;
   }
-  //Conversion rules: all funcs can be procs
-  //                  all nonmember/static functions can be member functions (just ignore this argument)
-  //                  member functions are only equivalent if they belong to same struct
-  //                  all terminating procedures can be used in place of nonterminating ones
-  bool canConvert(Type* other) {return this == other;}
+  //Conversion rules:
+  //all funcs can be procs
+  //all nonmember/static functions can
+  //  be member functions (by ignoring the this argument)
+  //all terminating procedures can be used in place of nonterminating ones
+  //argument and owner types must match exactly (except nonmember -> member)
+  bool canConvert(Type* other);
   bool canConvert(Expression* other);
 };
 
@@ -418,20 +419,10 @@ struct CallableCompare
 
 struct TType : public Type
 {
-  TType() : Type(NULL) {}
-  static TType* inst;
-  //canConvert should never be called, because TType
-  //is only used inside interface decl, which can only contain func/proc decls
-  bool canConvert(Type* other)
-  {
-    INTERNAL_ERROR;
-    return false;
-  }
-  bool canConvert(Expression* other)
-  {
-    INTERNAL_ERROR;
-    return false;
-  }
+  TType(TraitScope* ts) : Type(ts) {}
+  //canConvert: other implements this trait
+  bool canConvert(Type* other);
+  bool canConvert(Expression* other);
   string getName()
   {
     return "T";

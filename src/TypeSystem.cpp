@@ -140,7 +140,19 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   }
   else if(type->t.is<Member*>())
   {
-    return scope->findType(type->t.get<Member*>());
+    //intercept special case: "T" inside a trait decl
+    auto mem = type->t.get<Member*>();
+    if(mem->head.size() == 0 && mem->tail.name == "T")
+    {
+      for(Scope* iter = scope; iter; iter = iter->parent)
+      {
+        if(auto ts = dynamic_cast<TraitScope*>(iter))
+        {
+          return TType::inst;
+        }
+      }
+    }
+    return scope->findType(mem);
   }
   else if(type->t.is<TupleTypeNT*>())
   {
@@ -459,6 +471,12 @@ bool StructType::implementsAllTraits()
 {
   //go through each trait, and make sure there is an exactly matching
   //subroutine (names, 
+}
+
+bool StructType::implementsTrait(Trait* t)
+{
+  //note: requires that checking has already been done
+  return find(traits.begin(), traits.end(), t) != traits.end();
 }
 
 /**************/
@@ -892,14 +910,44 @@ string CallableType::getName()
   return oss.str();
 }
 
+//all funcs can be procs
+//all nonmember/static functions can
+//  be member functions (by ignoring the this argument)
+//member functions are only equivalent if they belong to same struct
+//all terminating procedures can be used in place of nonterminating ones
+bool CallableType::canConvert(Type* other)
+{
+  //Only CallableTypes are convertible to other CallableTypes
+  auto ct = dynamic_cast<CallableType*>(other);
+  if(!ct)
+    return false;
+  if(!ownerStruct && other->ownerStruct ||
+      ownerStruct other->ownerStruct && ownerStruct != other->ownerStruct)
+  {
+    //this is static, but other is not
+    //OR
+    //both members but different owning structs
+    return false;
+  }
+  if(!nonterminating && other->nonterminating)
+    return false;
+  if(isFunc() && ct->isProc())
+    return false;
+  //check that arguments are exactly the same
+  //doing at end because more expensive test
+  if(argTypes = other->argTypes)
+    return false;
+  return true;
+}
+
 bool CallableType::canConvert(Expression* other);
 {
-  return this == other->type;
+  return other->type && canConvert(other->type);
 }
 
 bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs)
 {
-  //a completely arbitrary way to order all possible callables (is lhs < rhs?)
+  //an arbitrary way to order all possible callables (is lhs < rhs?)
   if(!lhs->pure && rhs->pure)
     return true;
   if(!lhs->terminating && rhs->terminating)
@@ -912,7 +960,25 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
     return true;
   else if(lhs->owner > rhs->owner)
     return false;
-  return lexicographical_compare(lhs->argTypes.begin(), lhs->argTypes.end(), rhs->argTypes.begin(), rhs->argTypes.end());
+  return lexicographical_compare(
+      lhs->argTypes.begin(), lhs->argTypes.end(),
+      rhs->argTypes.begin(), rhs->argTypes.end());
+}
+
+bool TType::canConvert(Type* other)
+{
+  //other can convert to TType if other implements this trait
+  TraitScope* ts = dynamic_cast<TraitScope*>(scope);
+  if(!ts || !ts->trait)
+  {
+    INTERNAL_ERROR;
+  }
+  return other->implementsTrait(ts->trait);
+}
+
+bool TType::canConvert(Expression* other)
+{
+  return other->type && canConvert(other->type);
 }
 
 } //namespace TypeSystem

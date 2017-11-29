@@ -8,6 +8,8 @@
 namespace TypeSystem
 {
   struct Type;
+  struct StructType;
+  struct TType;
   struct FuncType;
   struct ProcType;
   struct Trait;
@@ -16,7 +18,6 @@ namespace TypeSystem
 struct Subroutine;
 struct Variable;
 struct Scope;
-struct StructType;
 
 // Unified name lookup system
 struct Name
@@ -82,7 +83,7 @@ struct ModuleScope : public Scope
 struct StructScope : public Scope
 {
   StructScope(string name, Scope* parent, Parser::StructDecl* astIn);
-  StructType* type;
+  TypeSystem::StructType* type;
   string getLocalName();
   string name;  //local name
 };
@@ -102,6 +103,8 @@ struct BlockScope : public Scope
 struct TraitScope : public Scope
 {
   TraitScope(Scope* parent, string n);
+  TypeSystem::Trait* trait;
+  TypeSystem::TType* ttype;
   string getLocalName();
   string name; //local name
 };
