@@ -11,14 +11,14 @@
 
 /*
 Middle-end processing has several steps:
--build scope tree (module, block, struct)
+-build scope tree (module, subroutine, block, struct)
   -tree is built depth-first
     -to visit a scope, load all types and
      traits declared there, then descend to child scopes
     -struct traits and members and variant types should be fully available
   -all types should be available from either in same scope or an above scope
   -If type doesn't exist for variable and can't be found, is a semantic error
-  -Array/tuple types are created lazily, in special lists separate from scopes
+  -Anonymous (array, tuple, union, map) types are created lazily, in special lists separate from scopes
 */
 
 extern ModuleScope* global;
@@ -26,7 +26,7 @@ extern ModuleScope* global;
 namespace MiddleEnd
 {
   void load(Parser::Module* ast);
-  //AST traversal functions for building scope tree and loading all type decls
+  //parse tree traversal functions for building scope tree and loading all type decls
   namespace ScopeTypeLoading
   {
     //Types can only come from scoped decls
@@ -34,12 +34,14 @@ namespace MiddleEnd
     void visitBlock(Scope* current, Parser::Block* b);
     void visitStatement(Scope* current, Parser::StatementNT* s);
     void visitStruct(Scope* current, Parser::StructDecl* sd);
+    void visitFuncDef(Scope* current, Parser::
     void visitTrait(Scope* current, Parser::TraitDecl* td);
     void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
     //for loops are special becuase they always introduce a block scope (for the counter),
     //even if its body is not a block
     void resolveAll();
   }
+  //adding variables to scopes
   namespace VarLoading
   {
     void visitScope(Scope* s);

@@ -18,10 +18,11 @@ TType* TType::inst;
 
 vector<Type*> primitives;
 map<string, Type*> primNames;
-vector<TupleType*> tuples;
-vector<ArrayType*> arrays;
-set<TraitType*> traitTypes;
-vector<CallableType*> callables;
+set<ArrayType*, ArrayCompare< arrays;
+set<TupleType*, TupleCompare> tuples;
+set<UnionType*, UnionCompare> unions;
+set<MapType*, MapCompare> maps;
+set<CallableType*, CallableCompare> callables;
 
 //these are created in MiddleEnd
 DeferredTypeLookup* typeLookup;
@@ -114,107 +115,180 @@ string traitErrorMessage(TraitLookup& lookup)
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope)
 {
-  if(type->t.is<Parser::SubroutineTypeNT*>())
+  //handle array immediately - just make an array and then handle the singular element type
+  if(type->arrayDims)
   {
-    return lookupType(type->t.get<Parser::SubroutineTypeNT*>(), scope);
-  }
-  if(type)
-  {
-    //handle array immediately - just make an array and then handle the singular element type
-    if(type->arrayDims)
+    int dims = type->arrayDims;
+    //now look up the type for the element type
+    type->arrayDims = 0;
+    Type* elemType = lookupType(type, scope);
+    //restore original type to preserve AST
+    type->arrayDims = dims;
+    if(!elemType)
     {
-      size_t dims = type->arrayDims;
-      type->arrayDims = 0;
-      //now look up the type for the element type
-      Type* elemType = lookupType(type, scope);
-      //restore original type to preserve AST
-      type->arrayDims = dims;
-      if(!elemType)
+      //elem lookup type failed, so wait to get the array type
+      return nullptr;
+    }
+    else
+    {
+      return elemType->getArrayType(dims);
+    }
+  }
+  else if(type->t.is<TypeNT::Prim>())
+  {
+    return primitives[(int) type->t.get<TypeNT::Prim>()];
+  }
+  else if(type->t.is<Member*>())
+  {
+    return scope->findType(type->t.get<Member*>());
+  }
+  else if(type->t.is<TupleTypeNT*>())
+  {
+    //get a list of member types
+    vector<Type*> members;
+    for(auto mem : type->t.get<TupleTypeNT*>()->members)
+    {
+      members.push_back(lookupType(mem, scope));
+      if(members.back() == nullptr)
       {
-        //elem lookup type failed, so wait to get the array type
-        return NULL;
+        return nullptr;
+      }
+    }
+    for(auto tt : tuples)
+    {
+      if(tt->matchesTypes(members))
+      {
+        return tt;
+      }
+    }
+    TupleType* newTuple = new TupleType(members);
+    tuples.push_back(newTuple);
+    return newTuple;
+  }
+  else if(type->t.is<UnionTypeNT*>())
+  {
+    auto utNT = type->t.get<UnionTypeNT*>();
+    vector<TypeNT*> options;
+    for(auto t : utNT->types)
+    {
+      TypeNT* next = lookupType(t, scope);
+      if(!next)
+      {
+        //have to come back later when all option types are defined
+        return nullptr;
+      }
+      options.push_back(next);
+    }
+    //special case: only one option (just return it)
+    if(options.size() == 1)
+      return options.front();
+    UnionType* ut = new UnionType(options);
+    //check if ut is already in the set of all union types
+    auto it = unions.find(ut);
+    if(it == unions.end())
+    {
+      //new union type, so add it to set
+      unions.insert(ut);
+      return ut;
+    }
+    else
+    {
+      //use type (which is already in the set)
+      delete ut;
+      return *it;
+    }
+  }
+  else if(type->t.is<MapTypeNT*>())
+  {
+    auto mtNT = type->t.get<MapTypeNT*>();
+    TypeNT* key = lookupType(mtNT->keyType, scope);
+    TypeNT* value = lookupType(mtNT->valueType, scope);
+    if(!key || !value)
+      return nullptr;
+    MapType* mt = new MapType(key, value);
+    auto it = maps.find(mt);
+    if(it == maps.end())
+    {
+      maps.insert(mt);
+      return mt;
+    }
+    else
+    {
+      delete mt;
+      return *it;
+    }
+  }
+  else if(type->t.is<SubroutineTypeNT*>())
+  {
+    auto stNT = type->t.get<SubroutineTypeNT*>();
+    //find the owner struct (from scope), if it exists
+    StructScope* owner = nullptr;
+    bool pure = dynamic_cast<FuncTypeNT*>(stNT);
+    bool nonterm = true;
+    if(auto pt = dynamic_cast<ProcTypeNT*>(stNT))
+      nonterm = pt->nonterm;
+    if(!stNT->isStatic)
+    {
+      //if scope is inside a StructScope, owner = corresponding struct type
+      for(Scope* iter = scope; iter; iter = iter->parent)
+      {
+        if(auto ss = dynamic_cast<StructScope*>(iter))
+        {
+          owner = ss->type;
+          break;
+        }
+      }
+    }
+    //get return type and argument types (return nullptr if those aren't available)
+    Type* retType = lookupType(stNT->retType, scope);
+    if(!retType)
+      return nullptr;
+    vector<Type*> argTypes;
+    for(auto param : stNT->params)
+    {
+      if(param->type.is<TypeNT*>())
+      {
+        argTypes.push_back(lookupType(param->type.get<TypeNT*>(), scope));
+        if(argTypes.back() == nullptr)
+          return nullptr;
       }
       else
       {
-        return elemType->getArrayType(dims);
-      }
-    }
-    else if(type->t.is<TypeNT::Prim>())
-    {
-      return primitives[(int) type->t.get<TypeNT::Prim>()];
-    }
-    else if(type->t.is<Member*>())
-    {
-      Type* t = scope->findType(type->t.get<Member*>());
-      if(auto at = dynamic_cast<AliasType*>(t))
-      {
-        return at->actual;
-      }
-      return t;
-    }
-    else if(type->t.is<TupleTypeNT*>())
-    {
-      //get a list of member types
-      vector<Type*> members;
-      for(auto mem : type->t.get<TupleTypeNT*>()->members)
-      {
-        members.push_back(lookupType(mem, scope));
-        if(members.back() == nullptr)
-        {
+        auto bt = param->type.get<BoundedTypeNT*>();
+        //attempt to look up the bounded type by name
+        Member m;
+        m.ident = new Ident(bt->localName);
+        TypeNT wrapper;
+        wrapper.t = &m;
+        TypeNT* namedBT = lookupType(&wrapper, scope);
+        if(!namedBT)
           return nullptr;
-        }
+        argTypes.push_back(namedBT);
       }
-      for(auto tt : tuples)
-      {
-        if(tt->matchesTypes(members))
-        {
-          return tt;
-        }
-      }
-      TupleType* newTuple = new TupleType(members);
-      tuples.push_back(newTuple);
-      return newTuple;
     }
-    else if(type->t.is<TraitType*>())
+    auto ct = new CallableType(pure, owner, retType, argTypes, nonterm);
+    auto it = callables.find(ct);
+    if(it == callables.end())
     {
-      //look up the traits, then sort the pointers
-      //find existing bounded type that matches, or create new one
-      //if lookup of any trait fails, can return NULL for now
-      //Note: Trait types 
-      vector<Trait*> typeTraits;
-      auto tt = type->t.get<TraitType*>();
-      for(auto trait : tt->traits)
-      {
-        //using deferred trait lookup here
-        typeTraits.push_back(lookupTrait(trait, scope));
-        if(!typeTraits.back())
-        {
-          return nullptr;
-        }
-      }
-      std::sort(typeTraits.begin(), typeTraits.end());
-      //try to find matching trait type
-      TraitType search(
+      callables.insert(ct);
+      return ct;
+    }
+    else
+    {
+      return *it;
     }
   }
   return nullptr;
 }
 
-Type* lookupType(Parser::SubroutineTypeNT* subr, Scope* scope)
+CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope)
 {
-  assert(subr);
-  Type* retType = lookupType(subr->retType, NULL, scope);
-  if(!retType)
-  return NULL;
-  vector<Type*> argTypes;
-  for(auto arg : subr->args)
-  {
-    argTypes.push_back(lookupType(subr->args[i], NULL, scope));
-    if(argTypes.back() == NULL)
-      return NULL;
-  }
-  bool isPure = dynamic_cast<Parser::FuncTypeNT*>(subr);
-  return CallableType::lookup(isPure, retType, argTypes);
+  //construct a TypeNT and then call lookupType
+  Parser::TypeNT* wrapper = new Parser::TypeNT;
+  wrapper->t = subr;
+  CallableType* result = dynamic_cast<CallableType*>(lookupType(wrapper, scope));
+  delete wrapper;
+  return result;
 }
 
 Type* lookupTypeDeferred(TypeLookup& args)
@@ -312,8 +386,11 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   decl = sd;
   //must assume there are unresolved members
   this->structScope = sscope;
-  //Need to size members immediately (so the vector is never reallocated again)
-  //Count the struct members which are VarDecls
+  //have struct scope point back to this
+  sscope->type = this;
+  //Need to size members immediately
+  //(so the vector is never reallocated again, that would break deferred lookup)
+  //Count the VarDecl members
   size_t numMemberVars = 0;
   for(auto& it : sd->members)
   {
@@ -388,16 +465,10 @@ bool StructType::implementsAllTraits()
 /* Union Type */
 /**************/
 
-UnionType::UnionType(Parser::UnionDecl* ud, Scope* enclosingScope) : Type(enclosingScope)
+UnionTypes::UnionType(vector<Type*> types) : Type(NULL)
 {
-  decl = ud;
-  name = ud->name;
-  options.resize(ud->types.size());
-  for(size_t i = 0; i < ud->types.size(); i++)
-  {
-    TypeLookup lookupArgs(ud->types[i], enclosingScope);
-    typeLookup->lookup(lookupArgs, options[i]);
-  }
+  options = types;
+  sort(options.begin(), options.end());
 }
 
 bool UnionType::canConvert(Type* other)
@@ -405,9 +476,23 @@ bool UnionType::canConvert(Type* other)
   return other == this;
 }
 
-bool UnionType::isUnion()
+string UnionType::getName()
 {
-  return true;
+  string name = "(";
+  name += options[0]->getName();
+  for(int i = 1; i < options.size(); i++)
+  {
+    name += " | ";
+    name += options[i]->getName();
+  }
+  name += ")";
+  return name;
+}
+
+bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs)
+{
+  return lexicographical_compare(lhs->types.begin(), lhs->types.end(),
+      rhs->types.begin(), rhs->types.end());
 }
 
 /**************/
@@ -417,18 +502,15 @@ bool UnionType::isUnion()
 ArrayType::ArrayType(Type* elemType, int ndims) : Type(NULL)
 {
   assert(elemType);
+  assert(ndims > 0);
   this->dims = ndims;
   this->elem = elemType;
-  if(ndims == 1)
-  {
-    this->subtype = elemType;
-  }
-  else
-  {
-    this->subtype = this->elem->dimTypes[ndims - 2];
-  }
-  //If an ArrayType is being constructed, it should always be the next dimension for elemType
-  assert((int) elemType->dimTypes.size() == ndims - 1);
+  subtype = ndims == 1 ? elem : elem->getArrayTypes(dims - 1);
+}
+
+ArrayType* ArrayType::getArrayType(int extradims)
+{
+  return elem->getArrayType(dims - 1);
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -481,6 +563,15 @@ bool ArrayType::isArray()
   return true;
 }
 
+bool ArrayType::operator()(const ArrayType* lhs, const ArrayType* rhs)
+{
+  if(lhs->elem < rhs->elem)
+    return true;
+  else if(lhs->elem == rhs->elem && lhs->dims < rhs->dims)
+    return true;
+  return false;
+}
+
 /**************/
 /* Tuple Type */
 /**************/
@@ -519,14 +610,19 @@ bool TupleType::canConvert(Expression* other)
   return false;
 }
 
-bool TupleType::isTuple()
+bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 {
-  return true;
+  return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
+      rhs->members.begin(), rhs->members.end());
 }
 
-bool TupleType::matchesTypes(vector<Type*>& types)
+/************/
+/* Map Type */
+/************/
+
+bool MapType::operator()(const MapType* lhs, const MapType* rhs)
 {
-  return members.size() == types.size() && std::equal(types.begin(), types.end(), members.begin());
+  return lhs->key < rhs->key || lhs->key == rhs->key && lhs->value < rhs->value;
 }
 
 /**************/
@@ -742,16 +838,6 @@ bool BoolType::canConvert(Type* other)
   return other->isBool();
 }
 
-bool BoolType::isBool()
-{
-  return true;
-}
-
-bool BoolType::isPrimitive()
-{
-  return true;
-}
-
 /*************/
 /* Void Type */
 /*************/
@@ -763,26 +849,47 @@ bool VoidType::canConvert(Type* t)
   return t->isVoid();
 }
 
-bool VoidType::isVoid()
-{
-  return true;
-}
-
-bool VoidType::isPrimitive()
-{
-  return true;
-}
-
 /*****************/
 /* Callable Type */
 /*****************/
 
-CallableType::CallableType(bool isPure, bool isStatic, Type* retType, vector<Type*>& args) : Type(NULL)
+CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args, bool term = true)
 {
-  this->returnType = retType;
-  this->pure = isPure;
-  this->isStatic= isStatic;
-  this->argTypes = args;
+  pure = isPure;
+  returnType = retType;
+  argTypes = args;
+  terminating = term;
+  ownerStruct = NULL;
+}
+
+CallableType::CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args, bool term = true)
+{
+  pure = isPure;
+  returnType = retType;
+  argTypes = args;
+  terminating = term;
+  ownerStruct = owner;
+}
+
+string CallableType::getName()
+{
+  Oss oss;
+  if(pure)
+    oss << "func ";
+  else
+    oss << "proc ";
+  oss << returnType->getName();
+  oss << "(";
+  for(size_t i = 0; i < argTypes.size(); i++)
+  {
+    oss << argTypes[i]->getName();
+    if(i < argTypes.size() - 1)
+    {
+      oss << ", ";
+    }
+  }
+  oss << ")";
+  return oss.str();
 }
 
 bool CallableType::canConvert(Expression* other);
@@ -790,36 +897,22 @@ bool CallableType::canConvert(Expression* other);
   return this == other->type;
 }
 
-bool CallableType::matches(bool isPure, bool isStatic, Type* returnT, vector<Type*>& args)
+bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs)
 {
-  if(this->pure != isPure)
+  //a completely arbitrary way to order all possible callables (is lhs < rhs?)
+  if(!lhs->pure && rhs->pure)
+    return true;
+  if(!lhs->terminating && rhs->terminating)
+    return true;
+  if(lhs->returnType < rhs->returnType)
+    return true;
+  else if(lhs->returnType > rhs->returnType)
     return false;
-  if(this->isStatic != isStatic)
+  if(lhs->owner < rhs->owner)
+    return true;
+  else if(lhs->owner > rhs->owner)
     return false;
-  //for callable, all types must match exactly (no implicit conversions)
-  if(thisType != thisT || this->returnType != returnT)
-    return false;
-  if(argTypes.size() != args.size())
-    return false;
-  for(size_t i = 0; i < args.size(); i++)
-  {
-    if(argTypes[i] != args[i])
-      return false;
-  }
-  return true;
-}
-
-CallableType* CallableType::lookup(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args)
-{
-  for(auto ct : callables)
-  {
-    if(ct->matches(isPure, isStatic, returnT, args))
-      return ct;
-  }
-  //need to create a new type
-  CallableType* newType = new CallableType(isPure, isStatic, returnType, args);
-  callables.push_back(newType);
-  return newType;
+  return lexicographical_compare(lhs->argTypes.begin(), lhs->argTypes.end(), rhs->argTypes.begin(), rhs->argTypes.end());
 }
 
 } //namespace TypeSystem

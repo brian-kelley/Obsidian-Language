@@ -16,6 +16,7 @@ namespace TypeSystem
 struct Subroutine;
 struct Variable;
 struct Scope;
+struct StructType;
 
 // Unified name lookup system
 struct Name
@@ -47,8 +48,8 @@ struct Scope
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
-  vector<TypeSystem::Type*> types;    //named types declared here (struct, enum, union, etc)
-  vector<TypeSystem::Trait*> traits;  //traits declared here
+  vector<TypeSystem::Type*> types;    //named types (struct, enum, alias, bounded type)
+  vector<TypeSystem::Trait*> traits;
   vector<Variable*> vars;             //variables declared here - first globals & statics and then locals (in order of declaration)
   //subroutines (funcs and procs) defined in scope
   vector<Subroutine*> subr;
@@ -75,25 +76,24 @@ struct ModuleScope : public Scope
 {
   ModuleScope(string name, Scope* parent, Parser::Module* astIn);
   string getLocalName();
-  Parser::Module* ast;
   string name;  //local name
 };
 
 struct StructScope : public Scope
 {
   StructScope(string name, Scope* parent, Parser::StructDecl* astIn);
+  StructType* type;
   string getLocalName();
-  Parser::StructDecl* ast;
   string name;  //local name
 };
 
 struct BlockScope : public Scope
 {
   //constructor sets index automatically
+  //also makes astIn point back to this
   BlockScope(Scope* parent, Parser::Block* astIn);
   BlockScope(Scope* parent);
   string getLocalName();  //local name uses index to produce a unique name
-  Parser::Block* ast;
   int index;
   static int nextBlockIndex;
 };
@@ -103,7 +103,6 @@ struct TraitScope : public Scope
 {
   TraitScope(Scope* parent, string n);
   string getLocalName();
-  Parser::TraitDecl* ast;
   string name; //local name
 };
 

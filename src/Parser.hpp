@@ -70,14 +70,15 @@ namespace Parser
   struct ProcDecl;
   struct ProcDef;
   struct ProcTypeNT;
-  struct StructDecl;
+  struct StructDecl;    // [value1, value2]
   struct TraitDecl;
   struct StructLit;
   struct Member;
-  struct BoundedTypeNT;
-  struct TupleTypeNT;
-  struct UnionTypeNT; //Haskell-style union: type1 | type2 | type3
-  struct MapTypeNT;   //Python-style map/dictionary: (key : value)
+  //Syntactic types
+  struct BoundedTypeNT; // typeName: trait1, trait2
+  struct TupleTypeNT;   // (type1, type2, type3)
+  struct UnionTypeNT;   // Haskell-style union: type1 | type2 | type3
+  struct MapTypeNT;     // map/dictionary: (key : value)
   struct BoolLit;
   struct Expr1;
   typedef Expr1 ExpressionNT;
@@ -163,7 +164,6 @@ namespace Parser
       DOUBLE,
       VOID
     };
-    struct TTypeNT {};
     variant<
       None,
       Prim,
@@ -171,8 +171,7 @@ namespace Parser
       TupleTypeNT*,
       UnionTypeNT*,
       MapTypeNT*,
-      SubroutineTypeNT*,
-      TTypeNT> t;
+      SubroutineTypeNT*> t;
     int arrayDims;
   };
 

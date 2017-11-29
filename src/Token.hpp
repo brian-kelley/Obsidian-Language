@@ -64,7 +64,6 @@ enum
   TEST,
   BENCHMARK,
   ASSERT,
-  T_TYPE,
   STATIC,
   ARRAY
 };

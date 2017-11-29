@@ -65,7 +65,8 @@ string typeErrorMessage(TypeLookup& lookup);
 string traitErrorMessage(TraitLookup& lookup);
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
-Type* lookupType(Parser::SubroutineTypeNT* subr, Scope* scope);
+CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope);
+//wrapper for lookupType used by deferred type lookup
 Type* lookupTypeDeferred(TypeLookup& args);
 
 Trait* lookupTrait(Parser::Member* type, Scope* scope);
@@ -75,10 +76,7 @@ Type* getIntegerType(int bytes, bool isSigned);
 
 void createBuiltinTypes();
 
-extern vector<TupleType*> tuples;
-extern vector<MapType*> maps;
 extern vector<Type*> primitives;
-extern vector<CallableType*> callables;
 extern map<string, Type*> primNames;
 
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
@@ -93,10 +91,9 @@ struct Type
   Type(Scope* enclosingScope);
   //list of primitive Types corresponding 1-1 with TypeNT::Prim values
   Scope* enclosing;
-  //dimTypes[0] is for T[], dimTypes[1] is for T[][], etc.
-  vector<Type*> dimTypes;
-  // [lazily create and] return array type for given number of dimensions of *this
-  Type* getArrayType(int dims);
+  //lazily create/return array type for given number of dims (and all fewer)
+  //overridden by ArrayType
+  virtual ArrayType* getArrayType(int dims);
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
   virtual bool canConvert(Expression* other);
@@ -109,6 +106,7 @@ struct Type
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
+  virtual bool isMap()      {return false;}
   virtual bool isTuple()    {return false;}
   virtual bool isEnum()     {return false;}
   virtual bool isCallable() {return false;}
@@ -126,7 +124,7 @@ struct Type
 };
 
 //Bounded type: a set of traits that define a polymorphic argument type (like Java)
-//Only used in subroutine declarations
+//Only used in subroutine declarations, and belongs to subroutine scope
 struct BoundedType : public Type
 {
   BoundedType(string n, vector<Trait*> t, Scope* s) : Type(s), name(n), traits(t) {}
@@ -158,14 +156,12 @@ struct StructType : public Type
   vector<Type*> members;
   vector<string> memberNames; //1-1 correspondence with members
   vector<bool> composed;      //1-1 correspondence with members
-  //used to handle unresolved data members
-  Parser::StructDecl* decl;
   //member types must be searched from here (the scope inside the struct decl)
   StructScope* structScope;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isStruct() {return true;}
-  bool implementsAllTraits(); //called once at end of semantic checking
+  void checkTraits(); //called once at end of semantic checking
   string getName()
   {
     return name;
@@ -174,16 +170,16 @@ struct StructType : public Type
 
 struct UnionType : public Type
 {
-  UnionType(Parser::UnionDecl* ud, Scope* enclosingScope);
-  string name;
+  UnionType(vector<Type*> types);
   vector<Type*> options;
-  Parser::UnionDecl* decl;
   bool canConvert(Type* other);
-  bool isUnion();
-  string getName()
-  {
-    return name;
-  }
+  bool isUnion() {return true;}
+  string getName();
+};
+
+struct UnionCompare
+{
+  bool operator()(const UnionType* lhs, const UnionType* rhs);
 };
 
 struct ArrayType : public Type
@@ -195,9 +191,10 @@ struct ArrayType : public Type
   Type* subtype;
   Parser::TypeNT* elemNT;
   int dims;
+  ArrayType* getArrayType(int extradims);
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
-  bool isArray();
+  bool isArray() {return true;}
   string getName()
   {
     string name = elem->getName();
@@ -209,22 +206,19 @@ struct ArrayType : public Type
   }
 };
 
+struct ArrayCompare
+{
+  bool operator()(const ArrayType* lhs, const ArrayType* rhs);
+};
+
 struct TupleType : public Type
 {
   //TupleType has no scope, so ctor doesn't need it
   TupleType(vector<Type*> members);
   vector<Type*> members;
-  //this is used only when handling unresolved members
-  Parser::TupleTypeNT* decl;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
-  bool isTuple();
-  //Whether this->members exactly matches types
-  bool matchesTypes(vector<Type*>& types);
-  bool operator<(const TupleType& rhs)
-  {
-    return lexicographical_compare(members.begin(), members.end(), rhs.members.begin(), rhs.members.end());
-  }
+  bool isTuple() {return true;}
   string getName()
   {
     string name = "(";
@@ -241,6 +235,33 @@ struct TupleType : public Type
   }
 };
 
+struct TupleCompare
+{
+  bool operator()(const TupleType* lhs, const TupleType* rhs);
+};
+
+struct MapType : public Type
+{
+  MapType(Type* k, Type* v) : Type(NULL), key(k), value(v) {}
+  Type* key;
+  Type* value;
+  bool isMap() {return true;}
+  string getName()
+  {
+    string name = "(";
+    name += key->getName();
+    name += ", ";
+    name += value->getName();
+    name += ")";
+    return name;
+  }
+};
+
+struct MapCompare
+{
+  bool operator()(const MapType* lhs, const MapType* rhs);
+};
+
 struct AliasType : public Type
 {
   AliasType(Parser::Typedef* td, Scope* enclosingScope);
@@ -254,6 +275,7 @@ struct AliasType : public Type
   bool isStruct()   {return actual->isStruct();}
   bool isUnion()    {return actual->isUnion();}
   bool isTuple()    {return actual->isTuple();}
+  bool isMap()      {return actual->isMap();}
   bool isEnum()     {return actual->isEnum();}
   bool isCallable() {return actual->isCallable();}
   bool isProc()     {return actual->isProc();}
@@ -278,10 +300,10 @@ struct EnumType : public Type
   int bytes;    //number of bytes required to store all possible values (signed)
   bool canConvert(Type* other);
   //Enum values are equivalent to plain "int"s
-  bool isEnum();
-  bool isInteger();
-  bool isNumber();
-  bool isPrimitive();
+  bool isEnum() {return true;}
+  bool isInteger() {return true;}
+  bool isNumber() {return true;}
+  bool isPrimitive() {return true;}
   string getName()
   {
     return name;
@@ -296,9 +318,9 @@ struct IntegerType : public Type
   int size;
   bool isSigned;
   bool canConvert(Type* other);
-  bool isInteger();
-  bool isNumber();
-  bool isPrimitive();
+  bool isInteger() {return true;}
+  bool isNumber() {return true;}
+  bool isPrimitive() {return true;}
   string getName()
   {
     return name;
@@ -312,8 +334,8 @@ struct FloatType : public Type
   //4 or 8 (bytes, not bits)
   int size;
   bool canConvert(Type* other);
-  bool isNumber();
-  bool isPrimitive();
+  bool isNumber() {return true;}
+  bool isPrimitive() {return true;}
   bool isFloat() {return true;};
   string getName()
   {
@@ -337,8 +359,8 @@ struct BoolType : public Type
 {
   BoolType();
   bool canConvert(Type* other);
-  bool isBool();
-  bool isPrimitive();
+  bool isBool() {return true;}
+  bool isPrimitive() {return true;}
   string getName()
   {
     return "bool";
@@ -349,8 +371,8 @@ struct VoidType : public Type
 {
   VoidType();
   bool canConvert(Type* other);
-  bool isVoid();
-  bool isPrimitive();
+  bool isVoid() {return true;}
+  bool isPrimitive() {return true;}
   string getName()
   {
     return "void";
@@ -359,32 +381,16 @@ struct VoidType : public Type
 
 struct CallableType : public Type
 {
-  CallableType(Scope* s);
-  CallableType(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
-  string getName()
-  {
-    Oss oss;
-    if(pure)
-      oss << "func ";
-    else
-      oss << "proc ";
-    oss << returnType->getName();
-    oss << "(";
-    for(size_t i = 0; i < argTypes.size(); i++)
-    {
-      oss << argTypes[i]->getName();
-      if(i < argTypes.size() - 1)
-      {
-        oss << ", ";
-      }
-    }
-    oss << ")";
-    return oss.str();
-  }
+  //constructor for non-member callables
+  CallableType(bool isPure, Type* returnType, vector<Type*>& args, bool nonterm = false);
+  //constructor for members
+  CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args, bool nonterm = false);
+  string getName();
+  StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
   vector<Type*> argTypes;
   bool pure;            //true for functions, false for procedures
-  bool isStatic;        //true for globals and static members, false for others
+  bool nonterminating;
   bool isCallable()
   {
     return true;
@@ -397,10 +403,17 @@ struct CallableType : public Type
   {
     return !pure;
   }
+  //Conversion rules: all funcs can be procs
+  //                  all nonmember/static functions can be member functions (just ignore this argument)
+  //                  member functions are only equivalent if they belong to same struct
+  //                  all terminating procedures can be used in place of nonterminating ones
   bool canConvert(Type* other) {return this == other;}
   bool canConvert(Expression* other);
-  bool matches(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
-  static CallableType* lookup(bool isPure, bool isStatic, Type* returnType, vector<Type*>& args);
+};
+
+struct CallableCompare
+{
+  bool operator()(const CallableType* lhs, const CallableType* rhs);
 };
 
 struct TType : public Type

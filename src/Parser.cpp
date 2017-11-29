@@ -58,6 +58,7 @@ namespace Parser
   template<> Member* parse<Member>();
   template<> BoundedTypeNT* parse<BoundedTypeNT>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
+  template<> UnionTypeNT* parse<UnionTypeNT>()
   template<> MapTypeNT* parse<MapTypeNT>();
   template<> Expr1* parse<Expr1>();
   template<> Expr1RHS* parse<Expr1RHS>();
@@ -235,8 +236,6 @@ namespace Parser
         case PROCTYPE:
           unget();
           type->t = (SubroutineTypeNT*) parse<ProcTypeNT>(); break;
-        case T_TYPE:
-          type->t = TypeNT::TTypeNT(); break;
         default:
           err("expected type");
       }
@@ -1123,6 +1122,16 @@ namespace Parser
 
   template<>
   TupleTypeNT* parse<TupleTypeNT>()
+  {
+    TupleTypeNT* tt = new TupleTypeNT;
+    expectPunct(LPAREN);
+    tt->members = parsePlusComma<TypeNT>();
+    expectPunct(RPAREN);
+    return tt;
+  }
+
+  template<>
+  UnionTypeNT* parse<UnionTypeNT>()
   {
     TupleTypeNT* tt = new TupleTypeNT;
     expectPunct(LPAREN);
