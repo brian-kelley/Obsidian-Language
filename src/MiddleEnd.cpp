@@ -40,6 +40,14 @@ namespace MiddleEnd
       }
     }
 
+    void visitFuncDef(Scope* current, Parser::FuncDef* fd)
+    {
+    }
+
+    void visitProcDef(Scope* current, Parser::ProcDef* pd)
+    {
+    }
+
     void visitBlock(Scope* current, Parser::Block* b)
     {
       BlockScope* bscope = new BlockScope(current, b);

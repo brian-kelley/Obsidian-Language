@@ -24,7 +24,6 @@ namespace Parser
   template<> Return* parse<Return>();
   template<> Break* parse<Break>();
   template<> Continue* parse<Continue>();
-  template<> SwitchCase* parse<SwitchCase>();
   template<> Switch* parse<Switch>();
   template<> ForC* parse<ForC>();
   template<> ForOverArray* parse<ForOverArray>();
@@ -42,13 +41,9 @@ namespace Parser
   template<> PrintNT* parse<PrintNT>();
   template<> ExpressionNT* parse<ExpressionNT>();
   template<> CallOp* parse<CallOp>();
+  template<> SubroutineNT* parse<SubroutineNT>();
+  template<> SubroutineTypeNT* parse<SubroutineTypeNT>();
   template<> Parameter* parse<Parameter>();
-  template<> FuncDecl* parse<FuncDecl>();
-  template<> FuncDef* parse<FuncDef>();
-  template<> FuncTypeNT* parse<FuncTypeNT>();
-  template<> ProcDecl* parse<ProcDecl>();
-  template<> ProcDef* parse<ProcDef>();
-  template<> ProcTypeNT* parse<ProcTypeNT>();
   template<> StructMem* parse<StructMem>();
   template<> StructDecl* parse<StructDecl>();
   template<> UnionDecl* parse<UnionDecl>();
@@ -151,9 +146,9 @@ namespace Parser
             expectPunct(SEMICOLON);
           break;
         case FUNC:
-          sd->decl = parse<FuncDef>(); break;
         case PROC:
-          sd->decl = parse<ProcDef>(); break;
+          sd->decl = parse<SubroutineNT>();
+          break;
         default: found = false;
       }
       if(found)
@@ -231,11 +226,10 @@ namespace Parser
         case VOID:
           type->t = TypeNT::Prim::VOID; break;
         case FUNCTYPE:
-          unget();
-          type->t = (SubroutineTypeNT*) parse<FuncTypeNT>(); break;
         case PROCTYPE:
           unget();
-          type->t = (SubroutineTypeNT*) parse<ProcTypeNT>(); break;
+          type->t = parse<SubroutineTypeNT>();
+          break;
         default:
           err("expected type");
       }
@@ -347,6 +341,8 @@ namespace Parser
           break;
         case SWITCH:
           s->s = parse<Switch>(); break;
+        case MATCH:
+          s->s = parse<Match>(); break;
         case FOR:
           s->s = parse<For>(); break;
         case WHILE:
@@ -506,21 +502,40 @@ namespace Parser
   template<>
   Switch* parse<Switch>()
   {
-    Switch* sw = new Switch;
+    Switch* s = new Switch;
     expectKeyword(SWITCH);
     expectPunct(LPAREN);
-    sw->value = parse<ExpressionNT>();
+    s->value = parse<ExpressionNT*>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
-    //parse cases until either default or rbrace is found
+    s->defaultPosition = -1;
     while(!acceptPunct(RBRACE))
     {
-      expectKeyword(CASE);
-      TypeNT* t = parse<TypeNT>();
-      expectPunct(COLON);
-      sw->cases.emplace_back(t, parse<Block>());
+      if(acceptKeyword(CASE))
+      {
+        s->labels.emplace_back(m->stmts.size(), parse<ExpressionNT>());
+        expectPunct(COLON);
+      }
+      else if(acceptKeyword(DEFAULT))
+      {
+        if(s->defaultPosition == -1)
+        {
+          err("default label provided more than once in switch statement");
+        }
+        s->defaultPosition = stmts.size();
+        expectPunct(COLON);
+      }
+      else
+      {
+        s->stmts.push_back(parse<StatementNT>());
+      }
     }
-    return sw;
+    if(s->defaultPosition == -1)
+    {
+      //set implicit default: end of all statements
+      s->defaultPosition = stmts.size();
+    }
+    return s;
   }
 
   template<>
@@ -529,35 +544,16 @@ namespace Parser
     Match* m = new Match;
     expectKeyword(MATCH);
     expectPunct(LPAREN);
-    m->value = parse<ExpressionNT*>();
+    m->value = parse<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
-    m->defaultPosition = -1;
+    //parse cases until either default or rbrace is found
     while(!acceptPunct(RBRACE))
     {
-      if(acceptKeyword(CASE))
-      {
-        m->labels.emplace_back(m->stmts.size(), parse<ExpressionNT>());
-        expectPunct(COLON);
-      }
-      else if(acceptKeyword(DEFAULT))
-      {
-        if(m->defaultPosition == -1)
-        {
-          err("default label redefined in match statement");
-        }
-        m->defaultPosition = stmts.size();
-        expectPunct(COLON);
-      }
-      else
-      {
-        m->stmts.push_back(parse<StatementNT>());
-      }
-    }
-    if(m->defaultPosition == -1)
-    {
-      //set implicit default: end of all statements
-      m->defaultPosition = stmts.size();
+      expectKeyword(CASE);
+      TypeNT* t = parse<TypeNT>();
+      expectPunct(COLON);
+      m->cases.emplace_back(t, parse<Block>());
     }
     return m;
   }
@@ -912,124 +908,82 @@ namespace Parser
     p->name = (Ident*) accept(IDENTIFIER);
     return p;
   }
-
-  template<>
-  FuncDecl* parse<FuncDecl>()
-  {
-    FuncDecl* fd = new FuncDecl;
-    expectKeyword(FUNC);
-    fd->type.isStatic = false;
-    if(acceptKeyword(STATIC))
-      fd->type.isStatic = true;
-    fd->type.retType = parse<TypeNT>();
-    fd->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    fd->type.params = parseStarComma<Parameter>(rparen);
-    expectPunct(SEMICOLON);
-    return fd;
-  }
-
-  template<>
-  FuncDef* parse<FuncDef>()
-  {
-    FuncDef* fd = new FuncDef;
-    expectKeyword(FUNC);
-    fd->type.isStatic = false;
-    if(acceptKeyword(STATIC))
-      fd->type.isStatic = true;
-    fd->type.retType = parse<TypeNT>();
-    fd->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    fd->type.params = parseStarComma<Parameter>(rparen);
-    fd->body = parse<Block>();
-    return fd;
-  }
-
-  template<>
-  FuncTypeNT* parse<FuncTypeNT>()
-  {
-    FuncTypeNT* ft = new FuncTypeNT;
-    expectKeyword(FUNCTYPE);
-    ft->isStatic = false;
-    if(acceptKeyword(STATIC))
-      ft->isStatic = true;
-    ft->retType = parse<TypeNT>();
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    ft->params = parseStarComma<Parameter>(rparen);
-    return ft;
-  }
-
-  template<>
-  ProcDecl* parse<ProcDecl>()
-  {
-    ProcDecl* pd = new ProcDecl;
-    if(acceptKeyword(NONTERM))
-      pd->type.nonterm = true;
-    expectKeyword(PROC);
-    pd->type.isStatic = false;
-    if(acceptKeyword(STATIC))
-      pd->type.isStatic = true;
-    pd->type.retType = parse<TypeNT>();
-    pd->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    pd->type.params = parseStarComma<Parameter>(rparen);
-    expectPunct(SEMICOLON);
-    return pd;
-  }
   
   template<>
-  ProcDef* parse<ProcDef>()
+  SubroutineNT* parse<SubroutineNT>()
   {
-    ProcDef* pd = new ProcDef;
+    SubroutineNT* subr = new SubroutineNT;
+    if(acceptKeyword(FUNC))
+      subr->isPure = true;
+    else if(acceptKeyword(PROC))
+      subr->isPure = false;
+    else
+      err("expected func or proc");
+    //get modifiers (can be in any order)
+    subr->nonterm = false;
+    subr->isStatic = false;
     if(acceptKeyword(NONTERM))
-      pd->type.nonterm = true;
-    expectKeyword(PROC);
-    pd->type.isStatic = false;
+      subr->nonterm = true;
     if(acceptKeyword(STATIC))
-      pd->type.isStatic = true;
-    pd->type.retType = parse<TypeNT>();
-    pd->name = ((Ident*) expect(IDENTIFIER))->name;
+      subr->isStatic = true;
+    if(acceptKeyword(NONTERM))
+    {
+      if(subr->nonterm)
+        err("nonterm modifier given twice");
+      subr->nonterm = true;
+    }
+    subr->retType = parse<TypeNT>();
+    subr->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    pd->type.params = parseStarComma<Parameter>(rparen);
-    pd->body = parse<Block>();
-    return pd;
+    subr->params = parseStar<Parameter>(rparen);
+    subr->body = nullptr;
+    if(!acceptPunct(SEMICOLON))
+    {
+      subr->body = parse<Block>();
+    }
+    return subr;
   }
 
   template<>
-  ProcTypeNT* parse<ProcTypeNT>()
+  SubroutineTypeNT* parse<SubroutineTypeNT>()
   {
-    ProcTypeNT* pt = new ProcTypeNT;
+    SubroutineTypeNT* st = new SubroutineTypeNT;
+    if(acceptKeyword(FUNCTYPE))
+      st->isPure = true;
+    else if(acceptKeyword(PROCTYPE))
+      st->isPure = false;
+    else
+      err("expected functype or proctype");
+    st->nonterm = false;
+    st->isStatic = false;
     if(acceptKeyword(NONTERM))
-      pt->nonterm = true;
-    expectKeyword(PROCTYPE);
-    pt->isStatic = false;
+      st->nonterm = true;
     if(acceptKeyword(STATIC))
-      pt->isStatic = true;
-    pt->retType = parse<TypeNT>();
+      st->isStatic = true;
+    if(acceptKeyword(NONTERM))
+    {
+      if(st->nonterm)
+        err("nonterm modifier given twice");
+      st->nonterm = true;
+    }
+    st->retType = parse<TypeNT>();
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    pt->params = parseStarComma<Parameter>(rparen);
-    return pt;
+    st->params = parseStar<Parameter>(rparen);
+    return st;
   }
 
   template<>
   StructMem* parse<StructMem>()
   {
     StructMem* sm = new StructMem;
-    if(acceptOper(BXOR))
-    {
-      sm->compose = true;
-    }
-    else
-    {
-      sm->compose = false;
-    }
+    sm->compose = acceptOper(BXOR);
     sm->sd = parse<ScopedDecl>();
+    if(sm->compose && !sm->sd->decl.is<VarDecl*>())
+    {
+      err("compose operator ^ applied to non-variable");
+    }
     return sm;
   }
 
@@ -1069,17 +1023,8 @@ namespace Parser
     expectKeyword(TRAIT);
     td->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LBRACE);
-    while(Keyword* kw = (Keyword*) accept(KEYWORD))
-    {
-      unget();
-      if(kw->kw == FUNC)
-        td->members.emplace_back(parse<FuncDecl>());
-      else if(kw->kw == PROC)
-        td->members.emplace_back(parse<ProcDecl>());
-      else
-        err("invalid trait member: expected function/procedure declaration");
-    }
-    expectPunct(RBRACE);
+    Punct rbrace(RBRACE);
+    td->members = parseStar<SubroutineNT>(rbrace);
     return td;
   }
 

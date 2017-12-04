@@ -364,6 +364,7 @@ bool BoundedType::canConvert(Expression* other)
 
 Trait::Trait(Parser::TraitDecl* td, Scope* s)
 {
+  name = td->name;
   //pre-allocate subr and names vectors
   subrNames.resize(td->members.size());
   callables.resize(td->members.size());
@@ -921,12 +922,8 @@ bool CallableType::canConvert(Type* other)
   auto ct = dynamic_cast<CallableType*>(other);
   if(!ct)
     return false;
-  if(!ownerStruct && other->ownerStruct ||
-      ownerStruct other->ownerStruct && ownerStruct != other->ownerStruct)
+  if(ownerStruct != other->ownerStruct)
   {
-    //this is static, but other is not
-    //OR
-    //both members but different owning structs
     return false;
   }
   if(!nonterminating && other->nonterminating)

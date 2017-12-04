@@ -395,65 +395,25 @@ Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
   asserted = getExpression(s, as->expr);
 }
 
-Subroutine::Subroutine(string n, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* bodyBlock)
+Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
 {
-  auto scope = bodyBlock->bs;
-  auto enclosing = scope->parent;
-  this->name = n;
-  this->retType = TypeSystem::lookupType(ret, enclosing);
-  if(this->retType == nullptr)
+  name = snt->name;
+  scope = s;
+  //first, compute the type by building a SubroutineTypeNT
+  Parser::SubroutineTypeNT stypeNT;
+  stypeNT.retType = snt->retType;
+  stypeNT.params = snt->params;
+  stypeNT.isPure = snt->isPure;
+  stypeNT.nonterm = snt->nonterm;
+  TypeNT tnt;
+  tnt.t = &stypeNT;
+  auto cnt = dynamic_cast<CallableType*>(TypeSystem::lookupType(&tnt, scope));
+  if(!cnt)
   {
-    ERR_MSG("subroutine " + n + " return type couldn't be resolved");
+    ERR_MSG("subroutine " << name << " has an undefined type\n";
   }
-  argTypes.resize(args.size());
-  for(size_t i = 0; i < args.size(); i++)
-  {
-    argTypes[i] = TypeSystem::lookupType(args[i]->type, enclosing);
-    if(argTypes[i] == nullptr)
-    {
-      ERR_MSG("subroutine " + n + " argument " + to_string(i) + " type couldn't be resolved");
-    }
-    if(argTypes[i]->isVoid())
-    {
-      ERR_MSG("void can't be used as an argument type");
-    }
-  }
-  argVars.resize(args.size());
-  for(size_t i = 0; i < args.size(); i++)
-  {
-    if(args[i]->haveName)
-    {
-      scope->vars.push_back(new Variable(scope, args[i]->name, argTypes[i]));
-      Parser::Member mem;
-      mem.ident = args[i]->name;
-      argVars[i] = scope->findVariable(&mem);
-    }
-    else
-    {
-      //this variable doesn't exist and won't be given stack space
-      argVars[i] = nullptr;
-    }
-  }
-  //TODO
-  isStatic = false;
-  owner = nullptr;
-  //load statements
-  body = new Block(bodyBlock, this);
-}
-
-Function::Function(Parser::FuncDef* a) : Subroutine(a->name, a->type.retType, a->type.args, a->body)
-{}
-
-bool Function::isPure()
-{
-  return false;
-}
-
-Procedure::Procedure(Parser::ProcDef* a) : Subroutine(a->name, a->type.retType, a->type.args, a->body)
-{}
-
-bool Procedure::isPure()
-{
-  return false;
+  //link scope and this (both ways)
+  snt->scope = 
+  //process all statements
 }
 

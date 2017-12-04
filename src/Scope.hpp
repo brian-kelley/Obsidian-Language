@@ -9,35 +9,50 @@ namespace TypeSystem
 {
   struct Type;
   struct StructType;
-  struct TType;
-  struct FuncType;
-  struct ProcType;
+  struct EnumType;
+  struct AliasType;
   struct Trait;
+  struct TType;
 }
 
 struct Subroutine;
 struct Variable;
 struct Scope;
+struct ModuleScope;
+struct StructScope;
 
 // Unified name lookup system
 struct Name
 {
-  enum TYPE
+  enum Kind
   {
-    SCOPE,
+    NONE,
+    MODULE,
     STRUCT,
-    UNION,
     ENUM,
     TYPEDEF,
     TRAIT,
     SUBROUTINE,
     VARIABLE
   };
-  Name() : item(nullptr), type(SCOPE) {}
-  Name(void* ptr, TYPE t, Scope* s) : item(ptr), type(t), scope(s) {}
+  Name() : item(nullptr), kind(NONE), scope(nullptr) {}
+  Name(ModuleScope* m, Scope* parent)
+    : item(m), kind(MODULE), scope(parent) {}
+  Name(TypeSystem::StructType* st, Scope* s)
+    : item(st), kind(STRUCT), scope(s) {}
+  Name(TypeSystem::EnumType* e, Scope* s)
+    : item(e), kind(ENUM), scope(s) {}
+  Name(TypeSystem::AliasType* a, Scope* s)
+    : item(a), kind(TYPEDEF), scope(s) {}
+  Name(TypeSystem::Trait* t, Scope* s)
+    : item(t), kind(TRAIT), scope(s) {}
+  Name(Subroutine* subr, Scope* s)
+    : item(subr), kind(SUBROUTINE), scope(s) {}
+  Name(Variable* var, Scope* s)
+    : item(var), kind(VARIABLE), scope(s) {}
   void* item;
   //All named declaration types
-  TYPE type;
+  Kind kind;
   Scope* scope;
 };
 
@@ -49,31 +64,20 @@ struct Scope
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   vector<Scope*> children;            //owned scopes
-  vector<TypeSystem::Type*> types;    //named types (struct, enum, alias, bounded type)
-  vector<TypeSystem::Trait*> traits;
-  vector<Variable*> vars;             //variables declared here - first globals & statics and then locals (in order of declaration)
-  //subroutines (funcs and procs) defined in scope
-  vector<Subroutine*> subr;
-  //Find a sub scope of this (or a parent) with given relative "path"
-  //"names" will probably come from Parser::Member::scopes
-  vector<Scope*> findSub(vector<string>& names);
-  //Look up types, variables, subroutines (return NULL if not found, or wrong type)
-  TypeSystem::Type* findType(Parser::Member* mem);
-  Variable* findVariable(Parser::Member* mem);
-  TypeSystem::Trait* findTrait(Parser::Member* mem);
-  Subroutine* findSubroutine(Parser::Member* mem);
   //unified name handling
+  Name findName(Parser::Member* mem);
+  Name lookup(string name);
+  void addName(ModuleScope* m);
+  void addName(TypeSystem::StructType* st);
+  void addName(TypeSystem::EnumType* et);
+  void addName(TypeSystem::AliasType* at);
+  void addName(TypeSystem::Trait* t);
+  void addName(Subroutine* s);
+  void addName(Variable* v);
   map<string, Name> names;
-  //add name to scope
-  template<typename Decl> void addName(Decl* d);
-  //look up a name until a non-scope item is reached
-  //return the name and provide the remaining compound ident
-  bool lookup(vector<string> names, Name& found, vector<string>& remain);
-  private:
-  void findSubImpl(vector<string>& names, vector<Scope*>& matches);
 };
 
-struct ModuleScope : public Scope
+ struct ModuleScope : public Scope
 {
   ModuleScope(string name, Scope* parent, Parser::Module* astIn);
   string getLocalName();
@@ -97,6 +101,15 @@ struct BlockScope : public Scope
   string getLocalName();  //local name uses index to produce a unique name
   int index;
   static int nextBlockIndex;
+};
+
+struct SubroutineScope : public Scope
+{
+  //constructor sets index automatically
+  //also makes astIn point back to this
+  SubroutineScope(Scope* parent) : Scope(parent), subr(nullptr) {}
+  string getLocalName();  //local name uses index to produce a unique name
+  Subroutine* subr;
 };
 
 //Need a scope for traits so that T can be created locally as a type

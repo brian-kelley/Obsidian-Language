@@ -5,6 +5,7 @@
 #include "Parser.hpp"
 #include "Expression.hpp"
 #include "Scope.hpp"
+#include "DeferredLookup.hpp"
 
 /***************************************************************************/
 // Subroutine: middle-end structures for program behavior and control flow //
@@ -28,13 +29,18 @@ struct Break;
 struct Continue;
 struct Print;
 struct Assertion;
+struct Switch;
+struct Match;
 
 struct Subroutine;
 struct Procedure; 
 struct For;
 struct While;
 
+//Loop (used by continue)
 typedef variant<For*, While*> Loop;
+//Breakable (used by break)
+typedef variant<For*, While*, Match*> Breakable;
 
 //Block: list of statements
 struct Block : public Statement
@@ -116,6 +122,17 @@ struct IfElse : public Statement
   Statement* falseBody;
 };
 
+struct Match : public Statement
+{
+  Match(Parser::Match* m, Block* b);
+};
+
+struct Switch : public Statement
+{
+  Switch(Parser::Switch* s, Block* b);
+  Expression* switched;
+};
+
 struct Return : public Statement
 {
   Return(Parser::Return* r, Block* s);
@@ -127,12 +144,12 @@ struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(Block* s);
-  Loop* loop;
+  Breakable* loop;
 };
 
 struct Continue : public Statement
 {
-  //this ctor checks that the statement is being used inside a loop
+  //this ctor checks that the statement is being used inside a loop or Match
   Continue(Block* s);
   Loop* loop;
 };
@@ -151,28 +168,14 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  Subroutine(string name, Parser::TypeNT* ret, vector<Parser::Arg*>& args, Parser::Block* body);
-  TypeSystem::Type* retType;
-  vector<TypeSystem::Type*> argTypes;
-  //Local variables in body's scope representing arguments, in order
-  vector<Variable*> argVars;
-  Block* body;
-  virtual bool isPure() = 0;
+  Subroutine(Parser::SubroutineNT* snt, Scope* s);
   string name;
-  bool isStatic;
-  TypeSystem::StructType* owner;      //the struct type with this subroutine as a non-static member (otherwise null)
-};
-
-struct Function : public Subroutine
-{
-  Function(Parser::FuncDef* a);
-  bool isPure();
-};
-
-struct Procedure : public Subroutine
-{
-  Procedure(Parser::ProcDef* a);
-  bool isPure();
+  //the full type of this subroutine
+  TypeSystem::CallableType* type;
+  //Local variables in subroutine scope representing arguments, in order
+  vector<Variable*> args;
+  Block* body;
+  Scope* scope;
 };
 
 #endif

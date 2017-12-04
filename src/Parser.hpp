@@ -9,7 +9,6 @@
 
 //Use empty struct as default (first) value for variants (always trivially constructible)
 struct None{};
-struct BlockScope;
 
 namespace Parser
 {
@@ -62,14 +61,8 @@ namespace Parser
   struct PrintNT;
   struct CallOp;
   struct Parameter;
-  struct ParamType;
+  struct SubroutineNT;
   struct SubroutineTypeNT;
-  struct FuncDecl;
-  struct FuncDef;
-  struct FuncTypeNT;
-  struct ProcDecl;
-  struct ProcDef;
-  struct ProcTypeNT;
   struct StructDecl;    // [value1, value2]
   struct TraitDecl;
   struct StructLit;
@@ -136,10 +129,7 @@ namespace Parser
       TraitDecl*,
       Enum*,
       Typedef*,
-      FuncDecl*,
-      FuncDef*,
-      ProcDecl*,
-      ProcDef*,
+      SubroutineNT*,
       TestDecl*> decl;
   };
 
@@ -213,7 +203,24 @@ namespace Parser
 
   struct Switch
   {
-    Switch() : value(nullptr) {}
+    ExpressionNT* value;
+    struct Label
+    {
+      //label comes right before stmts[position]
+      Label() : position(-1), value(NULL) {}
+      Label(int p, ExpressionNT* v) : position(p), value(v) {}
+      int position;
+      ExpressionNT* value;
+    };
+    vector<Label> labels;
+    vector<StatementNT*> stmts;
+    //default can go anywhere, but if not explicit then it set to stmts.size()
+    int defaultPosition;
+  };
+
+  struct Match
+  {
+    Match() : value(nullptr) {}
     //sw's type should be a union (checked in middle end)
     ExpressionNT* value;
     //switch is a list of cases (no fall-through)
@@ -225,23 +232,6 @@ namespace Parser
       Block* block;
     };
     vector<Case> cases;
-  };
-
-  struct Match
-  {
-    ExpressionNT* value;
-    struct Label
-    {
-      //label comes before stmts[position]
-      Label() : position(-1), value(NULL) {}
-      Label(int p, ExpressionNT* v) : position(p), value(v) {}
-      int position;
-      ExpressionNT* value;
-    };
-    vector<Label> labels;
-    vector<StatementNT*> stmts;
-    //default can go anywhere, but if not explicit then it set to stmts.size()
-    int defaultPosition;
   };
 
   struct Continue {};
@@ -340,10 +330,9 @@ namespace Parser
 
   struct Block
   {
-    Block() : bs(NULL) {}
-    Block(vector<StatementNT*>& s) : statements(s), bs(NULL) {}
+    Block() {}
+    Block(vector<StatementNT*>& s) : statements(s) {}
     vector<StatementNT*> statements;
-    BlockScope* bs;
   };
 
   struct VarDecl
@@ -375,7 +364,7 @@ namespace Parser
     vector<ExpressionNT*> exprs;
   };
 
-  //Parameter - used by Func/Proc Def (not decl)
+  //Parameter - used by SubroutineNT
   struct Parameter
   {
     Parameter() : name(nullptr) {}
@@ -384,57 +373,40 @@ namespace Parser
     Ident* name;
   };
 
-  struct SubroutineTypeNT
+  struct SubroutineNT
   {
-    SubroutineTypeNT() : retType(nullptr) {}
-    virtual ~SubroutineTypeNT() {}
+    SubroutineNT() : retType(nullptr), body(nullptr) {}
     TypeNT* retType;
     vector<Parameter*> params;
-    bool isStatic;
-  };
-
-  struct FuncTypeNT : public SubroutineTypeNT
-  {};
-
-  struct FuncDecl
-  {
-    string name;
-    FuncTypeNT type;
-  };
-
-  struct FuncDef
-  {
-    FuncDef() : body(nullptr) {}
-    string name;
-    FuncTypeNT type;
+    //body is optional in syntax
+    //(correct semantics requires body == NULL if and only if inside a trait decl)
     Block* body;
-  };
-
-  struct ProcTypeNT : public SubroutineTypeNT
-  {
+    string name;
+    bool isPure;
+    bool isStatic;
     bool nonterm;
   };
 
-  struct ProcDecl
+  struct SubroutineTypeNT
   {
-    string name;
-    ProcTypeNT type;
-  };
-
-  struct ProcDef
-  {
-    ProcDef() : body(nullptr) {}
-    string name;
-    ProcTypeNT type;
-    Block* body;
+    SubroutineTypeNT() : retType(nullptr) {}
+    TypeNT* retType;
+    vector<Parameter*> params;
+    //body is optional in syntax
+    //(correct semantics requires body == NULL if and only if inside a trait decl)
+    bool isPure;
+    bool isStatic;
+    bool nonterm;
   };
 
   struct StructMem
   {
     StructMem() : sd(nullptr) {}
     ScopedDecl* sd;
-    //composition can only apply to VarDecls
+    //composition can only apply to variables
     bool compose;
+    //static can only apply to variables and subroutines
+    bool isStatic;
   };
 
   struct StructDecl
@@ -447,11 +419,7 @@ namespace Parser
   struct TraitDecl
   {
     string name;
-    vector<variant<
-      None,
-      FuncDecl*,
-      ProcDecl*>> members;
-  };
+    vector<SubroutineNT*> members; };
 
   struct StructLit
   {

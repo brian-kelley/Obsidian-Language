@@ -142,6 +142,7 @@ struct BoundedType : public Type
 struct Trait
 {
   Trait(Parser::TraitDecl* td, TraitScope* parent);
+  string name;
   vector<string> subrNames;
   vector<CallableType*> callables;
 };
@@ -404,8 +405,7 @@ struct CallableType : public Type
   }
   //Conversion rules:
   //all funcs can be procs
-  //all nonmember/static functions can
-  //  be member functions (by ignoring the this argument)
+  //ownerStructs must match exactly
   //all terminating procedures can be used in place of nonterminating ones
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
