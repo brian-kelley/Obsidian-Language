@@ -344,12 +344,14 @@ Type* getIntegerType(int bytes, bool isSigned)
 /* Bounded Type */
 /****************/
 
-BoundedType::BoundedType(Parser::TraitType* tt, Scope* s) : Type(NULL)
+BoundedType::BoundedType(Parser::BoundedTypeNT* tt, Scope* s)
 {
+  name = tt->localName;
   traits.resize(tt->traits.size());
   for(size_t i = 0; i < tt->traits.size(); i++)
   {
-    traits[i] = getTrait(tt->traits[i], s, &traits[i], false);
+    TraitLookup tl(tt->traits[i], s);
+    traitLookup->lookup(tl, traits[i]);
   }
 }
 

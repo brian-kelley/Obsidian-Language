@@ -269,7 +269,7 @@ namespace Parser
   struct ForRange
   {
     ForRange() : start(nullptr), end(nullptr) {}
-    Ident* name;
+    string name;
     ExpressionNT* start;
     ExpressionNT* end;
   };
@@ -346,6 +346,7 @@ namespace Parser
     //true if static, false otherwise
     //if true, only has valid semantics if inside a struct decl
     bool isStatic;
+    bool composed;
   };
 
   VarAssign* parseAssignGivenExpr12(Expr12* e12);
@@ -370,7 +371,7 @@ namespace Parser
     Parameter() : name(nullptr) {}
     variant<None, TypeNT*, BoundedTypeNT*> type;
     //name is optional
-    Ident* name;
+    string name;
   };
 
   struct SubroutineNT
@@ -399,21 +400,11 @@ namespace Parser
     bool nonterm;
   };
 
-  struct StructMem
-  {
-    StructMem() : sd(nullptr) {}
-    ScopedDecl* sd;
-    //composition can only apply to variables
-    bool compose;
-    //static can only apply to variables and subroutines
-    bool isStatic;
-  };
-
   struct StructDecl
   {
     string name;
     vector<Member*> traits;
-    vector<StructMem*> members;
+    vector<ScopedDecl*> members;
   };
 
   struct TraitDecl
@@ -428,8 +419,8 @@ namespace Parser
 
   struct Member
   {
-    vector<Ident*> head;
-    Ident* tail;
+    vector<string> head;
+    string tail;
   };
 
   struct BoundedTypeNT
@@ -686,7 +677,7 @@ namespace Parser
     Expr12RHS() : e(None()) {}
     variant<
       None,
-      Ident*,       //struct member: ". Identifier"
+      string,       //struct member: ". Identifier"
       CallOp*,      //call operator: "( Args )"
       ExpressionNT* //index operator: "[ Expr ]"
         > e;

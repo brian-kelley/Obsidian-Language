@@ -35,6 +35,8 @@ Expression* getExpression(Scope* s, NT* expr);
 //apply a single Expr12RHS to the right of an expression
 Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12);
 
+Expression* memberToExpression(Parser::Member* mem, Scope* s);
+
 Expression* applyNamesToExpr12(Expression* root, vector<string>& names);
 
 //Assuming expr is a struct type, get the struct scope

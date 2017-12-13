@@ -35,7 +35,7 @@ Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
   {
     //Get a list of the Expr2s
     vector<Expression*> leaves;
-    leaves.push_back(getExpression(s, expr->head));
+    leaves.push_back(getExpression(s, expr->e.get<Parser::Expr2*>()));
     for(auto e : expr->tail)
     {
       leaves.push_back(getExpression(s, e->rhs));
@@ -346,44 +346,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::Member*>())
   {
-    auto member = expr->e.get<Parser::Member*>();
-    //lookup name
-    vector<string> ident;
-    for(auto id : member->head)
-    {
-      ident.push_back(id->name);
-    }
-    ident.push_back(member->tail->name);
-    vector<string> remain;
-    Name name;
-    if(!(s->lookup(ident, name, remain)))
-    {
-      ERR_MSG("no variable named " << *member);
-    }
-    //name can be a variable or subroutine
-    if(name.type == Name::VARIABLE)
-    {
-      Variable* v = (Variable*) name.item;
-      if(!v->isStatic)
-      {
-        ERR_MSG("tried to access non-static struct member " << v->name);
-      }
-      root = new VarExpr(s, v);
-    }
-    else if(name.type == Name::SUBROUTINE)
-    {
-      //root is a static callable
-      root = new SubroutineExpr(s, (Subroutine*) name.item);
-    }
-    else
-    {
-      ERR_MSG("name does not refer to an expression");
-    }
-    //names in remain must be applied before the rest of tail
-    //this requires that root is now a StructType
-    //the result after applying all the names is a Name, which
-    //will then become root
-    root = applyNamesToExpr12(root, remain);
+    root = memberToExpression(expr->e.get<Parser::Member*>(), s);
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
@@ -447,6 +410,13 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   //apply all remaining names
   applyNamesToExpr12(root, rhsNames);
   return root;
+}
+
+Expression* memberToExpression(Parser::Member* mem, Scope* s)
+{
+  //look up one name at a time
+  vector<Name> names;
+  Scope* iter = s;
 }
 
 Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12)

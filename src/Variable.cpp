@@ -3,27 +3,21 @@
 Variable::Variable(Scope* s, Parser::VarDecl* ast)
 {
   name = ast->name;
-  this->scope = s;
-  this->isStatic = ast->isStatic;
-  if(isStatic && !dynamic_cast<StructScope*>(s))
-  {
-    //tried to make static var which is not directly member of struct
-    ERR_MSG("Tried to declare var \"" + name + "\" in scope \"" +
-        s->getLocalName() + "\" static, but scope is not a struct.");
-  }
-  //find type (not using deferred lookup)
-  this->type = TypeSystem::lookupType(ast->type, scope);
-  if(!this->type)
-  {
-    errAndQuit("variable " + name + " type could not be determined");
-  }
+  //find type using deferred lookup
+  TypeSystem::TypeLookup tl(ast->type, s);
+  TypeSystem::typeLookup->lookup(tl, type);
+}
+
+Variable::Variable(Scope* s, string n, Parser::TypeNT* t)
+{
+  name = n;
+  TypeSystem::TypeLookup tl(t, s);
+  TypeSystem::typeLookup->lookup(tl, type);
 }
 
 Variable::Variable(Scope* s, string n, TypeSystem::Type* t)
 {
   this->name = n;
-  this->scope = s;
-  this->isStatic = false;
   this->type = t;
 }
 

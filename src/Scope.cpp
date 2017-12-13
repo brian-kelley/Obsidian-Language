@@ -13,17 +13,19 @@ int BlockScope::nextBlockIndex = 0;
   void Scope::addName(T* item) \
   { \
     if(names.find(m->name) != names.end()) \
-      ERR_MSG(tname << ' ' << item->name << " causes name conflict"); \
+      ERR_MSG(tname << ' ' << item->name << " causes scope name conflict"); \
+    shadowCheck(m->name, string(tname) == "variable"); \
     names[item->name] = Name(m, Name::##tenum); \
   }
 
-ADD_NAME(ModuleScope,            "module",     Name::MODULE);
-ADD_NAME(TypeSystem::StructType, "struct",     Name::STRUCT);
-ADD_NAME(TypeSystem::EnumType,   "enum",       Name::ENUM);
-ADD_NAME(TypeSystem::AliasType,  "typedef",    Name::TYPEDEF);
-ADD_NAME(TypeSystem::Trait,      "trait",      Name::TRAIT);
-ADD_NAME(Subroutine,             "subroutine", Name::SUBROUTINE);
-ADD_NAME(Variable,               "variable",   Name::VARIABLE);
+ADD_NAME(ModuleScope,            "module",      Name::MODULE);
+ADD_NAME(TypeSystem::StructType, "struct",      Name::STRUCT);
+ADD_NAME(TypeSystem::EnumType,   "enum",        Name::ENUM);
+ADD_NAME(TypeSystem::AliasType,  "typedef",     Name::TYPEDEF);
+ADD_NAME(TypeSystem::BoundedType,"bounded type",Name::BOUNDED_TYPE);
+ADD_NAME(TypeSystem::Trait,      "trait",       Name::TRAIT);
+ADD_NAME(Subroutine,             "subroutine",  Name::SUBROUTINE);
+ADD_NAME(Variable,               "variable",    Name::VARIABLE);
 
 Scope::Scope(Scope* parentIn)
 {
@@ -86,6 +88,23 @@ Name Scope::findName(Parser::Member* mem)
     return parent->findName(mem);
   //failure
   return Name();
+}
+
+void Scope::shadowCheck(string name, bool isVar)
+{
+  for(Scope* iter = this; iter; iter = iter->parent)
+  {
+    Name n = iter->lookup(name);
+    if(n.item)
+    {
+      //found decl with same name: emit shadow error if this is not
+      //a variable shadowing another variable
+      if(!(isVar && n.kind == Name::VARIABLE))
+      {
+        ERR_MSG("name " << name << " shadows a previous declaration");
+      }
+    }
+  }
 }
 
 /* ModuleScope */

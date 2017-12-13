@@ -397,23 +397,23 @@ Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
 
 Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
 {
-  name = snt->name;
+  nt = snt;
+  name = nt->name;
   scope = s;
+  body = nullptr;
   //first, compute the type by building a SubroutineTypeNT
   Parser::SubroutineTypeNT stypeNT;
   stypeNT.retType = snt->retType;
   stypeNT.params = snt->params;
   stypeNT.isPure = snt->isPure;
   stypeNT.nonterm = snt->nonterm;
-  TypeNT tnt;
-  tnt.t = &stypeNT;
-  auto cnt = dynamic_cast<CallableType*>(TypeSystem::lookupType(&tnt, scope));
-  if(!cnt)
-  {
-    ERR_MSG("subroutine " << name << " has an undefined type\n";
-  }
-  //link scope and this (both ways)
-  snt->scope = 
-  //process all statements
+  TypeLookup tl(stypeNT, s);
+  type = (CallableType*) TypeSystem::typeLookup->lookup(tl);
+
+}
+
+void Subroutine::addStatements()
+{
+  body = new Block(nt->body, this);
 }
 

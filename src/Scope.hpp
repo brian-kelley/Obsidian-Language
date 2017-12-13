@@ -11,6 +11,7 @@ namespace TypeSystem
   struct StructType;
   struct EnumType;
   struct AliasType;
+  struct BoundedType;
   struct Trait;
   struct TType;
 }
@@ -31,6 +32,7 @@ struct Name
     STRUCT,
     ENUM,
     TYPEDEF,
+    BOUNDED_TYPE,
     TRAIT,
     SUBROUTINE,
     VARIABLE
@@ -44,6 +46,8 @@ struct Name
     : item(e), kind(ENUM), scope(s) {}
   Name(TypeSystem::AliasType* a, Scope* s)
     : item(a), kind(TYPEDEF), scope(s) {}
+  Name(TypeSystem::BoundedType* b, Scope* s)
+    : item(b), kind(BOUNDED_TYPE), scope(s) {}
   Name(TypeSystem::Trait* t, Scope* s)
     : item(t), kind(TRAIT), scope(s) {}
   Name(Subroutine* subr, Scope* s)
@@ -71,10 +75,15 @@ struct Scope
   void addName(TypeSystem::StructType* st);
   void addName(TypeSystem::EnumType* et);
   void addName(TypeSystem::AliasType* at);
+  void addName(TypeSystem::BoundedType* bt);
   void addName(TypeSystem::Trait* t);
   void addName(Subroutine* s);
   void addName(Variable* v);
   map<string, Name> names;
+  private:
+  //make sure that no shadowing happens, except var shadowing var
+  //called by all versions of addName
+  void shadowCheck(string name, bool isVar);
 };
 
  struct ModuleScope : public Scope

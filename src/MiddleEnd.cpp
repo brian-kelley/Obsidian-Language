@@ -4,250 +4,221 @@ ModuleScope* global = NULL;
 
 namespace MiddleEnd
 {
+  vector<Subroutine*> subrsToProcess;
+
   void load(Parser::Module* ast)
   {
     //create global scope - no name and no parent
     global = new ModuleScope("", NULL, ast);
     TypeSystem::createBuiltinTypes();
-    //build scope tree
-    DEBUG_DO(cout << "Building scope tree and creating types...\n";);
-    //set up deferred type lookup
+    //create AST scopes, types, traits, subroutines
     TypeSystem::typeLookup = new TypeSystem::DeferredTypeLookup(
         TypeSystem::lookupTypeDeferred, TypeSystem::typeErrorMessage);
     TypeSystem::traitLookup = new TypeSystem::DeferredTraitLookup(
         TypeSystem::lookupTraitDeferred, TypeSystem::traitErrorMessage);
     for(auto& it : ast->decls)
     {
-      ScopeTypeLoading::visitScopedDecl(global, it);
+      visitScopedDecl(global, it);
     }
-    DEBUG_DO(cout << "Resolving undefined types...\n";);
     TypeSystem::typeLookup->flush();
-    DEBUG_DO(cout << "Building list of global/static variable declarations...\n";);
-    VarLoading::visitScope(global);
-    DEBUG_DO(cout << "Loading functions and procedures...\n";);
-    SubroutineLoading::visitScope(global);
+    TypeSystem::traitLookup->flush();
+    for(auto s : subrsToProcess)
+    {
+      s->addStatements();
+    }
   }
 
-  namespace ScopeTypeLoading
+  void visitModule(Scope* current, Parser::Module* m)
   {
-    void visitModule(Scope* current, Parser::Module* m)
+    Scope* mscope = new ModuleScope(m->name, current, m);
+    //add all locally defined non-struct types in first pass:
+    for(auto& it : m->decls)
     {
-      Scope* mscope = new ModuleScope(m->name, current, m);
-      //add all locally defined non-struct types in first pass:
-      for(auto& it : m->decls)
+      visitScopedDecl(mscope, it);
+    }
+  }
+
+  void visitSubroutine(Scope* current, Parser::SubroutineNT* subrNT)
+  {
+    //create a scope for the subroutine and its body
+    SubroutineScope* ss = new SubroutineScope(current);
+    for(auto param : subrNT->params)
+    {
+      if(param->type.is<Parser::BoundedTypeNT*>())
       {
-        visitScopedDecl(mscope, it);
+        //create a named bounded type for the param and add to ss
+        ss->addName(new TypeSystem::BoundedType(param->type.get<Parser::BoundedTypeNT*>(), ss));
       }
     }
-
-    void visitFuncDef(Scope* current, Parser::FuncDef* fd)
+    Subroutine* subr = new Subroutine(subrNT, ss);
+    current->addName(subr);
+    //add parameter variables
+    for(auto param : subrNT->params)
     {
+      Parser::TypeNT* paramType = nullptr;
+      if(param->type.is<Parser::BoundedTypeNT*>())
+      {
+        auto typeName = new Parser::Member;
+        typeName->tail = param->name;
+        paramType = new Parser::TypeNT;
+        paramType->t = typeName;
+      }
+      else
+      {
+        paramType = param->type.get<Parser::TypeNT*>();
+      }
+      Variable* pvar = new Variable(ss, param->name, paramType, false);
+      ss->addName(pvar);
+      subr->args.push_back(pvar);
     }
-
-    void visitProcDef(Scope* current, Parser::ProcDef* pd)
+    //remember to visit block later (if it exists)
+    if(subrNT->body)
     {
+      subrsToProcess.push_back(subr);
     }
+  }
 
-    void visitBlock(Scope* current, Parser::Block* b)
+  void visitBlock(Scope* current, Parser::Block* b)
+  {
+    BlockScope* bscope = new BlockScope(current, b);
+    for(auto st : b->statements)
     {
-      BlockScope* bscope = new BlockScope(current, b);
-      for(auto st : b->statements)
-      {
-        visitStatement(bscope, st);
-      }
+      visitStatement(bscope, st);
     }
+  }
 
-    void visitStatement(Scope* current, Parser::StatementNT* st)
+  void visitStatement(Scope* current, Parser::StatementNT* st)
+  {
+    if(st->s.is<Parser::ScopedDecl*>())
     {
-      if(st->s.is<Parser::ScopedDecl*>())
+      visitScopedDecl(current, st->s.get<Parser::ScopedDecl*>());
+    }
+    else if(st->s.is<Parser::Block*>())
+    {
+      visitBlock(current, st->s.get<Parser::Block*>());
+    }
+    else if(st->s.is<Parser::For*>())
+    {
+      visitBlock(current, st->s.get<Parser::For*>()->body);
+    }
+    else if(st->s.is<Parser::While*>())
+    {
+      visitBlock(current, st->s.get<Parser::While*>()->body);
+    }
+    else if(st->s.is<Parser::If*>())
+    {
+      auto i = st->s.get<Parser::If*>();
+      visitStatement(current, i->ifBody);
+      if(i->elseBody)
       {
-        visitScopedDecl(current, st->s.get<Parser::ScopedDecl*>());
-      }
-      else if(st->s.is<Parser::Block*>())
-      {
-        visitBlock(current, st->s.get<Parser::Block*>());
-      }
-      else if(st->s.is<Parser::For*>())
-      {
-        visitBlock(current, st->s.get<Parser::For*>()->body);
-      }
-      else if(st->s.is<Parser::While*>())
-      {
-        visitBlock(current, st->s.get<Parser::While*>()->body);
-      }
-      else if(st->s.is<Parser::If*>())
-      {
-        auto i = st->s.get<Parser::If*>();
-        visitStatement(current, i->ifBody);
-        if(i->elseBody)
-        {
-          visitStatement(current, i->elseBody);
-        }
-      }
-      else if(st->s.is<Parser::Switch*>())
-      {
-        auto sw = st->s.get<Parser::Switch*>();
-        for(auto sc : sw->cases)
-        {
-          visitStatement(current, sc->s);
-        }
-        if(sw->defaultStatement)
-        {
-          visitStatement(current, sw->defaultStatement);
-        }
+        visitStatement(current, i->elseBody);
       }
     }
-
-    void visitStruct(Scope* current, Parser::StructDecl* sd)
+    else if(st->s.is<Parser::Switch*>())
     {
-      //must create a child scope first, and then type
-      StructScope* sscope = new StructScope(sd->name, current, sd);
-      //Visit the internal ScopedDecls that are types
-      for(auto& it : sd->members)
+      auto sw = st->s.get<Parser::Switch*>();
+      for(auto sc : sw->stmts)
       {
-        auto& decl = it->sd;
-        visitScopedDecl(sscope, decl);
-      }
-      current->types.push_back(new TypeSystem::StructType(sd, current, sscope));
-    }
-
-    void visitTrait(Scope* current, Parser::TraitDecl* td)
-    {
-      TraitScope* tscope = new TraitScope(current, td->name);
-      //Create the trait
-      current->traits.push_back(new TypeSystem::Trait(td, tscope));
-      //trait scope can't have child scopes, so done here
-    }
-
-    void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
-    {
-      if(sd->decl.is<Parser::Enum*>())
-      {
-        current->types.push_back(new TypeSystem::EnumType(sd->decl.get<Parser::Enum*>(), current));
-      }
-      else if(sd->decl.is<Parser::Typedef*>())
-      {
-        current->types.push_back(new TypeSystem::AliasType(sd->decl.get<Parser::Typedef*>(), current));
-      }
-      else if(sd->decl.is<Parser::StructDecl*>())
-      {
-        visitStruct(current, sd->decl.get<Parser::StructDecl*>());
-      }
-      else if(sd->decl.is<Parser::UnionDecl*>())
-      {
-        current->types.push_back(new TypeSystem::UnionType(sd->decl.get<Parser::UnionDecl*>(), current));
-      }
-      else if(sd->decl.is<Parser::Module*>())
-      {
-        visitModule(current, sd->decl.get<Parser::Module*>());
-      }
-      else if(sd->decl.is<Parser::FuncDef*>())
-      {
-        visitBlock(current, sd->decl.get<Parser::FuncDef*>()->body);
-      }
-      else if(sd->decl.is<Parser::ProcDef*>())
-      {
-        visitBlock(current, sd->decl.get<Parser::ProcDef*>()->body);
-      }
-      else if(sd->decl.is<Parser::TraitDecl*>())
-      {
-        visitTrait(current, sd->decl.get<Parser::TraitDecl*>());
+        visitStatement(current, sc);
       }
     }
   }
 
-  namespace VarLoading
+  void visitStruct(Scope* current, Parser::StructDecl* sd)
   {
-    void visitScope(Scope* s)
+    //must create a child scope first, and then type
+    StructScope* sscope = new StructScope(sd->name, current, sd);
+    //Visit the internal ScopedDecls that are types
+    for(auto& it : sd->members)
     {
-      //find all var decls in program, depth-first thru scope tree
-      //vars are in line order (within scope)
-      //scan through all statements and/or scoped decls in scope
-      //Note: BlockScope can have Statements which are ScopedDecls which are VarDecls
-      //ModuleScope and StructScope can only have ScopedDecls which are VarDecls
-      //Will search through the stored AST node corresponding to Scope
-      auto ss = dynamic_cast<StructScope*>(s);
-      auto ms = dynamic_cast<ModuleScope*>(s);
-      if(ss)
-      {
-        //only process static vars here
-        for(auto& it : ss->ast->members)
-        {
-          if(it->sd->decl.is<Parser::VarDecl*>())
-          {
-            auto vd = it->sd->decl.get<Parser::VarDecl*>();
-            if(vd->isStatic)
-            {
-              ss->vars.push_back(new Variable(s, vd));
-            }
-          }
-        }
-      }
-      else if(ms)
-      {
-        for(auto& it : ms->ast->decls)
-        {
-          if(it->decl.is<Parser::VarDecl*>())
-          {
-            ms->vars.push_back(new Variable(s, it->decl.get<Parser::VarDecl*>()));
-          }
-        }
-      }
-      //visit all child scopes
-      for(auto child : s->children)
-      {
-        visitScope(child);
-      }
+      auto& decl = it->sd;
+      visitScopedDecl(sscope, decl);
     }
+    current->addName(new TypeSystem::StructType(sd, current, sscope));
   }
 
-  namespace SubroutineLoading
+  void visitTrait(Scope* current, Parser::TraitDecl* td)
   {
-    void visitScope(Scope* s)
-    {
-      auto bs = dynamic_cast<BlockScope*>(s);
-      auto ms = dynamic_cast<ModuleScope*>(s);
-      auto ss = dynamic_cast<StructScope*>(s);
-      if(bs)
-      {
-        for(auto& it : bs->ast->statements)
-        {
-          if(it->s.is<Parser::ScopedDecl*>())
-          {
-            auto sd = it->s.get<Parser::ScopedDecl*>();
-            visitDecl(s, sd);
-          }
-        }
-      }
-      else if(ms)
-      {
-        for(auto& it : ms->ast->decls)
-        {
-          visitDecl(s, it);
-        }
-      }
-      else if(ss)
-      {
-        for(auto& it : ss->ast->members)
-        {
-          visitDecl(s, it->sd);
-        }
-      }
-      for(auto child : s->children)
-      {
-        visitScope(child);
-      }
-    }
+    TraitScope* tscope = new TraitScope(current, td->name);
+    //Create the trait
+    current->addName(new TypeSystem::Trait(td, tscope));
+    //trait scope can't have child scopes, so done here
+  }
 
-    void visitDecl(Scope* s, Parser::ScopedDecl* decl)
+  void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
+  {
+    if(sd->decl.is<Parser::Enum*>())
     {
-      if(decl->decl.is<Parser::FuncDef*>())
+      current->addName(new TypeSystem::EnumType(sd->decl.get<Parser::Enum*>(), current));
+    }
+    else if(sd->decl.is<Parser::Typedef*>())
+    {
+      current->addName(new TypeSystem::AliasType(sd->decl.get<Parser::Typedef*>(), current));
+    }
+    else if(sd->decl.is<Parser::StructDecl*>())
+    {
+      visitStruct(current, sd->decl.get<Parser::StructDecl*>());
+    }
+    else if(sd->decl.is<Parser::Module*>())
+    {
+      visitModule(current, sd->decl.get<Parser::Module*>());
+    }
+    else if(sd->decl.is<Parser::SubroutineNT*>())
+    {
+      visitSubroutine(current, sd->decl.get<Parser::SubroutineNT*>());
+    }
+    else if(sd->decl.is<Parser::TraitDecl*>())
+    {
+      visitTrait(current, sd->decl.get<Parser::TraitDecl*>());
+    }
+    else if(sd->decl.is<Parser::VarDecl*>())
+    {
+      //create the variable (ctor uses deferred lookup for type)
+      //
+      //if local var (scope is a block), don't create var yet
+      //
+      //if non-static in struct or module within struct, is struct member
+      auto vd = sd->decl.get<Parser::VarDecl*>();
+      bool local = dynamic_cast<BlockScope*>(current);
+      StructScope* owner = dynamic_cast<StructScope*>(current);
+      if(!local)
       {
-        s->subr.push_back(new Function(decl->decl.get<Parser::FuncDef*>()));
+        for(Scope* iter = current; iter && !owner; iter = iter->parent)
+        {
+          owner = dynamic_cast<StructScope*>(iter);
+        }
       }
-      else if(decl->decl.is<Parser::ProcDef*>())
+      //Semantic-check static/compose modifiers given context
+      if(!owner)
       {
-        s->subr.push_back(new Procedure(decl->decl.get<Parser::ProcDef*>()));
+        if(vd->isStatic)
+        {
+          ERR_MSG("variable " << vd->name <<
+              " declared static but not in struct");
+        }
+        if(vd->composed)
+        {
+          ERR_MSG("variable " << vd->name <<
+              " declared with compose operator but not in struct");
+        }
+      }
+      if(vd->isStatic && vd->composed)
+      {
+        ERR_MSG("variable " << vd->name <<
+            " declared both static and with compose operator");
+      }
+      if(!local)
+      {
+        if(owner && !vd->isStatic)
+        {
+          owner->type->members.push_back(new Variable(current, vd));
+          owner->type->composed.push_back(vd->composed);
+        }
+        else
+        {
+          //non-member/global
+          current->addName(new Variable(current, vd));
+        }
       }
     }
   }

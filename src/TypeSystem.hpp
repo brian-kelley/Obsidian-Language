@@ -125,6 +125,7 @@ struct Type
 //Only used in subroutine declarations, and belongs to subroutine scope
 struct BoundedType : public Type
 {
+  BoundedType(Parser::BoundedTypeNT* nt, Scope* s);
   BoundedType(string n, vector<Trait*> t, Scope* s) : Type(s), name(n), traits(t) {}
   string name;
   vector<Trait*> traits;
@@ -136,6 +137,10 @@ struct BoundedType : public Type
   bool isBounded()
   {
     return true;
+  }
+  string getName()
+  {
+    return name;
   }
 };
 
@@ -151,11 +156,10 @@ struct StructType : public Type
 {
   StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
   string name;
-  vector<Trait*> traits;
-  vector<Type*> members;
-  vector<string> memberNames; //1-1 correspondence with members
+  vector<Variable*> members;
   vector<bool> composed;      //1-1 correspondence with members
-  //member types must be searched from here (the scope inside the struct decl)
+  vector<Trait*> traits;
+  //members are variables in structScope or some child of it
   StructScope* structScope;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);

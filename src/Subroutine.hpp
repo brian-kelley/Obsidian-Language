@@ -168,14 +168,18 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  Subroutine(Parser::SubroutineNT* snt, Scope* s);
+  //constructor doesn't process the body in any way
+  Subroutine(Parser::SubroutineNT* snt, SubroutineScope* s);
+  void addStatements();
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;
   //Local variables in subroutine scope representing arguments, in order
   vector<Variable*> args;
   Block* body;
-  Scope* scope;
+  //the scope OF the subroutine, not the one containing it
+  SubroutineScope* scope;
+  Parser::SubroutineNT* nt;
 };
 
 #endif

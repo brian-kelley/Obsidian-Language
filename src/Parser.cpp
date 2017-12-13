@@ -905,7 +905,7 @@ namespace Parser
       p->type = parse<TypeNT>();
     }
     //optional parameter name
-    p->name = (Ident*) accept(IDENTIFIER);
+    p->name = ((Ident*) accept(IDENTIFIER))->name;
     return p;
   }
   
@@ -999,7 +999,7 @@ namespace Parser
     }
     expectPunct(LBRACE);
     Punct rbrace(RBRACE);
-    sd->members = parseStar<StructMem>(rbrace);
+    sd->members = parseStar<ScopedDecl>(rbrace);
     return sd;
   }
 
