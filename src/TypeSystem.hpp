@@ -88,12 +88,8 @@ extern DeferredTraitLookup* traitLookup;
 
 struct Type
 {
-  Type(Scope* enclosingScope);
-  //list of primitive Types corresponding 1-1 with TypeNT::Prim values
-  Scope* enclosing;
-  //lazily create/return array type for given number of dims (and all fewer)
-  //overridden by ArrayType
-  virtual ArrayType* getArrayType(int dims);
+  Type();
+  virtual ~Type() {}
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
   virtual bool canConvert(Expression* other);
@@ -126,7 +122,7 @@ struct Type
 struct BoundedType : public Type
 {
   BoundedType(Parser::BoundedTypeNT* nt, Scope* s);
-  BoundedType(string n, vector<Trait*> t, Scope* s) : Type(s), name(n), traits(t) {}
+  BoundedType(string n, vector<Trait*> t, Scope* s) : name(n), traits(t) {}
   string name;
   vector<Trait*> traits;
   bool canConvert(Type* other)
@@ -219,6 +215,7 @@ struct TupleType : public Type
 {
   //TupleType has no scope, so ctor doesn't need it
   TupleType(vector<Type*> members);
+  ~TupleType() {}
   vector<Type*> members;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
@@ -246,7 +243,7 @@ struct TupleCompare
 
 struct MapType : public Type
 {
-  MapType(Type* k, Type* v) : Type(NULL), key(k), value(v) {}
+  MapType(Type* k, Type* v) : key(k), value(v) {}
   Type* key;
   Type* value;
   bool isMap() {return true;}
@@ -349,7 +346,6 @@ struct FloatType : public Type
 
 struct CharType : public Type
 {
-  CharType() : Type(nullptr) {}
   bool canConvert(Type* other);
   bool isChar() {return true;}
   bool isPrimitive() {return true;}
@@ -423,7 +419,6 @@ struct CallableCompare
 
 struct TType : public Type
 {
-  TType(TraitScope* ts) : Type(ts) {}
   //canConvert: other implements this trait
   bool canConvert(Type* other);
   bool canConvert(Expression* other);

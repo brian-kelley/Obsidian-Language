@@ -7,10 +7,8 @@
 
 struct Expression
 {
-  //Expression constructor will determine the type (implemented in subclasses)
-  Expression(Scope* s);
-  Scope* scope;
   TypeSystem::Type* type;
+  //whether this is an lvalue
   virtual bool assignable() = 0;
 };
 
@@ -32,12 +30,9 @@ struct NewArray;
 template<typename NT>
 Expression* getExpression(Scope* s, NT* expr);
 
-//apply a single Expr12RHS to the right of an expression
-Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12);
-
-Expression* memberToExpression(Parser::Member* mem, Scope* s);
-
-Expression* applyNamesToExpr12(Expression* root, vector<string>& names);
+//process one name as part of Expr12 or Expr12RHS
+//returns true iff root is a valid expression that uses all names
+void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root, Scope*& scope);
 
 //Assuming expr is a struct type, get the struct scope
 //Otherwise, display relevant errors
@@ -139,8 +134,7 @@ struct CompoundLiteral : public Expression
 
 struct Indexed : public Expression
 {
-  //Indexed(Scope* s, Parser::Expr12::ArrayIndex* ast);
-  Indexed(Scope* s, Expression* grp, Expression* ind);
+  Indexed(Expression* grp, Expression* ind);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
   bool assignable()
@@ -153,7 +147,7 @@ struct Indexed : public Expression
 
 struct CallExpr : public Expression
 {
-  CallExpr(Scope* s, Expression* callable, vector<Expression*>& args);
+  CallExpr(Expression* callable, vector<Expression*>& args);
   Expression* callable;
   vector<Expression*> args;
   bool assignable()
@@ -168,7 +162,7 @@ void checkArgs(TypeSystem::CallableType* callable, vector<Expression*>& args);
 struct VarExpr : public Expression
 {
   VarExpr(Scope* s, Parser::Member* ast);
-  VarExpr(Scope* s, Variable* v);
+  VarExpr(Variable* v);
   Variable* var;  //var must be looked up from current scope
   bool assignable()
   {
@@ -181,8 +175,8 @@ struct VarExpr : public Expression
 //May be standalone, or may be applied to an object
 struct SubroutineExpr : public Expression
 {
-  SubroutineExpr(Scope* scope, Subroutine* s);
-  SubroutineExpr(Scope* scope, Expression* thisObj, Subroutine* s);
+  SubroutineExpr(Subroutine* s);
+  SubroutineExpr(Expression* thisObj, Subroutine* s);
   Subroutine* subr;
   Expression* thisObject;
   bool assignable()
@@ -193,9 +187,9 @@ struct SubroutineExpr : public Expression
 
 struct StructMem : public Expression
 {
-  StructMem(Scope* s, Expression* base, Variable* v);
+  StructMem(Expression* base, Variable* v);
   Expression* base;           //base->type is always a StructType
-  Variable* member;
+  Variable* member;           //member must be a member of base->type
   bool assignable()
   {
     return base->assignable();
@@ -214,7 +208,7 @@ struct NewArray : public Expression
 
 struct ArrayLength : public Expression
 {
-  ArrayLength(Scope* s, Expression* arr);
+  ArrayLength(Expression* arr);
   Expression* array;
   bool assignable()
   {
@@ -222,7 +216,7 @@ struct ArrayLength : public Expression
   }
 };
 
-//Temporary variable (only used in backend)
+//Temporary variable (only used in C backend)
 //id should always come from C::getIdentifier()
 struct TempVar : public Expression
 {

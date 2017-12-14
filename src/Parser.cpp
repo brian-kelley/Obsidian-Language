@@ -1043,13 +1043,11 @@ namespace Parser
   {
     Member* m = new Member;
     //get a list of all strings separated by dots
-    m->head.push_back((Ident*) expect(IDENTIFIER));
+    m->names.push_back(((Ident*) expect(IDENTIFIER))->name);
     while(acceptPunct(DOT))
     {
-      m->head.push_back((Ident*) expect(IDENTIFIER));
+      m->names.push_back(((Ident*) expect(IDENTIFIER))->name);
     }
-    m->tail = m->head.back();
-    m->head.pop_back();
     return m;
   }
 

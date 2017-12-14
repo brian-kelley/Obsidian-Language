@@ -70,6 +70,7 @@ struct Scope
   vector<Scope*> children;            //owned scopes
   //unified name handling
   Name findName(Parser::Member* mem);
+  Name findName(string name);
   Name lookup(string name);
   void addName(ModuleScope* m);
   void addName(TypeSystem::StructType* st);

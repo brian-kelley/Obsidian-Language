@@ -346,7 +346,19 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   else if(expr->e.is<Parser::Member*>())
   {
-    root = memberToExpression(expr->e.get<Parser::Member*>(), s);
+    //leave root null, and start searching names 
+    auto mem = expr->e.get<Parser::Member*>();
+    Scope* search = s;
+    bool done = false;
+    processExpr12Name(mem->names[0], done, true, root, search);
+    for(size_t i = 1; i < mem->names.size(); i++)
+    {
+      processExpr12Name(mem->names[i], done, false, root, search);
+    }
+    if(!done)
+    {
+      ERR_MSG("name " << mem->names.back() << " is not a valid expression");
+    }
   }
   else if(expr->e.is<Parser::StructLit*>())
   {
@@ -358,7 +370,12 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     //(a simple error in the compiler)
     INTERNAL_ERROR;
   }
-  vector<string> rhsNames;
+  Scope* search = nullptr;
+  if(auto st = dynamic_cast<StructType*>(root->type))
+  {
+    search = st->structScope;
+  }
+  bool isFinal = true;
   for(size_t i = 0; i < expr->tail.size(); i++)
   {
     //apply each rhs to e12 to get the final expression
@@ -366,26 +383,13 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     //so store the names in rhsNames as they are encountered
     //Call and index operators are handled here, one at a time
     auto& e12rhs = expr->tail[i]->e;
-    if(e12rhs.is<Ident*>())
+    if(e12rhs.is<string>())
     {
       //special case: len as a member of array
-      string& id = e12rhs.get<Ident*>()->name;
-      if(id == "len" && dynamic_cast<ArrayType*>(root->type))
-      {
-        root = new ArrayLength(s, root);
-      }
-      else
-      {
-        rhsNames.push_back(id);
-      }
-      continue;
+      string name = e12rhs.get<string>();
+      processExpr12Name(name, isFinal, false, root, search);
     }
-    if(rhsNames.size())
-    {
-      applyNamesToExpr12(root, rhsNames);
-      rhsNames.clear();
-    }
-    if(e12rhs.is<Parser::CallOp*>())
+    else if(e12rhs.is<Parser::CallOp*>())
     {
       vector<Expression*> args;
       auto co = e12rhs.get<Parser::CallOp*>();
@@ -393,121 +397,117 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
       {
         args.push_back(getExpression(s, arg));
       }
-      root = new CallExpr(s, root, args);
+      root = new CallExpr(root, args);
     }
     else if(e12rhs.is<Parser::ExpressionNT*>())
     {
-      //array index
+      //array indexing
       Expression* index = getExpression(s, e12rhs.get<Parser::ExpressionNT*>());
-      root = new Indexed(s, root, index);
+      root = new Indexed(root, index);
     }
     else
     {
-      //probably something wrong with parser
+      //(probably) something wrong with parser
       INTERNAL_ERROR;
     }
   }
-  //apply all remaining names
-  applyNamesToExpr12(root, rhsNames);
+  if(!isFinal)
+  {
+    ERR_MSG("invalid expression");
+  }
   return root;
 }
 
-Expression* memberToExpression(Parser::Member* mem, Scope* s)
+void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root, Scope*& scope)
 {
-  //look up one name at a time
-  vector<Name> names;
-  Scope* iter = s;
-}
-
-Expression* applyExpr12RHS(Scope* s, Expression* root, Parser::Expr12RHS* e12)
-{
-  if(e12->e.is<Parser::CallOp*>())
+  bool rootFinal = isFinal;
+  isFinal = false;
+  if(!scope)
   {
-    //method call
-    //make sure that root is Callable
-    auto ct = dynamic_cast<CallableType*>(root->type);
-    if(!ct)
-    {
-      ERR_MSG("tried to call a non-callable member");
-    }
-    auto co = e12->e.get<Parser::CallOp*>();
-    vector<Expression*> args;
-    for(auto arg : co->args)
-    {
-      args.push_back(getExpression(s, arg));
-    }
-    return new CallExpr(s, root, args);
+    ERR_MSG("tried to access member of non-struct");
   }
-  else if(e12->e.is<Parser::ExpressionNT*>())
+  //special case: <array>.len
+  if(rootFinal && dynamic_cast<ArrayType*>(root->type) && name == "len")
   {
-    return new Indexed(s, root, getExpression(s, e12->e.get<Parser::ExpressionNT*>()));
+    root = new ArrayLength(root);
+    scope = nullptr;
+    isFinal = true;
+    return;
   }
+  Name n;
+  if(first)
+    n = scope->findName(name);
   else
+    n = scope->lookup(name);
+  if(n.item == nullptr)
   {
-    //didn't handle Ident* properly in getExpression<Expr12>
-    INTERNAL_ERROR;
+    //name doesn't exist at all
+    ERR_MSG("use of undeclared identifier " << name);
   }
-}
-
-Expression* applyNamesToExpr12(Expression* root, vector<string>& names)
-{
-  Scope* search = scopeForExpr(root);
-  //will search for names within scope corresponding to st
-  //copy names to itemNames so struct members can be found
-  vector<string> itemNames;
-  for(size_t i = 0; i < names.size(); i++)
+  switch(n.kind)
   {
-    string& name = names[i];
-    auto it = search->names.find(name);
-    if(it == search->names.end())
-    {
-      ERR_MSG("no member " << name << " in scope " << search->getFullPath());
-    }
-    Name& n = it->second;
-    switch(n.type)
-    {
-      case Name::SCOPE:
-        //if this is the last name, error
-        if(i == names.size() - 1)
-        {
-          ERR_MSG("member " << name << " of scope " << search->getFullPath() << " is a scope, not an expression");
-        }
-        //continue the search from this scope
-        search = (Scope*) n.item;
-        itemNames.push_back(name);
-        break;
-      case Name::VARIABLE:
+    case Name::VARIABLE:
       {
-        //set root to the struct mem
-        //variable must be non-static
-        Variable* v = (Variable*) n.item;
-        if(v->isStatic)
+        Variable* var = (Variable*) n.item;
+        if(root)
         {
-          ERR_MSG("can't access static variable " << v->name << " through an object");
+          if(!var->isMember)
+          {
+            ERR_MSG("tried to access static variable " <<
+                var->name << " as member");
+          }
+          root = new StructMem(root, var);
         }
-        root = new StructMem(root->scope, root, v);
-        if(i == names.size() - 1)
-          return root;
-        //have more names after this, so need to continue search from new struct scope
-        itemNames.clear();
-        search = scopeForExpr(root);
+        else
+        {
+          if(var->isMember)
+          {
+            ERR_MSG("tried to access member variable " <<
+                var->name << " in static context");
+          }
+          //first variable
+          root = new VarExpr(var);
+        }
+        //if var is of a  StructType, iter = struct scope (otherwise null)
+        //if there are more names after this and iter is null, will error on
+        //  next iteration
+        StructType* st = dynamic_cast<StructType*>(root->type);
+        if(st)
+          scope = st->structScope;
+        else
+          scope = nullptr;
+        isFinal = true;
         break;
       }
-      case Name::SUBROUTINE:
-        root = new SubroutineExpr(root->scope, root, (Subroutine*) n.item);
-        if(i == names.size() - 1)
-          return root;
-        //not the last name, but it's impossible for a subroutine to have members
-        ERR_MSG("function or procedure has no members");
+    case Name::SUBROUTINE:
+      {
+        //callable (could be method or standalone)
+        if(root)
+          root = new SubroutineExpr(root, (Subroutine*) n.item);
+        else
+          root = new SubroutineExpr((Subroutine*) n.item);
+        scope = nullptr;
+        isFinal = true;
         break;
-      case Name::ENUM:
-        //TODO
-        INTERNAL_ERROR;
-        break;
-      default: ERR_MSG("member " << name << " of scope " << search->getFullPath() << " is not an expression or scope");
+      }
+    case Name::MODULE:
+      scope = (Scope*) n.item;
+    case Name::STRUCT:
+      scope = ((StructType*) n.item)->structScope;
+    case Name::TYPEDEF:
+    {
+      auto at = (AliasType*) n.item;
+      if(at->isStruct())
+        scope = ((StructType*) at->actual)->structScope;
+      else
+        scope = nullptr;
+    }
+    default:
+    {
+      ERR_MSG("name " << name <<
+          " is not a scope, variable or subroutine");
     }
   }
-  return NULL;
 }
 
 StructScope* scopeForExpr(Expression* expr)
@@ -526,20 +526,10 @@ StructScope* scopeForExpr(Expression* expr)
 }
 
 /**************
- * Expression *
- **************/
-
-Expression::Expression(Scope* s)
-{
-  scope = s;
-  //expression type is set by subclass constructors
-}
-
-/**************
  * UnaryArith *
  **************/
 
-UnaryArith::UnaryArith(int o, Expression* e) : Expression(NULL)
+UnaryArith::UnaryArith(int o, Expression* e)
 {
   this->op = o;
   this->expr = e;
@@ -549,7 +539,7 @@ UnaryArith::UnaryArith(int o, Expression* e) : Expression(NULL)
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL), lhs(l), rhs(r)
+BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
 {
   using Parser::TypeNT;
   //Type check the operation
@@ -680,12 +670,12 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : Expression(NULL)
  * Primitive Literals *
  **********************/
 
-IntLiteral::IntLiteral(IntLit* ast) : Expression(NULL), value(ast->val)
+IntLiteral::IntLiteral(IntLit* ast) : value(ast->val)
 {
   setType();
 }
 
-IntLiteral::IntLiteral(uint64_t val) : Expression(NULL), value(val)
+IntLiteral::IntLiteral(uint64_t val) : value(val)
 {
   setType();
 }
@@ -704,29 +694,29 @@ void IntLiteral::setType()
   }
 }
 
-FloatLiteral::FloatLiteral(FloatLit* a) : Expression(NULL), value(a->val)
+FloatLiteral::FloatLiteral(FloatLit* a) : value(a->val)
 {
   type = primitives[Parser::TypeNT::DOUBLE];
 }
 
-FloatLiteral::FloatLiteral(double val) : Expression(NULL), value(val)
+FloatLiteral::FloatLiteral(double val) : value(val)
 {
   type = primitives[Parser::TypeNT::DOUBLE];
 }
 
-StringLiteral::StringLiteral(StrLit* a) : Expression(NULL)
+StringLiteral::StringLiteral(StrLit* a)
 {
   value = a->val;
   type = primitives[Parser::TypeNT::CHAR]->getArrayType(1);
 }
 
-CharLiteral::CharLiteral(CharLit* a) : Expression(NULL)
+CharLiteral::CharLiteral(CharLit* a)
 {
   value = a->val;
   type = primitives[Parser::TypeNT::CHAR];
 }
 
-BoolLiteral::BoolLiteral(Parser::BoolLit* a) : Expression(NULL)
+BoolLiteral::BoolLiteral(Parser::BoolLit* a)
 {
   value = a->val;
   type = primitives[Parser::TypeNT::BOOL];
@@ -736,7 +726,7 @@ BoolLiteral::BoolLiteral(Parser::BoolLit* a) : Expression(NULL)
  * CompoundLiteral *
  *******************/
 
-CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a) : Expression(s)
+CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
 {
   this->ast = a;
   //type cannot be determined for a compound literal
@@ -758,7 +748,7 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a) : Expression(s)
  * Indexed *
  ***********/
 
-Indexed::Indexed(Scope* s, Expression* grp, Expression* ind) : Expression(s)
+Indexed::Indexed(Expression* grp, Expression* ind)
 {
   group = grp;
   index = ind;
@@ -796,9 +786,18 @@ Indexed::Indexed(Scope* s, Expression* grp, Expression* ind) : Expression(s)
     //group must be an array
     type = at->subtype;
   }
+  else if(auto mt = dynamic_cast<MapType*>(group->type))
+  {
+    //make sure ind can be converted to the key type
+    if(!mt->key->canConvert(ind))
+    {
+      ERR_MSG("used incorrect type to index map");
+    }
+    type = mt->value;
+  }
   else
   {
-    ERR_MSG("expression can't be subscripted.");
+    ERR_MSG("expression can't be subscripted (is not an array, tuple or map)");
   }
 }
 
@@ -806,12 +805,14 @@ Indexed::Indexed(Scope* s, Expression* grp, Expression* ind) : Expression(s)
  * CallExpr *
  ************/
 
-CallExpr::CallExpr(Scope* s, Expression* c, vector<Expression*>& a) : Expression(s)
+CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 {
-  //callable expressions should only be produced from Expr12, so callable actually
+  //callable expressions should only be produced from Expr12, so c actually
   //being a Callable must already have been checked
   if(!dynamic_cast<CallableType*>(c->type))
-    INTERNAL_ERROR;
+  {
+    ERR_MSG("expression is not callable");
+  }
   callable = c;
   args = a;
   checkArgs((CallableType*) callable->type, args);
@@ -822,7 +823,7 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
   //make sure number of arguments matches
   if(callable->argTypes.size() != args.size())
   {
-    ERR_MSG("in call to " << (callable->isStatic ? "static " : "") <<
+    ERR_MSG("in call to " << (callable->ownerStruct ? "" : "static") <<
         (callable->pure ? "function" : "procedure") << ", expected " <<
         callable->argTypes.size() << " arguments but got " << args.size());
   }
@@ -831,7 +832,7 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
     //make sure arg value can be converted to expected type
     if(!callable->argTypes[i]->canConvert(args[i]))
     {
-      ERR_MSG("argument " << i + 1 << " to " << (callable->isStatic ? "static " : "") <<
+      ERR_MSG("argument " << i + 1 << " to " << (callable->ownerStruct ? "" : "static") <<
         (callable->pure ? "function" : "procedure") << " has wrong type (expected " <<
         callable->argTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
@@ -843,19 +844,24 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
  * VarExpr *
  ***********/
 
-VarExpr::VarExpr(Scope* s, Parser::Member* ast) : Expression(s)
+VarExpr::VarExpr(Scope* s, Parser::Member* ast)
 {
   //To get type and var (Variable*), look up the variable in scope tree
-  var = s->findVariable(ast);
-  if(!var)
+  Name n = s->findName(ast);
+  if(n.item == nullptr)
   {
-    ERR_MSG("Use of undeclared variable " << *ast);
+    ERR_MSG("use of undeclared identifier " << *ast);
   }
+  else if(n.kind != Name::VARIABLE)
+  {
+    ERR_MSG(*ast << " is not a variable");
+  }
+  var = (Variable*) n.item;
   //type of variable must be known
   this->type = var->type;
 }
 
-VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
+VarExpr::VarExpr(Variable* v)
 {
   this->type = v->type;
 }
@@ -864,23 +870,25 @@ VarExpr::VarExpr(Scope* s, Variable* v) : Expression(s)
  * SubroutineExpr *
  ******************/
 
-SubroutineExpr::SubroutineExpr(Scope* scope, Subroutine* s) : Expression(scope)
+SubroutineExpr::SubroutineExpr(Subroutine* s)
 {
+  thisObject = nullptr;
   this->subr = s;
-  //expr type is the callable type for subr
-  bool pure = s->isPure();
-  Type* returnType = s->retType; 
-  vector<Type*>& args = s->argTypes;
-  //type lookup will always succeed, because the subroutine exists already
-  //so its return/argument types have already been checked
-  type = CallableType::lookup(pure, s->isStatic, returnType, args);
+  type = s->type;
+}
+
+SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
+{
+  thisObject = root;
+  this->subr = s;
+  type = s->type;
 }
 
 /*************
  * StructMem *
  *************/
 
-StructMem::StructMem(Scope* s, Expression* b, Variable* v) : Expression(s)
+StructMem::StructMem(Expression* b, Variable* v)
 {
   base = b;
   member = v;
@@ -891,7 +899,7 @@ StructMem::StructMem(Scope* s, Expression* b, Variable* v) : Expression(s)
  * NewArray *
  ************/
 
-NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
+NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast)
 {
   auto elemType = lookupType(ast->elemType, s);
   this->type = elemType->getArrayType(ast->dimensions.size());
@@ -913,7 +921,7 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast) : Expression(s)
  * ArrayLength *
  ***************/
 
-ArrayLength::ArrayLength(Scope* s, Expression* arr) : Expression(s)
+ArrayLength::ArrayLength(Expression* arr)
 {
   array = arr;
   this->type = primitives[Parser::TypeNT::UINT];
@@ -923,5 +931,5 @@ ArrayLength::ArrayLength(Scope* s, Expression* arr) : Expression(s)
  * TempVar *
  ***********/
 
-TempVar::TempVar(string id, Type* t, Scope* s) : Expression(s), ident(id) {}
+TempVar::TempVar(string id, Type* t, Scope* s) : ident(id) {}
 

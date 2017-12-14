@@ -17,13 +17,12 @@ namespace TypeSystem
 struct Variable
 {
   //General constructor for static or local variables created through VarDecl
-  Variable(Scope* s, Parser::VarDecl* ast);
-  Variable(Scope* s, string name, Parser::TypeNT* t);
-  Variable(Scope* s, string n, Parser::TypeNT* t);
-  //Constructor for creating local variable with given name and type
-  Variable(Scope* s, string name, TypeSystem::Type* t);
+  Variable(Scope* s, Parser::VarDecl* ast, bool member = false);
+  Variable(Scope* s, string name, Parser::TypeNT* t, bool member = false);
+  Variable(Scope* s, string name, TypeSystem::Type* t, bool member = false);
   string name;
   TypeSystem::Type* type;
+  bool isMember;
 };
 
 #endif

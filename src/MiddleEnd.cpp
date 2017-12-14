@@ -55,19 +55,23 @@ namespace MiddleEnd
     //add parameter variables
     for(auto param : subrNT->params)
     {
-      Parser::TypeNT* paramType = nullptr;
+      Parser::TypeNT paramType;
       if(param->type.is<Parser::BoundedTypeNT*>())
       {
-        auto typeName = new Parser::Member;
-        typeName->tail = param->name;
-        paramType = new Parser::TypeNT;
-        paramType->t = typeName;
+        Parser::Member tname;
+        tname.names.push_back(param->type.get<Parser::BoundedTypeNT*>()->localName);
+        paramType.t = &tname;
       }
       else
       {
-        paramType = param->type.get<Parser::TypeNT*>();
+        paramType = *param->type.get<Parser::TypeNT*>();
       }
-      Variable* pvar = new Variable(ss, param->name, paramType, false);
+      auto t = TypeSystem::lookupType(&paramType, ss);
+      if(!t)
+      {
+        ERR_MSG("parameter " << param->name << " to subroutine " << subr->name << " has an unknown type");
+      }
+      Variable* pvar = new Variable(ss, param->name, t);
       ss->addName(pvar);
       subr->args.push_back(pvar);
     }
@@ -131,8 +135,7 @@ namespace MiddleEnd
     //Visit the internal ScopedDecls that are types
     for(auto& it : sd->members)
     {
-      auto& decl = it->sd;
-      visitScopedDecl(sscope, decl);
+      visitScopedDecl(sscope, it);
     }
     current->addName(new TypeSystem::StructType(sd, current, sscope));
   }
@@ -211,7 +214,7 @@ namespace MiddleEnd
       {
         if(owner && !vd->isStatic)
         {
-          owner->type->members.push_back(new Variable(current, vd));
+          owner->type->members.push_back(new Variable(current, vd, true));
           owner->type->composed.push_back(vd->composed);
         }
         else
@@ -220,6 +223,10 @@ namespace MiddleEnd
           current->addName(new Variable(current, vd));
         }
       }
+    }
+    else
+    {
+      INTERNAL_ERROR;
     }
   }
 }

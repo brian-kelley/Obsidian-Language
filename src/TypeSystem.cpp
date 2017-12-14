@@ -14,11 +14,9 @@ extern ModuleScope* global;
 
 namespace TypeSystem
 {
-TType* TType::inst;
-
 vector<Type*> primitives;
 map<string, Type*> primNames;
-set<ArrayType*, ArrayCompare< arrays;
+set<ArrayType*, ArrayCompare> arrays;
 set<TupleType*, TupleCompare> tuples;
 set<UnionType*, UnionCompare> unions;
 set<MapType*, MapCompare> maps;
@@ -28,28 +26,12 @@ set<CallableType*, CallableCompare> callables;
 DeferredTypeLookup* typeLookup;
 DeferredTraitLookup* traitLookup;
 
-Type::Type(Scope* enclosingScope) : enclosing(enclosingScope) {}
-
 bool Type::canConvert(Expression* other)
 {
   //Basic behavior here: if other has a known type, check if that can convert
   if(other->type)
     return canConvert(other->type);
   return false;
-}
-
-Type* Type::getArrayType(int dims)
-{
-  //lazily check & create array type
-  if((int) dimTypes.size() < dims)
-  {
-    //create + add
-    for(int i = dimTypes.size() + 1; i <= dims; i++)
-    {
-      dimTypes.push_back(new ArrayType(this, i));
-    }
-  }
-  return dimTypes[dims - 1];
 }
 
 void createBuiltinTypes()
@@ -84,19 +66,18 @@ void createBuiltinTypes()
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["void"] = primitives[TypeNT::VOID];
   //string is a builtin alias for char[] (not a primitive)
-  global->types.push_back(new AliasType(
+  global->addName(new AliasType(
         "string", primitives[TypeNT::CHAR]->getArrayType(1), global));
-  TType::inst = new TType;
-  global->types.push_back(new AliasType("i8", primitives[TypeNT::BYTE], global));
-  global->types.push_back(new AliasType("u8", primitives[TypeNT::UBYTE], global));
-  global->types.push_back(new AliasType("i16", primitives[TypeNT::SHORT], global));
-  global->types.push_back(new AliasType("u16", primitives[TypeNT::USHORT], global));
-  global->types.push_back(new AliasType("i32", primitives[TypeNT::INT], global));
-  global->types.push_back(new AliasType("u32", primitives[TypeNT::UINT], global));
-  global->types.push_back(new AliasType("i64", primitives[TypeNT::LONG], global));
-  global->types.push_back(new AliasType("u64", primitives[TypeNT::ULONG], global));
-  global->types.push_back(new AliasType("f32", primitives[TypeNT::FLOAT], global));
-  global->types.push_back(new AliasType("f64", primitives[TypeNT::DOUBLE], global));
+  global->addName(new AliasType("i8", primitives[TypeNT::BYTE], global));
+  global->addName(new AliasType("u8", primitives[TypeNT::UBYTE], global));
+  global->addName(new AliasType("i16", primitives[TypeNT::SHORT], global));
+  global->addName(new AliasType("u16", primitives[TypeNT::USHORT], global));
+  global->addName(new AliasType("i32", primitives[TypeNT::INT], global));
+  global->addName(new AliasType("u32", primitives[TypeNT::UINT], global));
+  global->addName(new AliasType("i64", primitives[TypeNT::LONG], global));
+  global->addName(new AliasType("u64", primitives[TypeNT::ULONG], global));
+  global->addName(new AliasType("f32", primitives[TypeNT::FLOAT], global));
+  global->addName(new AliasType("f64", primitives[TypeNT::DOUBLE], global));
 }
 
 string typeErrorMessage(TypeLookup& lookup)
@@ -142,17 +123,23 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   {
     //intercept special case: "T" inside a trait decl
     auto mem = type->t.get<Member*>();
-    if(mem->head.size() == 0 && mem->tail.name == "T")
+    if(mem->names.size() == 1 && mem->names[0] == "T")
     {
       for(Scope* iter = scope; iter; iter = iter->parent)
       {
         if(auto ts = dynamic_cast<TraitScope*>(iter))
         {
-          return TType::inst;
+          return ts->ttype;
         }
       }
     }
-    return scope->findType(mem);
+    Name n = scope->findName(mem);
+    if(n.kind == Name::STRUCT || n.kind == Name::TYPEDEF ||
+        n.kind == Name::ENUM || n.kind == Name::BOUNDED_TYPE)
+    {
+      return (Type*) n.item;
+    }
+    return nullptr;
   }
   else if(type->t.is<TupleTypeNT*>())
   {
@@ -166,24 +153,24 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
         return nullptr;
       }
     }
-    for(auto tt : tuples)
-    {
-      if(tt->matchesTypes(members))
-      {
-        return tt;
-      }
-    }
     TupleType* newTuple = new TupleType(members);
-    tuples.push_back(newTuple);
+    auto it = tuples.find(newTuple);
+    if(it != tuples.end())
+    {
+      delete newTuple;
+      return *it;
+    }
+    //new tuple type, add to set
+    tuples.insert(newTuple);
     return newTuple;
   }
   else if(type->t.is<UnionTypeNT*>())
   {
     auto utNT = type->t.get<UnionTypeNT*>();
-    vector<TypeNT*> options;
+    vector<Type*> options;
     for(auto t : utNT->types)
     {
-      TypeNT* next = lookupType(t, scope);
+      Type* next = lookupType(t, scope);
       if(!next)
       {
         //have to come back later when all option types are defined
@@ -191,7 +178,7 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
       }
       options.push_back(next);
     }
-    //special case: only one option (just return it)
+    //only one option: union of one thing is itself
     if(options.size() == 1)
       return options.front();
     UnionType* ut = new UnionType(options);
@@ -213,8 +200,8 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   else if(type->t.is<MapTypeNT*>())
   {
     auto mtNT = type->t.get<MapTypeNT*>();
-    TypeNT* key = lookupType(mtNT->keyType, scope);
-    TypeNT* value = lookupType(mtNT->valueType, scope);
+    Type* key = lookupType(mtNT->keyType, scope);
+    Type* value = lookupType(mtNT->valueType, scope);
     if(!key || !value)
       return nullptr;
     MapType* mt = new MapType(key, value);
@@ -818,7 +805,7 @@ bool IntegerType::isPrimitive()
 /* Float Type */
 /**************/
 
-FloatType::FloatType(string typeName, int sz) : Type(global)
+FloatType::FloatType(string typeName, int sz)
 {
   this->name = typeName;
   this->size = sz;
@@ -852,8 +839,6 @@ bool CharType::canConvert(Type* other)
 /* Bool Type */
 /*************/
 
-BoolType::BoolType() : Type(global) {}
-
 bool BoolType::canConvert(Type* other)
 {
   return other->isBool();
@@ -862,8 +847,6 @@ bool BoolType::canConvert(Type* other)
 /*************/
 /* Void Type */
 /*************/
-
-VoidType::VoidType() : Type(global) {}
 
 bool VoidType::canConvert(Type* t)
 {

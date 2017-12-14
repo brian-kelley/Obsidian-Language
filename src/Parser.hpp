@@ -419,8 +419,7 @@ namespace Parser
 
   struct Member
   {
-    vector<string> head;
-    string tail;
+    vector<string> names;
   };
 
   struct BoundedTypeNT

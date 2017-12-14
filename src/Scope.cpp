@@ -90,6 +90,13 @@ Name Scope::findName(Parser::Member* mem)
   return Name();
 }
 
+Name findName(string name)
+{
+  Parser::Member m;
+  m.tail = name;
+  return findName(&m);
+}
+
 void Scope::shadowCheck(string name, bool isVar)
 {
   for(Scope* iter = this; iter; iter = iter->parent)
