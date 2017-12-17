@@ -590,7 +590,13 @@ namespace Parser
   ForOverArray* parse<ForOverArray>()
   {
     ForOverArray* fr1 = new ForOverArray;
-    fr1->tup = parse<StructLit>();
+    expectPunct(LBRACKET);
+    fr1->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+    while(acceptPunct(DOT))
+    {
+      fr1->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+    }
+    expectPunct(RBRACKET);
     expectPunct(COLON);
     fr1->expr = parse<ExpressionNT>();
     return fr1;
@@ -1034,7 +1040,7 @@ namespace Parser
     StructLit* sl = new StructLit;
     expectPunct(LBRACKET);
     Punct rbrack(RBRACKET);
-    sl->vals = parseStarComma<ExpressionNT>(rbrack);
+    sl->vals = parsePlusComma<ExpressionNT>(rbrack);
     return sl;
   }
 

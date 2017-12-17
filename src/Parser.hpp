@@ -173,7 +173,7 @@ namespace Parser
       ScopedDecl*,
       VarAssign*,
       PrintNT*,
-      Expr12*,
+      Expr12*,  //call
       Block*,
       Return*,
       Continue*,
@@ -262,7 +262,7 @@ namespace Parser
   struct ForOverArray
   {
     ForOverArray() : expr(nullptr) {}
-    StructLit* tup;
+    vector<string> tup;
     ExpressionNT* expr;
   };
 
@@ -410,7 +410,8 @@ namespace Parser
   struct TraitDecl
   {
     string name;
-    vector<SubroutineNT*> members; };
+    vector<SubroutineNT*> members;
+  };
 
   struct StructLit
   {

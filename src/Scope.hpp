@@ -82,9 +82,8 @@ struct Scope
   void addName(Variable* v);
   map<string, Name> names;
   private:
-  //make sure that no shadowing happens, except var shadowing var
-  //called by all versions of addName
-  void shadowCheck(string name, bool isVar);
+  //make sure that name won't shadow any existing declaration
+  void shadowCheck(string name);
 };
 
  struct ModuleScope : public Scope

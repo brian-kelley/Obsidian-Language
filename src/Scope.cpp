@@ -14,7 +14,7 @@ int BlockScope::nextBlockIndex = 0;
   { \
     if(names.find(m->name) != names.end()) \
       ERR_MSG(tname << ' ' << item->name << " causes scope name conflict"); \
-    shadowCheck(m->name, string(tname) == "variable"); \
+    shadowCheck(m->name); \
     names[item->name] = Name(m, Name::##tenum); \
   }
 
@@ -97,19 +97,14 @@ Name findName(string name)
   return findName(&m);
 }
 
-void Scope::shadowCheck(string name, bool isVar)
+void Scope::shadowCheck(string name)
 {
   for(Scope* iter = this; iter; iter = iter->parent)
   {
     Name n = iter->lookup(name);
     if(n.item)
     {
-      //found decl with same name: emit shadow error if this is not
-      //a variable shadowing another variable
-      if(!(isVar && n.kind == Name::VARIABLE))
-      {
-        ERR_MSG("name " << name << " shadows a previous declaration");
-      }
+      ERR_MSG("name " << name << " shadows a previous declaration");
     }
   }
 }

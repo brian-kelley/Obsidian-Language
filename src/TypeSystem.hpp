@@ -74,6 +74,19 @@ Trait* lookupTraitDeferred(TraitLookup& args);
 
 Type* getIntegerType(int bytes, bool isSigned);
 
+//Recursive function to generate arbitrary-dimension array type
+//if elem is already an array type, will generate array with dimensions = ndims + elem->dims
+//if ndims is 0, just returns elem
+Type* getArrayType(Type* elem, int ndims);
+Type* getTupleType(vector<Type*>& members);
+Type* getUnionType(vector<Type*>& options);
+Type* getMapType(Type* key, Type* value);
+Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* returnValue, vector<Type*>& argTypes);
+
+//If lhs and rhs are both numbers, return the best type for the result
+//If either is not a number, NULL
+Type* promote(Type* lhs, Type* rhs);
+
 void createBuiltinTypes();
 
 extern vector<Type*> primitives;
@@ -144,6 +157,7 @@ struct Trait
 {
   Trait(Parser::TraitDecl* td, TraitScope* parent);
   string name;
+  TraitScope* scope;
   vector<string> subrNames;
   vector<CallableType*> callables;
 };
@@ -191,7 +205,6 @@ struct ArrayType : public Type
   Type* subtype;
   Parser::TypeNT* elemNT;
   int dims;
-  ArrayType* getArrayType(int extradims);
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isArray() {return true;}
@@ -256,6 +269,8 @@ struct MapType : public Type
     name += ")";
     return name;
   }
+  bool canConvert(Type* other);
+  bool canConvert(Expression* other);
 };
 
 struct MapCompare
@@ -314,8 +329,8 @@ struct EnumType : public Type
 struct IntegerType : public Type
 {
   IntegerType(string name, int size, bool sign);
-  //Size in bytes
   string name;
+  //Size in bytes
   int size;
   bool isSigned;
   bool canConvert(Type* other);
@@ -419,6 +434,8 @@ struct CallableCompare
 
 struct TType : public Type
 {
+  TType(TraitScope* ts);
+  TraitScope* scope;
   //canConvert: other implements this trait
   bool canConvert(Type* other);
   bool canConvert(Expression* other);

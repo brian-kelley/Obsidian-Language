@@ -586,45 +586,13 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
     case DIV:
     case MOD:
     {
-      //TODO (CTE): catch div by 0
+      //TODO (CTE): catch div/mod where rhs = 0
+      //TODO: support array concatenation with +
       if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
       {
         ERR_MSG("operands to arithmetic operators must be numbers.");
       }
-      //get type of result as the "most promoted" of ltype and rtype
-      //double > float, float > integers, unsigned > signed, wider integer > narrower integer
-      if(ltype->isInteger() && rtype->isInteger())
-      {
-        auto lhsInt = dynamic_cast<IntegerType*>(ltype);
-        auto rhsInt = dynamic_cast<IntegerType*>(rtype);
-        int size = std::max(lhsInt->size, rhsInt->size);
-        bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
-        //now look up the integer type with given size and signedness
-        this->type = getIntegerType(size, isSigned);
-      }
-      else if(ltype->isInteger())
-      {
-        //rtype is floating point, so use that
-        this->type = rtype;
-      }
-      else if(rtype->isInteger())
-      {
-        this->type = ltype;
-      }
-      else
-      {
-        //both floats, so pick the bigger one
-        auto lhsFloat = dynamic_cast<FloatType*>(ltype);
-        auto rhsFloat = dynamic_cast<FloatType*>(rtype);
-        if(lhsFloat->size >= rhsFloat->size)
-        {
-          this->type = ltype;
-        }
-        else
-        {
-          this->type = rtype;
-        }
-      }
+      this->type = TypeSystem::promote(ltype, rtype);
       break;
     }
     case SHL:
@@ -707,7 +675,7 @@ FloatLiteral::FloatLiteral(double val) : value(val)
 StringLiteral::StringLiteral(StrLit* a)
 {
   value = a->val;
-  type = primitives[Parser::TypeNT::CHAR]->getArrayType(1);
+  type = TypeSystem::getArrayType(primitives[Parser::TypeNT::CHAR], 1);
 }
 
 CharLiteral::CharLiteral(CharLit* a)
@@ -729,8 +697,6 @@ BoolLiteral::BoolLiteral(Parser::BoolLit* a)
 CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
 {
   this->ast = a;
-  //type cannot be determined for a compound literal
-  type = NULL;
   //this is an lvalue if all of its members are lvalues
   lvalue = true;
   for(auto v : ast->vals)
@@ -741,6 +707,33 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
     {
       lvalue = false;
     }
+  }
+  //get type (must preserve all information about member types)
+  //so, if all members have the same type, is a 1-dim array of that
+  //otherwise is a tuple
+  vector<Type*> memberTypes;
+  for(auto mem : members)
+  {
+    memberTypes.push_back(mem->type);
+  }
+  //the type of all members, if they are the same
+  Type* memberType = memberTypes[0];
+  bool isTuple = false;
+  for(size_t i = 1; i < members.size(); i++)
+  {
+    if(memberTypes[i] != memberType)
+    {
+      memberType = nullptr;
+      break;
+    }
+  }
+  if(memberType)
+  {
+    type = getArrayType(memberType, 1);
+  }
+  else
+  {
+    type = getTupleType(memberTypes);
   }
 }
 
@@ -902,7 +895,7 @@ StructMem::StructMem(Expression* b, Variable* v)
 NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast)
 {
   auto elemType = lookupType(ast->elemType, s);
-  this->type = elemType->getArrayType(ast->dimensions.size());
+  this->type = TypeSystem::getArrayType(elemType, ast->dimensions.size());
   for(auto dim : ast->dimensions)
   {
     dims.push_back(getExpression(s, dim));

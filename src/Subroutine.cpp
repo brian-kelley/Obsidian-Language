@@ -1,49 +1,49 @@
 #include "Subroutine.hpp"
 #include "Variable.hpp"
 
-Block::Block(Parser::Block* b, Subroutine* sub) : ast(b), scope(b->bs)
+extern map<Parser::Block*, BlockScope*> blockScopes;
+
+//Block which is body of subroutine
+Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
 {
   this->subr = sub;
   this->loop = nullptr;
-  addStatements();
+  addStatements(b);
 }
 
-Block::Block(Parser::Block* b, Block* parent) : ast(b), scope(b->bs)
+//Block which is child of another block
+Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
   this->loop = parent->loop;
-  addStatements();
+  addStatements(b);
 }
 
-Block::Block(Parser::For* lp, For* f, Block* parent) : ast(lp->body), scope(lp->body->bs)
+Block::Block(BlockScope* s, Block* parent)
+{
+  this->subr = parent->subr;
+  this->loop = parent->loop;
+}
+
+//Block which is a for loop body
+Block::Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
   this->loop = new Loop(f);
+  addStatements(forAST->body);
 }
-
-Block::Block(Parser::While* lp, While* w, Block* parent) : ast(lp->body), scope(lp->body->bs)
+//Block which is a while loop body
+Block::Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
   this->loop = new Loop(w);
-  addStatements();
+  addStatements(whileAST->body);
 }
 
-void Block::addStatements()
+void Block::addStatements(Parser::Block* ast)
 {
   for(auto stmt : ast->statements)
   {
-    if(stmt->s.is<Parser::ScopedDecl*>())
-    {
-      auto sd = stmt->s.get<Parser::ScopedDecl*>();
-      if(sd->decl.is<Parser::FuncDef*>())
-      {
-        scope->subr.push_back(new Function(sd->decl.get<Parser::FuncDef*>()));
-      }
-      else if(sd->decl.is<Parser::ProcDef*>())
-      {
-        scope->subr.push_back(new Procedure(sd->decl.get<Parser::ProcDef*>()));
-      }
-    }
     stmts.push_back(createStatement(this, stmt));
   }
 }
@@ -68,13 +68,14 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     return new Print(stmt->s.get<Parser::PrintNT*>(), scope);
   }
-  else if(stmt->s.is<Parser::CallNT*>())
+  else if(stmt->s.is<Parser::Expr12*>())
   {
-    return new CallStmt(stmt->s.get<Parser::CallNT*>(), scope);
+    return new CallStmt(stmt->s.get<Parser::Expr12*>(), scope);
   }
   else if(stmt->s.is<Parser::Block*>())
   {
-    return new Block(stmt->s.get<Parser::Block*>(), b);
+    auto block = stmt->s.get<Parser::Block*>();
+    return new Block(block, blockScopes[block], b);
   }
   else if(stmt->s.is<Parser::Return*>())
   {
@@ -118,6 +119,7 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::EmptyStatement*>())
   {
+    return nullptr;
   }
   cout << "About to internal error, actual Parser Statement tag: " << stmt->s.which() << '\n';
   INTERNAL_ERROR;
@@ -126,36 +128,20 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
 
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
 {
-  //Make sure variable doesn't already exist (shadowing var is error)
-  Parser::Member search;
-  search.ident = vd->name;
-  if(s->findVariable(&search))
-  {
-    ERR_MSG(string("variable \"") + vd->name + "\" already exists");
-  }
+  //Create variable
   Variable* newVar = new Variable(s, vd);
-  s->vars.push_back(newVar);
+  if(!newVar->type)
+  {
+    //all types must be available now
+    //need to check here because variable ctor uses deferred type lookup
+    ERR_MSG("variable " << newVar->name << " has unknown type");
+  }
+  //addName will check for shadowing
+  s->addName(newVar);
   if(vd->val)
   {
+    //add the initialization as a statement
     return new Assign(newVar, getExpression(s, vd->val), s);
-  }
-  return nullptr;
-}
-
-Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, Expression* init)
-{
-  //Make sure variable doesn't already exist (shadowing var is error)
-  Parser::Member search;
-  search.ident = name;
-  if(s->findVariable(&search))
-  {
-    ERR_MSG(string("variable \"") + name + "\" already exists");
-  }
-  Variable* newVar = new Variable(s, name, type);
-  s->vars.push_back(newVar);
-  if(init)
-  {
-    return new Assign(newVar, init, s);
   }
   return nullptr;
 }
@@ -182,7 +168,7 @@ Assign::Assign(Parser::VarAssign* va, BlockScope* s)
 
 Assign::Assign(Variable* target, Expression* e, Scope* s)
 {
-  lvalue = new VarExpr(s, target);
+  lvalue = new VarExpr(target);
   //vars are always lvalues, no need to check that
   if(!lvalue->type->canConvert(e))
   {
@@ -191,29 +177,15 @@ Assign::Assign(Variable* target, Expression* e, Scope* s)
   rvalue = e;
 }
 
-CallStmt::CallStmt(Parser::CallNT* c, BlockScope* s)
+CallStmt::CallStmt(Parser::Expr12* call, BlockScope* s)
 {
-  //look up callable (make sure it is a procedure, not a function)
-  Subroutine* subr = s->findSubroutine(c->callable);
-  if(dynamic_cast<Function*>(subr))
-  {
-    ERR_MSG("called function " << subr->name << " without using its return value - should it be a procedure?");
-  }
-  called = dynamic_cast<Procedure*>(subr);
-  if(!called)
-  {
-    ERR_MSG("tried to call undeclared procedure \"" << c->callable << "\" with " << c->args.size() << " arguments");
-  }
-  for(auto it : c->args)
-  {
-    args.push_back(getExpression(s, it));
-  }
+  eval = (CallExpr*) getExpression(s, call);
 }
 
 For::For(Parser::For* f, Block* b)
 {
-  loopBlock = new Block(f, this, b);
-  auto loopScope = f->body->bs;
+  BlockScope* loopScope = blockScopes[f->body];
+  loopBlock = new Block(f, this, loopScope, b);
   auto enclosing = loopScope->parent;
   Expression* one = new IntLiteral(1);
   if(f->f.is<Parser::ForC*>())
@@ -231,79 +203,71 @@ For::For(Parser::For* f, Block* b)
       condition = getExpression(enclosing, fc->condition);
       if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
       {
-        ERR_MSG("condition expression in C-style for loop must be a boolean");
+        ERR_MSG("condition in C-style for loop must be a boolean expression");
       }
     }
     if(fc->incr)
     {
       increment = createStatement(loopBlock, fc->incr);
     }
+    loopBlock->addStatements();
   }
-  else if(f->f.is<Parser::ForRange1*>() || f->f.is<Parser::ForRange2*>())
+  else if(f->f.is<Parser::ForOverArray*>())
   {
-    //introduce counter (counter type must be integer and is determined from the upper bound expression)
-    //counter var names start at i and go to z, after that there is error
-    Expression* lowerBound = nullptr;
-    Expression* upperBound = nullptr;
-    if(f->f.is<Parser::ForRange1*>())
+    auto foa = f->f.get<Parser::ForOverArray*>();
+    //get the array expression
+    Expression* arr = getExpression(enclosing, foa->expr);
+    //make sure arr is actually an array
+    ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
+    if(!arrType)
     {
-      auto f1 = f->f.get<Parser::ForRange1*>();
-      //ForRange1 has a single expression, can be integer counter or array
-      auto expr = getExpression(enclosing, f1->expr);
-      if(expr->type && expr->type->isInteger())
-      {
-        lowerBound = new IntLiteral((uint64_t) 0);
-        upperBound = expr;
-      }
-      else if(expr->type && expr->type->isArray())
-      {
-        errAndQuit("for loop over array isn't supported (yet)");
-      }
-      else
-      {
-        errAndQuit("invalid type as for loop range: must be integer or (not yet) array");
-      }
+      ERR_MSG("for over array given non-array expression");
     }
-    else
+    if(arrType->dims != foa->tup.size() - 1)
     {
-      auto f2 = f->f.get<Parser::ForRange2*>();
-      lowerBound = getExpression(enclosing, f2->start);
-      upperBound = getExpression(enclosing, f2->end);
+      ERR_MSG("for over array iterating tuple has wrong size for given array");
     }
-    if(upperBound->type == nullptr || !upperBound->type->isInteger())
+    //generate one for loop (including this one) as the body for each dimension
+    //and the "it" value in the innermost loop
+    For* dimLoop = this;
+    Block* dimBlock = new loopBlock;
+    for(int i = 0; i < arrType->dims; i++)
     {
-      errAndQuit("0..n and a..b ranged for loops require lower and upper bounds to be some integer type");
-    }
-    bool foundCounterName = false;
-    char nameChar;
-    for(nameChar = 'i'; nameChar <= 'z'; nameChar++)
-    {
-      Parser::Member mem;
-      mem.ident = string("") + nameChar;
-      if(!enclosing->findVariable(&mem))
+      if(i > 0)
       {
-        //this variable doesn't already exist, so use this name
-        foundCounterName = true;
-        break;
+        //construct next loop's scope as child of loopScope
+        BlockScope* nextScope = new BlockScope(loopScope);
+        For* nextFor = new For;
+        nextFor->
       }
     }
-    if(!foundCounterName)
-    {
-      ERR_MSG("variables i-z already exist so can't use ranged for (use C-style loop with different name)");
-    }
-    string counterName = "";
-    counterName += nameChar;
-    init = addLocalVariable(loopScope, counterName, upperBound->type, lowerBound);
-    Parser::Member finalCountMem;
-    finalCountMem.ident = counterName;
-    Variable* counter = loopScope->findVariable(&finalCountMem);
-    auto counterExpr = new VarExpr(loopScope, counter);
-    //the condition is counterExpr < upperBound
-    condition = new BinaryArith(counterExpr, CMPL, upperBound);
-    //the increment is counter = counter + one
-    increment = new Assign(counter, new BinaryArith(counterExpr, PLUS, one), loopScope);
   }
-  loopBlock->addStatements();
+  else if(f->f.is<Parser::ForRange*>())
+  {
+    auto fr = f->f.get<Parser::ForRange*>();
+    //Get start and end as expressions (their scopes are loop's parent)
+    Expression* start = getExpression(loopScope->parent, fr->start);
+    if(!start->type || !start->type->isInteger())
+    {
+      ERR_MSG("for over range: start value is not an integer");
+    }
+    Expression* end = getExpression(loopScope->parent, fr->end);
+    if(!end->type || !end->type->isInteger())
+    {
+      ERR_MSG("for over range: end value is not an integer");
+    }
+    //get counter type: whatever type is compatible with both start and end
+    Type* counterType = TypeSystem::promote(start->type, end->type);
+    Variable* counter = new Variable(loopScope, foa->name, counterType);
+    loopScope->addName(counter);
+    init = new Assign(counter, start);
+    condition = new BinaryArith(counter, CMPL, end);
+    increment = new Assign(counter, new BinaryArith(counter, PLUS, one));
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
 }
 
 While::While(Parser::While* w, Block* b)

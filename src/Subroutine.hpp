@@ -46,22 +46,27 @@ typedef variant<For*, While*, Match*> Breakable;
 struct Block : public Statement
 {
   //Constructor for function/procedure body
-  Block(Parser::Block* b, Subroutine* subr);
+  Block(Parser::Block* b, BlockScope* s, Subroutine* subr);
+  //Constructor for empty block (used inside For::For)
+  Block(BlockScope* s, Block* parent);
   //Constructor for block inside a function/procedure
-  Block(Parser::Block* b, Block* parent);
+  Block(Parser::Block* b, BlockScope* s, Block* parent);
   //Constructor for For loop body
-  Block(Parser::For* lp, For* f, Block* parent);
+  Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent);
   //Constructor for While loop body
-  Block(Parser::While* lp, While* w, Block* parent);
-  Parser::Block* ast;
-  void addStatements();
+  Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent);
+  void addStatements(Parser::Block* ast);
   vector<Statement*> stmts;
   //scope of the block
   BlockScope* scope;
   //subroutine whose body contains this block (passed down to child blocks that aren't 
   Subroutine* subr;
+  //innermost "breakable" (loop/switch) containing this block (or NULL if none)
+  //  (all break statements correspond to this)
+  Breakable breakable;
   //innermost loop whose body contains this block (or NULL if none)
-  Loop* loop;
+  //  (all continue statements correspond to this)
+  Loop loop;
 };
 
 //Create any kind of Statement - adds to block
@@ -84,10 +89,8 @@ struct CallStmt : public Statement
 {
   //Ctor for when it is known that Expr12 is a call
   CallStmt(Parser::Expr12* call, BlockScope* s);
-  Procedure* called;
-  Expression* base; //null for static call
-  //a standalone procedure call just has arguments
-  vector<Expression*> args;
+  //code generator just needs to "evaluate" this expression and discard the result
+  CallExpr* eval;
 };
 
 struct For : public Statement
@@ -98,6 +101,7 @@ struct For : public Statement
   Statement* init;
   Expression* condition;  //check this before each entry to loop body
   Statement* increment;
+  private: For() {} //only used inside the real ctor with for over array
 };
 
 struct While : public Statement

@@ -2,6 +2,10 @@
 
 ModuleScope* global = NULL;
 
+//building this 1-1 mapping in the scope/type phase makes the
+//subroutine phase much easier
+map<Parser::Block*, BlockScope*> blockScopes;
+
 namespace MiddleEnd
 {
   vector<Subroutine*> subrsToProcess;
@@ -75,16 +79,18 @@ namespace MiddleEnd
       ss->addName(pvar);
       subr->args.push_back(pvar);
     }
-    //remember to visit block later (if it exists)
+    //remember to visit the body (if it exists) in the subroutine phase
     if(subrNT->body)
     {
       subrsToProcess.push_back(subr);
+      visitBlock(ss, subrNT->body);
     }
   }
 
   void visitBlock(Scope* current, Parser::Block* b)
   {
     BlockScope* bscope = new BlockScope(current, b);
+    blockScopes[b] = bscope;
     for(auto st : b->statements)
     {
       visitStatement(bscope, st);
@@ -179,6 +185,7 @@ namespace MiddleEnd
       //create the variable (ctor uses deferred lookup for type)
       //
       //if local var (scope is a block), don't create var yet
+      //because local vars must be declared before use
       //
       //if non-static in struct or module within struct, is struct member
       auto vd = sd->decl.get<Parser::VarDecl*>();
