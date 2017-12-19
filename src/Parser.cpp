@@ -25,6 +25,7 @@ namespace Parser
   template<> Break* parse<Break>();
   template<> Continue* parse<Continue>();
   template<> Switch* parse<Switch>();
+  template<> Match* parse<Match>();
   template<> ForC* parse<ForC>();
   template<> ForOverArray* parse<ForOverArray>();
   template<> ForRange* parse<ForRange>();
@@ -44,16 +45,14 @@ namespace Parser
   template<> SubroutineNT* parse<SubroutineNT>();
   template<> SubroutineTypeNT* parse<SubroutineTypeNT>();
   template<> Parameter* parse<Parameter>();
-  template<> StructMem* parse<StructMem>();
   template<> StructDecl* parse<StructDecl>();
-  template<> UnionDecl* parse<UnionDecl>();
   template<> TraitDecl* parse<TraitDecl>();
   template<> StructLit* parse<StructLit>();
   template<> BoolLit* parse<BoolLit>();
   template<> Member* parse<Member>();
   template<> BoundedTypeNT* parse<BoundedTypeNT>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
-  template<> UnionTypeNT* parse<UnionTypeNT>()
+  template<> UnionTypeNT* parse<UnionTypeNT>();
   template<> MapTypeNT* parse<MapTypeNT>();
   template<> Expr1* parse<Expr1>();
   template<> Expr1RHS* parse<Expr1RHS>();
@@ -236,7 +235,7 @@ namespace Parser
     }
     else if(acceptPunct(LPAREN))
     {
-      Type* first = parse<TypeNT>();
+      TypeNT* first = parse<TypeNT>();
       if(acceptPunct(COMMA))
       {
         //tuple
@@ -259,7 +258,7 @@ namespace Parser
       }
       else if(acceptPunct(COLON))
       {
-        Type* valueType = parse<TypeNT>();
+        TypeNT* valueType = parse<TypeNT>();
         type->t = new MapTypeNT(first, valueType);
       }
       expectPunct(RPAREN);
@@ -283,14 +282,14 @@ namespace Parser
     //have parsed a type: now check for "|" indicating union
     if(acceptOper(BOR))
     {
-      vector<Type*> unionTypes;
+      vector<TypeNT*> unionTypes;
       unionTypes.push_back(type);
       do
       {
         unionTypes.push_back(parse<TypeNT>());
       }
       while(acceptOper(BOR));
-      Type* wrapper = new Type;
+      TypeNT* wrapper = new TypeNT;
       wrapper->t = new UnionTypeNT(unionTypes);
       return wrapper;
     }
@@ -503,9 +502,11 @@ namespace Parser
   Switch* parse<Switch>()
   {
     Switch* s = new Switch;
+    s->block = new Block;
+    auto& stmts = s->block->statements;
     expectKeyword(SWITCH);
     expectPunct(LPAREN);
-    s->value = parse<ExpressionNT*>();
+    s->value = parse<ExpressionNT>();
     expectPunct(RPAREN);
     expectPunct(LBRACE);
     s->defaultPosition = -1;
@@ -513,7 +514,7 @@ namespace Parser
     {
       if(acceptKeyword(CASE))
       {
-        s->labels.emplace_back(m->stmts.size(), parse<ExpressionNT>());
+        s->labels.emplace_back(stmts.size(), parse<ExpressionNT>());
         expectPunct(COLON);
       }
       else if(acceptKeyword(DEFAULT))
@@ -527,12 +528,16 @@ namespace Parser
       }
       else
       {
-        s->stmts.push_back(parse<StatementNT>());
+        stmts.push_back(parse<StatementNT>());
+        if(stmts.back()->s.is<ScopedDecl*>())
+        {
+          err("declaration directly inside switch statement (fix: enclose it in a block)");
+        }
       }
     }
     if(s->defaultPosition == -1)
     {
-      //set implicit default: end of all statements
+      //no explicit default, so implicitly put it after all statements
       s->defaultPosition = stmts.size();
     }
     return s;
@@ -543,9 +548,9 @@ namespace Parser
   {
     Match* m = new Match;
     expectKeyword(MATCH);
-    expectPunct(LPAREN);
+    m->varName = ((Ident*) expect(IDENTIFIER))->name;
+    expectPunct(COLON);
     m->value = parse<ExpressionNT>();
-    expectPunct(RPAREN);
     expectPunct(LBRACE);
     //parse cases until either default or rbrace is found
     while(!acceptPunct(RBRACE))
@@ -606,7 +611,7 @@ namespace Parser
   ForRange* parse<ForRange>()
   {
     ForRange* fr2 = new ForRange;
-    fr2->name = (Ident*) expect(IDENTIFIER);
+    fr2->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
     fr2->start = parse<ExpressionNT>();
     expectPunct(COMMA);
@@ -727,7 +732,6 @@ namespace Parser
     expectPunct(LBRACE);
     Punct rbrace(RBRACE);
     b->statements = parseStar<StatementNT>(rbrace);
-    b->bs = nullptr;
     return b;
   }
 
@@ -736,6 +740,10 @@ namespace Parser
   {
     VarDecl* vd = new VarDecl;
     vd->isStatic = acceptKeyword(STATIC);
+    if(!vd->isStatic)
+    {
+      vd->composed = acceptOper(BXOR);
+    }
     vd->type = nullptr;
     if(!acceptKeyword(AUTO))
     {
@@ -981,19 +989,6 @@ namespace Parser
   }
 
   template<>
-  StructMem* parse<StructMem>()
-  {
-    StructMem* sm = new StructMem;
-    sm->compose = acceptOper(BXOR);
-    sm->sd = parse<ScopedDecl>();
-    if(sm->compose && !sm->sd->decl.is<VarDecl*>())
-    {
-      err("compose operator ^ applied to non-variable");
-    }
-    return sm;
-  }
-
-  template<>
   StructDecl* parse<StructDecl>()
   {
     StructDecl* sd = new StructDecl;
@@ -1007,19 +1002,6 @@ namespace Parser
     Punct rbrace(RBRACE);
     sd->members = parseStar<ScopedDecl>(rbrace);
     return sd;
-  }
-
-  template<>
-  UnionDecl* parse<UnionDecl>()
-  {
-    UnionDecl* vd = new UnionDecl;
-    expectKeyword(UNION);
-    vd->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LBRACE);
-    vector<TypeNT*> types = parsePlusComma<TypeNT>();
-    expectPunct(RBRACE);
-    type = new UnionTypeNT(types);
-    return vd;
   }
 
   template<>
@@ -1039,8 +1021,8 @@ namespace Parser
   {
     StructLit* sl = new StructLit;
     expectPunct(LBRACKET);
-    Punct rbrack(RBRACKET);
-    sl->vals = parsePlusComma<ExpressionNT>(rbrack);
+    sl->vals = parsePlusComma<ExpressionNT>();
+    expectPunct(RBRACKET);
     return sl;
   }
 
@@ -1082,11 +1064,13 @@ namespace Parser
   template<>
   UnionTypeNT* parse<UnionTypeNT>()
   {
-    TupleTypeNT* tt = new TupleTypeNT;
-    expectPunct(LPAREN);
-    tt->members = parsePlusComma<TypeNT>();
-    expectPunct(RPAREN);
-    return tt;
+    UnionTypeNT* ut = new UnionTypeNT;
+    ut->types.push_back(parse<TypeNT>());
+    while(acceptOper(BOR))
+    {
+      ut->types.push_back(parse<TypeNT>());
+    }
+    return ut;
   }
 
   template<>
@@ -1578,7 +1562,7 @@ namespace Parser
       {
         //". Ident"
         head->tail.push_back(new Expr12RHS);
-        head->tail.back()->e = (Ident*) expect(IDENTIFIER);
+        head->tail.back()->e = ((Ident*) expect(IDENTIFIER))->name;
       }
       else if(acceptPunct(LPAREN))
       {
@@ -1746,11 +1730,14 @@ namespace Parser
 
 ostream& operator<<(ostream& os, const Parser::Member& mem)
 {
-  for(auto s : mem.head)
+  for(size_t i = 0; i < mem.names.size(); i++)
   {
-    os << s->name << '.';
+    os << mem.names[i];
+    if(i != mem.names.size() - 1)
+    {
+      os << '.';
+    }
   }
-  os << mem.tail->name;
   return os;
 }
 

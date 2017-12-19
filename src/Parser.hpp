@@ -42,6 +42,7 @@ namespace Parser
   struct Typedef;
   struct Return;
   struct Switch;
+  struct Match;
   struct Continue;
   struct Break;
   struct EmptyStatement;
@@ -179,6 +180,7 @@ namespace Parser
       Continue*,
       Break*,
       Switch*,
+      Match*,
       For*,
       While*,
       If*,
@@ -213,7 +215,10 @@ namespace Parser
       ExpressionNT* value;
     };
     vector<Label> labels;
-    vector<StatementNT*> stmts;
+    //a pseudo-block
+    //can't parse it directly because there will be case/default labels mixed in with the statements
+    //also can't have any ScopedDecls
+    Block* block;
     //default can go anywhere, but if not explicit then it set to stmts.size()
     int defaultPosition;
   };
@@ -221,6 +226,8 @@ namespace Parser
   struct Match
   {
     Match() : value(nullptr) {}
+    //varName is implicitly created in each case with the case's type
+    string varName;
     //sw's type should be a union (checked in middle end)
     ExpressionNT* value;
     //switch is a list of cases (no fall-through)
@@ -433,16 +440,22 @@ namespace Parser
 
   struct TupleTypeNT
   {
+    TupleTypeNT() {}
+    TupleTypeNT(vector<TypeNT*> m) : members(m) {}
     vector<TypeNT*> members;
   };
   
   struct UnionTypeNT
   {
+    UnionTypeNT() {}
+    UnionTypeNT(vector<TypeNT*> t) : types(t) {}
     vector<TypeNT*> types;
   };
 
   struct MapTypeNT
   {
+    MapTypeNT() {}
+    MapTypeNT(TypeNT* k, TypeNT* v) : keyType(k), valueType(v) {}
     TypeNT* keyType;
     TypeNT* valueType;
   };

@@ -131,11 +131,16 @@ namespace C
     }
     walkScopeTree([&] (Scope* s) -> void
       {
-        for(auto t : s->types)
+        for(auto t : s->names)
         {
-          if(!t->isAlias())
+          switch(t.second.kind)
           {
-            allTypes.push_back(t);
+          //don't process TYPEDEF here because alias is never used directly
+            case Name::STRUCT:
+            case Name::BOUNDED_TYPE:
+            case Name::ENUM:
+              allTypes.push_back((Type*) t.second.item);
+              break;
           }
         }
       });

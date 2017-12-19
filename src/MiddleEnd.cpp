@@ -8,7 +8,8 @@ map<Parser::Block*, BlockScope*> blockScopes;
 
 namespace MiddleEnd
 {
-  vector<Subroutine*> subrsToProcess;
+  //all the subroutines with bodies that need to be processed in the 2nd pass
+  map<Subroutine*, Parser::Block*> subrsToProcess;
 
   void load(Parser::Module* ast)
   {
@@ -28,7 +29,7 @@ namespace MiddleEnd
     TypeSystem::traitLookup->flush();
     for(auto s : subrsToProcess)
     {
-      s->addStatements();
+      s.first->addStatements(s.second);
     }
   }
 
@@ -82,7 +83,7 @@ namespace MiddleEnd
     //remember to visit the body (if it exists) in the subroutine phase
     if(subrNT->body)
     {
-      subrsToProcess.push_back(subr);
+      subrsToProcess[subr] = subrNT->body;
       visitBlock(ss, subrNT->body);
     }
   }
@@ -126,15 +127,15 @@ namespace MiddleEnd
     }
     else if(st->s.is<Parser::Switch*>())
     {
-      auto sw = st->s.get<Parser::Switch*>();
-      for(auto sc : sw->stmts)
-      {
-        visitStatement(current, sc);
-      }
+      visitBlock(current, st->s.get<Parser::Switch*>()->block);
     }
     else if(st->s.is<Parser::Match*>())
     {
       auto ma = st->s.get<Parser::Match*>();
+      for(auto c : ma->cases)
+      {
+        visitBlock(current, c.block);
+      }
     }
   }
 

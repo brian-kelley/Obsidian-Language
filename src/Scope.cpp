@@ -12,10 +12,12 @@ int BlockScope::nextBlockIndex = 0;
 #define ADD_NAME(T, tname, tenum) \
   void Scope::addName(T* item) \
   { \
-    if(names.find(m->name) != names.end()) \
+    if(names.find(item->name) != names.end()) \
+    { \
       ERR_MSG(tname << ' ' << item->name << " causes scope name conflict"); \
-    shadowCheck(m->name); \
-    names[item->name] = Name(m, Name::##tenum); \
+    } \
+    shadowCheck(item->name); \
+    names[item->name] = Name(item, this); \
   }
 
 ADD_NAME(ModuleScope,            "module",      Name::MODULE);
@@ -56,44 +58,46 @@ Name Scope::findName(Parser::Member* mem)
 {
   //scope is the scope that actually contains name mem->tail
   Scope* scope = this;
-  for(size_t i = 0; i < mem->head.size(); i++)
+  for(size_t i = 0; i < mem->names.size(); i++)
   {
-    Name it = scope->lookup(mem->head[i]->name);
-    if(it.item)
+    Name it = scope->lookup(mem->names[i]);
+    if(it.item && i == mem->names.size() - 1)
+    {
+      return it;
+    }
+    else if(it.item)
     {
       //make sure that it is actually a scope of some kind
       //(MODULE and STRUCT are the only named scopes for this purpose)
-      if(name.kind == MODULE)
+      if(it.kind == Name::MODULE)
       {
         //module is already scope
-        scope = (Scope*) name.item;
+        scope = (Scope*) it.item;
         continue;
       }
-      else if(name.kind == STRUCT)
+      else if(it.kind == Name::STRUCT)
       {
-        scope = ((TypeSystem::StructType*) name.item)->structScope;
+        scope = ((TypeSystem::StructType*) it.item)->structScope;
         continue;
       }
     }
-    scope = nullptr;
-    break;
+    else
+    {
+      scope = nullptr;
+      break;
+    }
   }
-  if(scope)
-  {
-    Name it = scope->lookup(mem->tail->name);
-    if(it.item != NULL)
-      return it;
-  }
+  //try search again in parent scope
   if(parent)
     return parent->findName(mem);
   //failure
   return Name();
 }
 
-Name findName(string name)
+Name Scope::findName(string name)
 {
   Parser::Member m;
-  m.tail = name;
+  m.names.push_back(name);
   return findName(&m);
 }
 
@@ -114,7 +118,6 @@ void Scope::shadowCheck(string name)
 ModuleScope::ModuleScope(string nameIn, Scope* par, Parser::Module* astIn) : Scope(par)
 {
   name = nameIn;
-  ast = astIn;
 }
 
 string ModuleScope::getLocalName()
@@ -124,7 +127,7 @@ string ModuleScope::getLocalName()
 
 /* StructScope */
 
-StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), ast(astIn), name(nameIn) {}
+StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), name(nameIn) {}
 
 string StructScope::getLocalName()
 {
@@ -140,12 +143,9 @@ string SubroutineScope::getLocalName()
 
 /* BlockScope */
 
-BlockScope::BlockScope(Scope* par, Parser::Block* astIn) : Scope(par), ast(astIn), index(nextBlockIndex++)
-{
-  ast->bs = this;
-}
+BlockScope::BlockScope(Scope* par, Parser::Block* astIn) : Scope(par), index(nextBlockIndex++) {}
 
-BlockScope::BlockScope(Scope* par) : Scope(par), ast(nullptr), index(nextBlockIndex++) {}
+BlockScope::BlockScope(Scope* par) : Scope(par), index(nextBlockIndex++) {}
 
 string BlockScope::getLocalName()
 {

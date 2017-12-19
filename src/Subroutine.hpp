@@ -38,9 +38,9 @@ struct For;
 struct While;
 
 //Loop (used by continue)
-typedef variant<For*, While*> Loop;
+typedef variant<None, For*, While*> Loop;
 //Breakable (used by break)
-typedef variant<For*, While*, Match*> Breakable;
+typedef variant<None, For*, While*, Switch*> Breakable;
 
 //Block: list of statements
 struct Block : public Statement
@@ -80,7 +80,7 @@ Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, 
 struct Assign : public Statement
 {
   Assign(Parser::VarAssign* va, BlockScope* s);
-  Assign(Variable* target, Expression* e, Scope* s);
+  Assign(Variable* target, Expression* e);
   Expression* lvalue;
   Expression* rvalue;
 };
@@ -129,12 +129,20 @@ struct IfElse : public Statement
 struct Match : public Statement
 {
   Match(Parser::Match* m, Block* b);
+  Expression* matched;  //the given expression (must be of union type)
+  vector<Block*> cases; //correspond 1-1 with matched->type->options
+  vector<Variable*> caseVars; //correspond 1-1 with cases
 };
 
 struct Switch : public Statement
 {
   Switch(Parser::Switch* s, Block* b);
   Expression* switched;
+  vector<Expression*> caseValues;
+  vector<int> caseLabels; //correspond 1-1 with caseValues
+  int defaultPosition;
+  //the block that holds all the statements but can't hold any scoped decls
+  Block* block;
 };
 
 struct Return : public Statement
@@ -148,14 +156,14 @@ struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(Block* s);
-  Breakable* loop;
+  Breakable breakable;
 };
 
 struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop or Match
   Continue(Block* s);
-  Loop* loop;
+  Loop loop;
 };
 
 struct Print : public Statement
@@ -173,8 +181,8 @@ struct Assertion : public Statement
 struct Subroutine
 {
   //constructor doesn't process the body in any way
-  Subroutine(Parser::SubroutineNT* snt, SubroutineScope* s);
-  void addStatements();
+  Subroutine(Parser::SubroutineNT* snt, Scope* s);
+  void addStatements(Parser::Block* b);
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;
@@ -183,7 +191,6 @@ struct Subroutine
   Block* body;
   //the scope OF the subroutine, not the one containing it
   SubroutineScope* scope;
-  Parser::SubroutineNT* nt;
 };
 
 #endif

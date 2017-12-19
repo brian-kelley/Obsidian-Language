@@ -718,7 +718,6 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   }
   //the type of all members, if they are the same
   Type* memberType = memberTypes[0];
-  bool isTuple = false;
   for(size_t i = 1; i < members.size(); i++)
   {
     if(memberTypes[i] != memberType)
