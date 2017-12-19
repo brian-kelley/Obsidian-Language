@@ -187,6 +187,8 @@ For::For(Parser::For* f, Block* b)
   BlockScope* loopScope = blockScopes[f->body];
   loopBlock = new Block(f, this, loopScope, b);
   auto enclosing = loopScope->parent;
+  //constants that are helpful for generating loops
+  Expression* zero = new IntLiteral(0);
   Expression* one = new IntLiteral(1);
   if(f->f.is<Parser::ForC*>())
   {
@@ -230,7 +232,8 @@ For::For(Parser::For* f, Block* b)
     //generate one for loop (including this one) as the body for each dimension
     //and the "it" value in the innermost loop
     For* dimLoop = this;
-    Block* dimBlock = new loopBlock;
+    Block* dimBlock = loopBlock;
+    vector<Variable*> counters;
     for(int i = 0; i < arrType->dims; i++)
     {
       if(i > 0)
@@ -238,7 +241,36 @@ For::For(Parser::For* f, Block* b)
         //construct next loop's scope as child of loopScope
         BlockScope* nextScope = new BlockScope(loopScope);
         For* nextFor = new For;
-        nextFor->
+        Block* nextBlock = new Block(nextScope, dimBlock);
+        //break goes with the outermost loop, but continue goes with the innermost
+        nextBlock->breakable = this;
+        nextBlock->loop = nextFor;
+        dimLoop = nextFor;
+        dimBlock = nextBlock;
+      }
+      //generate counter for dimension i (adding it to scope implicitly catches shadowing errors)
+      Variable* counter = new Variable(dimBlock->scope, foa->tup[i], TypeSystem::primitives[TypeNT::INT]);
+      dimBlock->addName(counter);
+      counters.push_back(counter);
+      //in order to get length expression for loop condition, get array expression
+      Expression* subArr = arr;
+      for(int j = 0; j < i; j++)
+      {
+        subArr = new Indexed(subArr, counters[j]);
+      }
+      dimLoop->init = new Assign(counter, zero, dimBlock->scope);
+      dimLoop->condition = new BinaryArith(counter, CMPL, new ArrayLength(subArr));
+      dimLoop->increment = new Assign(counter, new BinaryArith(counter, PLUS, one));
+      //now create the "iter" value if this is the innermost loop
+      if(i == arrType->dims - 1)
+      {
+        Variable* iterValue = new Variable(dimBlock->scope, foa->tup.back(), arrType->elem);
+        //create the assignment to iterValue as first statement in innermost loop
+        dimBlock->statements.push_back(new Assign(iterValue, new Indexed(subArr, counter)));
+        //Then add all the actual statements from the body of foa
+        //Even though middle end originally tied it to the
+        //outermost loop, the statements go in the innermost
+        dimBlock->addStatements(f->body);
       }
     }
   }
@@ -263,6 +295,7 @@ For::For(Parser::For* f, Block* b)
     init = new Assign(counter, start);
     condition = new BinaryArith(counter, CMPL, end);
     increment = new Assign(counter, new BinaryArith(counter, PLUS, one));
+    loopBlock->addStatements();
   }
   else
   {

@@ -132,6 +132,10 @@ namespace MiddleEnd
         visitStatement(current, sc);
       }
     }
+    else if(st->s.is<Parser::Match*>())
+    {
+      auto ma = st->s.get<Parser::Match*>();
+    }
   }
 
   void visitStruct(Scope* current, Parser::StructDecl* sd)

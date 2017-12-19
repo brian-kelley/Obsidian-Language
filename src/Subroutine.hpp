@@ -101,7 +101,7 @@ struct For : public Statement
   Statement* init;
   Expression* condition;  //check this before each entry to loop body
   Statement* increment;
-  private: For() {} //only used inside the real ctor with for over array
+  private: For() {} //only used inside the real ctor in the for over array case
 };
 
 struct While : public Statement
