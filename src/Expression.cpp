@@ -364,6 +364,10 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     root = new CompoundLiteral(s, expr->e.get<Parser::StructLit*>());
   }
+  else if(expr->e.is<Parser::Expr12::Error>())
+  {
+    root = new ErrorVal;
+  }
   else
   {
     //some option for the Expr12::e variant wasn't covered here
@@ -917,6 +921,15 @@ ArrayLength::ArrayLength(Expression* arr)
 {
   array = arr;
   this->type = primitives[Parser::TypeNT::UINT];
+}
+
+/*********
+ * Error *
+ *********/
+
+ErrorVal::ErrorVal()
+{
+  type = primitives[Parser::TypeNT::ERROR];
 }
 
 /***********

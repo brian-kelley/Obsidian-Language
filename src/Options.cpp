@@ -3,10 +3,7 @@
 Options getDefaultOptions()
 {
   Options op;
-  op.backend = Options::BACKEND_C;
-  op.emitC = true;
-  op.emitLLVM = false;
-  op.emitX86 = false;
+  op.emitC = false;
   op.input = "";
   op.outputStem = "";
   return op;
@@ -39,17 +36,6 @@ Options parseOptions(int argc, const char** argv)
     else if(strcmp(argv[i], "--c") == 0)
     {
       op.emitC = true;
-      op.backend = Options::BACKEND_C;
-    }
-    else if(strcmp(argv[i], "--llvm") == 0)
-    {
-      op.emitLLVM = true;
-      op.backend = Options::BACKEND_LLVM;
-    }
-    else if(strcmp(argv[i], "--x86") == 0)
-    {
-      op.emitX86 = true;
-      op.backend = Options::BACKEND_X86;
     }
     else
     {

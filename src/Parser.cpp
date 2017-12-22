@@ -189,8 +189,9 @@ namespace Parser
     return sd;
   }
 
-  template<>
-  TypeNT* parse<TypeNT>()
+  //if prec ("high precedence"), stop before ? and |
+  //anything in parens is automatically high precedence
+  static TypeNT* parseTypeGeneral(bool prec)
   {
     TypeNT* type = new TypeNT;
     type->arrayDims = 0;
@@ -224,6 +225,8 @@ namespace Parser
           type->t = TypeNT::Prim::DOUBLE; break;
         case VOID:
           type->t = TypeNT::Prim::VOID; break;
+        case ERROR_TYPE:
+          type->t = TypeNT::Prim::ERROR; break;
         case FUNCTYPE:
         case PROCTYPE:
           unget();
@@ -235,7 +238,9 @@ namespace Parser
     }
     else if(acceptPunct(LPAREN))
     {
-      TypeNT* first = parse<TypeNT>();
+      //parens always give overall type high-precedence
+      prec = true;
+      TypeNT* first = parseTypeGeneral(false);
       if(acceptPunct(COMMA))
       {
         //tuple
@@ -243,7 +248,7 @@ namespace Parser
         tupleMembers.push_back(first);
         while(acceptPunct(COMMA))
         {
-          tupleMembers.push_back(parse<TypeNT>());
+          tupleMembers.push_back(parseTypeGeneral(false));
         }
         if(tupleMembers.size() == 1)
         {
@@ -258,7 +263,7 @@ namespace Parser
       }
       else if(acceptPunct(COLON))
       {
-        TypeNT* valueType = parse<TypeNT>();
+        TypeNT* valueType = parseTypeGeneral(false);
         type->t = new MapTypeNT(first, valueType);
       }
       expectPunct(RPAREN);
@@ -279,14 +284,29 @@ namespace Parser
       expectPunct(RBRACKET);
       type->arrayDims++;
     }
-    //have parsed a type: now check for "|" indicating union
+    if(acceptPunct(QUESTION))
+    {
+      //Form a union type with type and Error as its options
+      auto ut = new UnionTypeNT;
+      TypeNT* errType = new TypeNT;
+      errType->t = TypeNT::ERROR;
+      ut->types.push_back(type);
+      ut->types.push_back(errType);
+      type->t = ut;
+    }
+    //Union chain is low precedence, so stop if high prec is required
+    if(prec)
+      return type;
+    //have parsed a type: first check for "?" indicating (T | Error)
+    //(this has higher "precedence" than | for normal union)
+    //now check for "|" for union
     if(acceptOper(BOR))
     {
       vector<TypeNT*> unionTypes;
       unionTypes.push_back(type);
       do
       {
-        unionTypes.push_back(parse<TypeNT>());
+        unionTypes.push_back(parseTypeGeneral(true));
       }
       while(acceptOper(BOR));
       TypeNT* wrapper = new TypeNT;
@@ -294,6 +314,12 @@ namespace Parser
       return wrapper;
     }
     return type;
+  }
+
+  template<>
+  TypeNT* parse<TypeNT>()
+  {
+    return parseTypeGeneral(false);
   }
 
   Block* parseBlockWrappedStatement()
@@ -1540,6 +1566,9 @@ namespace Parser
         break;
       case IDENTIFIER:
         e12->e = parse<Member>();
+        break;
+      case ERROR_VALUE:
+        e12->e = Expr12::Error();
         break;
       default: err("unexpected token in expression");
     }

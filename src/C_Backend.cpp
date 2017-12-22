@@ -141,6 +141,7 @@ namespace C
             case Name::ENUM:
               allTypes.push_back((Type*) t.second.item);
               break;
+            default:;
           }
         }
       });

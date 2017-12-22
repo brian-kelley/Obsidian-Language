@@ -40,7 +40,32 @@ struct MapType;
 struct AliasType;
 struct BoundedType;
 
+struct ArrayCompare
+{
+  bool operator()(const ArrayType* lhs, const ArrayType* rhs);
+};
+
+struct TupleCompare
+{
+  bool operator()(const TupleType* lhs, const TupleType* rhs);
+};
+
+struct UnionCompare
+{
+  bool operator()(const UnionType* lhs, const UnionType* rhs);
+};
+
+struct MapCompare
+{
+  bool operator()(const MapType* lhs, const MapType* rhs);
+};
+
 struct CallableType;
+
+struct CallableCompare
+{
+  bool operator()(const CallableType* lhs, const CallableType* rhs);
+};
 
 struct TypeLookup
 {
@@ -92,6 +117,13 @@ void createBuiltinTypes();
 extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
 
+extern vector<StructType*> structs;
+extern set<ArrayType*, ArrayCompare> arrays;
+extern set<TupleType*, TupleCompare> tuples;
+extern set<UnionType*, UnionCompare> unions;
+extern set<MapType*, MapCompare> maps;
+extern set<CallableType*, CallableCompare> callables;
+
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
 //global type lookup to be used by some type constructors
 extern DeferredTypeLookup* typeLookup;
@@ -108,8 +140,9 @@ struct Type
   virtual bool canConvert(Expression* other);
   //get the type's name
   virtual string getName() = 0;
-  //"primitives" maps TypeNT::Prim values to corresponding Type*
   virtual bool implementsTrait(Trait* t) {return false;}
+  //whether this "contains" t, for finding circular memberships
+  virtual bool contains(Type* t) {return false;}
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
@@ -138,11 +171,9 @@ struct BoundedType : public Type
   BoundedType(string n, vector<Trait*> t, Scope* s) : name(n), traits(t) {}
   string name;
   vector<Trait*> traits;
-  bool canConvert(Type* other)
-  {
-    return other == this;
-  }
+  bool canConvert(Type* other);
   bool canConvert(Expression* other);
+  bool implementsTrait(Trait* t) {return find(traits.begin(), traits.end(), t) != traits.end();}
   bool isBounded()
   {
     return true;
@@ -167,19 +198,30 @@ struct StructType : public Type
   StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
   string name;
   vector<Variable*> members;
-  vector<bool> composed;      //1-1 correspondence with members
+  vector<bool> composed; //1-1 correspondence with members
   vector<Trait*> traits;
-  //members are variables in structScope or some child of it
   StructScope* structScope;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool isStruct() {return true;}
   bool implementsTrait(Trait* t);
-  void checkTraits(); //called once at end of semantic checking
+  void check(); //called once per struct at end of semantic checking
   string getName()
   {
     return name;
   }
+  bool contains(Type* t);
+  struct IfaceMember
+  {
+    IfaceMember() : member(nullptr), subr(nullptr) {}
+    IfaceMember(Variable* m, Subroutine* s) : member(m), subr(s) {}
+    Variable* member; //the composed member, or NULL for this
+    Subroutine* subr;
+  };
+  map<string, IfaceMember> interface;
+  private:
+  bool checked; //whether check() has been called
+  bool checking;  //whether check() was called but hasn't returned yet
 };
 
 struct UnionType : public Type
@@ -191,10 +233,6 @@ struct UnionType : public Type
   string getName();
 };
 
-struct UnionCompare
-{
-  bool operator()(const UnionType* lhs, const UnionType* rhs);
-};
 
 struct ArrayType : public Type
 {
@@ -217,12 +255,10 @@ struct ArrayType : public Type
     }
     return name;
   }
+  bool contains(Type* t);
+  void check();
 };
 
-struct ArrayCompare
-{
-  bool operator()(const ArrayType* lhs, const ArrayType* rhs);
-};
 
 struct TupleType : public Type
 {
@@ -247,12 +283,10 @@ struct TupleType : public Type
     name += ")";
     return name;
   }
+  bool contains(Type* t);
+  void check();
 };
 
-struct TupleCompare
-{
-  bool operator()(const TupleType* lhs, const TupleType* rhs);
-};
 
 struct MapType : public Type
 {
@@ -271,12 +305,10 @@ struct MapType : public Type
   }
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
+  bool contains(Type* t);
+  void check();
 };
 
-struct MapCompare
-{
-  bool operator()(const MapType* lhs, const MapType* rhs);
-};
 
 struct AliasType : public Type
 {
@@ -306,6 +338,7 @@ struct AliasType : public Type
   {
     return name;
   }
+  bool contains(Type* t);
 };
 
 struct EnumType : public Type
@@ -394,6 +427,19 @@ struct VoidType : public Type
   }
 };
 
+struct ErrorType : public Type
+{
+  bool canConvert(Type* other)
+  {
+    return other == this;
+  }
+  bool isPrimitive() {return true;}
+  string getName()
+  {
+    return "Error";
+  }
+};
+
 struct CallableType : public Type
 {
   //constructor for non-member callables
@@ -425,11 +471,7 @@ struct CallableType : public Type
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
-};
-
-struct CallableCompare
-{
-  bool operator()(const CallableType* lhs, const CallableType* rhs);
+  bool sameExceptOwner(CallableType* other);
 };
 
 struct TType : public Type

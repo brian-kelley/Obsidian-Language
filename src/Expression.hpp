@@ -216,6 +216,15 @@ struct ArrayLength : public Expression
   }
 };
 
+struct ErrorVal : public Expression
+{
+  ErrorVal();
+  bool assignable()
+  {
+    return false;
+  }
+};
+
 //Temporary variable (only used in C backend)
 //id should always come from C::getIdentifier()
 struct TempVar : public Expression

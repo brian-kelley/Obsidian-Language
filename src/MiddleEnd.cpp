@@ -27,6 +27,14 @@ namespace MiddleEnd
     }
     TypeSystem::typeLookup->flush();
     TypeSystem::traitLookup->flush();
+    for(auto st : TypeSystem::structs)
+      st->check();
+    for(auto mt : TypeSystem::maps)
+      mt->check();
+    for(auto tt : TypeSystem::tuples)
+      tt->check();
+    for(auto at : TypeSystem::arrays)
+      at->check();
     for(auto s : subrsToProcess)
     {
       s.first->addStatements(s.second);

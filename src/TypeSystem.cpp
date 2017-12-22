@@ -1,6 +1,7 @@
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
 #include "Expression.hpp"
+#include "Subroutine.hpp"
 
 using namespace Parser;
 
@@ -16,6 +17,7 @@ namespace TypeSystem
 {
 vector<Type*> primitives;
 map<string, Type*> primNames;
+vector<StructType*> structs;
 set<ArrayType*, ArrayCompare> arrays;
 set<TupleType*, TupleCompare> tuples;
 set<UnionType*, UnionCompare> unions;
@@ -38,7 +40,7 @@ void createBuiltinTypes()
 {
   using Parser::TypeNT;
   //primitives has same size as the enum Parser::TypeNT::Prim
-  primitives.resize(13);
+  primitives.resize(14);
   primitives[TypeNT::BOOL] = new BoolType;
   primitives[TypeNT::CHAR] = new CharType;
   primitives[TypeNT::BYTE] = new IntegerType("byte", 1, true);
@@ -52,6 +54,7 @@ void createBuiltinTypes()
   primitives[TypeNT::FLOAT] = new FloatType("float", 4);
   primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
   primitives[TypeNT::VOID] = new VoidType;
+  primitives[TypeNT::ERROR] = new ErrorType;
   primNames["bool"] = primitives[TypeNT::BOOL];
   primNames["char"] = primitives[TypeNT::CHAR];
   primNames["byte"] = primitives[TypeNT::BYTE];
@@ -65,6 +68,7 @@ void createBuiltinTypes()
   primNames["float"] = primitives[TypeNT::FLOAT];
   primNames["double"] = primitives[TypeNT::DOUBLE];
   primNames["void"] = primitives[TypeNT::VOID];
+  primNames["Error"] = primitives[TypeNT::ERROR];
   //string is a builtin alias for char[] (not a primitive)
   global->addName(new AliasType(
         "string", getArrayType(primitives[TypeNT::CHAR], 1), global));
@@ -440,9 +444,20 @@ BoundedType::BoundedType(Parser::BoundedTypeNT* tt, Scope* s)
   }
 }
 
+bool BoundedType::canConvert(Type* other)
+{
+  //only requirement is that other implements all traits of this
+  for(auto t : traits)
+  {
+    if(!other->implementsTrait(t))
+      return false;
+  }
+  return true;
+}
+
 bool BoundedType::canConvert(Expression* other)
 {
-  return other->type == this;
+  return canConvert(other->type);
 }
 
 /***********/
@@ -460,6 +475,10 @@ Trait::Trait(Parser::TraitDecl* td, TraitScope* s)
   for(size_t i = 0; i < td->members.size(); i++)
   {
     Parser::SubroutineNT* subr = td->members[i];
+    if(subr->isStatic)
+    {
+      ERR_MSG("subroutine " << subr->name << " in trait " << name << " is static");
+    }
     if(subr->body)
     {
       ERR_MSG("subroutine " << subr->name << " in trait " << name << " has a body which is not allowed");
@@ -483,6 +502,7 @@ Trait::Trait(Parser::TraitDecl* td, TraitScope* s)
 
 StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* sscope)
 {
+  structs.push_back(this);
   this->name = sd->name;
   this->structScope = sscope;
   //have struct scope point back to this
@@ -494,6 +514,7 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
     TraitLookup lookupArgs(sd->traits[i], enclosingScope);
     traitLookup->lookup(lookupArgs, traits[i]);
   }
+  checked = false;
 }
 
 //direct conversion requires other to be the same type
@@ -531,16 +552,102 @@ bool StructType::canConvert(Expression* other)
 }
 
 //called once per struct after the scope/type/variable pass of middle end
-void StructType::checkTraits()
+void StructType::check()
 {
+  if(checked)
+    return;
+  //check for membership cycles
+  checking = true;
+  if(contains(this))
+  {
+    ERR_MSG("struct " << name << " has itself as a member");
+  }
+  //then make sure that all members of struct type have been checked
+  //(having checked members is necessary to analyze traits and composition)
+  for(auto mem : members)
+  {
+    if(auto st = dynamic_cast<StructType*>(mem->type))
+    {
+      if(!st->checked)
+        st->check();
+    }
+  }
+  //now build the "interface": all direct subroutine members of this and composed members
+  //"this" members have top priority, then composed members in order of declaration
+  //for subroutines which are available through composition, need to know which member it belongs to
+  for(auto& decl : structScope->names)
+  {
+    Name n = decl.second;
+    if(n.kind == Name::SUBROUTINE)
+    {
+      //have a subroutine, add to interface
+      interface[decl.first] = IfaceMember(nullptr, (Subroutine*) n.item);
+    }
+  }
+  for(size_t i = 0; i < members.size(); i++)
+  {
+    if(composed[i])
+    {
+      StructType* memberStruct = dynamic_cast<StructType*>(members[i]->type);
+      if(memberStruct)
+      {
+        //for each member subr of memberStruct, if its signature matches an existing subroutine,
+        //replace existing
+        StructScope* memScope = memberStruct->structScope;
+        for(auto& decl : memScope->names)
+        {
+          Name n = decl.second;
+          if(n.kind == Name::SUBROUTINE && interface.find(decl.first) == interface.end())
+          {
+            interface[decl.first] = IfaceMember(members[i], (Subroutine*) n.item);
+          }
+        }
+      }
+    }
+  }
   //go through each trait, and make sure this supports an exactly matching
   //subroutine (name, purity, nontermness, staticness, retun type, arg types)
-  //NOTE: can look for both direct member subroutines and subroutines of composed members
+  //(ownerStruct does NOT have to match because of composition)
+  for(auto t : traits)
+  {
+    for(size_t i = 0; i < t->subrNames.size(); i++)
+    {
+      //get the name directly inside struct scope (must exist)
+      string subrName = t->subrNames[i];
+      if(interface.find(subrName) == interface.end())
+      {
+        ERR_MSG("struct " << name << " doesn't implement subroutine " <<
+            subrName << " required by trait " << t->name);
+      }
+      CallableType* subrType = t->callables[i];
+      if(!subrType->sameExceptOwner(interface[subrName].subr->type))
+      {
+        ERR_MSG("subroutine " << name << "." << subrName <<
+            "has a different signature than in trait " << t->name); 
+      }
+    }
+  }
+  checked = true;
+  checking = false;
+}
+
+bool StructType::contains(Type* t)
+{
+  if(t == this)
+    return true;
+  for(auto mem : members)
+  {
+    if(mem->type == t || mem->type->contains(t))
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool StructType::implementsTrait(Trait* t)
 {
-  //note: this requires that implementsAllTraits() checking has already been done
+  assert(checked);
   return find(traits.begin(), traits.end(), t) != traits.end();
 }
 
@@ -638,6 +745,24 @@ bool ArrayType::canConvert(Expression* other)
   return false;
 }
 
+bool ArrayType::contains(Type* t)
+{
+  if(t == elem)
+    return true;
+  ArrayType* at = dynamic_cast<ArrayType*>(t);
+  if(at && at->elem == elem && dims >= at->dims)
+    return true;
+  return false;
+}
+
+void ArrayType::check()
+{
+  if(contains(this))
+  {
+    ERR_MSG("array type contains itself");
+  }
+}
+
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
 {
   if(lhs->elem < rhs->elem)
@@ -685,6 +810,24 @@ bool TupleType::canConvert(Expression* other)
   return false;
 }
 
+bool TupleType::contains(Type* t)
+{
+  for(auto mem : members)
+  {
+    if(mem->contains(t))
+      return true;
+  }
+  return false;
+}
+
+void TupleType::check()
+{
+  if(contains(this))
+  {
+    ERR_MSG("tuple contains itself (directly or indirectly)");
+  }
+}
+
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 {
   return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
@@ -706,6 +849,19 @@ bool MapType::canConvert(Type* other)
 bool MapType::canConvert(Expression* other)
 {
   return canConvert(other->type);
+}
+
+bool MapType::contains(Type* t)
+{
+  return key->contains(t) || value->contains(t);
+}
+
+void MapType::check()
+{
+  if(contains(this))
+  {
+    ERR_MSG("map's key or value type contains the map itself");
+  }
 }
 
 bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
@@ -740,6 +896,11 @@ bool AliasType::canConvert(Type* other)
 bool AliasType::canConvert(Expression* other)
 {
   return actual->canConvert(other);
+}
+
+bool AliasType::contains(Type* t)
+{
+  return actual->contains(t);
 }
 
 /*************/
@@ -962,6 +1123,14 @@ bool CallableType::canConvert(Expression* other)
   return other->type && canConvert(other->type);
 }
 
+bool CallableType::sameExceptOwner(CallableType* other)
+{
+  return pure == other->pure &&
+    nonterminating == other->nonterminating &&
+    returnType == other->returnType &&
+    argTypes == other->argTypes;
+}
+
 bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs)
 {
   //an arbitrary way to order all possible callables (is lhs < rhs?)
@@ -1000,7 +1169,7 @@ bool TType::canConvert(Type* other)
 
 bool TType::canConvert(Expression* other)
 {
-  return other->type && canConvert(other->type);
+  return canConvert(other->type);
 }
 
 } //namespace TypeSystem
