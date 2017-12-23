@@ -35,6 +35,10 @@ namespace MiddleEnd
       tt->check();
     for(auto at : TypeSystem::arrays)
       at->check();
+    for(auto bt : TypeSystem::boundedTypes)
+      bt->check();
+    //now that all type-related info is loaded to IR,
+    //can actually load all subroutine implementations
     for(auto s : subrsToProcess)
     {
       s.first->addStatements(s.second);

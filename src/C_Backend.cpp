@@ -123,19 +123,20 @@ namespace C
 
   void genTypeDecls()
   {
-    //A list of all singular types (every type except arrays)
+    //A list of all types
     vector<Type*> allTypes;
     for(auto prim : TypeSystem::primitives)
     {
       allTypes.push_back(prim);
     }
+    //add all scoped types
     walkScopeTree([&] (Scope* s) -> void
       {
-        for(auto t : s->names)
+        for(auto& t : s->names)
         {
           switch(t.second.kind)
           {
-          //don't process TYPEDEF here because alias is never used directly
+            //don't process TYPEDEF here because alias is never used directly in the IR
             case Name::STRUCT:
             case Name::BOUNDED_TYPE:
             case Name::ENUM:
@@ -145,17 +146,22 @@ namespace C
           }
         }
       });
+    //add all non-scoped types
     for(auto tt : TypeSystem::tuples)
     {
       allTypes.push_back(tt);
     }
-    size_t nonArrayTypes = allTypes.size();
-    for(size_t i = 0; i < nonArrayTypes; i++)
+    for(auto ut : TypeSystem::unions)
     {
-      for(auto arrType : allTypes[i]->dimTypes)
-      {
-        allTypes.push_back(arrType);
-      }
+      allTypes.push_back(ut);
+    }
+    for(auto mt : TypeSystem::maps)
+    {
+      allTypes.push_back(mt);
+    }
+    for(auto at : TypeSystem::arrays)
+    {
+      allTypes.push_back(at);
     }
     //primitives (string is a struct, all others are C primitives)
     types[TypeSystem::primNames["void"]] = "void";
@@ -206,16 +212,21 @@ namespace C
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {
-        //only care about vars in module scope
-        if(dynamic_cast<ModuleScope*>(s))
+        for(auto n : s->names)
         {
-          for(auto v : s->vars)
+          if(n.second.kind != Name::VARIABLE)
           {
-            string ident = getIdentifier();
-            vars[v] = ident;
-            varDecls << types[v->type] << " " << ident << "; //" << v->name << '\n';
-            numGlobals = 0;
+            continue;
           }
+          Variable* v = (Variable*) n.second.item;
+          if(v->isMember)
+          {
+            return;
+          }
+          string ident = getIdentifier();
+          vars[v] = ident;
+          varDecls << types[v->type] << " " << ident << "; //" << v->name << '\n';
+          numGlobals = 0;
         }
       });
     if(numGlobals)
@@ -1122,7 +1133,8 @@ namespace C
     }
     if(et)
     {
-      //enum type always represented as signed integer
+      //enum type always represented as signed integer, which is as
+      //small as possible while still fitting all values
       c << "typedef int" << 8 * et->bytes << "_t " << cName << ";\n";
     }
     else

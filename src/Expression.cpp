@@ -426,10 +426,6 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
 {
   bool rootFinal = isFinal;
   isFinal = false;
-  if(!scope)
-  {
-    ERR_MSG("tried to access member of non-struct");
-  }
   //special case: <array>.len
   if(rootFinal && dynamic_cast<ArrayType*>(root->type) && name == "len")
   {
@@ -437,6 +433,50 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
     scope = nullptr;
     isFinal = true;
     return;
+  }
+  StructType* st = nullptr;
+  //before doing scope lookup, if root is a struct or bounded type, try to look up a subroutine
+  if(root && rootFinal)
+  {
+    st = dynamic_cast<StructType*>(root->type);
+    if(st)
+    {
+      auto ifaceIt = st->interface.find(name);
+      if(ifaceIt != st->interface.end())
+      {
+        //is a subroutine member of iface
+        if(ifaceIt->second.member)
+        {
+          root = new SubroutineExpr(new StructMem(root, ifaceIt->second.member), ifaceIt->second.subr);
+        }
+        else
+        {
+          root = new SubroutineExpr(root, ifaceIt->second.subr);
+        }
+        isFinal = true;
+        scope = nullptr;
+        return;
+      }
+    }
+    BoundedType* bt = dynamic_cast<BoundedType*>(root->type);
+    if(bt)
+    {
+      //now, name MUST refer to unique subr in bt
+      //because BoundedType has no other members
+      auto it = bt->subrs.find(name);
+      if(it == bt->subrs.end())
+      {
+        ERR_MSG(name << " is not a subroutine in bounded type " << bt->name);
+      }
+      root = new TraitSubroutineExpr(root, name, it->second);
+      isFinal = true;
+      scope = nullptr;
+      return;
+    }
+  }
+  if(!scope)
+  {
+    ERR_MSG("tried to access member of non-struct");
   }
   Name n;
   if(first)
@@ -472,10 +512,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
           //first variable
           root = new VarExpr(var);
         }
-        //if var is of a  StructType, iter = struct scope (otherwise null)
-        //if there are more names after this and iter is null, will error on
-        //  next iteration
-        StructType* st = dynamic_cast<StructType*>(root->type);
+        st = dynamic_cast<StructType*>(root->type);
         if(st)
           scope = st->structScope;
         else
@@ -878,6 +915,17 @@ SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
   thisObject = root;
   this->subr = s;
   type = s->type;
+}
+
+/******************
+ * SubroutineExpr *
+ ******************/
+
+TraitSubroutineExpr::TraitSubroutineExpr(Expression* b, string n, CallableType* t)
+{
+  base = b;
+  name = n;
+  type = t;
 }
 
 /*************

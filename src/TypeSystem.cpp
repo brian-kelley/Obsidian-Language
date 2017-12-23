@@ -435,6 +435,7 @@ Type* getIntegerType(int bytes, bool isSigned)
 
 BoundedType::BoundedType(Parser::BoundedTypeNT* tt, Scope* s)
 {
+  boundedTypes.push_back(this);
   name = tt->localName;
   traits.resize(tt->traits.size());
   for(size_t i = 0; i < tt->traits.size(); i++)
@@ -453,6 +454,25 @@ bool BoundedType::canConvert(Type* other)
       return false;
   }
   return true;
+}
+
+void BoundedType::check()
+{
+  //all the traits must be loaded, so make a list of the subroutines
+  //that any implmentation of this must have
+  for(auto t : traits)
+  {
+    for(size_t i = 0; i < t->callables.size(); i++)
+    {
+      string& sname = t->subrNames[i];
+      if(subrs.find(sname) != subrs.end())
+      {
+        ERR_MSG("bounded type " << name << " is invalid because subroutines with name "
+            << sname << " exist in more than one of its traits");
+        subrs[sname] = t->callables[i];
+      }
+    }
+  }
 }
 
 bool BoundedType::canConvert(Expression* other)

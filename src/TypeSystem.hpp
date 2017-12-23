@@ -118,6 +118,7 @@ extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
 
 extern vector<StructType*> structs;
+extern vector<BoundedType*> boundedTypes;
 extern set<ArrayType*, ArrayCompare> arrays;
 extern set<TupleType*, TupleCompare> tuples;
 extern set<UnionType*, UnionCompare> unions;
@@ -171,6 +172,7 @@ struct BoundedType : public Type
   BoundedType(string n, vector<Trait*> t, Scope* s) : name(n), traits(t) {}
   string name;
   vector<Trait*> traits;
+  map<string, CallableType*> subrs;
   bool canConvert(Type* other);
   bool canConvert(Expression* other);
   bool implementsTrait(Trait* t) {return find(traits.begin(), traits.end(), t) != traits.end();}
@@ -182,6 +184,7 @@ struct BoundedType : public Type
   {
     return name;
   }
+  void check();
 };
 
 struct Trait
@@ -232,7 +235,6 @@ struct UnionType : public Type
   bool isUnion() {return true;}
   string getName();
 };
-
 
 struct ArrayType : public Type
 {
@@ -286,7 +288,6 @@ struct TupleType : public Type
   bool contains(Type* t);
   void check();
 };
-
 
 struct MapType : public Type
 {

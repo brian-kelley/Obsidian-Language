@@ -185,6 +185,18 @@ struct SubroutineExpr : public Expression
   }
 };
 
+struct TraitSubroutineExpr : public Expression
+{
+  TraitSubroutineExpr(Expression* b, string n, TypeSystem::CallableType* t);
+  Expression* base;
+  string name;
+  TypeSystem::CallableType* type;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
 struct StructMem : public Expression
 {
   StructMem(Expression* base, Variable* v);
