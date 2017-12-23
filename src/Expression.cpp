@@ -5,6 +5,28 @@
 
 using namespace TypeSystem;
 
+bool Expression::withinScope(Scope* s)
+{
+  for(auto dep : dependencies)
+  {
+    //from var's scope, walk up, looking for s
+    //if global is reached first, return false
+    bool depInS = false;
+    for(Scope* iter = dep->scope; iter; iter = iter->parent)
+    {
+      if(iter == s)
+      {
+        //dep does live in s, so it's OK
+        depInS = true;
+        break;
+      }
+    }
+    if(!depInS)
+      return false;
+  }
+  return true;
+}
+
 /**********************
  * Expression loading *
  **********************/

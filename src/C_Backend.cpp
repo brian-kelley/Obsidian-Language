@@ -240,8 +240,13 @@ namespace C
     //forward-declare all subroutines
     walkScopeTree([&] (Scope* s) -> void
       {
-        for(auto sub : s->subr)
+        for(auto& n : s->names)
         {
+          if(n.second.kind != Name::SUBROUTINE)
+          {
+            continue;
+          }
+          Subroutine* sub = (Subroutine*) n.second.item;
           string ident;
           //main() is the only subroutine with a special name
           if(sub->name == "main")
@@ -249,7 +254,7 @@ namespace C
           else
             ident = getIdentifier();
           subrs[sub] = ident;
-          //all C functions except main are static to save time when linking
+          //all C functions except main are static to save some time when linking
           if(ident != "main")
             funcDecls << "static ";
           funcDecls << types[sub->retType] << ' ' << ident << '(';

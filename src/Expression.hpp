@@ -8,6 +8,10 @@
 struct Expression
 {
   TypeSystem::Type* type;
+  //list of all variables used to compute this
+  set<Variable*> dependencies;
+  //whether this expression is "pure" within given scope (uses dependencies)
+  bool withinScope(Scope* s);
   //whether this is an lvalue
   virtual bool assignable() = 0;
 };

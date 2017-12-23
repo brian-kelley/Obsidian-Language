@@ -162,8 +162,9 @@ Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
   return nullptr;
 }
 
-Assign::Assign(Parser::VarAssign* va, BlockScope* s)
+Assign::Assign(Parser::VarAssign* va, Block* b)
 {
+  auto s = b->scope;
   lvalue = getExpression(s, va->target);
   rvalue = getExpression(s, va->rhs);
   //make sure that lvalue is in fact an lvalue, and that

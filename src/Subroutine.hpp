@@ -79,8 +79,9 @@ Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, 
 
 struct Assign : public Statement
 {
-  Assign(Parser::VarAssign* va, BlockScope* s);
-  Assign(Variable* target, Expression* e);
+  Assign(Parser::VarAssign* va, Block* b);
+  Assign(Variable* target, Expression* e, Block* b);
+  Assign(Indexed* target, Expression* e, Block* b);
   Expression* lvalue;
   Expression* rvalue;
 };

@@ -2,6 +2,7 @@
 
 Variable::Variable(Scope* s, Parser::VarDecl* ast, bool member)
 {
+  scope = s;
   name = ast->name;
   isMember = member;
   //find type using deferred lookup
@@ -11,6 +12,7 @@ Variable::Variable(Scope* s, Parser::VarDecl* ast, bool member)
 
 Variable::Variable(Scope* s, string n, Parser::TypeNT* t, bool member)
 {
+  scope = s;
   name = n;
   isMember = member;
   TypeSystem::TypeLookup tl(t, s);
@@ -19,6 +21,7 @@ Variable::Variable(Scope* s, string n, Parser::TypeNT* t, bool member)
 
 Variable::Variable(Scope* s, string n, TypeSystem::Type* t, bool member)
 {
+  scope = s;
   isMember = member;
   this->name = n;
   this->type = t;
