@@ -127,6 +127,7 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   }
   else if(type->t.is<TypeNT::Prim>())
   {
+    cout << "Type lookup: primitive " << type->t.get<TypeNT::Prim>() << '\n';
     return primitives[(int) type->t.get<TypeNT::Prim>()];
   }
   else if(type->t.is<Member*>())
@@ -793,7 +794,7 @@ bool ArrayType::contains(Type* t)
   if(t == elem)
     return true;
   ArrayType* at = dynamic_cast<ArrayType*>(t);
-  if(at && at->elem == elem && dims >= at->dims)
+  if(at && at->elem == elem && dims > at->dims)
     return true;
   return false;
 }
@@ -802,7 +803,7 @@ void ArrayType::check()
 {
   if(contains(this))
   {
-    ERR_MSG("array type contains itself");
+    ERR_MSG("array type (" << dims << " dims of " << elem->getName() << ") contains itself");
   }
 }
 

@@ -36,7 +36,7 @@ Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
   addStatements(b);
 }
 
-Block::Block(BlockScope* s, Block* parent)
+Block::Block(BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
   this->funcScope = parent->funcScope;
@@ -102,6 +102,7 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
     auto sd = stmt->s.get<Parser::ScopedDecl*>();
     if(sd->decl.is<Parser::VarDecl*>())
     {
+      cout << "Local var: block " << b << " has scope " << b->scope << '\n';
       return addLocalVariable(b->scope, sd->decl.get<Parser::VarDecl*>());
     }
   }
@@ -658,11 +659,5 @@ Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
     body = new Block(snt->body, blockScopes[snt->body], this);
     //but don't add statements yet
   }
-}
-
-void Subroutine::addStatements(Parser::Block* b)
-{
-  //get the block which is the only child of this subroutine
-  body->addStatements(b);
 }
 

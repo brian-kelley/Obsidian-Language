@@ -201,7 +201,6 @@ struct Subroutine
 {
   //constructor doesn't process the body in any way
   Subroutine(Parser::SubroutineNT* snt, Scope* s);
-  void addStatements(Parser::Block* b);
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;

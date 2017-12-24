@@ -38,7 +38,24 @@ void outputParseTree(Parser::Module* tree, string filename)
 static int node(string label)
 {
   int n = nextNode();
-  fprintf(dot, "N%i [label=\"%s\"];\n", n, label.c_str());
+  Oss oss;
+  for(size_t i = 0; i < label.length(); i++)
+  {
+    switch(label[i])
+    {
+      case '\n':
+        oss << "\\n"; break;
+      case '\t':
+        oss << "\\t"; break;
+      case '\r':
+        oss << "\\r"; break;
+      case '\0':
+        oss << "\\0"; break;
+      default:
+        oss << label[i];
+    }
+  }
+  fprintf(dot, "N%i [label=\"%s\"];\n", n, oss.str().c_str());
   return n;
 }
 
@@ -79,6 +96,8 @@ template<> int emit<BoolLit>(BoolLit* n);
 template<> int emit<Member>(Member* n);
 template<> int emit<BoundedTypeNT>(BoundedTypeNT* n);
 template<> int emit<TupleTypeNT>(TupleTypeNT* n);
+template<> int emit<UnionTypeNT>(UnionTypeNT* n);
+template<> int emit<MapTypeNT>(MapTypeNT* n);
 template<> int emit<Expr1>(Expr1* n);
 template<> int emit<Expr2>(Expr2* n);
 template<> int emit<Expr3>(Expr3* n);
@@ -175,6 +194,14 @@ template<> int emit<TypeNT>(TypeNT* n)
   else if(n->t.is<TupleTypeNT*>())
   {
     base = emit(n->t.get<TupleTypeNT*>());
+  }
+  else if(n->t.is<UnionTypeNT*>())
+  {
+    base = emit(n->t.get<UnionTypeNT*>());
+  }
+  else if(n->t.is<MapTypeNT*>())
+  {
+    base = emit(n->t.get<MapTypeNT*>());
   }
   else if(n->t.is<SubroutineTypeNT*>())
   {
@@ -490,34 +517,61 @@ template<> int emit<Parameter>(Parameter* n)
   return root;
 }
 
+template<> int emit<SubroutineNT>(SubroutineNT* n)
+{
+  Oss rootName;
+  if(n->isPure)
+  {
+    rootName << "Function";
+  }
+  else
+  {
+    rootName << "Procedure";
+    if(n->nonterm)
+    {
+      rootName << " (nonterm)";
+    }
+  }
+  if(n->isStatic)
+    rootName << " (static)";
+  rootName << ' ' << n->name;
+  int root = node(rootName.str());
+  int retType = node("Return type");
+  link(root, retType);
+  link(retType, emit(n->retType));
+  if(n->params.size() == 0)
+  {
+    link(root, node("No parameters"));
+  }
+  for(auto param : n->params)
+  {
+    link(root, emit(param));
+  }
+  if(n->body)
+  {
+    link(root, emit(n->body));
+  }
+  return root;
+}
+
 template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n)
 {
-}
-
-template<> int emit<FuncDecl>(FuncDecl* n)
-{
-  int root = node("Func decl");
-  link(root, node(n->name));
-  link(root, emit(&n->type));
-  return root;
-}
-
-template<> int emit<FuncDef>(FuncDef* n)
-{
-  int root = node("Func def");
-  link(root, node(n->name));
-  link(root, emit(&n->type));
-  link(root, emit(n->body));
-  return root;
-}
-
-template<> int emit<FuncTypeNT>(FuncTypeNT* n)
-{
-  int root = 0;
-  if(n->isStatic)
-    root = node("Function type");
+  Oss rootName;
+  if(n->isPure)
+  {
+    rootName << "Function";
+  }
   else
-    root = node("Function type (static)");
+  {
+    rootName << "Procedure";
+    if(n->nonterm)
+    {
+      rootName << " (nonterm)";
+    }
+  }
+  if(n->isStatic)
+    rootName << " (static)";
+  int root = node(rootName.str());
   int retType = node("Return type");
   link(root, retType);
   link(retType, emit(n->retType));
@@ -529,67 +583,6 @@ template<> int emit<FuncTypeNT>(FuncTypeNT* n)
   {
     link(root, emit(param));
   }
-  return root;
-}
-
-template<> int emit<ProcDecl>(ProcDecl* n)
-{
-  int root = node("Proc decl");
-  link(root, node(n->name));
-  link(root, emit(&n->type));
-  return root;
-}
-
-template<> int emit<ProcDef>(ProcDef* n)
-{
-  int root = node("Proc def");
-  link(root, node(n->name));
-  link(root, emit(&n->type));
-  link(root, emit(n->body));
-  return root;
-}
-
-template<> int emit<ProcTypeNT>(ProcTypeNT* n)
-{
-  string qualifiers = "(";
-  if(n->isStatic)
-    qualifiers = "static";
-  if(n->nonterm)
-  {
-    if(n->isStatic)
-      qualifiers += ", ";
-    qualifiers += "non-terminating ";
-  }
-  qualifiers += ")";
-  int root = 0;
-  if(qualifiers.length() == 2)
-    root = node("Procedure type");
-  else
-    root = node("Procedure type " + qualifiers);
-  int retType = node("Return type");
-  link(root, retType);
-  link(retType, emit(n->retType));
-  if(n->params.size() == 0)
-  {
-    link(root, node("No parameters"));
-  }
-  for(auto param : n->params)
-  {
-    link(root, emit(param));
-  }
-  return root;
-}
-
-template<> int emit<StructMem>(StructMem* n)
-{
-  int root = 0;
-  if(n->compose)
-  {
-    root = node("Composed member");
-    link(root, emit(n->sd));
-  }
-  else
-    root = emit(n->sd);
   return root;
 }
 
@@ -612,23 +605,12 @@ template<> int emit<StructDecl>(StructDecl* n)
   return root;
 }
 
-template<> int emit<UnionDecl>(UnionDecl* n)
-{
-  int root = node("Union " + n->name);
-  for(auto t : n->types)
-    link(root, emit(t));
-  return root;
-}
-
 template<> int emit<TraitDecl>(TraitDecl* n)
 {
   int root = node("Trait " + n->name);
   for(auto& mem : n->members)
   {
-    if(mem.is<FuncDecl*>())
-      link(root, emit(mem.get<FuncDecl*>()));
-    else if(mem.is<ProcDecl*>())
-      link(root, emit(mem.get<ProcDecl*>()));
+    link(root, emit(mem));
   }
   return root;
 }
@@ -651,14 +633,16 @@ template<> int emit<BoolLit>(BoolLit* n)
 
 template<> int emit<Member>(Member* mem)
 {
-  string label;
-  for(auto t : mem->head)
+  Oss oss;
+  for(size_t i = 0; i < mem->names.size(); i++)
   {
-    label += t->name;
-    label += ".";
+    oss << mem->names[i];
+    if(i != 0)
+    {
+      oss << '.';
+    }
   }
-  label += mem->tail->name;
-  return node(label);
+  return node(oss.str());
 }
 
 template<> int emit<BoundedTypeNT>(BoundedTypeNT* n)
@@ -674,6 +658,22 @@ template<> int emit<TupleTypeNT>(TupleTypeNT* n)
   int root = node("Tuple type");
   for(auto mem : n->members)
     link(root, emit(mem));
+  return root;
+}
+
+template<> int emit<UnionTypeNT>(UnionTypeNT* n)
+{
+  int root = node("Union type");
+  for(auto t : n->types)
+    link(root, emit(t));
+  return root;
+}
+
+template<> int emit<MapTypeNT>(MapTypeNT* n)
+{
+  int root = node("Map type");
+  link(root, emit(n->keyType));
+  link(root, emit(n->valueType));
   return root;
 }
 
@@ -867,11 +867,10 @@ template<> int emit<Expr12>(Expr12* n)
   //apply all operands, left to right
   for(auto rhs : n->tail)
   {
-    if(rhs->e.is<Ident*>())
+    if(rhs->e.is<string>())
     {
-      int newRoot = node("Member");
-      link(newRoot, root);
-      link(newRoot, node(rhs->e.get<Ident*>()->name));
+      int newRoot = node("Member " + rhs->e.get<string>());
+      link(root, newRoot);
       root = newRoot;
     }
     else if(rhs->e.is<CallOp*>())

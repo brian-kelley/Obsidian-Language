@@ -41,9 +41,12 @@ namespace MiddleEnd
     //can actually load all subroutine implementations
     for(auto s : subrsToProcess)
     {
-      s.first->addStatements(s.second);
+      Subroutine* subr = s.first;
+      Parser::Block* body = s.second;
+      subr->body = new Block(body, blockScopes[body], subr);
+      subr->body->addStatements(s.second);
       //then check purity of all statements in the body
-      s.first->body->check();
+      subr->body->check();
     }
   }
 
@@ -70,22 +73,24 @@ namespace MiddleEnd
       }
     }
     Subroutine* subr = new Subroutine(subrNT, ss);
+    ss->subr = subr;
     current->addName(subr);
     //add parameter variables
     for(auto param : subrNT->params)
     {
-      Parser::TypeNT paramType;
+      Parser::TypeNT* paramType;
+      Parser::Member temp;
       if(param->type.is<Parser::BoundedTypeNT*>())
       {
-        Parser::Member tname;
-        tname.names.push_back(param->type.get<Parser::BoundedTypeNT*>()->localName);
-        paramType.t = &tname;
+        paramType = new Parser::TypeNT;
+        temp.names.push_back(param->type.get<Parser::BoundedTypeNT*>()->localName);
+        paramType->t = &temp;
       }
       else
       {
-        paramType = *param->type.get<Parser::TypeNT*>();
+        paramType = param->type.get<Parser::TypeNT*>();
       }
-      auto t = TypeSystem::lookupType(&paramType, ss);
+      auto t = TypeSystem::lookupType(paramType, ss);
       if(!t)
       {
         ERR_MSG("parameter " << param->name << " to subroutine " << subr->name << " has an unknown type");
