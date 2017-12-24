@@ -53,7 +53,6 @@ template<> int emit<TypeNT>(TypeNT* n);
 template<> int emit<StatementNT>(StatementNT* n);
 template<> int emit<Typedef>(Typedef* n);
 template<> int emit<Return>(Return* n);
-template<> int emit<SwitchCase>(SwitchCase* n);
 template<> int emit<Switch>(Switch* n);
 template<> int emit<ForC>(ForC* n);
 template<> int emit<ForOverArray>(ForOverArray* n);
@@ -71,16 +70,9 @@ template<> int emit<VarAssign>(VarAssign* n);
 template<> int emit<PrintNT>(PrintNT* n);
 template<> int emit<CallOp>(CallOp* n);
 template<> int emit<Parameter>(Parameter* n);
+template<> int emit<SubroutineNT>(SubroutineNT* n);
 template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n);
-template<> int emit<FuncDecl>(FuncDecl* n);
-template<> int emit<FuncDef>(FuncDef* n);
-template<> int emit<FuncTypeNT>(FuncTypeNT* n);
-template<> int emit<ProcDecl>(ProcDecl* n);
-template<> int emit<ProcDef>(ProcDef* n);
-template<> int emit<ProcTypeNT>(ProcTypeNT* n);
-template<> int emit<StructMem>(StructMem* n);
 template<> int emit<StructDecl>(StructDecl* n);
-template<> int emit<UnionDecl>(UnionDecl* n);
 template<> int emit<TraitDecl>(TraitDecl* n);
 template<> int emit<StructLit>(StructLit* n);
 template<> int emit<BoolLit>(BoolLit* n);
@@ -127,22 +119,14 @@ template<> int emit<ScopedDecl>(ScopedDecl* n)
     return emit(n->decl.get<VarDecl*>());
   else if(n->decl.is<StructDecl*>())
     return emit(n->decl.get<StructDecl*>());
-  else if(n->decl.is<UnionDecl*>())
-    return emit(n->decl.get<UnionDecl*>());
   else if(n->decl.is<TraitDecl*>())
     return emit(n->decl.get<TraitDecl*>());
   else if(n->decl.is<Enum*>())
     return emit(n->decl.get<Enum*>());
   else if(n->decl.is<Typedef*>())
     return emit(n->decl.get<Typedef*>());
-  else if(n->decl.is<FuncDecl*>())
-    return emit(n->decl.get<FuncDecl*>());
-  else if(n->decl.is<FuncDef*>())
-    return emit(n->decl.get<FuncDef*>());
-  else if(n->decl.is<ProcDecl*>())
-    return emit(n->decl.get<ProcDecl*>());
-  else if(n->decl.is<ProcDef*>())
-    return emit(n->decl.get<ProcDef*>());
+  else if(n->decl.is<SubroutineNT*>())
+    return emit(n->decl.get<SubroutineNT*>());
   else if(n->decl.is<TestDecl*>())
     return emit(n->decl.get<TestDecl*>());
   return 0;
@@ -195,10 +179,6 @@ template<> int emit<TypeNT>(TypeNT* n)
   else if(n->t.is<SubroutineTypeNT*>())
   {
     base = emit(n->t.get<SubroutineTypeNT*>());
-  }
-  else if(n->t.is<TypeNT::TTypeNT>())
-  {
-    base = node("T type");
   }
   if(n->arrayDims)
   {
@@ -300,27 +280,33 @@ template<> int emit<Return>(Return* n)
   return root;
 }
 
-template<> int emit<SwitchCase>(SwitchCase* n)
-{
-  int root = node("Case");
-  link(root, emit(n->matchVal));
-  link(root, emit(n->s));
-  return root;
-}
-
 template<> int emit<Switch>(Switch* sw)
 {
   int root = node("Switch");
   //first, add the switched expression
-  link(root, emit(sw->sw));
-  //then emit cases
-  for(auto cas : sw->cases)
-    link(root, emit(cas));
-  if(sw->defaultStatement)
+  link(root, emit(sw->value));
+  //emit block of statements
+  link(root, emit(sw->block));
+  //emit labels
+  for(auto& l : sw->labels)
   {
-    int def = node("Default");
-    link(root, def);
-    link(def, emit(sw->defaultStatement));
+    int label = node("Label " + to_string(l.position));
+    link(root, label);
+    link(label, emit(l.value));
+  }
+  link(root, node("default: " + to_string(sw->defaultPosition)));
+  return root;
+}
+
+template<> int emit<Match>(Match* m)
+{
+  int root = node("Match " + m->varName);
+  link(root, emit(m->value));
+  for(auto& c : m->cases)
+  {
+    int caseNode = emit(c.type);
+    link(root, caseNode);
+    link(caseNode, emit(c.block));
   }
   return root;
 }
@@ -337,7 +323,14 @@ template<> int emit<ForC>(ForC* fc)
 template<> int emit<ForOverArray>(ForOverArray* foa)
 {
   int root = node("For loop over array");
-  link(root, emit(foa->tup));
+  //build a linked list of the tuple names
+  int iter = root;
+  for(auto& name : foa->tup)
+  {
+    int next = node(name);
+    link(iter, next);
+    iter = next;
+  }
   link(root, emit(foa->expr));
   return root;
 }
@@ -345,7 +338,7 @@ template<> int emit<ForOverArray>(ForOverArray* foa)
 template<> int emit<ForRange>(ForRange* fr)
 {
   int root = node("For loop over range");
-  link(root, node(fr->name->name));
+  link(root, node(fr->name));
   link(root, emit(fr->start));
   link(root, emit(fr->end));
   return root;
@@ -492,21 +485,13 @@ template<> int emit<Parameter>(Parameter* n)
   {
     link(root, emit(n->type.get<BoundedTypeNT*>()));
   }
-  if(n->name)
-    link(root, node(n->name->name));
+  if(n->name.size())
+    link(root, node(n->name));
   return root;
 }
 
 template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n)
 {
-  auto ft = dynamic_cast<FuncTypeNT*>(n);
-  auto pt = dynamic_cast<ProcTypeNT*>(n);
-  if(ft)
-    return emit(ft);
-  else if(pt)
-    return emit(pt);
-  INTERNAL_ERROR;
-  return 0;
 }
 
 template<> int emit<FuncDecl>(FuncDecl* n)

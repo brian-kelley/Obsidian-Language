@@ -88,7 +88,20 @@ void createBuiltinTypes()
 string typeErrorMessage(TypeLookup& lookup)
 {
   Oss oss;
-  oss << "unknown type";
+  if(lookup.type.is<Parser::TypeNT*>())
+  {
+    oss << "unknown type at " <<
+      *lookup.type.get<Parser::TypeNT*>();
+  }
+  else if(lookup.type.is<Parser::SubroutineTypeNT*>())
+  {
+    oss << "unknown type at " <<
+      *lookup.type.get<Parser::SubroutineTypeNT*>();
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
   return oss.str();
 }
 
@@ -391,6 +404,7 @@ Type* lookupTypeDeferred(TypeLookup& args)
 {
   if(args.type.is<Parser::TypeNT*>())
   {
+    cout << "doing deferred lookup of type at " << *args.type.get<Parser::TypeNT*>() << '\n';
     return lookupType(args.type.get<Parser::TypeNT*>(), args.scope);
   }
   else

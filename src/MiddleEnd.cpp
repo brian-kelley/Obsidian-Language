@@ -157,12 +157,14 @@ namespace MiddleEnd
   {
     //must create a child scope first, and then type
     StructScope* sscope = new StructScope(sd->name, current, sd);
+    auto stype = new TypeSystem::StructType(sd, current, sscope);
+    current->addName(stype);
+    sscope->type = stype;
     //Visit the internal ScopedDecls that are types
     for(auto& it : sd->members)
     {
       visitScopedDecl(sscope, it);
     }
-    current->addName(new TypeSystem::StructType(sd, current, sscope));
   }
 
   void visitTrait(Scope* current, Parser::TraitDecl* td)
@@ -245,7 +247,7 @@ namespace MiddleEnd
         }
         else
         {
-          //non-member/global
+          //static or global
           current->addName(new Variable(current, vd));
         }
       }

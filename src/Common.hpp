@@ -32,7 +32,7 @@ using std::to_string;
 typedef ostringstream Oss;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
-//#define DEBUG
+#define DEBUG
 
 //Read string from file, and append \n
 string loadFile(string filename);

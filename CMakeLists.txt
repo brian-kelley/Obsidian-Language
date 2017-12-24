@@ -18,6 +18,7 @@ add_executable (onyx
   src/Scope.cpp
   src/Lexer.cpp
   src/Parser.cpp
+  src/ParseTreeOutput.cpp
   src/Subroutine.cpp
   src/C_Backend.cpp
 )

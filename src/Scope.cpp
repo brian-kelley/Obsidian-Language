@@ -127,7 +127,7 @@ string ModuleScope::getLocalName()
 
 /* StructScope */
 
-StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), name(nameIn) {}
+StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), type(nullptr), name(nameIn) {}
 
 string StructScope::getLocalName()
 {

@@ -101,8 +101,10 @@ namespace Parser
 
   struct ParseNode
   {
-    ParseNode() : line(0), col(0) {}
-    //set location, given the first token in the nonterminal
+    ParseNode()
+    {
+      setLoc(lookAhead());
+    }
     void setLoc(Token* t)
     {
       line = t->line;
@@ -112,13 +114,13 @@ namespace Parser
     int col;
   };
 
-  struct Module
+  struct Module : public ParseNode
   {
     string name;
     vector<ScopedDecl*> decls;
   };
   
-  struct ScopedDecl
+  struct ScopedDecl : public ParseNode
   {
     ScopedDecl() : decl(None()) {}
     variant<
@@ -135,7 +137,7 @@ namespace Parser
 
   ScopedDecl* parseScopedDeclGivenMember(Member* mem);
 
-  struct TypeNT
+  struct TypeNT : public ParseNode
   {
     TypeNT() : t(None()), arrayDims(0) {}
     enum Prim
@@ -166,7 +168,7 @@ namespace Parser
     int arrayDims;
   };
 
-  struct StatementNT
+  struct StatementNT : public ParseNode
   {
     StatementNT() : s(None()) {}
     variant<
@@ -188,7 +190,7 @@ namespace Parser
       EmptyStatement*> s;
   };
 
-  struct Typedef
+  struct Typedef : public ParseNode
   {
     Typedef() : type(nullptr) {}
     Typedef(string n, TypeNT* t) : ident(n), type(t) {}
@@ -196,14 +198,14 @@ namespace Parser
     TypeNT* type;
   };
 
-  struct Return
+  struct Return : public ParseNode
   {
     Return() : ex(nullptr) {}
     //optional returned expression (NULL if unused)
     ExpressionNT* ex;
   };
 
-  struct Switch
+  struct Switch : public ParseNode
   {
     ExpressionNT* value;
     struct Label
@@ -223,7 +225,7 @@ namespace Parser
     int defaultPosition;
   };
 
-  struct Match
+  struct Match : public ParseNode
   {
     Match() : value(nullptr) {}
     //varName is implicitly created in each case with the case's type
@@ -241,11 +243,11 @@ namespace Parser
     vector<Case> cases;
   };
 
-  struct Continue {};
-  struct Break {};
-  struct EmptyStatement {};
+  struct Continue : public ParseNode {};
+  struct Break : public ParseNode {};
+  struct EmptyStatement : public ParseNode {};
 
-  struct For
+  struct For : public ParseNode
   {
     For() : f(None()), body(nullptr) {}
     variant<
@@ -256,7 +258,7 @@ namespace Parser
     Block* body;
   };
 
-  struct ForC
+  struct ForC : public ParseNode
   {
     ForC() : decl(nullptr), condition(nullptr), incr(nullptr) {}
     //for(decl; condition; incr) <body>
@@ -266,14 +268,14 @@ namespace Parser
     StatementNT* incr;
   };
 
-  struct ForOverArray
+  struct ForOverArray : public ParseNode
   {
     ForOverArray() : expr(nullptr) {}
     vector<string> tup;
     ExpressionNT* expr;
   };
 
-  struct ForRange
+  struct ForRange : public ParseNode
   {
     ForRange() : start(nullptr), end(nullptr) {}
     string name;
@@ -281,14 +283,14 @@ namespace Parser
     ExpressionNT* end;
   };
 
-  struct While
+  struct While : public ParseNode
   {
     While() : cond(nullptr), body(nullptr) {}
     ExpressionNT* cond;
     Block* body;
   };
 
-  struct If
+  struct If : public ParseNode
   {
     If() : cond(nullptr), ifBody(nullptr), elseBody(nullptr) {}
     ExpressionNT* cond;
@@ -308,19 +310,19 @@ namespace Parser
      */
   };
 
-  struct Assertion
+  struct Assertion : public ParseNode
   {
     Assertion() : expr(nullptr) {}
     ExpressionNT* expr;
   };
 
-  struct TestDecl
+  struct TestDecl : public ParseNode
   {
     TestDecl() : stmt(nullptr) {}
     StatementNT* stmt;
   };
 
-  struct EnumItem
+  struct EnumItem : public ParseNode
   {
     EnumItem() : value(nullptr) {}
     string name;
@@ -329,20 +331,20 @@ namespace Parser
     IntLit* value;
   };
 
-  struct Enum
+  struct Enum : public ParseNode
   {
     string name;
     vector<EnumItem*> items;
   };
 
-  struct Block
+  struct Block : public ParseNode
   {
     Block() {}
     Block(vector<StatementNT*>& s) : statements(s) {}
     vector<StatementNT*> statements;
   };
 
-  struct VarDecl
+  struct VarDecl : public ParseNode
   {
     VarDecl() : type(nullptr), val(nullptr) {}
     //NULL if "auto"
@@ -358,7 +360,7 @@ namespace Parser
 
   VarAssign* parseAssignGivenExpr12(Expr12* e12);
 
-  struct VarAssign
+  struct VarAssign : public ParseNode
   {
     VarAssign() : target(nullptr), rhs(nullptr) {}
     //note: target must be an lvalue (checked in middle end)
@@ -367,21 +369,20 @@ namespace Parser
     ExpressionNT* rhs;
   };
 
-  struct PrintNT
+  struct PrintNT : public ParseNode
   {
     vector<ExpressionNT*> exprs;
   };
 
   //Parameter - used by SubroutineNT
-  struct Parameter
+  struct Parameter : public ParseNode
   {
-    Parameter() : name(nullptr) {}
     variant<None, TypeNT*, BoundedTypeNT*> type;
-    //name is optional
+    //name is optional (if not present, is "")
     string name;
   };
 
-  struct SubroutineNT
+  struct SubroutineNT : public ParseNode
   {
     SubroutineNT() : retType(nullptr), body(nullptr) {}
     TypeNT* retType;
@@ -395,7 +396,7 @@ namespace Parser
     bool nonterm;
   };
 
-  struct SubroutineTypeNT
+  struct SubroutineTypeNT : public ParseNode
   {
     SubroutineTypeNT() : retType(nullptr) {}
     TypeNT* retType;
@@ -407,30 +408,30 @@ namespace Parser
     bool nonterm;
   };
 
-  struct StructDecl
+  struct StructDecl : public ParseNode
   {
     string name;
     vector<Member*> traits;
     vector<ScopedDecl*> members;
   };
 
-  struct TraitDecl
+  struct TraitDecl : public ParseNode
   {
     string name;
     vector<SubroutineNT*> members;
   };
 
-  struct StructLit
+  struct StructLit : public ParseNode
   {
     vector<ExpressionNT*> vals;
   };
 
-  struct Member
+  struct Member : public ParseNode
   {
     vector<string> names;
   };
 
-  struct BoundedTypeNT
+  struct BoundedTypeNT : public ParseNode
   {
     //trait types of the form "<localName>: <traitNames> <argName>"
     //i.e.: int f(T: Num, Drawable value)
@@ -438,21 +439,21 @@ namespace Parser
     vector<Member*> traits;
   };
 
-  struct TupleTypeNT
+  struct TupleTypeNT : public ParseNode
   {
     TupleTypeNT() {}
     TupleTypeNT(vector<TypeNT*> m) : members(m) {}
     vector<TypeNT*> members;
   };
   
-  struct UnionTypeNT
+  struct UnionTypeNT : public ParseNode
   {
     UnionTypeNT() {}
     UnionTypeNT(vector<TypeNT*> t) : types(t) {}
     vector<TypeNT*> types;
   };
 
-  struct MapTypeNT
+  struct MapTypeNT : public ParseNode
   {
     MapTypeNT() {}
     MapTypeNT(TypeNT* k, TypeNT* v) : keyType(k), valueType(v) {}
@@ -460,14 +461,14 @@ namespace Parser
     TypeNT* valueType;
   };
 
-  struct BoolLit
+  struct BoolLit : public ParseNode
   {
     BoolLit() : val(false) {}
     BoolLit(bool v) : val(v) {}
     bool val;
   };
 
-  struct Expr1
+  struct Expr1 : public ParseNode
   {
     Expr1() {}
     Expr1(Expr2* e);
@@ -486,14 +487,14 @@ namespace Parser
     vector<Expr1RHS*> tail;
   };
 
-  struct Expr1RHS
+  struct Expr1RHS : public ParseNode
   {
     Expr1RHS() : rhs(nullptr) {}
     // || is only op
     Expr2* rhs;
   };
 
-  struct Expr2
+  struct Expr2 : public ParseNode
   {
     Expr2() : head(nullptr) {}
     Expr2(Expr3* e) : head(e) {}
@@ -502,14 +503,14 @@ namespace Parser
     vector<Expr2RHS*> tail;
   };
 
-  struct Expr2RHS
+  struct Expr2RHS : public ParseNode
   {
     Expr2RHS() : rhs(nullptr) {}
     // && is only op
     Expr3* rhs;
   };
 
-  struct Expr3
+  struct Expr3 : public ParseNode
   {
     Expr3() : head(nullptr) {}
     Expr3(Expr4* e) : head(e) {}
@@ -518,14 +519,14 @@ namespace Parser
     vector<Expr3RHS*> tail;
   };
 
-  struct Expr3RHS
+  struct Expr3RHS : public ParseNode
   {
     Expr3RHS() : rhs(nullptr) {}
     // | is only op
     Expr4* rhs;
   };
 
-  struct Expr4
+  struct Expr4 : public ParseNode
   {
     Expr4() : head(nullptr) {}
     Expr4(Expr5* e) : head(e) {}
@@ -534,14 +535,14 @@ namespace Parser
     vector<Expr4RHS*> tail;
   };
 
-  struct Expr4RHS
+  struct Expr4RHS : public ParseNode
   {
     Expr4RHS() : rhs(nullptr) {}
     // ^ is only op
     Expr5* rhs;
   };
 
-  struct Expr5
+  struct Expr5 : public ParseNode
   {
     Expr5() : head(nullptr) {}
     Expr5(Expr6* e) : head(e) {}
@@ -550,14 +551,14 @@ namespace Parser
     vector<Expr5RHS*> tail;
   };
 
-  struct Expr5RHS
+  struct Expr5RHS : public ParseNode
   {
     Expr5RHS() : rhs(nullptr) {}
     // & is only op
     Expr6* rhs;
   };
 
-  struct Expr6
+  struct Expr6 : public ParseNode
   {
     Expr6() : head(nullptr) {}
     Expr6(Expr7* e) : head(e) {}
@@ -566,14 +567,14 @@ namespace Parser
     vector<Expr6RHS*> tail;
   };
 
-  struct Expr6RHS
+  struct Expr6RHS : public ParseNode
   {
     Expr6RHS() : rhs(nullptr) {}
     int op; //CMPEQ or CMPNEQ
     Expr7* rhs;
   };
 
-  struct Expr7
+  struct Expr7 : public ParseNode
   {
     Expr7() : head(nullptr) {}
     Expr7(Expr8* e) : head(e) {}
@@ -582,14 +583,14 @@ namespace Parser
     vector<Expr7RHS*> tail;
   };
 
-  struct Expr7RHS
+  struct Expr7RHS : public ParseNode
   {
     Expr7RHS() : rhs(nullptr) {}
     int op;  //CMPL, CMPLE, CMPG, CMPGE
     Expr8* rhs;
   };
 
-  struct Expr8
+  struct Expr8 : public ParseNode
   {
     Expr8() : head(nullptr) {}
     Expr8(Expr9* e) : head(e) {}
@@ -598,14 +599,14 @@ namespace Parser
     vector<Expr8RHS*> tail;
   };
 
-  struct Expr8RHS
+  struct Expr8RHS : public ParseNode
   {
     Expr8RHS() : rhs(nullptr) {}
     int op; //SHL, SHR
     Expr9* rhs;
   };
 
-  struct Expr9
+  struct Expr9 : public ParseNode
   {
     Expr9() : head(nullptr) {}
     Expr9(Expr10* e) : head(e) {}
@@ -614,14 +615,14 @@ namespace Parser
     vector<Expr9RHS*> tail;
   };
 
-  struct Expr9RHS
+  struct Expr9RHS : public ParseNode
   {
     Expr9RHS() : rhs(nullptr) {}
     int op; //PLUS, SUB
     Expr10* rhs;
   };
 
-  struct Expr10
+  struct Expr10 : public ParseNode
   {
     Expr10() : head(nullptr) {}
     Expr10(Expr11* e) : head(e) {}
@@ -630,7 +631,7 @@ namespace Parser
     vector<Expr10RHS*> tail;
   };
 
-  struct Expr10RHS
+  struct Expr10RHS : public ParseNode
   {
     Expr10RHS() : rhs(nullptr) {}
     int op; //MUL, DIV, MOD
@@ -638,7 +639,7 @@ namespace Parser
   };
 
   //Expr11 can be Expr12 or <op>Expr11
-  struct Expr11
+  struct Expr11 : public ParseNode
   {
     Expr11() : e(None()) {}
     Expr11(Expr12* e12);
@@ -652,13 +653,13 @@ namespace Parser
       UnaryExpr> e;
   };
 
-  struct NewArrayNT
+  struct NewArrayNT : public ParseNode
   {
     TypeNT* elemType;
     vector<ExpressionNT*> dimensions;
   };
 
-  struct Expr12
+  struct Expr12 : public ParseNode
   {
     Expr12() : e(None()) {}
     Expr12(ExpressionNT* expr) : e(expr) {}
@@ -680,13 +681,13 @@ namespace Parser
   void parseExpr12Tail(Expr12* head);
   Expr12* parseExpr12GivenMember(Member* mem);
 
-  struct CallOp
+  struct CallOp : public ParseNode
   {
     //the arguments inside parens (each may have the match operator)
     vector<ExpressionNT*> args;
   };
 
-  struct Expr12RHS
+  struct Expr12RHS : public ParseNode
   {
     //to parse, get Member first, then if (...) seen is call, otherwise is member
     Expr12RHS() : e(None()) {}
@@ -757,6 +758,7 @@ namespace Parser
 
 //Utils
 ostream& operator<<(ostream& os, const Parser::Member& mem);
+ostream& operator<<(ostream& os, const Parser::ParseNode& pn);
 
 #endif
 

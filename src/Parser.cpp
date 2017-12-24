@@ -238,10 +238,11 @@ namespace Parser
     }
     else if(acceptPunct(LPAREN))
     {
-      //parens always give overall type high-precedence
+      //parens always give the overall type high-precedence
       prec = true;
       TypeNT* first = parseTypeGeneral(false);
-      if(acceptPunct(COMMA))
+      Punct comma(COMMA);
+      if(lookAhead()->compareTo(&comma))
       {
         //tuple
         vector<TypeNT*> tupleMembers;
@@ -250,6 +251,7 @@ namespace Parser
         {
           tupleMembers.push_back(parseTypeGeneral(false));
         }
+        expectPunct(RPAREN);
         if(tupleMembers.size() == 1)
         {
           //not really a tuple (just a single type in parens)
@@ -265,8 +267,13 @@ namespace Parser
       {
         TypeNT* valueType = parseTypeGeneral(false);
         type->t = new MapTypeNT(first, valueType);
+        expectPunct(RPAREN);
       }
-      expectPunct(RPAREN);
+      else
+      {
+        expectPunct(RPAREN);
+        return first;
+      }
     }
     else if(lookAhead()->getType() == IDENTIFIER)
     {
@@ -324,10 +331,10 @@ namespace Parser
 
   Block* parseBlockWrappedStatement()
   {
+    Block* b = new Block;
     StatementNT* s = parse<StatementNT>();
     if(s->s.is<Block*>())
       return s->s.get<Block*>();
-    Block* b = new Block;
     b->statements.push_back(s);
     return b;
   }
@@ -486,21 +493,24 @@ namespace Parser
   template<>
   Break* parse<Break>()
   {
+    Break* b = new Break;
     expectKeyword(BREAK);
-    return new Break;
+    return b;
   }
 
   template<>
   Continue* parse<Continue>()
   {
+    Continue* c = new Continue;
     expectKeyword(CONTINUE);
-    return new Continue;
+    return c;
   }
 
   template<>
   EmptyStatement* parse<EmptyStatement>()
   {
-    return new EmptyStatement;
+    EmptyStatement* es = new EmptyStatement;
+    return es;
   }
 
   template<>
@@ -545,7 +555,7 @@ namespace Parser
       }
       else if(acceptKeyword(DEFAULT))
       {
-        if(s->defaultPosition == -1)
+        if(s->defaultPosition != -1)
         {
           err("default label provided more than once in switch statement");
         }
@@ -620,29 +630,29 @@ namespace Parser
   template<>
   ForOverArray* parse<ForOverArray>()
   {
-    ForOverArray* fr1 = new ForOverArray;
+    ForOverArray* foa = new ForOverArray;
     expectPunct(LBRACKET);
-    fr1->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
-    while(acceptPunct(DOT))
+    foa->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+    while(acceptPunct(COMMA))
     {
-      fr1->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+      foa->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
     }
     expectPunct(RBRACKET);
     expectPunct(COLON);
-    fr1->expr = parse<ExpressionNT>();
-    return fr1;
+    foa->expr = parse<ExpressionNT>();
+    return foa;
   }
 
   template<>
   ForRange* parse<ForRange>()
   {
-    ForRange* fr2 = new ForRange;
-    fr2->name = ((Ident*) expect(IDENTIFIER))->name;
+    ForRange* fr = new ForRange;
+    fr->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(COLON);
-    fr2->start = parse<ExpressionNT>();
+    fr->start = parse<ExpressionNT>();
     expectPunct(COMMA);
-    fr2->end = parse<ExpressionNT>();
-    return fr2;
+    fr->end = parse<ExpressionNT>();
+    return fr;
   }
 
   //New For syntax (3 variations):
@@ -945,7 +955,11 @@ namespace Parser
       p->type = parse<TypeNT>();
     }
     //optional parameter name
-    p->name = ((Ident*) accept(IDENTIFIER))->name;
+    Ident* paramName = (Ident*) accept(IDENTIFIER);
+    if(paramName)
+    {
+      p->name = paramName->name;
+    }
     return p;
   }
   
@@ -1767,6 +1781,12 @@ ostream& operator<<(ostream& os, const Parser::Member& mem)
       os << '.';
     }
   }
+  return os;
+}
+
+ostream& operator<<(ostream& os, const Parser::ParseNode& pn)
+{
+  os << pn.line << ":" << pn.col;
   return os;
 }
 

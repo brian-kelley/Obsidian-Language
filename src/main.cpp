@@ -4,7 +4,7 @@
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
-//#include "ParseTreeOutput.hpp"
+#include "ParseTreeOutput.hpp"
 #include "MiddleEnd.hpp"
 //#include "MiddleEndDebug.hpp"
 
