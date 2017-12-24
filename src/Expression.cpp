@@ -5,9 +5,14 @@
 
 using namespace TypeSystem;
 
+bool Expression::pureWithin(Scope* s)
+{
+  return pure && withinScope(s);
+}
+
 bool Expression::withinScope(Scope* s)
 {
-  for(auto dep : dependencies)
+  for(auto dep : deps)
   {
     //from var's scope, walk up, looking for s
     //if global is reached first, return false
@@ -596,6 +601,8 @@ UnaryArith::UnaryArith(int o, Expression* e)
 {
   this->op = o;
   this->expr = e;
+  deps = e->deps;
+  pure = e->pure;
 }
 
 /***************
@@ -695,6 +702,9 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
     }
     default: INTERNAL_ERROR;
   }
+  deps.insert(l->deps.begin(), l->deps.end());
+  deps.insert(r->deps.begin(), r->deps.end());
+  pure = l->pure && r->pure;
 }
 
 /**********************
@@ -797,6 +807,11 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   {
     type = getTupleType(memberTypes);
   }
+  for(auto mem : members)
+  {
+    deps.insert(mem->deps.begin(), mem->deps.end());
+    pure = pure && mem->pure;
+  }
 }
 
 /***********
@@ -854,6 +869,9 @@ Indexed::Indexed(Expression* grp, Expression* ind)
   {
     ERR_MSG("expression can't be subscripted (is not an array, tuple or map)");
   }
+  deps.insert(grp->deps.begin(), grp->deps.end());
+  deps.insert(ind->deps.begin(), ind->deps.end());
+  pure = grp->pure && ind->pure;
 }
 
 /************
@@ -864,13 +882,22 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 {
   //callable expressions should only be produced from Expr12, so c actually
   //being a Callable must already have been checked
-  if(!dynamic_cast<CallableType*>(c->type))
+  auto ct = dynamic_cast<CallableType*>(c->type);
+  if(!ct)
   {
     ERR_MSG("expression is not callable");
   }
   callable = c;
   args = a;
-  checkArgs((CallableType*) callable->type, args);
+  checkArgs(ct, args);
+  deps.insert(c->deps.begin(), c->deps.end());
+  pure = pure && c->pure;
+  for(auto arg : args)
+  {
+    deps.insert(arg->deps.begin(), arg->deps.end());
+    pure = pure && arg->pure;
+  }
+  pure = pure && ct->pure;
 }
 
 void checkArgs(CallableType* callable, vector<Expression*>& args)
@@ -914,11 +941,13 @@ VarExpr::VarExpr(Scope* s, Parser::Member* ast)
   var = (Variable*) n.item;
   //type of variable must be known
   this->type = var->type;
+  deps.insert(var);
 }
 
-VarExpr::VarExpr(Variable* v)
+VarExpr::VarExpr(Variable* v) : var(v)
 {
-  this->type = v->type;
+  this->type = var->type;
+  deps.insert(var);
 }
 
 /******************
@@ -937,6 +966,8 @@ SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
   thisObject = root;
   this->subr = s;
   type = s->type;
+  deps.insert(root->deps.begin(), root->deps.end());
+  pure = root->pure;
 }
 
 /******************
@@ -948,6 +979,8 @@ TraitSubroutineExpr::TraitSubroutineExpr(Expression* b, string n, CallableType* 
   base = b;
   name = n;
   type = t;
+  deps.insert(b->deps.begin(), b->deps.end());
+  pure = b->pure;
 }
 
 /*************
@@ -959,6 +992,8 @@ StructMem::StructMem(Expression* b, Variable* v)
   base = b;
   member = v;
   type = v->type;
+  deps.insert(b->deps.begin(), b->deps.end());
+  pure = b->pure;
 }
 
 /************
@@ -991,6 +1026,7 @@ ArrayLength::ArrayLength(Expression* arr)
 {
   array = arr;
   this->type = primitives[Parser::TypeNT::UINT];
+  deps.insert(arr->deps.begin(), arr->deps.end());
 }
 
 /*********

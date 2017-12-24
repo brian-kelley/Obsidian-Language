@@ -7,13 +7,19 @@
 
 struct Expression
 {
+  Expression() : type(nullptr), pure(true) {}
   TypeSystem::Type* type;
   //list of all variables used to compute this
-  set<Variable*> dependencies;
-  //whether this expression is "pure" within given scope (uses dependencies)
-  bool withinScope(Scope* s);
-  //whether this is an lvalue
+  set<Variable*> deps;
+  //whether this works as an lvalue
   virtual bool assignable() = 0;
+  //whether this expression is "pure" within given scope (uses dependencies)
+  bool pureWithin(Scope* s);
+  private:
+  //are all variable dependencies enclosed in s?
+  bool withinScope(Scope* s);
+  //whether this expression relies on any procedure calls
+  bool pure;
 };
 
 //Subclasses of Expression

@@ -13,6 +13,9 @@
 
 struct Statement
 {
+  //Check that the statement doesn't violate the purity
+  //requirement of functions (s should be innermost fn scope)
+  virtual void checkPurity(Scope* s) {}
   virtual ~Statement() {}
 };
 
@@ -61,12 +64,16 @@ struct Block : public Statement
   BlockScope* scope;
   //subroutine whose body contains this block (passed down to child blocks that aren't 
   Subroutine* subr;
+  //scope of innermost function enclosing this (passed down to child blocks)
+  Scope* funcScope;
   //innermost "breakable" (loop/switch) containing this block (or NULL if none)
   //  (all break statements correspond to this)
   Breakable breakable;
   //innermost loop whose body contains this block (or NULL if none)
   //  (all continue statements correspond to this)
   Loop loop;
+  void check();
+  void checkPurity(Scope* s);
 };
 
 //Create any kind of Statement - adds to block
@@ -79,11 +86,12 @@ Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, 
 
 struct Assign : public Statement
 {
-  Assign(Parser::VarAssign* va, Block* b);
+  Assign(Parser::VarAssign* va, Scope* s);
   Assign(Variable* target, Expression* e, Block* b);
-  Assign(Indexed* target, Expression* e, Block* b);
+  Assign(Indexed* target, Expression* e);
   Expression* lvalue;
   Expression* rvalue;
+  void checkPurity(Scope* s);
 };
 
 struct CallStmt : public Statement
@@ -92,6 +100,7 @@ struct CallStmt : public Statement
   CallStmt(Parser::Expr12* call, BlockScope* s);
   //code generator just needs to "evaluate" this expression and discard the result
   CallExpr* eval;
+  void checkPurity(Scope* s);
 };
 
 struct For : public Statement
@@ -102,6 +111,7 @@ struct For : public Statement
   Statement* init;
   Expression* condition;  //check this before each entry to loop body
   Statement* increment;
+  void checkPurity(Scope* s);
   private: For() {} //only used inside the real ctor in the for over array case
 };
 
@@ -110,6 +120,7 @@ struct While : public Statement
   While(Parser::While* w, Block* b);
   Block* loopBlock;
   Expression* condition;
+  void checkPurity(Scope* s);
 };
 
 struct If : public Statement
@@ -117,6 +128,7 @@ struct If : public Statement
   If(Parser::If* i, Block* b);
   Expression* condition;
   Statement* body;
+  void checkPurity(Scope* s);
 };
 
 struct IfElse : public Statement
@@ -125,6 +137,7 @@ struct IfElse : public Statement
   Expression* condition;
   Statement* trueBody;
   Statement* falseBody;
+  void checkPurity(Scope* s);
 };
 
 struct Match : public Statement
@@ -133,6 +146,7 @@ struct Match : public Statement
   Expression* matched;  //the given expression (must be of union type)
   vector<Block*> cases; //correspond 1-1 with matched->type->options
   vector<Variable*> caseVars; //correspond 1-1 with cases
+  void checkPurity(Scope* s);
 };
 
 struct Switch : public Statement
@@ -144,6 +158,7 @@ struct Switch : public Statement
   int defaultPosition;
   //the block that holds all the statements but can't hold any scoped decls
   Block* block;
+  void checkPurity(Scope* s);
 };
 
 struct Return : public Statement
@@ -151,6 +166,7 @@ struct Return : public Statement
   Return(Parser::Return* r, Block* s);
   Expression* value; //can be null (void return)
   Subroutine* from;
+  void checkPurity(Scope* s);
 };
 
 struct Break : public Statement

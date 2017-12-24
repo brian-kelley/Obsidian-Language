@@ -42,6 +42,8 @@ namespace MiddleEnd
     for(auto s : subrsToProcess)
     {
       s.first->addStatements(s.second);
+      //then check purity of all statements in the body
+      s->body->check();
     }
   }
 

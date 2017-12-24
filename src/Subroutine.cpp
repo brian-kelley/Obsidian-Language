@@ -9,15 +9,28 @@ extern map<Parser::Block*, BlockScope*> blockScopes;
 Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
 {
   this->subr = sub;
+  //to get func, walk up scope tree from s
+  //until a SubroutineScope for a function is reached
+  this->funcScope = nullptr;
+  for(Scope* iter = s; iter; iter = iter->parent)
+  {
+    SubroutineScope* ss = dynamic_cast<SubroutineScope*>(iter);
+    if(ss && ss->subr->type->pure)
+    {
+      this->funcScope = ss;
+      break;
+    }
+  }
   this->loop = None();
   this->breakable = None();
-  //don't add statements in 2nd phase of middle end
+  //don't add statements until 2nd phase of middle end
 }
 
 //Block which is used as a regular statement in another block
 Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
+  this->funcScope = parent->funcScope;
   this->loop = parent->loop;
   this->breakable = parent->breakable;
   addStatements(b);
@@ -26,6 +39,7 @@ Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
 Block::Block(BlockScope* s, Block* parent)
 {
   this->subr = parent->subr;
+  this->funcScope = parent->funcScope;
   this->loop = parent->loop;
   this->breakable = parent->breakable;
   //don't add any statements yet
@@ -35,14 +49,17 @@ Block::Block(BlockScope* s, Block* parent)
 Block::Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
+  this->funcScope = parent->funcScope;
   this->loop = f;
   this->breakable = f;
   addStatements(forAST->body);
 }
+
 //Block which is a while loop body
 Block::Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
+  this->funcScope = parent->funcScope;
   this->loop = w;
   this->breakable = w;
   addStatements(whileAST->body);
@@ -60,6 +77,22 @@ void Block::addStatements(Parser::Block* ast)
   }
 }
 
+void Block::check()
+{
+  if(funcScope)
+  {
+    checkPurity(funcScope);
+  }
+}
+
+void Block::checkPurity(Scope* s)
+{
+  for(auto stmt : stmts)
+  {
+    stmt->checkPurity(s);
+  }
+}
+
 Statement* createStatement(Block* b, Parser::StatementNT* stmt)
 {
   auto scope = b->scope;
@@ -74,7 +107,7 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::VarAssign*>())
   {
-    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope);
+    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope, b);
   }
   else if(stmt->s.is<Parser::PrintNT*>())
   {
@@ -162,7 +195,7 @@ Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
   return nullptr;
 }
 
-Assign::Assign(Parser::VarAssign* va, Block* b)
+Assign::Assign(Parser::VarAssign* va, Scope* s)
 {
   auto s = b->scope;
   lvalue = getExpression(s, va->target);
@@ -194,9 +227,39 @@ Assign::Assign(Variable* target, Expression* e)
   rvalue = e;
 }
 
+Assign::Assign(Indexed* target, Expression* e)
+{
+  lvalue = target;
+  rvalue = e;
+  if(!lvalue->type->canConvert(e))
+  {
+    ERR_MSG("incompatible types for assignment");
+  }
+}
+
+void Assign::checkPurity(Scope* s)
+{
+  if(!lvalue->pureWithin(s))
+  {
+    ERR_MSG("in function, assignment lvalue lives outside fn scope");
+  }
+  if(!rvalue->pureWithin(s))
+  {
+    ERR_MSG("in function, assigned value isn't pure");
+  }
+}
+
 CallStmt::CallStmt(Parser::Expr12* call, BlockScope* s)
 {
   eval = (CallExpr*) getExpression(s, call);
+}
+
+void CallStmt::checkPurity(Scope* s)
+{
+  if(!eval->pureWithin(s))
+  {
+    ERR_MSG("call isn't allowed in function");
+  }
 }
 
 For::For(Parser::For* f, Block* b)
@@ -323,6 +386,17 @@ For::For(Parser::For* f, Block* b)
   }
 }
 
+void For::checkPurity(Scope* s)
+{
+  init->checkPurity(s);
+  if(!condition->pureWithin(s))
+  {
+    ERR_MSG("for loop in function has non-pure condition");
+  }
+  increment->checkPurity(s);
+  loopBlock->checkPurity(s);
+}
+
 While::While(Parser::While* w, Block* b)
 {
   auto enclosing = b->scope;
@@ -334,14 +408,31 @@ While::While(Parser::While* w, Block* b)
   loopBlock = new Block(w, this, blockScopes[w->body], b);
 }
 
+void While::checkPurity(Scope* s)
+{
+  if(!condition->pureWithin(s))
+  {
+    ERR_MSG("while loop in function has non-pure condition");
+  }
+  loopBlock->checkPurity(s);
+}
+
 If::If(Parser::If* i, Block* b)
 {
   condition = getExpression(b->scope, i->cond);
   if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
-    ERR_MSG("while loop condition must be a bool");
+    ERR_MSG("if statement condition must be a bool");
   }
   body = createStatement(b, i->ifBody);
+}
+
+void If::checkPurity(Scope* s)
+{
+  if(!condition->pureWithin(s))
+  {
+    ERR_MSG("if statement in function has non-pure condition");
+  }
 }
 
 IfElse::IfElse(Parser::If* i, Block* b)
@@ -349,10 +440,18 @@ IfElse::IfElse(Parser::If* i, Block* b)
   condition = getExpression(b->scope, i->cond);
   if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
   {
-    ERR_MSG("while loop condition must be a bool");
+    ERR_MSG("if/else condition must be a bool");
   }
   trueBody = createStatement(b, i->ifBody);
   falseBody = createStatement(b, i->elseBody);
+}
+
+void IfElse::checkPurity(Scope* s)
+{
+  if(!condition->pureWithin(s))
+  {
+    ERR_MSG("if/else in function has non-pure condition");
+  }
 }
 
 Match::Match(Parser::Match* m, Block* b)
@@ -405,6 +504,18 @@ Match::Match(Parser::Match* m, Block* b)
   }
 }
 
+void Match::checkPurity(Scope* s)
+{
+  if(!matched->pureWithin(s))
+  {
+    ERR_MSG("type-matched expression in match statement violates purity");
+  }
+  for(auto c : cases)
+  {
+    c->checkPurity(s);
+  }
+}
+
 Switch::Switch(Parser::Switch* s, Block* b)
 {
   switched = getExpression(b->scope, s->value);
@@ -424,6 +535,22 @@ Switch::Switch(Parser::Switch* s, Block* b)
   block->breakable = this;
   //add all the statements right away
   block->addStatements(s->block);
+}
+
+void Switch::checkPurity(Scope* s)
+{
+  if(!switched->pureWithin(s))
+  {
+    ERR_MSG("switched value in switch statement violates purity");
+  }
+  for(auto cval : caseValues)
+  {
+    if(!cval->pureWithin(s))
+    {
+      ERR_MSG("switch statement case value violates purity");
+    }
+  }
+  block->checkPurity(s);
 }
 
 Return::Return(Parser::Return* r, Block* b)
@@ -448,6 +575,10 @@ Return::Return(Parser::Return* r, Block* b)
   {
     ERR_MSG("returned expression can't be converted to the function/procedure return type");
   }
+}
+
+void Return::checkPurity(Scope* s)
+{
 }
 
 Break::Break(Block* b)
