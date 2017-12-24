@@ -20,7 +20,5 @@ add_executable (onyx
   src/Parser.cpp
   src/Subroutine.cpp
   src/C_Backend.cpp
-  src/MiddleEndDebug.cpp
-  src/ParseTreeOutput.cpp
 )
 

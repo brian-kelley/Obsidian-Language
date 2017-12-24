@@ -87,7 +87,7 @@ Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, 
 struct Assign : public Statement
 {
   Assign(Parser::VarAssign* va, Scope* s);
-  Assign(Variable* target, Expression* e, Block* b);
+  Assign(Variable* target, Expression* e);
   Assign(Indexed* target, Expression* e);
   Expression* lvalue;
   Expression* rvalue;
@@ -187,12 +187,14 @@ struct Print : public Statement
 {
   Print(Parser::PrintNT* p, BlockScope* s);
   vector<Expression*> exprs;
+  void checkPurity(Scope* s);
 };
 
 struct Assertion : public Statement
 {
   Assertion(Parser::Assertion* as, BlockScope* s);
   Expression* asserted;
+  void checkPurity(Scope* s);
 };
 
 struct Subroutine

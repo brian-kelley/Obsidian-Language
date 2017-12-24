@@ -15,7 +15,6 @@ struct Expression
   virtual bool assignable() = 0;
   //whether this expression is "pure" within given scope (uses dependencies)
   bool pureWithin(Scope* s);
-  private:
   //are all variable dependencies enclosed in s?
   bool withinScope(Scope* s);
   //whether this expression relies on any procedure calls

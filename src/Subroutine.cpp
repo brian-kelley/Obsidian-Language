@@ -107,7 +107,7 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   }
   else if(stmt->s.is<Parser::VarAssign*>())
   {
-    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope, b);
+    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope);
   }
   else if(stmt->s.is<Parser::PrintNT*>())
   {
@@ -197,7 +197,6 @@ Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
 
 Assign::Assign(Parser::VarAssign* va, Scope* s)
 {
-  auto s = b->scope;
   lvalue = getExpression(s, va->target);
   rvalue = getExpression(s, va->rhs);
   //make sure that lvalue is in fact an lvalue, and that
@@ -579,6 +578,10 @@ Return::Return(Parser::Return* r, Block* b)
 
 void Return::checkPurity(Scope* s)
 {
+  if(value && !value->pureWithin(s))
+  {
+    ERR_MSG("return value violates purity");
+  }
 }
 
 Break::Break(Block* b)
@@ -609,9 +612,28 @@ Print::Print(Parser::PrintNT* p, BlockScope* s)
   }
 }
 
+void Print::checkPurity(Scope* s)
+{
+  for(auto e : exprs)
+  {
+    if(!e->pureWithin(s))
+    {
+      ERR_MSG("printed value violates purity");
+    }
+  }
+}
+
 Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
 {
   asserted = getExpression(s, as->expr);
+}
+
+void Assertion::checkPurity(Scope* s)
+{
+  if(!asserted->pureWithin(s))
+  {
+    ERR_MSG("asserted value violates purity");
+  }
 }
 
 Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)

@@ -43,7 +43,7 @@ namespace MiddleEnd
     {
       s.first->addStatements(s.second);
       //then check purity of all statements in the body
-      s->body->check();
+      s.first->body->check();
     }
   }
 
