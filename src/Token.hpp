@@ -2,7 +2,6 @@
 #define TOKEN_H
 
 #include "Common.hpp"
-#include "PoolAlloc.hpp"
 
 extern vector<string> keywordTable;
 extern map<string, int> keywordMap;
@@ -136,7 +135,7 @@ enum
   NUM_TOKEN_TYPES
 };
 
-struct Token : public PoolAllocated
+struct Token
 {
   Token();
   virtual bool compareTo(Token* rhs) = 0;

@@ -863,7 +863,8 @@ Indexed::Indexed(Expression* grp, Expression* ind)
     {
       ERR_MSG("used incorrect type to index map");
     }
-    type = mt->value;
+    //map lookup can fail, so return a "maybe" of value
+    type = maybe(mt->value);
   }
   else
   {

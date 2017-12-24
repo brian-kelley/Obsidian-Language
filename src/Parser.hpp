@@ -2,7 +2,6 @@
 #define PARSER_H
 
 #include "Common.hpp"
-#include "PoolAlloc.hpp"
 #include "Token.hpp"
 
 #include "variadic-variant/variant.h"

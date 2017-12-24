@@ -112,6 +112,9 @@ Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* return
 //If either is not a number, NULL
 Type* promote(Type* lhs, Type* rhs);
 
+//get (t | Error)
+Type* maybe(Type* t);
+
 void createBuiltinTypes();
 
 extern vector<Type*> primitives;
@@ -134,7 +137,6 @@ extern DeferredTraitLookup* traitLookup;
 
 struct Type
 {
-  Type();
   virtual ~Type() {}
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
@@ -406,7 +408,6 @@ struct CharType : public Type
 
 struct BoolType : public Type
 {
-  BoolType();
   bool canConvert(Type* other);
   bool isBool() {return true;}
   bool isPrimitive() {return true;}
@@ -418,7 +419,6 @@ struct BoolType : public Type
 
 struct VoidType : public Type
 {
-  VoidType();
   bool canConvert(Type* other);
   bool isVoid() {return true;}
   bool isPrimitive() {return true;}

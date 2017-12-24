@@ -18,6 +18,7 @@ namespace TypeSystem
 vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<StructType*> structs;
+vector<BoundedType*> boundedTypes;
 set<ArrayType*, ArrayCompare> arrays;
 set<TupleType*, TupleCompare> tuples;
 set<UnionType*, UnionCompare> unions;
@@ -376,6 +377,14 @@ Type* promote(Type* lhs, Type* rhs)
   }
   //unreachable
   return nullptr;
+}
+
+Type* maybe(Type* t)
+{
+  vector<Type*> options;
+  options.push_back(t);
+  options.push_back(primitives[TypeNT::ERROR]);
+  return getUnionType(options);
 }
 
 Type* lookupTypeDeferred(TypeLookup& args)

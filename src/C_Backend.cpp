@@ -136,7 +136,8 @@ namespace C
         {
           switch(t.second.kind)
           {
-            //don't process TYPEDEF here because alias is never used directly in the IR
+            //don't process TYPEDEF here because aliases
+            //are never used directly in the IR
             case Name::STRUCT:
             case Name::BOUNDED_TYPE:
             case Name::ENUM:
@@ -162,6 +163,12 @@ namespace C
     for(auto at : TypeSystem::arrays)
     {
       allTypes.push_back(at);
+    }
+    for(auto bt : TypeSystem::boundedTypes)
+    {
+      //bounded types are implemented as void*
+      typesImplemented[bt] = true;
+      types[bt] = "void*";
     }
     //primitives (string is a struct, all others are C primitives)
     types[TypeSystem::primNames["void"]] = "void";
@@ -254,13 +261,15 @@ namespace C
           else
             ident = getIdentifier();
           subrs[sub] = ident;
-          //all C functions except main are static to save some time when linking
+          //all C functions except main are static
+          //(private symbols, might save some time when linking)
           if(ident != "main")
             funcDecls << "static ";
-          funcDecls << types[sub->retType] << ' ' << ident << '(';
-          for(auto arg : sub->argVars)
+          funcDecls << types[sub->type->returnType] << ' ' << ident << '(';
+          for(size_t i = 0; i < sub->args.size(); i++)
           {
-            if(arg != sub->argVars.front())
+            Variable* arg = sub->args[i];
+            if(i != 0)
             {
               funcDecls << ", ";
             }
@@ -274,12 +283,18 @@ namespace C
     //implement all subroutines
     walkScopeTree([&] (Scope* s) -> void
       {
-        for(auto sub : s->subr)
+        for(auto& n : s->names)
         {
-          funcDefs << types[sub->retType] << ' ' << subrs[sub] << '(';
-          for(auto arg : sub->argVars)
+          if(n.second.kind != Name::SUBROUTINE)
           {
-            if(arg != sub->argVars.front())
+            continue;
+          }
+          auto sub = (Subroutine*) n.second.item;
+          funcDefs << types[sub->type->returnType] << ' ' << subrs[sub] << '(';
+          for(size_t i = 0; i < sub->args.size(); i++)
+          {
+            auto arg = sub->args[i];
+            if(i != 0)
             {
               funcDefs << ", ";
             }
@@ -334,7 +349,7 @@ namespace C
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //generate a char[] struct using C struct literal
-      c << "((" << types[TypeSystem::primNames["char"]->getArrayType(1)] << ") {" << stringLit->value.length() << ", strdup_(\"";
+      c << "((" << types[TypeSystem::getArrayType(primNames["char"], 1)] << ") {" << stringLit->value.length() << ", strdup_(\"";
       //generate the characters of the string literal one at a time, using escapes as needed
       for(char ch : stringLit->value)
       {
@@ -405,7 +420,9 @@ namespace C
     }
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
-      c << call->subr << '(';
+      c << "(";
+      generateExpression(c, call->callable);
+      c << ")(";
       for(auto arg : call->args)
       {
         generateExpression(c, arg);
@@ -444,8 +461,13 @@ namespace C
   {
     c << "{\n";
     //introduce local variables
-    for(auto local : b->scope->vars)
+    for(auto& n : b->scope->names)
     {
+      if(n.second.kind != Name::VARIABLE)
+      {
+        continue;
+      }
+      Variable* local = (Variable*) n.second.item;
       string localIdent = getIdentifier();
       vars[local] = localIdent;
       c << types[local->type] << ' ' << localIdent << ";\n";
@@ -470,16 +492,9 @@ namespace C
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(stmt))
     {
-      c << subrs[cs->called] << '(';
-      for(size_t i = 0; i < cs->args.size(); i++)
-      {
-        if(i > 0)
-        {
-          c << ", ";
-        }
-        generateExpression(c, cs->args[i]);
-      }
-      c << ");\n";
+      //simply generate the expression and put a semicolon after it
+      generateExpression(c, cs->eval);
+      c << ";\n";
     }
     else if(For* f = dynamic_cast<For*>(stmt))
     {
@@ -567,7 +582,7 @@ namespace C
     //  -RHS can be another compound lit, or anything else is tuple, struct
     //LHS is variable or indexed:
     //  -RHS can be anything that matches type
-    if(dynamic_cast<CallExpr*>(clRHS))
+    if(dynamic_cast<CallExpr*>(rhs))
     {
       //regardless of the types of lhs and rhs,
       //make sure subroutine only gets called once by saving return value
@@ -589,30 +604,72 @@ namespace C
           generateAssignment(c, b, clLHS->members[i], clRHS->members[i]);
         }
       }
-      else if(clRHS->type->isTuple())
+      else if(rhs->type->isTuple())
       {
-        auto tt = dynamic_cast<TupleType*>(clRHS->type);
         for(size_t i = 0; i < clLHS->members.size(); i++)
         {
           //create tuple index
           IntLiteral index(i);
-          Indexed rhsMember(b->scope, rhs, &index);
-          generateAssignment(c, b, clLHS->members[i], rhsMember);
+          Indexed rhsMember(rhs, &index);
+          generateAssignment(c, b, clLHS->members[i], &rhsMember);
         }
       }
-      else if(clRHS->type->isStruct())
+      else if(rhs->type->isStruct())
       {
         //generate assignment for each member
-        auto st = dynamic_cast<StructType*>(clRHS->type);
         for(size_t i = 0; i < clLHS->members.size(); i++)
         {
-          Indexed rhsMember(b->scope, rhs, &index);
-          generateAssignment(c, b, clLHS->members[i], rhsMember);
+          IntLiteral index(i);
+          Indexed rhsMember(rhs, &index);
+          generateAssignment(c, b, clLHS->members[i], &rhsMember);
         }
       }
     }
     else if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
     {
+      //lhs may be a tuple, struct or array
+      //know that lhs is not also a compound literal,
+      //because that case is handled above
+      if(lhs->type->isStruct())
+      {
+        //generate a StructMem expr for each member,
+        //then generate the assignment to that
+        //
+        //semantic checking has already made sure that
+        //compound lit members match 1-1 with struct members
+        for(size_t i = 0; i < clRHS->members.size(); i++)
+        {
+          auto st = dynamic_cast<StructType*>(lhs->type);
+          StructMem lhsMem(lhs, st->members[i]);
+          generateAssignment(c, b, &lhsMem, clRHS->members[i]);
+        }
+      }
+      else if(lhs->type->isTuple())
+      {
+        for(size_t i = 0; i < clRHS->members.size(); i++)
+        {
+          IntLiteral index(i);
+          Indexed lhsMember(lhs, &index);
+          generateAssignment(c, b, &index, clRHS->members[i]);
+        }
+      }
+      else if(lhs->type->isArray())
+      {
+        //since an array is an lvalue, it
+        //must already be allocated
+        c << getDeallocFunc(lhs->type) << "(";
+        generateExpression(c, lhs);
+        c << ");\n";
+        //create the array with proper size,
+        //then assign each element individually
+        c << getAllocFunc(lhs->type) << "(" << clRHS->members.size() << ");\n";
+        for(size_t i = 0; i < clRHS->members.size(); i++)
+        {
+          IntLiteral index(i);
+          Indexed lhsMember(lhs, &index);
+          generateAssignment(c, b, &index, clRHS->members[i]);
+        }
+      }
     }
     else
     {
@@ -621,7 +678,7 @@ namespace C
       //  -call free on lhs before assignment (if necessary for its type)
       //  -if rhs is assignable, it is persistent, so need to deep copy
       //  -if rhs is not persistent, can shallow copy it
-      if(lhs->assignable() && needsDealloc(lhs->type))
+      if(lhs->assignable() && needsDealloc[lhs->type])
       {
         c << getDeallocFunc(lhs->type) << "(";
         generateExpression(c, lhs);
@@ -670,7 +727,7 @@ namespace C
         {
           for(size_t i = 0; i < st->members.size(); i++)
           {
-            utilFuncDefs << "temp_." << st->memberNames[i] << " = " << getInitFunc(st->members[i]) << "();\n";
+            utilFuncDefs << "temp_.mem" << i << " = " << getInitFunc(st->members[i]->type) << "();\n";
           }
         }
         else
@@ -732,7 +789,7 @@ namespace C
         utilFuncDefs << typeName << " temp_;\n";
         for(size_t i = 0; i < st->members.size(); i++)
         {
-          utilFuncDefs << "temp_." << st->memberNames[i] << " = " << getCopyFunc(st->members[i]) << "(data_." << st->memberNames[i] << ");\n";
+          utilFuncDefs << "temp_.mem" << i << " = " << getCopyFunc(st->members[i]->type) << "(data_." << st->members[i]->name << ");\n";
         }
         utilFuncDefs << "return temp_;\n";
       }
@@ -843,7 +900,7 @@ namespace C
       {
         for(auto mem : st->members)
         {
-          if(typeNeedsDealloc(mem))
+          if(typeNeedsDealloc(mem->type))
           {
             value = true;
             break;
@@ -861,11 +918,11 @@ namespace C
           }
         }
       }
-      else if(auto ut = dynamic_cast<UnionType*>(t))
+      else if(dynamic_cast<UnionType*>(t))
       {
         value = true;
       }
-      else if(auto at = dynamic_cast<ArrayType*>(t))
+      else if(dynamic_cast<ArrayType*>(t))
       {
         value = true;
       }
@@ -891,9 +948,9 @@ namespace C
         {
           for(size_t i = 0; i < st->members.size(); i++)
           {
-            if(typeNeedsDealloc(st->members[i]))
+            if(typeNeedsDealloc(st->members[i]->type))
             {
-              utilFuncDefs << getDeallocFunc(st->members[i]) << "(data_." << st->memberNames[i] << ");\n";
+              utilFuncDefs << getDeallocFunc(st->members[i]->type) << "(data_." << st->members[i]->type << ");\n";
             }
           }
         }
@@ -1031,7 +1088,7 @@ namespace C
           //print each member, comma separated
           for(size_t i = 0; i < st->members.size(); i++)
           {
-            utilFuncDefs << getPrintFunc(st->members[i]) << "(data_." << st->memberNames[i] << ");\n";
+            utilFuncDefs << getPrintFunc(st->members[i]->type) << "(data_.mem" << i << ");\n";
             if(i != st->members.size() - 1)
             {
               utilFuncDefs << "printf(\", \");\n";
@@ -1109,6 +1166,8 @@ namespace C
     auto tt = dynamic_cast<TupleType*>(t);
     auto et = dynamic_cast<EnumType*>(t);
     //first, make sure all necessary types have already been defined
+    //this can't cause infinite recursion because semantic
+    //checker makes sure there is no circular members
     if(at)
     {
       if(!typesImplemented[at->elem])
@@ -1120,9 +1179,9 @@ namespace C
     {
       for(auto mem : st->members)
       {
-        if(!typesImplemented[mem])
+        if(!typesImplemented[mem->type])
         {
-          generateCompoundType(c, types[mem], mem);
+          generateCompoundType(c, types[mem->type], mem->type);
         }
       }
     }
@@ -1160,7 +1219,7 @@ namespace C
         //  need to replace them with mangled identifiers
         for(size_t i = 0; i < st->members.size(); i++)
         {
-          c << types[st->members[i]] << ' ' << st->memberNames[i] << ";\n";
+          c << types[st->members[i]->type] << " mem" << i << ";\n";
         }
       }
       else if(ut)
