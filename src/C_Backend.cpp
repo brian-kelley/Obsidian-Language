@@ -249,22 +249,16 @@ namespace C
       {
         for(auto& n : s->names)
         {
-          if(n.second.kind != Name::SUBROUTINE)
+          if(n.second.kind != Name::SUBROUTINE || n.first == "main")
           {
             continue;
           }
           Subroutine* sub = (Subroutine*) n.second.item;
           string ident;
-          //main() is the only subroutine with a special name
-          if(sub->name == "main")
-            ident = "main";
-          else
-            ident = getIdentifier();
           subrs[sub] = ident;
           //all C functions except main are static
           //(private symbols, might save some time when linking)
-          if(ident != "main")
-            funcDecls << "static ";
+          funcDecls << "static ";
           funcDecls << types[sub->type->returnType] << ' ' << ident << '(';
           for(size_t i = 0; i < sub->args.size(); i++)
           {
@@ -285,7 +279,7 @@ namespace C
       {
         for(auto& n : s->names)
         {
-          if(n.second.kind != Name::SUBROUTINE)
+          if(n.second.kind != Name::SUBROUTINE || n.first == "main")
           {
             continue;
           }
@@ -306,6 +300,36 @@ namespace C
           generateBlock(funcDefs, sub->body);
         }
       });
+    genMain((Subroutine*) global->names["main"].item);
+  }
+
+  void genMain(Subroutine* m)
+  {
+    funcDefs << "int main(";
+    if(m->args.size() == 1)
+    {
+      //one argument: array of strings
+      funcDefs << types[getArrayType(primitives[Parser::TypeNT::CHAR], 2)];
+      Variable* arg = m->args[0];
+      vars[arg] = getIdentifier();
+      funcDefs << ' ' << vars[arg] << ")\n{\n";
+    }
+    else
+    {
+      funcDefs << ")\n{\n";
+    }
+    //generate all statements like normal (one at a time)
+    for(auto stmt : m->body->stmts)
+    {
+      generateStatement(funcDefs, m->body, stmt);
+    }
+    //if main was declared void, add "return 0" to avoid warning
+    //(because C return type is always int)
+    if(m->type->returnType == primitives[Parser::TypeNT::VOID])
+    {
+      funcDefs << "return 0;\n";
+    }
+    funcDefs << "}\n";
   }
 
   void generateExpression(ostream& c, Expression* expr)
@@ -499,9 +523,16 @@ namespace C
     else if(For* f = dynamic_cast<For*>(stmt))
     {
       c << "for(";
-      generateStatement(c, b, f->init);
-      generateExpression(c, f->condition);
-      generateStatement(c, b, f->increment);
+      if(f->init)
+        generateStatement(c, b, f->init);
+      else
+        c << ";";
+      if(f->condition)
+        generateExpression(c, f->condition);
+      else
+        c << ";";
+      if(f->increment)
+        generateStatement(c, b, f->increment);
       c << ")\n";
       generateBlock(c, f->loopBlock);
     }
@@ -827,27 +858,13 @@ namespace C
   {
     for(auto type : types)
     {
-      ArrayType* at = dynamic_cast<ArrayType*>(type.first);
-      if(at)
+      if(ArrayType* at = dynamic_cast<ArrayType*>(type.first))
       {
-        int ndims = at->dims;
         string typeName = type.second;
         string func = getAllocFunc(at);
-        vector<string> dimArgs;
         {
           Oss prototype;
-          prototype << typeName << ' ' << func << '(';
-          //add a uniquely named size_type argument for each dimension
-          for(int i = 0; i < ndims; i++)
-          {
-            dimArgs.push_back(getIdentifier());
-            prototype << size_type << ' ' << dimArgs.back();
-            if(i != ndims - 1)
-            {
-              prototype << ", ";
-            }
-          }
-          prototype << ')';
+          prototype << typeName << ' ' << func << '(' << size_type << " len_)";
           utilFuncDecls << prototype.str();
           utilFuncDecls << ";\n";
           utilFuncDefs << prototype.str();
@@ -856,30 +873,10 @@ namespace C
         //add prototype to both util decls and defs
         //allocate an array of the subtype
         string& subtype = types[at->subtype];
-        utilFuncDefs << subtype << "* temp_ = malloc(sizeof(" << subtype << ") * " << dimArgs[0] << ");\n";
-        if(ndims > 1)
-        {
-          //if subtype is an array type, call the allocation function for it with all the dimensions except the first
-          utilFuncDefs << "for(" << size_type << " i_ = 0; i_ < " << dimArgs[0] << "; i_++)\n{\n";
-          utilFuncDefs << "temp_[i_] = " << getAllocFunc(at->subtype) << '(';
-          for(int i = 1; i < ndims; i++)
-          {
-            utilFuncDefs << dimArgs[i];
-            if(i != ndims - 1)
-            {
-              utilFuncDefs << ", ";
-            }
-          }
-          utilFuncDefs << ");\n";
-          utilFuncDefs << "}\n";
-        }
-        else
-        {
-          //if subtype is not an array, call the initialization function for it
-          utilFuncDefs << "for(" << size_type << " i_ = 0; i_ < " << dimArgs[0] << "; i_++)\n{\n";
-          utilFuncDefs << "temp_[i_] = " << getInitFunc(at->subtype) << "();\n";
-          utilFuncDefs << "}\n";
-        }
+        utilFuncDefs << subtype << "* temp_ = malloc(sizeof(" << subtype << ") * len_);\n";
+        utilFuncDefs << "for(size_t i_ = 0; i_ < len_; i_++)\n";
+        utilFuncDefs << "temp_[i_] = " << getInitFunc(at->subtype) << "();\n";
+        utilFuncDefs << "return ((" << typeName << ") {len_, temp_});\n";
         utilFuncDefs << "}\n";
       }
     }

@@ -17,6 +17,7 @@ namespace C
   void genGlobals();
   //forward-declare all subroutines, then actually provide impls
   void genSubroutines();
+  void genMain(Subroutine* m);
 
   //Generate a unique C identifier (also won't collide with any existing C name)
   string getIdentifier();

@@ -209,6 +209,8 @@ struct Subroutine
   Block* body;
   //the scope OF the subroutine, not the one containing it
   SubroutineScope* scope;
+  //check both prototype and body
+  void check();
 };
 
 #endif

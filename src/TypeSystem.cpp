@@ -127,7 +127,6 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   }
   else if(type->t.is<TypeNT::Prim>())
   {
-    cout << "Type lookup: primitive " << type->t.get<TypeNT::Prim>() << '\n';
     return primitives[(int) type->t.get<TypeNT::Prim>()];
   }
   else if(type->t.is<Member*>())
@@ -405,7 +404,6 @@ Type* lookupTypeDeferred(TypeLookup& args)
 {
   if(args.type.is<Parser::TypeNT*>())
   {
-    cout << "doing deferred lookup of type at " << *args.type.get<Parser::TypeNT*>() << '\n';
     return lookupType(args.type.get<Parser::TypeNT*>(), args.scope);
   }
   else

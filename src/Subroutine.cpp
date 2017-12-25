@@ -4,6 +4,8 @@
 using namespace TypeSystem;
 
 extern map<Parser::Block*, BlockScope*> blockScopes;
+extern bool programHasMain;
+extern ModuleScope* global;
 
 //Block which is body of subroutine
 Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
@@ -102,7 +104,6 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
     auto sd = stmt->s.get<Parser::ScopedDecl*>();
     if(sd->decl.is<Parser::VarDecl*>())
     {
-      cout << "Local var: block " << b << " has scope " << b->scope << '\n';
       return addLocalVariable(b->scope, sd->decl.get<Parser::VarDecl*>());
     }
   }
@@ -276,9 +277,22 @@ For::For(Parser::For* f, Block* b)
     //if there is an initializer statement, add it to the block as the first statement
     if(fc->decl)
     {
+      cout << "Processing for loop init statement\n";
       //if fc->decl is a ScopedDecl/VarDecl,
       //this will create the counter as local variable in loopScope
+      cout << "All block scope names before: ";
+      for(auto n : loopScope->names)
+      {
+        cout << n.first << ' ';
+      }
+      cout << '\n';
       init = createStatement(loopBlock, fc->decl);
+      cout << "All block scope names after: ";
+      for(auto n : loopScope->names)
+      {
+        cout << n.first << ' ';
+      }
+      cout << '\n';
     }
     if(fc->condition)
     {
@@ -659,5 +673,37 @@ Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
     body = new Block(snt->body, blockScopes[snt->body], this);
     //but don't add statements yet
   }
+}
+
+void Subroutine::check()
+{
+  //Need special checks for main
+  //ret type can be void or int
+  //args are either string[] or nothing
+  if(name == "main")
+  {
+    if(type->pure)
+    {
+      ERR_MSG("main() must be a procedure");
+    }
+    if(scope->parent != global)
+    {
+      ERR_MSG("main() is not in global scope");
+    }
+    programHasMain = true;
+    if(type->returnType != primitives[Parser::TypeNT::VOID] &&
+        type->returnType != primitives[Parser::TypeNT::INT])
+    {
+      ERR_MSG("proc main must return void or int");
+    }
+    bool noArgs = type->argTypes.size() == 0;
+    bool takesStringArray = type->argTypes.size() == 1 &&
+      type->argTypes[0] == getArrayType(primitives[Parser::TypeNT::CHAR], 2);
+    if(!noArgs && !takesStringArray)
+    {
+      ERR_MSG("proc main must take no arguments or only an array of strings");
+    }
+  }
+  body->check();
 }
 

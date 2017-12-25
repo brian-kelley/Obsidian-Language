@@ -6,6 +6,8 @@ ModuleScope* global = NULL;
 //subroutine phase much easier
 map<Parser::Block*, BlockScope*> blockScopes;
 
+bool programHasMain;
+
 namespace MiddleEnd
 {
   //all the subroutines with bodies that need to be processed in the 2nd pass
@@ -39,6 +41,7 @@ namespace MiddleEnd
       bt->check();
     //now that all type-related info is loaded to IR,
     //can actually load all subroutine implementations
+    programHasMain = false;
     for(auto s : subrsToProcess)
     {
       Subroutine* subr = s.first;
@@ -46,7 +49,11 @@ namespace MiddleEnd
       subr->body = new Block(body, blockScopes[body], subr);
       subr->body->addStatements(s.second);
       //then check purity of all statements in the body
-      subr->body->check();
+      subr->check();
+    }
+    if(!programHasMain)
+    {
+      ERR_MSG("program contains no main procedure");
     }
   }
 
