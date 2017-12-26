@@ -28,9 +28,10 @@ namespace C
   void generateBlock(ostream& c, Block* b);
   void generateExpression(ostream& c, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  //produce a char (escaped as needed) - doesn't add ''
-  void generateSectionHeader(ostream& c, string name);
+  void generateLocalVariables(ostream& c, BlockScope* b);
   //utility functions
+  //generate a nicely formatted "section" header in C comment
+  void generateSectionHeader(ostream& c, string name);
   void generateInitFuncs();
   void generateCopyFuncs();
   void generateAllocFuncs();

@@ -1,11 +1,11 @@
 cmake_minimum_required (VERSION 3.0)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.10)
 set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk)
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_CXX_COMPILER clang)
 project (Onyx-Lang)
 include_directories(src/variadic-variant)
-set(CMAKE_CXX_COMPILER g++)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -std=c++11 -Wall -Wshadow -ferror-limit=2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11 -Wall -Wshadow -ferror-limit=2")
 add_executable (onyx
   src/main.cpp
   src/Common.cpp

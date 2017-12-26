@@ -25,7 +25,7 @@ Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
   }
   this->loop = None();
   this->breakable = None();
-  //don't add statements until 2nd phase of middle end
+  //don't add statements until 2nd middle end pass
 }
 
 //Block which is used as a regular statement in another block
@@ -35,9 +35,9 @@ Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
   this->funcScope = parent->funcScope;
   this->loop = parent->loop;
   this->breakable = parent->breakable;
-  addStatements(b);
 }
 
+//Internal-use ctor: create a block without any corresponding parsed Block
 Block::Block(BlockScope* s, Block* parent) : scope(s)
 {
   this->subr = parent->subr;
@@ -54,7 +54,6 @@ Block::Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent) : scope(
   this->funcScope = parent->funcScope;
   this->loop = f;
   this->breakable = f;
-  addStatements(forAST->body);
 }
 
 //Block which is a while loop body
@@ -64,7 +63,6 @@ Block::Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent) : 
   this->funcScope = parent->funcScope;
   this->loop = w;
   this->breakable = w;
-  addStatements(whileAST->body);
 }
 
 void Block::addStatements(Parser::Block* ast)
@@ -122,7 +120,9 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   else if(stmt->s.is<Parser::Block*>())
   {
     auto block = stmt->s.get<Parser::Block*>();
-    return new Block(block, blockScopes[block], b);
+    Block* newBlock = new Block(block, blockScopes[block], b);
+    newBlock->addStatements(block);
+    return newBlock;
   }
   else if(stmt->s.is<Parser::Return*>())
   {
@@ -271,32 +271,20 @@ For::For(Parser::For* f, Block* b)
   //constants that are helpful for generating loops
   Expression* zero = new IntLiteral(0ULL);
   Expression* one = new IntLiteral(1ULL);
+  //cout << (f->f.is<Parser::ForC*>() ? "true\n" : "false\n");
   if(f->f.is<Parser::ForC*>())
   {
     auto fc = f->f.get<Parser::ForC*>();
     //if there is an initializer statement, add it to the block as the first statement
     if(fc->decl)
     {
-      cout << "Processing for loop init statement\n";
       //if fc->decl is a ScopedDecl/VarDecl,
       //this will create the counter as local variable in loopScope
-      cout << "All block scope names before: ";
-      for(auto n : loopScope->names)
-      {
-        cout << n.first << ' ';
-      }
-      cout << '\n';
       init = createStatement(loopBlock, fc->decl);
-      cout << "All block scope names after: ";
-      for(auto n : loopScope->names)
-      {
-        cout << n.first << ' ';
-      }
-      cout << '\n';
     }
     if(fc->condition)
     {
-      condition = getExpression(enclosing, fc->condition);
+      condition = getExpression(loopScope, fc->condition);
       if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
       {
         ERR_MSG("condition in C-style for loop must be a boolean expression");
@@ -420,6 +408,7 @@ While::While(Parser::While* w, Block* b)
     ERR_MSG("while loop condition must be a bool");
   }
   loopBlock = new Block(w, this, blockScopes[w->body], b);
+  loopBlock->addStatements(w->body);
 }
 
 void While::checkPurity(Scope* s)

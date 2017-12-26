@@ -672,7 +672,7 @@ namespace Parser
   {
     For* f = new For;
     expectKeyword(FOR);
-    auto t = lookAhead(0);
+    auto t = lookAhead();
     if(dynamic_cast<Ident*>(t))
     {
       f->f = parse<ForRange>();

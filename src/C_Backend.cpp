@@ -219,6 +219,11 @@ namespace C
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {
+        if(dynamic_cast<BlockScope*>(s))
+        {
+          //no local variables
+          return;
+        }
         for(auto n : s->names)
         {
           if(n.second.kind != Name::VARIABLE)
@@ -318,6 +323,8 @@ namespace C
     {
       funcDefs << ")\n{\n";
     }
+    //generate local variables
+    generateLocalVariables(funcDefs, m->body->scope);
     //generate all statements like normal (one at a time)
     for(auto stmt : m->body->stmts)
     {
@@ -485,17 +492,7 @@ namespace C
   {
     c << "{\n";
     //introduce local variables
-    for(auto& n : b->scope->names)
-    {
-      if(n.second.kind != Name::VARIABLE)
-      {
-        continue;
-      }
-      Variable* local = (Variable*) n.second.item;
-      string localIdent = getIdentifier();
-      vars[local] = localIdent;
-      c << types[local->type] << ' ' << localIdent << ";\n";
-    }
+    generateLocalVariables(c, b->scope);
     for(auto blockStmt : b->stmts)
     {
       generateStatement(c, b, blockStmt);
@@ -522,19 +519,36 @@ namespace C
     }
     else if(For* f = dynamic_cast<For*>(stmt))
     {
-      c << "for(";
+      //open a C block for loop scope's vars
+      c << "{\n";
+      generateLocalVariables(c, f->loopBlock->scope);
       if(f->init)
+      {
         generateStatement(c, b, f->init);
-      else
-        c << ";";
+      }
+      //generate a while loop
+      c << "while(";
       if(f->condition)
+      {
         generateExpression(c, f->condition);
+      }
       else
-        c << ";";
+      {
+        c << '1';
+      }
+      c << ")\n{\n";
+      //generate loop body statements
+      for(auto loopStmt : f->loopBlock->stmts)
+      {
+        generateStatement(c, b, loopStmt);
+      }
       if(f->increment)
+      {
+        //enclose increment statement in a block so that
+        //the automatic semicolon is OK
         generateStatement(c, b, f->increment);
-      c << ")\n";
-      generateBlock(c, f->loopBlock);
+      }
+      c << "}\n}\n";
     }
     else if(While* w = dynamic_cast<While*>(stmt))
     {
@@ -729,6 +743,21 @@ namespace C
         generateExpression(c, rhs);
         c << ";";
       }
+    }
+  }
+
+  void generateLocalVariables(ostream& c, BlockScope* bs)
+  {
+    for(auto& n : bs->names)
+    {
+      if(n.second.kind != Name::VARIABLE)
+      {
+        continue;
+      }
+      Variable* local = (Variable*) n.second.item;
+      string localIdent = getIdentifier();
+      vars[local] = localIdent;
+      c << types[local->type] << ' ' << localIdent << ";\n";
     }
   }
 
