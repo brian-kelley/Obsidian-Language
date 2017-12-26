@@ -254,12 +254,13 @@ namespace C
       {
         for(auto& n : s->names)
         {
+          //main() needs special handling so skip it here
           if(n.second.kind != Name::SUBROUTINE || n.first == "main")
           {
             continue;
           }
           Subroutine* sub = (Subroutine*) n.second.item;
-          string ident;
+          string ident = getIdentifier();
           subrs[sub] = ident;
           //all C functions except main are static
           //(private symbols, might save some time when linking)
@@ -303,6 +304,7 @@ namespace C
           }
           funcDefs << ")\n";
           generateBlock(funcDefs, sub->body);
+          funcDefs << '\n';
         }
       });
     genMain((Subroutine*) global->names["main"].item);
@@ -476,6 +478,27 @@ namespace C
       }
       c << ')';
     }
+    else if(auto se = dynamic_cast<SubroutineExpr*>(expr))
+    {
+      if(se->thisObject)
+      {
+        //TODO
+        /*
+        //method call: if this is an lvalue, take its address directly and call
+        //if this is not an lvalue, generate a temp copy of it so its address can be taken
+        //and use that to generate this ptr
+        string thisTemp = getIdentifier();
+        c << "{\n" << types[se->thisObject->type] << " temp_ = ";
+        generateExpression(c, se->thisObject);
+        c << ";\n";
+        */
+      }
+      else
+      {
+        //standalone call, just emit name of subroutine
+        c << subrs[se->subr];
+      }
+    }
     else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
     {
       //in C code, this is just the temporary variable's name
@@ -599,7 +622,6 @@ namespace C
     }
     else if(Print* p = dynamic_cast<Print*>(stmt))
     {
-      //call printf on the expression
       for(size_t i = 0; i < p->exprs.size(); i++)
       {
         c << getPrintFunc(p->exprs[i]->type) << '(';
@@ -741,7 +763,7 @@ namespace C
         generateExpression(c, lhs);
         c << " = ";
         generateExpression(c, rhs);
-        c << ";";
+        c << ";\n";
       }
     }
   }

@@ -899,6 +899,7 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
     pure = pure && arg->pure;
   }
   pure = pure && ct->pure;
+  type = ct->returnType;
 }
 
 void checkArgs(CallableType* callable, vector<Expression*>& args)
