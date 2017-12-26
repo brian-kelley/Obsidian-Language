@@ -1539,6 +1539,7 @@ namespace Parser
         Punct* punct = (Punct*) next;
         if(punct->val == LPAREN)
         {
+          accept();
           //expression in parentheses
           e12->e = parse<ExpressionNT>();
           expectPunct(RPAREN);
@@ -1562,6 +1563,8 @@ namespace Parser
           e12->e = new BoolLit(true);
         else if(kw->kw == FALSE)
           e12->e = new BoolLit(true);
+        else if(kw->kw == ERROR_VALUE)
+          e12->e = Expr12::Error();
         else
           err("invalid keyword in expression");
         break;
@@ -1580,9 +1583,6 @@ namespace Parser
         break;
       case IDENTIFIER:
         e12->e = parse<Member>();
-        break;
-      case ERROR_VALUE:
-        e12->e = Expr12::Error();
         break;
       default: err("unexpected token in expression");
     }
