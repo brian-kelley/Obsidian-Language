@@ -482,7 +482,7 @@ namespace C
     {
       if(se->thisObject)
       {
-        //TODO
+        INTERNAL_ERROR; //TODO
         /*
         //method call: if this is an lvalue, take its address directly and call
         //if this is not an lvalue, generate a temp copy of it so its address can be taken
@@ -499,6 +499,34 @@ namespace C
         c << subrs[se->subr];
       }
     }
+    else if(StructMem* sm = dynamic_cast<StructMem*>(expr))
+    {
+      c << '(';
+      generateExpression(c, sm->base);
+      c << ").mem";
+      //find index of sm->member
+      int memIndex = -1;
+      StructType* st = (StructType*) sm->base->type;
+      for(size_t i = 0; i < st->members.size(); i++)
+      {
+        if(sm->member == st->members[i])
+        {
+          memIndex = i;
+          break;
+        }
+      }
+      c << memIndex;
+    }
+    else if(dynamic_cast<ErrorVal*>(expr))
+    {
+      INTERNAL_ERROR;
+    }
+    else if(ArrayLength* al = dynamic_cast<ArrayLength*>(expr))
+    {
+      c << '(';
+      generateExpression(c, al->array);
+      c << ").dim";
+    }
     else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
     {
       //in C code, this is just the temporary variable's name
@@ -507,6 +535,7 @@ namespace C
     else
     {
       //compound literal, or anything else that hasn't been covered
+      cout << "*** ERROR: generateExpression not implemented for expr subclass : " << typeid(expr).name() << '\n';
       INTERNAL_ERROR;
     }
   }
@@ -724,17 +753,21 @@ namespace C
       {
         //since an array is an lvalue, it
         //must already be allocated
+        /*
         c << getDeallocFunc(lhs->type) << "(";
         generateExpression(c, lhs);
         c << ");\n";
+        */
         //create the array with proper size,
         //then assign each element individually
-        c << getAllocFunc(lhs->type) << "(" << clRHS->members.size() << ");\n";
+        generateExpression(c, lhs);
+        c << " = " << getAllocFunc(lhs->type) << "(";
+        c << clRHS->members.size() << ");\n";
         for(size_t i = 0; i < clRHS->members.size(); i++)
         {
           IntLiteral index(i);
           Indexed lhsMember(lhs, &index);
-          generateAssignment(c, b, &index, clRHS->members[i]);
+          generateAssignment(c, b, &lhsMember, clRHS->members[i]);
         }
       }
     }
@@ -1061,9 +1094,8 @@ namespace C
         //all primitives (except bool) can be printed as a printf call with a single %
         //so just determine the %format
         string fmt;
-        if(t->isInteger())
+        if(auto intType = dynamic_cast<IntegerType*>(t))
         {
-          auto intType = dynamic_cast<IntegerType*>(t);
           //printf format code
           switch(intType->size)
           {
@@ -1290,27 +1322,27 @@ namespace C
 
   string getPrintFunc(Type* t)
   {
-    return "print_" + types[t] + '_';
+    return "print_" + types[t] + "_";
   }
 
   string getInitFunc(Type* t)
   {
-    return "init_" + types[t] + '_';
+    return "init_" + types[t] + "_";
   }
 
   string getCopyFunc(Type* t)
   {
-    return "copy_" + types[t] + '_';
+    return "copy_" + types[t] + "_";
   }
 
   string getAllocFunc(Type* t)
   {
-    return "alloc_" + types[t] + '_';
+    return "alloc_" + types[t] + "_";
   }
 
   string getDeallocFunc(TypeSystem::Type* t)
   {
-    return "free_" + types[t] + '_';
+    return "free_" + types[t] + "_";
   }
 
   void generateSectionHeader(ostream& c, string name)

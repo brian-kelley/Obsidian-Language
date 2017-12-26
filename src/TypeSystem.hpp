@@ -316,7 +316,7 @@ struct MapType : public Type
 struct AliasType : public Type
 {
   AliasType(Parser::Typedef* td, Scope* enclosingScope);
-  AliasType(string alias, Type* underlying, Scope* currentScope);
+  AliasType(string alias, Type* underlying);
   string name;
   Type* actual;
   Parser::Typedef* decl;
@@ -399,6 +399,7 @@ struct CharType : public Type
 {
   bool canConvert(Type* other);
   bool isChar() {return true;}
+  bool isInteger() {return true;}
   bool isPrimitive() {return true;}
   string getName()
   {

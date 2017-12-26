@@ -213,19 +213,19 @@ Assign::Assign(Parser::VarAssign* va, Scope* s)
   }
   if(!lvalue->type->canConvert(rvalue))
   {
-    ERR_MSG("incompatible types for assignment");
+    ERR_MSG("cannot assign " << rvalue->type->getName() << " to " << lvalue->type->getName());
   }
 }
 
 Assign::Assign(Variable* target, Expression* e)
 {
   lvalue = new VarExpr(target);
+  rvalue = e;
   //vars are always lvalues, no need to check that
   if(!lvalue->type->canConvert(e))
   {
-    ERR_MSG("incompatible types for assignment");
+    ERR_MSG("cannot assign " << rvalue->type->getName() << " to " << lvalue->type->getName());
   }
-  rvalue = e;
 }
 
 Assign::Assign(Indexed* target, Expression* e)
@@ -350,6 +350,7 @@ For::For(Parser::For* f, Block* b)
       if(i == arrType->dims - 1)
       {
         Variable* iterValue = new Variable(dimBlock->scope, foa->tup.back(), arrType->elem);
+        dimBlock->scope->addName(iterValue);
         //create the assignment to iterValue as first statement in innermost loop
         dimBlock->stmts.push_back(new Assign(iterValue, new Indexed(subArr, counterExpr)));
         //Then add all the actual statements from the body of foa

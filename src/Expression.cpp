@@ -748,7 +748,7 @@ FloatLiteral::FloatLiteral(double val) : value(val)
 StringLiteral::StringLiteral(StrLit* a)
 {
   value = a->val;
-  type = TypeSystem::getArrayType(primitives[Parser::TypeNT::CHAR], 1);
+  type = getArrayType(primitives[Parser::TypeNT::CHAR], 1);
 }
 
 CharLiteral::CharLiteral(CharLit* a)
@@ -789,7 +789,7 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   {
     memberTypes.push_back(mem->type);
   }
-  //the type of all members, if they are the same
+  //the type of all members, or NULL if they are not all same
   Type* memberType = memberTypes[0];
   for(size_t i = 1; i < members.size(); i++)
   {
@@ -802,6 +802,22 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   if(memberType)
   {
     type = getArrayType(memberType, 1);
+    ArrayType* at = dynamic_cast<ArrayType*>(type);
+    if(!at)
+    {
+      cout << "compound lit isn't array\n";
+    }
+    else
+    {
+      if(at->elem == primitives[Parser::TypeNT::CHAR])
+      {
+        cout << "compound lit is array of char\n";
+      }
+      if(at->dims == 1)
+      {
+        cout << "compound lit is array with 1 dim\n";
+      }
+    }
   }
   else
   {

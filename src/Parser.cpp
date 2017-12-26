@@ -166,29 +166,6 @@ namespace Parser
     return parseScopedDeclGeneral(true);
   }
 
-  //Parse a ScopedDecl, given that it begins with a Member
-  //The only rule that works is VarDecl, where Member is the type
-  //This is called by parse<StatementNT>()
-  ScopedDecl* parseScopedDeclGivenMember(Member* mem)
-  {
-    ScopedDecl* sd = new ScopedDecl;
-    VarDecl* vd = new VarDecl;
-    TypeNT* type = new TypeNT;
-    type->t = mem;
-    vd->type = type;
-    if(acceptOper(ASSIGN))
-    {
-      //vd has an rhs expression
-      vd->val = parse<ExpressionNT>();
-    }
-    else
-    {
-      vd->val = nullptr;
-    }
-    sd->decl = vd;
-    return sd;
-  }
-
   //if prec ("high precedence"), stop before ? and |
   //anything in parens is automatically high precedence
   static TypeNT* parseTypeGeneral(bool prec)
@@ -339,6 +316,47 @@ namespace Parser
     return b;
   }
 
+  StatementNT* parseVarDeclGivenMember(Member* mem)
+  {
+    auto stmt = new StatementNT;
+    auto sd = new ScopedDecl;
+    auto vd = new VarDecl;
+    auto type = new TypeNT;
+    type->t = mem;
+    //can have any number of high-precedence types unioned together
+    //parse one full one first to see if this is actually a union
+    while(acceptPunct(LBRACKET))
+    {
+      type->arrayDims++;
+      expectPunct(RBRACKET);
+    }
+    Oper bor(BOR);
+    if(lookAhead()->compareTo(&bor))
+    {
+      UnionTypeNT* ut = new UnionTypeNT;
+      ut->types.push_back(type);
+      //now use "type" to store the overall union
+      type->t = ut;
+      while(acceptOper(BOR))
+      {
+        ut->types.push_back(parseTypeGeneral(true));
+      }
+    }
+    //type is done, get the var name (required) and then
+    //init expr (optional)
+    vd->type = type;
+    vd->name = ((Ident*) expect(IDENTIFIER))->name;
+    if(acceptOper(ASSIGN))
+    {
+      vd->val = parse<ExpressionNT>();
+    }
+    vd->isStatic = false;
+    vd->composed = false;
+    sd->decl = vd;
+    stmt->s = sd;
+    return stmt;
+  }
+
   StatementNT* parseStatementGeneral(bool semicolon)
   {
     //Get some possibilities for the next token
@@ -433,13 +451,23 @@ namespace Parser
     {
       //this must succeed when starting with an Ident
       Member* mem = parse<Member>();
-      //now peek at next token
-      Token* afterMem = lookAhead(0);
-      if(afterMem->type == IDENTIFIER)
+      Token* afterMem1 = lookAhead(0);
+      Token* afterMem2 = lookAhead(1);
+      //VarDecl always starts with type, so only ways for this
+      //to still be a VarDecl is:
+      // Member Ident ...
+      // Member[]...
+      // Member | ...
+      // Uses 2 tokens of lookahead
+      Punct lbrack(LBRACKET);
+      Punct rbrack(RBRACKET);
+      Oper bor(BOR);
+      if(afterMem1->type == IDENTIFIER ||
+          (afterMem1->compareTo(&lbrack) && afterMem2->compareTo(&rbrack)) ||
+          afterMem1->compareTo(&bor))
       {
-        //definitely have a VarDecl
-        //parse it, starting with the member as a type
-        s->s = parseScopedDeclGivenMember(mem);
+        //definitely have a VarDecl, so parse a type given mem
+        s = parseVarDeclGivenMember(mem);
         if(semicolon)
           expectPunct(SEMICOLON);
         return s;

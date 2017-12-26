@@ -72,17 +72,17 @@ void createBuiltinTypes()
   primNames["Error"] = primitives[TypeNT::ERROR];
   //string is a builtin alias for char[] (not a primitive)
   global->addName(new AliasType(
-        "string", getArrayType(primitives[TypeNT::CHAR], 1), global));
-  global->addName(new AliasType("i8", primitives[TypeNT::BYTE], global));
-  global->addName(new AliasType("u8", primitives[TypeNT::UBYTE], global));
-  global->addName(new AliasType("i16", primitives[TypeNT::SHORT], global));
-  global->addName(new AliasType("u16", primitives[TypeNT::USHORT], global));
-  global->addName(new AliasType("i32", primitives[TypeNT::INT], global));
-  global->addName(new AliasType("u32", primitives[TypeNT::UINT], global));
-  global->addName(new AliasType("i64", primitives[TypeNT::LONG], global));
-  global->addName(new AliasType("u64", primitives[TypeNT::ULONG], global));
-  global->addName(new AliasType("f32", primitives[TypeNT::FLOAT], global));
-  global->addName(new AliasType("f64", primitives[TypeNT::DOUBLE], global));
+        "string", getArrayType(primitives[TypeNT::CHAR], 1)));
+  global->addName(new AliasType("i8", primitives[TypeNT::BYTE]));
+  global->addName(new AliasType("u8", primitives[TypeNT::UBYTE]));
+  global->addName(new AliasType("i16", primitives[TypeNT::SHORT]));
+  global->addName(new AliasType("u16", primitives[TypeNT::USHORT]));
+  global->addName(new AliasType("i32", primitives[TypeNT::INT]));
+  global->addName(new AliasType("u32", primitives[TypeNT::UINT]));
+  global->addName(new AliasType("i64", primitives[TypeNT::LONG]));
+  global->addName(new AliasType("u64", primitives[TypeNT::ULONG]));
+  global->addName(new AliasType("f32", primitives[TypeNT::FLOAT]));
+  global->addName(new AliasType("f64", primitives[TypeNT::DOUBLE]));
 }
 
 string typeErrorMessage(TypeLookup& lookup)
@@ -141,10 +141,17 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
       }
     }
     Name n = scope->findName(mem);
-    if(n.kind == Name::STRUCT || n.kind == Name::TYPEDEF ||
-        n.kind == Name::ENUM || n.kind == Name::BOUNDED_TYPE)
+    if(!n.item)
+      return nullptr;
+    if(n.kind == Name::STRUCT ||
+        n.kind == Name::ENUM ||
+        n.kind == Name::BOUNDED_TYPE)
     {
       return (Type*) n.item;
+    }
+    else if(n.kind == Name::TYPEDEF)
+    {
+      return ((AliasType*) n.item)->actual;
     }
     return nullptr;
   }
@@ -237,11 +244,11 @@ Type* getArrayType(Type* elem, int ndims)
   ArrayType* at = nullptr;
   if(auto elemArray = dynamic_cast<ArrayType*>(elem))
   {
-    at = new ArrayType(elemArray->elem, elemArray->dims + 1);
+    at = new ArrayType(elemArray->elem, elemArray->dims + ndims);
   }
   else
   {
-    at = new ArrayType(elem, 1);
+    at = new ArrayType(elem, ndims);
   }
   auto it = arrays.find(at);
   if(it == arrays.end())
@@ -744,9 +751,13 @@ ArrayType::ArrayType(Type* elemType, int ndims)
 
 bool ArrayType::canConvert(Type* other)
 {
+  cout << "In ArrayType::canConvert\n";
+  cout << "This is " << getName() << ", other is " << other->getName() << '\n';
   if(other->isArray())
   {
+    cout << "other is an array with elem ";
     ArrayType* at = (ArrayType*) other;
+    cout << at->elem->getName() << '\n';
     //unlike C, allow implicit conversion of elements
     return dims == at->dims && elem->canConvert(at->elem);
   }
@@ -923,7 +934,7 @@ AliasType::AliasType(Typedef* td, Scope* scope)
   typeLookup->lookup(args, actual);
 }
 
-AliasType::AliasType(string alias, Type* underlying, Scope* scope)
+AliasType::AliasType(string alias, Type* underlying)
 {
   name = alias;
   actual = underlying;
