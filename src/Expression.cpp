@@ -802,22 +802,6 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   if(memberType)
   {
     type = getArrayType(memberType, 1);
-    ArrayType* at = dynamic_cast<ArrayType*>(type);
-    if(!at)
-    {
-      cout << "compound lit isn't array\n";
-    }
-    else
-    {
-      if(at->elem == primitives[Parser::TypeNT::CHAR])
-      {
-        cout << "compound lit is array of char\n";
-      }
-      if(at->dims == 1)
-      {
-        cout << "compound lit is array with 1 dim\n";
-      }
-    }
   }
   else
   {

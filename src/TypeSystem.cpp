@@ -751,13 +751,9 @@ ArrayType::ArrayType(Type* elemType, int ndims)
 
 bool ArrayType::canConvert(Type* other)
 {
-  cout << "In ArrayType::canConvert\n";
-  cout << "This is " << getName() << ", other is " << other->getName() << '\n';
   if(other->isArray())
   {
-    cout << "other is an array with elem ";
     ArrayType* at = (ArrayType*) other;
-    cout << at->elem->getName() << '\n';
     //unlike C, allow implicit conversion of elements
     return dims == at->dims && elem->canConvert(at->elem);
   }
