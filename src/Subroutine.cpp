@@ -271,7 +271,6 @@ For::For(Parser::For* f, Block* b)
   //constants that are helpful for generating loops
   Expression* zero = new IntLiteral(0ULL);
   Expression* one = new IntLiteral(1ULL);
-  //cout << (f->f.is<Parser::ForC*>() ? "true\n" : "false\n");
   if(f->f.is<Parser::ForC*>())
   {
     auto fc = f->f.get<Parser::ForC*>();
@@ -327,6 +326,7 @@ For::For(Parser::For* f, Block* b)
         //break goes with the outermost loop, but continue goes with the innermost
         nextBlock->breakable = this;
         nextBlock->loop = nextFor;
+        nextFor->loopBlock = nextBlock;
         //have the outer loop run the inner loop
         dimBlock->stmts.push_back(nextFor);
         dimLoop = nextFor;

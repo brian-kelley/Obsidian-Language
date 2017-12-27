@@ -17,6 +17,12 @@ Oss utilFuncDefs;
 Oss funcDecls;      //the actual subroutines in the onyx program
 Oss funcDefs;
 
+namespace Context
+{
+  map<Switch*, string> switchBreakLabels;
+  map<For*, string> forBreakLabels;
+}
+
 //The C type to use for array indices (could possibly be uint64_t for more portability)
 const char* size_type = "uint32_t";
 
@@ -36,7 +42,7 @@ namespace C
     cout << "  > Generating type declarations\n";
     generateSectionHeader(typeDecls, "Type Decls");
     genTypeDecls();
-    cout << "  > Generating global funcs\n";
+    cout << "  > Generating global variables\n";
     generateSectionHeader(varDecls, "Global Variables");
     genGlobals();
     cout << "  > Generating init funcs\n";
@@ -93,7 +99,18 @@ namespace C
     cout << "  > Done, wrote " << c.tellp() << " bytes of C source code\n";
     c.close();
     //wait for cc to terminate
-    bool compileSuccess = runCommand(string("gcc") + " --std=c99 -Os -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+    bool smallBin = false;
+    bool compileSuccess = false;
+    if(smallBin)
+    {
+      compileSuccess = runCommand(string("gcc") + " --std=c99 -Os -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+      //shrink binary some more (no need for symbol names)
+      runCommand(string("gstrip --strip-all ") + exeName);
+    }
+    else
+    {
+      compileSuccess = runCommand(string("gcc") + " --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+    }
     if(!keep)
     {
       remove(cName.c_str());
@@ -544,6 +561,9 @@ namespace C
     }
     else if(For* f = dynamic_cast<For*>(stmt))
     {
+      //generate a "break" label for this loop
+      string breakLabel = getIdentifier();
+      Context::forBreakLabels[f] = breakLabel;
       //open a C block for loop scope's vars
       c << "{\n";
       generateLocalVariables(c, f->loopBlock->scope);
@@ -573,7 +593,10 @@ namespace C
         //the automatic semicolon is OK
         generateStatement(c, b, f->increment);
       }
-      c << "}\n}\n";
+      c << "}\n";
+      //outside the loop, put break label
+      c << breakLabel << ":;\n";
+      c << "}\n";
     }
     else if(While* w = dynamic_cast<While*>(stmt))
     {
@@ -614,9 +637,21 @@ namespace C
         c << "return;\n";
       }
     }
-    else if(dynamic_cast<Break*>(stmt))
+    else if(Break* brk = dynamic_cast<Break*>(stmt))
     {
-      c << "break;\n";
+      //if a While, just use C break (always same semantics as Onyx)
+      if(brk->breakable.is<While*>())
+      {
+        c << "break;\n";
+      }
+      else if(brk->breakable.is<For*>())
+      {
+        c << "goto " << Context::forBreakLabels[brk->breakable.get<For*>()] << ";\n";
+      }
+      else if(brk->breakable.is<Switch*>())
+      {
+        c << "goto " << Context::switchBreakLabels[brk->breakable.get<Switch*>()] << ";\n";
+      }
     }
     else if(dynamic_cast<Continue*>(stmt))
     {
@@ -640,6 +675,17 @@ namespace C
       c << "puts(\"Assertion failed.\");\n";
       c << "exit(1);\n";
       c << "}\n";
+    }
+    else if(Switch* sw = dynamic_cast<Switch*>(stmt))
+    {
+      //C can't compare compound data structures, so
+      //compare to each label value and jump directly to the proper statement
+      //break is a jump to the end of switch
+      //use Context::switchBreakLabel to hold this label
+      Context::switchBreakLabels[sw] = getIdentifier();
+    }
+    else if(Match* ma = dynamic_cast<Match*>(stmt))
+    {
     }
   }
 
@@ -799,7 +845,7 @@ namespace C
       string func = getInitFunc(t);
       string typeName = type.second;
       utilFuncDecls << typeName << ' ' << func << "();\n";
-      utilFuncDefs << typeName << ' ' << func << "()\n{\n";
+      utilFuncDefs << "inline " << typeName << ' ' << func << "()\n{\n";
       if(t->isNumber() || t->isChar())
       {
         utilFuncDefs << "return 0;\n";
@@ -856,7 +902,7 @@ namespace C
         Oss prototype;
         prototype << typeName << ' ' << func << '(' << typeName << " data_)";
         utilFuncDecls << prototype.str() << ";\n";
-        utilFuncDefs << prototype.str() << "\n{\n";
+        utilFuncDefs << "inline " << prototype.str() << "\n{\n";
       }
       //note: void doesn't get a copy function because it will never be called
       //cannot have variable or argument of type void (checked in middle end)
@@ -913,30 +959,91 @@ namespace C
     }
   }
 
+  //Generate alloc functions for each array type
+  //All take one size_type per dimension, and return
+  //rectangular array (really an array of arrays of arrays...)
   void generateAllocFuncs()
   {
     for(auto type : types)
     {
       if(ArrayType* at = dynamic_cast<ArrayType*>(type.first))
       {
+        vector<string> args;
+        for(int i = 0; i < at->dims; i++)
+        {
+          args.push_back(getIdentifier());
+        }
+        vector<string> counters;
+        for(int i = 0; i < at->dims; i++)
+        {
+          counters.push_back(getIdentifier());
+        }
         string typeName = type.second;
         string func = getAllocFunc(at);
         {
           Oss prototype;
-          prototype << typeName << ' ' << func << '(' << size_type << " len_)";
-          utilFuncDecls << prototype.str();
-          utilFuncDecls << ";\n";
-          utilFuncDefs << prototype.str();
-          utilFuncDefs << "\n{\n";
+          prototype << typeName << ' ' << func << '(';
+          for(int i = 0; i < at->dims; i++)
+          {
+            prototype << size_type << ' ' << args[i];
+            if(i != at->dims - 1)
+              prototype << ", ";
+          }
+          prototype << ')';
+          utilFuncDecls << prototype.str() << ";\n";
+          utilFuncDefs << "inline " << prototype.str() << "\n{\n";
         }
+        //create the overall array type (which will be returned at the end)
+        utilFuncDefs << typeName << " array_;\n";
         //add prototype to both util decls and defs
-        //allocate an array of the subtype
-        string& subtype = types[at->subtype];
-        utilFuncDefs << subtype << "* temp_ = malloc(sizeof(" << subtype << ") * len_);\n";
-        utilFuncDefs << "for(size_t i_ = 0; i_ < len_; i_++)\n";
-        utilFuncDefs << "temp_[i_] = " << getInitFunc(at->subtype) << "();\n";
-        utilFuncDefs << "return ((" << typeName << ") {len_, temp_});\n";
-        utilFuncDefs << "}\n";
+        Type* subtype = at->subtype;
+        for(int i = 0; i < at->dims; i++)
+        {
+          //generate allocation
+          utilFuncDefs << "array_.data";
+          for(int j = 0; j < i; j++)
+          {
+            utilFuncDefs << "[" << counters[j] << "].data";
+          }
+          //set data
+          utilFuncDefs << " = malloc(" << args[i] << " * sizeof(" << types[subtype] << "));\n";
+          //set dimensions
+          utilFuncDefs << "array_";
+          for(int j = 0; j < i; j++)
+          {
+            utilFuncDefs << ".data[" << counters[j] << "]";
+          }
+          //set data
+          utilFuncDefs << ".dim = " << args[i] << ";\n";
+          //generate a loop for the ith dimension
+          utilFuncDefs << "for(" << size_type << ' ' << counters[i] << " = 0; " <<
+            counters[i] << " < " << args[i] << "; "
+            << counters[i] << "++)\n{\n";
+          if(i == at->dims - 1)
+          {
+            //in innermost loop, call init() to each element of innermost array
+            utilFuncDefs << "array_";
+            for(int j = 0; j <= i; j++)
+            {
+              utilFuncDefs << ".data[" << counters[j] << ']';
+            }
+            utilFuncDefs << " = " << getInitFunc(subtype) << "();\n";
+          }
+          //if not in last iteration (where subtype is not an array),
+          //switch type to next-lower dimension
+          if(i != at->dims - 1)
+          {
+            ArrayType* sub = dynamic_cast<ArrayType*>(subtype);
+            subtype = sub->subtype;
+          }
+        }
+        //close all the loops
+        for(int i = 0; i < at->dims; i++)
+        {
+          utilFuncDefs << "}\n";
+        }
+        utilFuncDefs << "return array_;\n";
+        utilFuncDefs << "}\n\n";
       }
     }
   }

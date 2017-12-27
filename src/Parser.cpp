@@ -262,10 +262,13 @@ namespace Parser
       //unexpected token type
       err("expected type");
     }
+    Punct lbrack(LBRACKET);
+    Punct rbrack(RBRACKET);
     //check for square bracket pairs after, indicating array type
-    while(acceptPunct(LBRACKET))
+    while(lookAhead(0)->compareTo(&lbrack) && lookAhead(1)->compareTo(&rbrack))
     {
-      expectPunct(RBRACKET);
+      accept();
+      accept();
       type->arrayDims++;
     }
     if(acceptPunct(QUESTION))
@@ -1283,6 +1286,7 @@ namespace Parser
     Expr1* e1 = new Expr1;
     if(acceptKeyword(ARRAY))
     {
+      unget();
       e1->e = parse<NewArrayNT>();
       //no tail for NewArrayNT (not compatible with any operands)
     }
@@ -1669,8 +1673,8 @@ namespace Parser
   template<>
   NewArrayNT* parse<NewArrayNT>()
   {
-    expectKeyword(keywordMap["array"]);
     NewArrayNT* na = new NewArrayNT;
+    expectKeyword(ARRAY);
     na->elemType = parse<TypeNT>();
     //check that elem type isn't itself an array type
     if(na->elemType->arrayDims > 0)
