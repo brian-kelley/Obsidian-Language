@@ -201,8 +201,25 @@ Assign::Assign(Parser::VarAssign* va, Scope* s)
 {
   lvalue = getExpression(s, va->target);
   rvalue = getExpression(s, va->rhs);
-  //make sure that lvalue is in fact an lvalue, and that
-  //rvalue can convert to lvalue's type
+  commonCtor();
+}
+
+Assign::Assign(Variable* target, Expression* e)
+{
+  lvalue = new VarExpr(target);
+  rvalue = e;
+  commonCtor();
+}
+
+Assign::Assign(Indexed* target, Expression* e)
+{
+  lvalue = target;
+  rvalue = e;
+  commonCtor();
+}
+
+void Assign::commonCtor()
+{
   if(!lvalue->assignable())
   {
     ERR_MSG("cannot assign to that expression");
@@ -211,30 +228,10 @@ Assign::Assign(Parser::VarAssign* va, Scope* s)
   {
     INTERNAL_ERROR;
   }
-  if(!lvalue->type->canConvert(rvalue))
+  if(lvalue->type != rvalue->type)
   {
-    ERR_MSG("cannot assign " << rvalue->type->getName() << " to " << lvalue->type->getName());
-  }
-}
-
-Assign::Assign(Variable* target, Expression* e)
-{
-  lvalue = new VarExpr(target);
-  rvalue = e;
-  //vars are always lvalues, no need to check that
-  if(!lvalue->type->canConvert(e))
-  {
-    ERR_MSG("cannot assign " << rvalue->type->getName() << " to " << lvalue->type->getName());
-  }
-}
-
-Assign::Assign(Indexed* target, Expression* e)
-{
-  lvalue = target;
-  rvalue = e;
-  if(!lvalue->type->canConvert(e))
-  {
-    ERR_MSG("incompatible types for assignment");
+    //must explicitly convert
+    rvalue = new Converted(rvalue, lvalue->type);
   }
 }
 
@@ -564,23 +561,28 @@ Return::Return(Parser::Return* r, Block* b)
 {
   from = b->subr;
   value = nullptr;
-  bool voidReturn = r->ex == nullptr;
-  if(!voidReturn)
+  if(r->ex)
   {
     value = getExpression(b->scope, r->ex);
   }
+  Type* voidType = primitives[Parser::TypeNT::VOID];
+  Type* subrRetType = b->subr->type->returnType;
+  Type* actualRetType = voidType;
+  if(value)
+    actualRetType = value->type;
   //Make sure that the return expression has a type that matches the subroutine's retType
-  if(voidReturn && b->subr->type->returnType != primitives[Parser::TypeNT::BOOL])
+  if(subrRetType != voidType && actualRetType == voidType)
   {
-    ERR_MSG("function or procedure doesn't return void, so return must have an expression");
+    ERR_MSG("subroutine returns non-void but return not given expression");
   }
-  if(!voidReturn && b->subr->type->returnType == primitives[Parser::TypeNT::BOOL])
+  if(subrRetType == voidType && actualRetType != voidType)
   {
-    ERR_MSG("procedure returns void but a return expression was provided");
+    ERR_MSG("subroutine returns void but a return expression was provided");
   }
-  if(!voidReturn && !b->subr->type->returnType->canConvert(value))
+  //see if value conversion necessary
+  if(subrRetType != actualRetType)
   {
-    ERR_MSG("returned expression can't be converted to the function/procedure return type");
+    value = new Converted(value, subrRetType);
   }
 }
 

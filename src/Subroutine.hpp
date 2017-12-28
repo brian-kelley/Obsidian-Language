@@ -92,6 +92,8 @@ struct Assign : public Statement
   Expression* lvalue;
   Expression* rvalue;
   void checkPurity(Scope* s);
+  private:
+  void commonCtor();  //actually do the semantic checking
 };
 
 struct CallStmt : public Statement

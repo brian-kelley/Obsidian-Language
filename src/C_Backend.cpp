@@ -534,7 +534,7 @@ namespace C
     else
     {
       //compound literal, or anything else that hasn't been covered
-      cout << "*** ERROR: generateExpression not implemented for expr subclass : " << typeid(expr).name() << '\n';
+      cout << "*** ERROR: generateExpression not implemented for some expr subclass\n";
       INTERNAL_ERROR;
     }
   }

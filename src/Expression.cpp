@@ -603,6 +603,7 @@ UnaryArith::UnaryArith(int o, Expression* e)
   this->expr = e;
   deps = e->deps;
   pure = e->pure;
+  type = e->type;
 }
 
 /***************
@@ -615,7 +616,6 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
   //Type check the operation
   auto ltype = lhs->type;
   auto rtype = rhs->type;
-  bool typesNull = ltype == NULL || rtype == NULL;
   op = o;
   switch(o)
   {
@@ -636,45 +636,116 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
     case BXOR:
     {
       //both operands must be integers
-      if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
+      if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
         ERR_MSG("operands to bitwise operators must be integers.");
       }
       //the resulting type is the wider of the two integers, favoring unsigned
-      typedef IntegerType IT;
-      IT* lhsInt = dynamic_cast<IT*>(ltype);
-      IT* rhsInt = dynamic_cast<IT*>(rtype);
-      int size = std::max(lhsInt->size, rhsInt->size);
-      bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
-      //now look up the integer type with given size and signedness
-      this->type = getIntegerType(size, isSigned);
+      type = promote(ltype, rtype);
+      if(ltype != type)
+      {
+        lhs = new Converted(lhs, type);
+      }
+      if(rtype != type)
+      {
+        rhs = new Converted(rhs, type);
+      }
       break;
     }
     case PLUS:
+    {
+      //intercept plus operator for arrays (concatenation, prepend, append)
+      auto lhsAT = dynamic_cast<ArrayType*>(ltype);
+      auto rhsAT = dynamic_cast<ArrayType*>(rtype);
+      if(lhsAT && rhsAT)
+      {
+        if(rhsAT->canConvert(lhsAT))
+        {
+          type = ltype;
+        }
+        else if(lhsAT->canConvert(rhsAT))
+        {
+          type = rtype;
+        }
+        else
+        {
+          ERR_MSG("incompatible array concatenation operands: " <<
+              ltype->getName() << " and " << rtype->getName());
+        }
+        if(ltype != type)
+        {
+          lhs = new Converted(lhs, type);
+        }
+        if(rtype != type)
+        {
+          rhs = new Converted(rhs, type);
+        }
+        break;
+      }
+      else if(lhsAT)
+      {
+        //array append
+        Type* subtype = lhsAT->subtype;
+        if(!subtype->canConvert(rtype))
+        {
+          ERR_MSG("can't append type " << rtype->getName() <<
+              " to " << ltype->getName());
+        }
+        type = ltype;
+        if(subtype != rtype)
+        {
+          rhs = new Converted(rhs, subtype);
+        }
+        break;
+      }
+      else if(rhsAT)
+      {
+        //array prepend
+        Type* subtype = rhsAT->subtype;
+        if(!subtype->canConvert(rtype))
+        {
+          ERR_MSG("can't prepend type " << ltype->getName() <<
+              " to " << rtype->getName());
+        }
+        type = rtype;
+        if(subtype != ltype)
+        {
+          lhs = new Converted(lhs, subtype);
+        }
+        break;
+      }
+    }
     case SUB:
     case MUL:
     case DIV:
     case MOD:
     {
-      //TODO (CTE): catch div/mod where rhs = 0
+      //TODO (CTE): error for div/mod with rhs = 0
       //TODO: support array concatenation with +
-      if(typesNull || !(ltype->isNumber()) || !(rtype->isNumber()))
+      if(!(ltype->isNumber()) || !(rtype->isNumber()))
       {
         ERR_MSG("operands to arithmetic operators must be numbers.");
       }
-      this->type = TypeSystem::promote(ltype, rtype);
+      type = TypeSystem::promote(ltype, rtype);
+      if(ltype != type)
+      {
+        lhs = new Converted(lhs, type);
+      }
+      if(rtype != type)
+      {
+        rhs = new Converted(rhs, type);
+      }
       break;
     }
     case SHL:
     case SHR:
     {
-      //TODO (CTE): if rhs is known, warn if rhs is negative or
-      //greater than the width of the lhs type.
-      if(typesNull || !(ltype->isInteger()) || !(rtype->isInteger()))
+      //TODO (CTE): error for rhs < 0
+      if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
         ERR_MSG("operands to bit shifting operators must be integers.");
       }
-      this->type = ltype;
+      type = ltype;
       break;
     }
     case CMPEQ:
@@ -685,18 +756,23 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
     case CMPGE:
     {
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
-      if(typesNull)
-      {
-        ERR_MSG("can't compare two compound literals.");
-      }
       //here, use the canConvert that takes an expression
-      if((ltype && ltype->canConvert(r)) || (rtype && rtype->canConvert(l)))
+      type = primitives[TypeNT::BOOL];
+      if(!ltype->canConvert(rtype) && !rtype->canConvert(ltype))
       {
-        this->type = primitives[TypeNT::BOOL];
+        ERR_MSG("can't compare " << ltype->getName() <<
+            " and " << rtype->getName());
       }
-      else
+      if(ltype != rtype)
       {
-        ERR_MSG("types can't be compared.");
+        if(ltype->canConvert(rtype))
+        {
+          rhs = new Converted(rhs, ltype);
+        }
+        else
+        {
+          lhs = new Converted(lhs, rtype);
+        }
       }
       break;
     }
