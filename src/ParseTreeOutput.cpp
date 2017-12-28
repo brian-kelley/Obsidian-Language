@@ -341,9 +341,18 @@ template<> int emit<Match>(Match* m)
 template<> int emit<ForC>(ForC* fc)
 {
   int root = node("For loop (C style)");
-  link(root, emit(fc->decl));
-  link(root, emit(fc->condition));
-  link(root, emit(fc->incr));
+  if(fc->decl)
+    link(root, emit(fc->decl));
+  else
+    link(root, node("no init"));
+  if(fc->condition)
+    link(root, emit(fc->condition));
+  else
+    link(root, node("no condition"));
+  if(fc->incr)
+    link(root, emit(fc->incr));
+  else
+    link(root, node("no increment"));
   return root;
 }
 

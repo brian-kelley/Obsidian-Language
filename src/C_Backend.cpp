@@ -332,11 +332,20 @@ namespace C
     funcDefs << "int main(";
     if(m->args.size() == 1)
     {
-      //one argument: array of strings
-      funcDefs << types[getArrayType(primitives[Parser::TypeNT::CHAR], 2)];
+      //single argument: array of strings
+      //in C this must be (int, const char**)
+      funcDefs << "int argc_, const char** argv_)\n{\n";
+      //manually allocate the string[] and copy in the args
+      //(don't include the first argument)
+      Type* stringType = dynamic_cast<ArrayType*>(m->args[0]->type)->subtype;
       Variable* arg = m->args[0];
       vars[arg] = getIdentifier();
-      funcDefs << ' ' << vars[arg] << ")\n{\n";
+      funcDefs << types[arg->type] << ' ' << vars[arg] << " = ";
+      funcDefs << getAllocFunc(arg->type) << "(argc_ - 1, 0);\n";
+      funcDefs << "for(int i_ = 0; i_ < argc_ - 1; i_++)\n{\n";
+      funcDefs << vars[arg] << ".data[i_] = ((" << types[stringType];
+      funcDefs << ") {strlen(argv_[i_ + 1]), strdup_(argv_[i_ + 1])});\n";
+      funcDefs << "}\n";
     }
     else
     {
@@ -833,7 +842,7 @@ namespace C
       Variable* local = (Variable*) n.second.item;
       string localIdent = getIdentifier();
       vars[local] = localIdent;
-      c << types[local->type] << ' ' << localIdent << ";\n";
+      c << types[local->type] << ' ' << localIdent << "; // " << local->type->getName() << ' ' << local->name << '\n';
     }
   }
 

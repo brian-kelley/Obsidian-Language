@@ -306,16 +306,18 @@ For::For(Parser::For* f, Block* b)
     {
       ERR_MSG("for over array given non-array expression");
     }
-    if(arrType->dims != foa->tup.size() - 1)
+    //how many loops to generate
+    int loops = foa->tup.size() - 1;
+    if(arrType->dims < loops)
     {
-      ERR_MSG("for over array iterating tuple has wrong size for given array");
+      ERR_MSG("for-array tuple has more counters than array has dimensions");
     }
     //generate one for loop (including this one) as the body for each dimension
     //and the "it" value in the innermost loop
     For* dimLoop = this;
     Block* dimBlock = loopBlock;
     vector<Variable*> counters;
-    for(int i = 0; i < arrType->dims; i++)
+    for(int i = 0; i < loops; i++)
     {
       if(i > 0)
       {
@@ -347,9 +349,10 @@ For::For(Parser::For* f, Block* b)
       dimLoop->condition = new BinaryArith(counterExpr, CMPL, new ArrayLength(subArr));
       dimLoop->increment = new Assign(counter, new BinaryArith(counterExpr, PLUS, one));
       //now create the "iter" value if this is the innermost loop
-      if(i == arrType->dims - 1)
+      if(i == loops - 1)
       {
-        Variable* iterValue = new Variable(dimBlock->scope, foa->tup.back(), arrType->elem);
+        Type* iterType = getArrayType(arrType->elem, arrType->dims - loops);
+        Variable* iterValue = new Variable(dimBlock->scope, foa->tup.back(), iterType);
         dimBlock->scope->addName(iterValue);
         //create the assignment to iterValue as first statement in innermost loop
         dimBlock->stmts.push_back(new Assign(iterValue, new Indexed(subArr, counterExpr)));

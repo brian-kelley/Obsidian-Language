@@ -324,6 +324,10 @@ char getEscapedChar(char ident)
     return '\\';
   if(ident == 'r')
     return '\r';
+  if(ident == '\'')
+    return '\'';
+  if(ident == '\"')
+    return '\"';
   ERR_MSG(string("Unknown escape sequence: \\") + ident);
   return ' ';
 }

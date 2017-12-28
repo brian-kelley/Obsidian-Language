@@ -43,10 +43,6 @@ bool runCommand(string command)
 
 string generateChar(char ch)
 {
-  if(isgraph(ch))
-  {
-    return string(1, ch);
-  }
   switch(ch)
   {
     case 0:
@@ -57,12 +53,16 @@ string generateChar(char ch)
       return "\\t";
     case '\r':
       return "\\r";
-    case '"':
+    case '\"':
       return "\\\"";
     case '\'':
       return "\\'";
     default:
     {
+      if(isgraph(ch) || ch == ' ')
+      {
+        return string(1, ch);
+      }
       //fall back to 8-bit hex literal
       char buf[8];
       sprintf(buf, "\\x%02hhx", ch);

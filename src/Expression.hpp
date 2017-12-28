@@ -237,6 +237,16 @@ struct ArrayLength : public Expression
   }
 };
 
+struct Converted : public Expression
+{
+  Converted(Expression* val, TypeSystem::Type* dst);
+  Expression* value;
+  bool assignable()
+  {
+    return value->assignable();
+  }
+};
+
 struct ErrorVal : public Expression
 {
   ErrorVal();

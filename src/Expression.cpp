@@ -1031,6 +1031,20 @@ ArrayLength::ArrayLength(Expression* arr)
   deps.insert(arr->deps.begin(), arr->deps.end());
 }
 
+/*************
+ * Converted *
+ *************/
+
+Converted::Converted(Expression* val, Type* dst)
+{
+  value = val;
+  type = dst;
+  if(!type->canConvert(value))
+  {
+    ERR_MSG("can't implicitly convert from " << val->type->getName() << " to " << type->getName());
+  }
+}
+
 /*********
  * Error *
  *********/
