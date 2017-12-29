@@ -805,8 +805,52 @@ namespace C
       //compare to each label value and jump directly to the proper statement
       //break is a jump to the end of switch
       //use Context::switchBreakLabel to hold this label
-      Context::switchBreakLabels[sw] = getIdentifier();
-      //TODO
+      c << "// Begin switch stmt\n{\n";
+      string breakLabel = getIdentifier();
+      Context::switchBreakLabels[sw] = breakLabel;
+      //generate the jump labels
+      vector<string> jumpLabels;
+      for(size_t i = 0; i < sw->caseLabels.size(); i++)
+      {
+        jumpLabels.push_back(getIdentifier());
+      }
+      string defaultLabel = getIdentifier();
+      //evaluate the switched expression and assign to temp
+      string temp = getIdentifier();
+      c << types[sw->switched->type] << ' ' << temp << " = ";
+      generateExpression(c, sw->switched);
+      c << ";\n";
+      for(size_t i = 0; i < sw->caseLabels.size(); i++)
+      {
+        if(i > 0)
+          c << "else ";
+        c << "if(" << getEqualsFunc(sw->switched->type) << '(' << temp << ", ";
+        generateExpression(c, sw->caseValues[i]);
+        c << "))\n";
+        c << "goto " << jumpLabels[i] << ";\n";
+      }
+      //else: default
+      c << "else\n";
+      c << "goto " << defaultLabel << ";\n";
+      //generate all statements, inserting the jump labels in proper positions
+      size_t labelIt = 0;
+      size_t stmtIt = 0;
+      for(auto swStmt : sw->block->stmts)
+      {
+        //generate all the labels that should go before statement #stmtIt
+        while(sw->caseLabels[labelIt] == stmtIt)
+        {
+          c << jumpLabels[labelIt++] << ":\n";
+        }
+        if(sw->defaultPosition == stmtIt)
+        {
+          c << defaultLabel << ":\n";
+        }
+        generateStatement(c, sw->block, swStmt);
+        stmtIt++;
+      }
+      c << breakLabel << ":;\n";
+      c << "}\n// End switch stmt\n";
     }
     else if(Match* ma = dynamic_cast<Match*>(stmt))
     {

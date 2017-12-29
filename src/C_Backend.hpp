@@ -26,7 +26,7 @@ namespace C
   void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t);
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
-  void generateExpression(ostream& c, Expression* expr);
+  void generateExpression(ostream& c, Block* b, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
   void generateLocalVariables(ostream& c, BlockScope* b);
   //utility functions

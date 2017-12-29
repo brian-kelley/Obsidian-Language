@@ -525,12 +525,17 @@ Switch::Switch(Parser::Switch* s, Block* b)
   switched = getExpression(b->scope, s->value);
   for(auto& label : s->labels)
   {
-    caseValues.push_back(getExpression(b->scope, label.value));
+    Expression* caseExpr = getExpression(b->scope, label.value);
     //make sure the case value can be converted to switched->type
-    if(!caseValues.back()->type->canConvert(switched->type))
+    if(!caseExpr->type->canConvert(switched->type))
     {
       ERR_MSG("switched case value can't be compared with switched expression");
     }
+    if(caseExpr->type != switched->type)
+    {
+      caseExpr = new Converted(caseExpr, switched->type);
+    }
+    caseValues.push_back(caseExpr);
     caseLabels.push_back(label.position);
   }
   defaultPosition = s->defaultPosition;
