@@ -48,6 +48,13 @@ namespace C
   string getEqualsFunc(TypeSystem::Type* t);
   //test first < second
   string getLessFunc(TypeSystem::Type* t);
+  //given two arrays, return a new concatenated array
+  string getConcatFunc(TypeSystem::ArrayType* at);
+  string getAppendFunc(TypeSystem::ArrayType* at);
+  string getPrependFunc(TypeSystem::ArrayType* at);
+  //given an array and an index, "safely" access the element
+  //program terminates if out of bounds
+  string getAccessFunc(TypeSystem::ArrayType* at);
   //whether a type may own heap-allocated memory
   bool typeNeedsDealloc(TypeSystem::Type* t);
 }
