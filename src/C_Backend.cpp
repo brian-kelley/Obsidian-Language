@@ -769,12 +769,25 @@ namespace C
     }
     else if(Print* p = dynamic_cast<Print*>(stmt))
     {
+      c << "{\n";
+      //first, evaluate all arguments in order (assign to shallow-copy temps)
+      //this is so that side effects (e.g. out of bounds error) happen
+      //before anything gets printed
+      vector<string> temps;
       for(size_t i = 0; i < p->exprs.size(); i++)
       {
-        c << getPrintFunc(p->exprs[i]->type) << '(';
+        string argI = getIdentifier();
+        temps.push_back(argI);
+        c << types[p->exprs[i]->type] << ' ' << argI << " = ";
         generateExpression(c, p->exprs[i]);
-        c << ");\n";
+        c << ";\n";
       }
+      //now print them
+      for(size_t i = 0; i < p->exprs.size(); i++)
+      {
+        c << getPrintFunc(p->exprs[i]->type) << '(' << temps[i] << ");\n";
+      }
+      c << "}\n";
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(stmt))
     {
