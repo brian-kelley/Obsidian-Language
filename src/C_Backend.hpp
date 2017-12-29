@@ -48,8 +48,6 @@ namespace C
   string getEqualsFunc(TypeSystem::Type* t);
   //test first < second
   string getLessFunc(TypeSystem::Type* t);
-  //test first <= second
-  string getLessEqFunc(TypeSystem::Type* t);
   //whether a type may own heap-allocated memory
   bool typeNeedsDealloc(TypeSystem::Type* t);
 }

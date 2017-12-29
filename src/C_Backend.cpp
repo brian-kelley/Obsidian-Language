@@ -18,7 +18,6 @@ set<Type*> printImpl;
 set<pair<Type*, Type*>> convertImpl;
 set<Type*> equalsImpl;
 set<Type*> lessImpl;
-set<Type*> lessEqImpl;
 
 map<Type*, bool> needsDealloc;   //whether each type needs a non-trivial deallocator
 size_t identCount;
@@ -93,7 +92,7 @@ namespace C
     }
     else
     {
-      compileSuccess = runCommand(string("gcc") + " --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+      compileSuccess = runCommand(string("gcc") + " --std=c99 -ggdb -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
     }
     if(!keep)
     {
@@ -171,6 +170,10 @@ namespace C
       typesImplemented[bt] = true;
       types[bt] = "void*";
     }
+    for(auto ct : TypeSystem::callables)
+    {
+      allTypes.push_back(ct);
+    }
     //primitives (string is a struct, all others are C primitives)
     types[TypeSystem::primNames["void"]] = "void";
     types[TypeSystem::primNames["bool"]] = "bool";
@@ -185,7 +188,7 @@ namespace C
     types[TypeSystem::primNames["ulong"]] = "uint64_t";
     types[TypeSystem::primNames["float"]] = "float";
     types[TypeSystem::primNames["double"]] = "double";
-    //forward-declare all compound types
+    //forward-declare all compound types (callable types aren't compound)
     for(auto t : allTypes)
     {
       if(t->isPrimitive())
@@ -193,7 +196,7 @@ namespace C
         //primitives are already implemented (done above)
         typesImplemented[t] = true;
       }
-      else
+      else if(!t->isCallable())
       {
         //get an identifier for type t
         string ident = getIdentifier();
@@ -204,7 +207,26 @@ namespace C
       }
     }
     typeDecls << '\n';
-    //implement all compound types
+    //implement all callable types
+    for(auto t : allTypes)
+    {
+      if(t->isCallable())
+      {
+        CallableType* ct = (CallableType*) t;
+        string ident = getIdentifier();
+        types[t] = ident;
+        typesImplemented[t] = true;
+        typeDecls << "typedef " << types[ct->returnType] << "(*" << ident << ")(";
+        for(size_t i = 0; i < ct->argTypes.size(); i++)
+        {
+          if(i != 0)
+            typeDecls << ", ";
+          typeDecls << types[ct->argTypes[i]];
+        }
+        typeDecls << ");\n";
+      }
+    }
+    //implement all remaining (compound) types
     for(auto t : allTypes)
     {
       if(!t->isPrimitive() && !typesImplemented[t])
@@ -366,14 +388,83 @@ namespace C
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
       //fully parenthesize binary exprs so that it works
-      //in case onyx ends up with different precedence than C
-      c << "((";
-      generateExpression(c, binary->lhs);
-      c << ')';
-      c << operatorTable[binary->op];
-      c << '(';
-      generateExpression(c, binary->rhs);
-      c << "))";
+      //in case onyx ends up with different operator precedence than C
+      //arithmetic operators are trivial (except array concatenation/prepend/append)
+      if(binary->op == CMPEQ)
+      {
+        c << getEqualsFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->lhs);
+        c << ", ";
+        generateExpression(c, binary->rhs);
+        c << ')';
+      }
+      else if(binary->op == CMPNEQ)
+      {
+        c << "(!" << getEqualsFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->lhs);
+        c << ", ";
+        generateExpression(c, binary->rhs);
+        c << "))";
+      }
+      else if(binary->op == CMPL)
+      {
+        c << getLessFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->lhs);
+        c << ", ";
+        generateExpression(c, binary->rhs);
+        c << ')';
+      }
+      else if(binary->op == CMPLE)
+      {
+        c << "(!" << getLessFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->rhs);
+        c << ", ";
+        generateExpression(c, binary->lhs);
+        c << "))";
+      }
+      else if(binary->op == CMPG)
+      {
+        c << getLessFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->rhs);
+        c << ", ";
+        generateExpression(c, binary->lhs);
+        c << ')';
+      }
+      else if(binary->op == CMPGE)
+      {
+        c << "(!" << getLessFunc(binary->lhs->type) << '(';
+        generateExpression(c, binary->lhs);
+        c << ", ";
+        generateExpression(c, binary->rhs);
+        c << "))";
+      }
+      else if(binary->op == PLUS &&
+          binary->lhs->type->isArray() && binary->rhs->type->isArray())
+      {
+        //array concat
+        INTERNAL_ERROR;
+      }
+      else if(binary->op == PLUS && binary->lhs->type->isArray())
+      {
+        //array append
+        INTERNAL_ERROR;
+      }
+      else if(binary->op == PLUS && binary->rhs->type->isArray())
+      {
+        //array prepend
+        //TODO
+        INTERNAL_ERROR;
+      }
+      else
+      {
+        c << "((";
+        generateExpression(c, binary->lhs);
+        c << ')';
+        c << operatorTable[binary->op];
+        c << '(';
+        generateExpression(c, binary->rhs);
+        c << "))";
+      }
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
@@ -392,13 +483,13 @@ namespace C
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //generate a char[] struct using C struct literal
-      c << "((" << types[TypeSystem::getArrayType(primNames["char"], 1)] << ") {" << stringLit->value.length() << ", strdup_(\"";
+      c << "((" << types[TypeSystem::getArrayType(primNames["char"], 1)] << ") {strdup_(\"";
       //generate the characters of the string literal one at a time, using escapes as needed
       for(char ch : stringLit->value)
       {
         c << generateChar(ch);
       }
-      c << "\")})";
+      c << "\"), " << stringLit->value.length() << "})";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
@@ -886,13 +977,6 @@ namespace C
     return it->second;
   }
 
-  void generatePrintFuncs()
-  {
-    for(auto type : types)
-    {
-    }
-  }
-
   string getIdentifier()
   {
     //use a base-36 encoding of identCount using 0-9 A-Z
@@ -1021,15 +1105,15 @@ namespace C
 
   string getInitFunc(Type* t)
   {
-    Oss def;
-    string func = "init_" + types[t] + "_";
+    string& typeName = types[t];
+    string func = "init_" + typeName + "_";
     //additional types where init funcs should be generated vector<Type*> deps;
-    if(initImpl.find(t) == initImpl.end())
+    if(initImpl.find(t) != initImpl.end())
     {
       return func;
     }
     initImpl.insert(t);
-    string typeName = types[t];
+    Oss def;
     utilFuncDecls << typeName << ' ' << func << "();\n";
     def << "inline " << typeName << ' ' << func << "()\n{\n";
     if(t->isNumber() || t->isChar())
@@ -1309,7 +1393,7 @@ namespace C
   {
     string& typeName = types[t];
     string func = "print_" + typeName + "_";
-    if(printImpl.find(t) == printImpl.end())
+    if(printImpl.find(t) != printImpl.end())
     {
       return func;
     }
@@ -1364,7 +1448,7 @@ namespace C
       {
         if(at->subtype->isChar())
         {
-          //t is string, so write it to stdout all at once
+          //t is string: write it to stdout all at once
           def << "fwrite(data_.data, 1, data_.dim, stdout);\n";
         }
         else
@@ -1437,7 +1521,7 @@ namespace C
       Oss prototype;
       prototype << types[out] << ' ' << func << '(' << types[in] << " in_)";
       utilFuncDecls << prototype.str() << ";\n";
-      def << prototype.str() << "\n{\n";
+      def << "inline " << prototype.str() << "\n{\n";
     }
     //All supported type conversions:
     //  (case 1) -All primitives can be converted to each other trivially
@@ -1732,25 +1816,6 @@ namespace C
       INTERNAL_ERROR;
     }
     def << "}\n\n";
-    utilFuncDefs << def.str();
-    return func;
-  }
-
-  string getLessEqFunc(Type* t)
-  {
-    string& typeName = types[t];
-    string func = "lesseq_" + typeName + "_";
-    if(lessEqImpl.find(t) != lessEqImpl.end())
-    {
-      return func;
-    }
-    lessEqImpl.insert(t);
-    Oss def;
-    Oss prototype;
-    prototype << "bool " << func << '(' << typeName << " lhs_, " << typeName << " rhs_)";
-    utilFuncDecls << prototype.str() << ';';
-    def << prototype.str() << "\n{\n";
-    def << "return !" << getLessFunc(t) << "(rhs_, lhs_);\n}\n\n";
     utilFuncDefs << def.str();
     return func;
   }
