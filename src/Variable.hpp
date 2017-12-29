@@ -24,6 +24,7 @@ struct Variable
   TypeSystem::Type* type;
   bool isMember;
   Scope* scope; //variables need to know their own scope for fn purity checking
+  private: void check();
 };
 
 #endif

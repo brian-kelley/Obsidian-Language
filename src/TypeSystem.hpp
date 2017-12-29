@@ -32,6 +32,7 @@ namespace TypeSystem
 
 struct Type;
 struct Trait;
+//All Type subclasses:
 struct StructType;
 struct TupleType;
 struct ArrayType;
@@ -39,6 +40,16 @@ struct UnionType;
 struct MapType;
 struct AliasType;
 struct BoundedType;
+struct EnumType;
+struct IntegerType;
+struct FloatType;
+struct StringType;
+struct CharType;
+struct BoolType;
+struct VoidType;
+struct TType;
+struct CallableType;
+struct ErrorType;
 
 struct ArrayCompare
 {

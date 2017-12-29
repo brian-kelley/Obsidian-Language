@@ -32,17 +32,26 @@ namespace C
   //utility functions
   //generate a nicely formatted "section" header in C comment
   void generateSectionHeader(ostream& c, string name);
-  void generateInitFuncs();
-  void generateCopyFuncs();
-  void generateAllocFuncs();
-  bool typeNeedsDealloc(TypeSystem::Type* t);
-  void generateDeallocFuncs();
-  void generatePrintFuncs();
+  //lazily generate and return name of C function
+  //(also generates all other necessary util funcs)
   string getInitFunc(TypeSystem::Type* t);
   string getCopyFunc(TypeSystem::Type* t);
-  string getAllocFunc(TypeSystem::Type* t);
+  //alloc functions take N integers and produce N-dimensional rectangular array
+  string getAllocFunc(TypeSystem::ArrayType* t);
+  //precondition: typeNeedsDealloc(t)
   string getDeallocFunc(TypeSystem::Type* t);
   string getPrintFunc(TypeSystem::Type* t);
+  //convert and deep-copy input from one type to another
+  //precondition: out->canConvert(in)
+  string getConvertFunc(TypeSystem::Type* out, TypeSystem::Type* in);
+  //compare two inputs for equality
+  string getEqualsFunc(TypeSystem::Type* t);
+  //test first < second
+  string getLessFunc(TypeSystem::Type* t);
+  //test first <= second
+  string getLessEqFunc(TypeSystem::Type* t);
+  //whether a type may own heap-allocated memory
+  bool typeNeedsDealloc(TypeSystem::Type* t);
 }
 
 #endif

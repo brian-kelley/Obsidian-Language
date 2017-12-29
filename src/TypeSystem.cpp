@@ -569,16 +569,40 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
 //direct conversion requires other to be the same type
 bool StructType::canConvert(Type* other)
 {
-  return other == this;
+  StructType* otherStruct = dynamic_cast<StructType*>(other);
+  TupleType* otherTuple = dynamic_cast<TupleType*>(other);
+  if(otherStruct)
+  {
+    //test memberwise conversion
+    if(members.size() != otherStruct->members.size())
+      return false;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!members[i]->type->canConvert(otherStruct->members[i]->type))
+        return false;
+    }
+    return true;
+  }
+  else if(otherTuple)
+  {
+    if(members.size() != otherTuple->members.size())
+      return false;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!members[i]->type->canConvert(otherTuple->members[i]))
+        return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool StructType::canConvert(Expression* other)
 {
-  if(other->type == this)
+  if(canConvert(other->type))
     return true;
-  else if(other->type != nullptr)
-    return false;
-  //if compound literal or tuple literal, check if those match members
+  //if compound literal, check if members match
+  //needed because compound lit type is array if all members are same type
   CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
   if(cl)
   {
@@ -586,16 +610,14 @@ bool StructType::canConvert(Expression* other)
     {
       return false;
     }
-    bool canConvert = true;
     for(size_t i = 0; i < members.size(); i++)
     {
       if(!(members[i]->type->canConvert(cl->members[i])))
       {
-        canConvert = false;
-        break;
+        return false;
       }
     }
-    return canConvert;
+    return true;
   }
   return false;
 }
@@ -833,30 +855,14 @@ TupleType::TupleType(vector<Type*> mems)
 bool TupleType::canConvert(Type* other)
 {
   //true if other is identical or if this is a singleton and other can be converted to this's only member 
+  bool can = true;
+  //if other is struct with identical 
   return (this == other) || (members.size() == 1 && members[0]->canConvert(other));
 }
 
 bool TupleType::canConvert(Expression* other)
 {
-  if(other->type && canConvert(other->type))
-    return true;
-  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  if(cl)
-  {
-    if(cl->members.size() != members.size())
-    {
-      return false;
-    }
-    for(size_t i = 0; i < members.size(); i++)
-    {
-      if(!(members[i]->canConvert(cl->members[i])))
-      {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
+  return canConvert(other->type);
 }
 
 bool TupleType::contains(Type* t)
