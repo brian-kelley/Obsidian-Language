@@ -29,14 +29,6 @@ set<CallableType*, CallableCompare> callables;
 DeferredTypeLookup* typeLookup;
 DeferredTraitLookup* traitLookup;
 
-bool Type::canConvert(Expression* other)
-{
-  //Basic behavior here: if other has a known type, check if that can convert
-  if(other->type)
-    return canConvert(other->type);
-  return false;
-}
-
 void createBuiltinTypes()
 {
   using Parser::TypeNT;
@@ -504,11 +496,6 @@ void BoundedType::check()
   }
 }
 
-bool BoundedType::canConvert(Expression* other)
-{
-  return canConvert(other->type);
-}
-
 /***********/
 /*  Trait  */
 /***********/
@@ -591,31 +578,6 @@ bool StructType::canConvert(Type* other)
     {
       if(!members[i]->type->canConvert(otherTuple->members[i]))
         return false;
-    }
-    return true;
-  }
-  return false;
-}
-
-bool StructType::canConvert(Expression* other)
-{
-  if(canConvert(other->type))
-    return true;
-  //if compound literal, check if members match
-  //needed because compound lit type is array if all members are same type
-  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  if(cl)
-  {
-    if(cl->members.size() != members.size())
-    {
-      return false;
-    }
-    for(size_t i = 0; i < members.size(); i++)
-    {
-      if(!(members[i]->type->canConvert(cl->members[i])))
-      {
-        return false;
-      }
     }
     return true;
   }
@@ -734,7 +696,14 @@ UnionType::UnionType(vector<Type*> types)
 
 bool UnionType::canConvert(Type* other)
 {
-  return other == this;
+  for(auto op : options)
+  {
+    if(op->canConvert(other))
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 string UnionType::getName()
@@ -773,43 +742,28 @@ ArrayType::ArrayType(Type* elemType, int ndims)
 
 bool ArrayType::canConvert(Type* other)
 {
-  if(other->isArray())
+  auto otherArray = dynamic_cast<ArrayType*>(other);
+  auto otherTuple = dynamic_cast<TupleType*>(other);
+  auto otherStruct = dynamic_cast<StructType*>(other);
+  if(otherArray)
   {
-    ArrayType* at = (ArrayType*) other;
-    //unlike C, allow implicit conversion of elements
-    return dims == at->dims && elem->canConvert(at->elem);
+    return subtype->canConvert(otherArray->subtype);
   }
-  else if(other->isTuple())
+  else if(otherTuple)
   {
-    //Tuples can also be implicitly converted to arrays, as long as each member can be converted
-    auto tt = dynamic_cast<TupleType*>(other);
-    for(auto m : tt->members)
+    for(auto mem : otherTuple->members)
     {
-      if(!(elem->canConvert(m)))
-      {
+      if(!subtype->canConvert(mem))
         return false;
-      }
     }
     return true;
   }
-  return false;
-}
-
-bool ArrayType::canConvert(Expression* other)
-{
-  if(other->type && canConvert(other->type))
+  else if(otherStruct)
   {
-    return true;
-  }
-  CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(other);
-  if(cl)
-  {
-    for(auto m : cl->members)
+    for(auto mem : otherStruct->members)
     {
-      if(!(elem->canConvert(m)))
-      {
+      if(!subtype->canConvert(mem->type))
         return false;
-      }
     }
     return true;
   }
@@ -854,15 +808,32 @@ TupleType::TupleType(vector<Type*> mems)
 
 bool TupleType::canConvert(Type* other)
 {
-  //true if other is identical or if this is a singleton and other can be converted to this's only member 
-  bool can = true;
-  //if other is struct with identical 
-  return (this == other) || (members.size() == 1 && members[0]->canConvert(other));
-}
-
-bool TupleType::canConvert(Expression* other)
-{
-  return canConvert(other->type);
+  TupleType* otherTuple = dynamic_cast<TupleType*>(other);
+  StructType* otherStruct = dynamic_cast<StructType*>(other);
+  if(otherStruct)
+  {
+    //test memberwise conversion
+    if(members.size() != otherStruct->members.size())
+      return false;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!members[i]->canConvert(otherStruct->members[i]->type))
+        return false;
+    }
+    return true;
+  }
+  else if(otherTuple)
+  {
+    if(members.size() != otherTuple->members.size())
+      return false;
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      if(!members[i]->canConvert(otherTuple->members[i]))
+        return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool TupleType::contains(Type* t)
@@ -895,15 +866,32 @@ bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 
 bool MapType::canConvert(Type* other)
 {
-  MapType* mt = dynamic_cast<MapType*>(other);
-  if(!mt)
-    return false;
-  return mt->key == key && mt->value == value;
-}
-
-bool MapType::canConvert(Expression* other)
-{
-  return canConvert(other->type);
+  //Maps can convert to this if keys/values can convert
+  //Arrays can also convert to this if key of this is integer
+  auto otherMap = dynamic_cast<MapType*>(other);
+  auto otherArray = dynamic_cast<ArrayType*>(other);
+  auto otherTuple = dynamic_cast<TupleType*>(other);
+  if(otherMap)
+  {
+    return key->canConvert(otherMap->key) &&
+      value->canConvert(otherMap->value);
+  }
+  if(otherArray)
+  {
+    return key->isInteger() && value->canConvert(otherArray->subtype);
+  }
+  if(otherTuple)
+  {
+    if(!key->isInteger())
+      return false;
+    for(auto mem : otherTuple->members)
+    {
+      if(!value->canConvert(mem))
+        return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool MapType::contains(Type* t)
@@ -944,11 +932,6 @@ AliasType::AliasType(string alias, Type* underlying)
 }
 
 bool AliasType::canConvert(Type* other)
-{
-  return actual->canConvert(other);
-}
-
-bool AliasType::canConvert(Expression* other)
 {
   return actual->canConvert(other);
 }
@@ -1173,11 +1156,6 @@ bool CallableType::canConvert(Type* other)
   return true;
 }
 
-bool CallableType::canConvert(Expression* other)
-{
-  return other->type && canConvert(other->type);
-}
-
 bool CallableType::sameExceptOwner(CallableType* other)
 {
   return pure == other->pure &&
@@ -1220,11 +1198,6 @@ bool TType::canConvert(Type* other)
     INTERNAL_ERROR;
   }
   return other->implementsTrait(ts->trait);
-}
-
-bool TType::canConvert(Expression* other)
-{
-  return canConvert(other->type);
 }
 
 } //namespace TypeSystem

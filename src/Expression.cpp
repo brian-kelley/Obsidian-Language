@@ -935,7 +935,7 @@ Indexed::Indexed(Expression* grp, Expression* ind)
   else if(auto mt = dynamic_cast<MapType*>(group->type))
   {
     //make sure ind can be converted to the key type
-    if(!mt->key->canConvert(ind))
+    if(!mt->key->canConvert(ind->type))
     {
       ERR_MSG("used incorrect type to index map");
     }
@@ -990,7 +990,7 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
   for(size_t i = 0; i < args.size(); i++)
   {
     //make sure arg value can be converted to expected type
-    if(!callable->argTypes[i]->canConvert(args[i]))
+    if(!callable->argTypes[i]->canConvert(args[i]->type))
     {
       ERR_MSG("argument " << i + 1 << " to " << (callable->ownerStruct ? "" : "static") <<
         (callable->pure ? "function" : "procedure") << " has wrong type (expected " <<
@@ -1115,7 +1115,7 @@ Converted::Converted(Expression* val, Type* dst)
 {
   value = val;
   type = dst;
-  if(!type->canConvert(value))
+  if(!type->canConvert(value->type))
   {
     ERR_MSG("can't implicitly convert from " << val->type->getName() << " to " << type->getName());
   }

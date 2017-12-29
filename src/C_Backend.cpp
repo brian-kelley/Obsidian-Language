@@ -873,6 +873,11 @@ namespace C
       }
       c << "}\n";
     }
+    else
+    {
+      cout << "Didn't implement a statement type in C backend\n";
+      INTERNAL_ERROR;
+    }
   }
 
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
@@ -1626,7 +1631,7 @@ namespace C
     //    -any number converted to bool with nonzero being true
     //  (case 2) -Out = struct: in = struct or tuple
     //  (case 3) -Out = array: in = struct, tuple or array
-    //  TODO (case 4) -Out = map: in = map, array, or tuple
+    //  (case 4) -Out = map: in = map, array, or tuple
     //    -in = map: convert keys to keys and values to values;
     //      since maps are unordered, key conflicts are UB
     //    -in = array/tuple: key is int, values converted to values
@@ -1742,7 +1747,7 @@ namespace C
     }
     else if(out->isMap())
     {
-      cout << "maps not yet supported by C backend\n";
+      cout << "Converting to/from maps not yet supported by C backend\n";
       INTERNAL_ERROR;
     }
     def << "}\n\n";

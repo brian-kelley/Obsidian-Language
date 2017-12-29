@@ -151,7 +151,6 @@ struct Type
   virtual ~Type() {}
   //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
-  virtual bool canConvert(Expression* other);
   //get the type's name
   virtual string getName() = 0;
   virtual bool implementsTrait(Trait* t) {return false;}
@@ -187,7 +186,6 @@ struct BoundedType : public Type
   vector<Trait*> traits;
   map<string, CallableType*> subrs;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool implementsTrait(Trait* t) {return find(traits.begin(), traits.end(), t) != traits.end();}
   bool isBounded()
   {
@@ -218,7 +216,6 @@ struct StructType : public Type
   vector<Trait*> traits;
   StructScope* structScope;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool isStruct() {return true;}
   bool implementsTrait(Trait* t);
   void check(); //called once per struct at end of semantic checking
@@ -259,7 +256,6 @@ struct ArrayType : public Type
   Parser::TypeNT* elemNT;
   int dims;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool isArray() {return true;}
   string getName()
   {
@@ -282,7 +278,6 @@ struct TupleType : public Type
   ~TupleType() {}
   vector<Type*> members;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool isTuple() {return true;}
   string getName()
   {
@@ -318,7 +313,6 @@ struct MapType : public Type
     return name;
   }
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool contains(Type* t);
   void check();
 };
@@ -332,7 +326,6 @@ struct AliasType : public Type
   Type* actual;
   Parser::Typedef* decl;
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool isArray()    {return actual->isArray();}
   bool isStruct()   {return actual->isStruct();}
   bool isUnion()    {return actual->isUnion();}
@@ -483,7 +476,6 @@ struct CallableType : public Type
   //all terminating procedures can be used in place of nonterminating ones
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   bool sameExceptOwner(CallableType* other);
 };
 
@@ -493,7 +485,6 @@ struct TType : public Type
   TraitScope* scope;
   //canConvert: other implements this trait
   bool canConvert(Type* other);
-  bool canConvert(Expression* other);
   string getName()
   {
     return "T";
@@ -503,4 +494,19 @@ struct TType : public Type
 } //namespace TypeSystem
 
 #endif
+
+//All supported type conversions:
+//  (case 1) -All primitives can be converted to each other trivially
+//    -floats/doubles truncated to integer as in C
+//    -ints converted to each other as in C
+//    -char treated as integer
+//    -any number converted to bool with nonzero being true
+//  (case 2) -Out = struct: in = struct or tuple
+//  (case 3) -Out = array: in = struct, tuple or array
+//  (case 4) -Out = map: in = map, array, or tuple
+//    -in = map: convert keys to keys and values to values;
+//      since maps are unordered, key conflicts are UB
+//    -in = array/tuple: key is int, values converted to values
+//    -in = struct: key is string, value 
+//  (case 2) -Out = tuple: in = struct or tuple
 

@@ -71,6 +71,7 @@ template<> int emit<StatementNT>(StatementNT* n);
 template<> int emit<Typedef>(Typedef* n);
 template<> int emit<Return>(Return* n);
 template<> int emit<Switch>(Switch* n);
+template<> int emit<Match>(Match* m);
 template<> int emit<ForC>(ForC* n);
 template<> int emit<ForOverArray>(ForOverArray* n);
 template<> int emit<ForRange>(ForRange* n);
@@ -260,6 +261,10 @@ template<> int emit<StatementNT>(StatementNT* n)
   else if(n->s.is<Switch*>())
   {
     return emit(n->s.get<Switch*>());
+  }
+  else if(n->s.is<Match*>())
+  {
+    return emit(n->s.get<Match*>());
   }
   else if(n->s.is<For*>())
   {
