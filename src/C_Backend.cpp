@@ -854,8 +854,24 @@ namespace C
     }
     else if(Match* ma = dynamic_cast<Match*>(stmt))
     {
-      //TODO
-      ma = nullptr;
+      //assign matched expr to a temp
+      string temp = getIdentifier();
+      UnionType* ut = (UnionType*) ma->matched->type;
+      c << types[ut] << ' ' << temp << " = ";
+      generateExpression(c, ma->matched);
+      c << ";\n";
+      c << "switch(" << temp << ".option)\n{\n";
+      for(size_t i = 0; i < ut->options.size(); i++)
+      {
+        c << "case " << i << ":\n{\n";
+        string caseVar = getIdentifier();
+        vars[ma->caseVars[i]] = caseVar;
+        Type* optType = ut->options[i];
+        c << types[optType] << ' ' << caseVar << " = *((" << types[optType] << "*) " << temp << ".data);\n";
+        generateBlock(c, ma->cases[i]);
+        c << "}\n";
+      }
+      c << "}\n";
     }
   }
 
