@@ -21,6 +21,8 @@ set<Type*> lessImpl;
 set<ArrayType*> concatImpl;
 set<ArrayType*> prependImpl;
 set<ArrayType*> appendImpl;
+set<ArrayType*> accessImpl;
+set<ArrayType*> assignImpl;
 
 map<Type*, bool> needsDealloc;   //whether each type needs a non-trivial deallocator
 size_t identCount;
@@ -97,7 +99,7 @@ namespace C
     }
     else
     {
-      compileSuccess = runCommand(string("gcc") + " --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
+      compileSuccess = runCommand(string("gcc") + " -g --std=c99 -ffast-math -fassociative-math -o " + exeName + ' ' + cName + " &> /dev/null");
     }
     if(!keep)
     {
@@ -251,9 +253,9 @@ namespace C
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {
-        if(dynamic_cast<BlockScope*>(s))
+        if(dynamic_cast<BlockScope*>(s) || dynamic_cast<SubroutineScope*>(s))
         {
-          //no local variables
+          //don't do local variables
           return;
         }
         for(auto n : s->names)
@@ -854,7 +856,7 @@ namespace C
     }
     else if(Match* ma = dynamic_cast<Match*>(stmt))
     {
-      //assign matched expr to a temp
+      //assign matched union expr to a temp
       string temp = getIdentifier();
       UnionType* ut = (UnionType*) ma->matched->type;
       c << types[ut] << ' ' << temp << " = ";
@@ -863,13 +865,19 @@ namespace C
       c << "switch(" << temp << ".option)\n{\n";
       for(size_t i = 0; i < ut->options.size(); i++)
       {
-        c << "case " << i << ":\n{\n";
-        string caseVar = getIdentifier();
-        vars[ma->caseVars[i]] = caseVar;
         Type* optType = ut->options[i];
-        c << types[optType] << ' ' << caseVar << " = *((" << types[optType] << "*) " << temp << ".data);\n";
-        generateBlock(c, ma->cases[i]);
-        c << "}\n";
+        c << "case " << i << ":\n";
+        c << "{\n";
+        generateLocalVariables(c, ma->cases[i]->scope);
+        //assign the special variable of optType
+        c << vars[ma->caseVars[i]] << " = *((" << types[optType] << "*) " << temp << ".data);\n";
+        //generate all statements normally
+        for(auto maStmt : ma->cases[i]->stmts)
+        {
+          generateStatement(c, ma->cases[i], maStmt);
+        }
+        //need to break from the C switch
+        c << "break;\n}\n";
       }
       c << "}\n";
     }
@@ -996,11 +1004,18 @@ namespace C
         c << ");\n";
       }
       */
-      if(rhs->assignable())
+      auto indexed = dynamic_cast<Indexed*>(lhs);
+      ArrayType* lhsArray = nullptr;
+      if(indexed)
+        lhsArray = dynamic_cast<ArrayType*>(indexed->group->type);
+      if(indexed && lhsArray)
       {
-        generateExpression(c, lhs);
-        c << " = " << getCopyFunc(rhs->type) << "(";
+        c << getAssignFunc(lhsArray) << '(';
+        generateExpression(c, indexed->group);
+        c << ", ";
         generateExpression(c, rhs);
+        c << ", ";
+        generateExpression(c, indexed->index);
         c << ");\n";
       }
       else
@@ -1306,17 +1321,19 @@ namespace C
     {
       def << typeName << " temp_;\n";
       def << "temp_.option = data_.option;\n";
-      def << "switch(data_.option)\n";
+      def << "switch(data_.option)\n{\n";
       for(size_t i = 0; i < ut->options.size(); i++)
       {
         def << "case " << i << ":\n";
         //allocate space in temp
         string& optionType = types[ut->options[i]];
-        def << "temp_.data = malloc(sizeof(" << optionType << ");\n";
+        def << "temp_.data = malloc(sizeof(" << optionType << "));\n";
         //deep copy data_'s underlying type into temp_
         def << "*((" << optionType << "*) temp_.data) = " << getCopyFunc(ut->options[i]) << "(*((" << optionType << "*) data_.data));\n";
         def << "break;\n";
       }
+      def << "default:;\n}\n";
+      def << "return temp_;\n";
     }
     else if(auto tt = dynamic_cast<TupleType*>(t))
     {
@@ -1645,7 +1662,8 @@ namespace C
       else
         def << "return (" << types[out] << ") in_;\n";
     }
-    else if((out->isStruct() || out->isTuple()) && (in->isStruct() || in->isTuple()))
+    else if((out->isStruct() || out->isTuple()) &&
+        (in->isStruct() || in->isTuple()))
     {
       StructType* inStruct = dynamic_cast<StructType*>(in);
       StructType* outStruct = dynamic_cast<StructType*>(out);
@@ -1744,6 +1762,32 @@ namespace C
         def << "}\n";
       }
       def << "return out_;\n";
+    }
+    else if(out->isUnion())
+    {
+      UnionType* ut = (UnionType*) out;
+      int option = 0;
+      for(size_t i = 0; i < ut->options.size(); i++)
+      {
+        if(ut->options[i]->canConvert(in))
+        {
+          option = i;
+          break;
+        }
+      }
+      Type* opType = ut->options[option];
+      def << types[opType] << "* temp_ = malloc(sizeof(";
+      def << types[opType] << "));\n";
+      if(opType == in)
+      {
+        def << "*temp_ = " << getCopyFunc(in) << "(in_);\n";
+      }
+      else
+      {
+        def << "*temp_ = " << getConvertFunc(opType, in) << "(in_);\n";
+      }
+      //now return union with correct tag and temp_ as the data
+      def << "return ((" << types[out] << ") {temp_, " << option << "});\n";
     }
     else if(out->isMap())
     {
@@ -2014,11 +2058,11 @@ namespace C
   {
     string& typeName = types[at];
     string func = "access_" + typeName + '_';
-    if(prependImpl.find(at) != prependImpl.end())
+    if(accessImpl.find(at) != accessImpl.end())
     {
       return func;
     }
-    prependImpl.insert(at);
+    accessImpl.insert(at);
     Oss prototype;
     Type* subtype = at->subtype;
     prototype << types[subtype] << ' ' << func << '(' << typeName << " arr_, ";
@@ -2033,6 +2077,34 @@ namespace C
     def << "panic_(buf);\n";
     def << "}\n";
     def << "return arr_.data[index_];\n";
+    def << "}\n\n";
+    utilFuncDefs << def.str();
+    return func;
+  }
+
+  string getAssignFunc(ArrayType* at)
+  {
+    string& typeName = types[at];
+    string func = "assign_" + typeName + '_';
+    if(assignImpl.find(at) != assignImpl.end())
+    {
+      return func;
+    }
+    assignImpl.insert(at);
+    Oss prototype;
+    Type* subtype = at->subtype;
+    prototype << "void " << func << '(' << typeName << " arr_, ";
+    prototype << types[subtype] << " data_, " << size_type << " index_)";
+    utilFuncDecls << prototype.str() << ";\n";
+    Oss def;
+    def << prototype.str() << "\n{\n";
+    //note: size_type is unsigned so no need to check for >= 0
+    def << "if(index_ >= arr_.dim)\n{\n";
+    def << "char buf[64];\n";
+    def << "sprintf(buf, \"array index %u out of bounds\", index_);\n";
+    def << "panic_(buf);\n";
+    def << "}\n";
+    def << "arr_.data[index_] = " << getCopyFunc(subtype) << "(data_);\n";
     def << "}\n\n";
     utilFuncDefs << def.str();
     return func;

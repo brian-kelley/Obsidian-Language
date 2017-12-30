@@ -55,6 +55,7 @@ namespace C
   //given an array and an index, "safely" access the element
   //program terminates if out of bounds
   string getAccessFunc(TypeSystem::ArrayType* at);
+  string getAssignFunc(TypeSystem::ArrayType* at);
   //whether a type may own heap-allocated memory
   bool typeNeedsDealloc(TypeSystem::Type* t);
 }

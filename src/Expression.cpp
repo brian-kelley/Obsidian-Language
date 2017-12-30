@@ -865,24 +865,7 @@ CompoundLiteral::CompoundLiteral(Scope* s, Parser::StructLit* a)
   {
     memberTypes.push_back(mem->type);
   }
-  //the type of all members, or NULL if they are not all same
-  Type* memberType = memberTypes[0];
-  for(size_t i = 1; i < members.size(); i++)
-  {
-    if(memberTypes[i] != memberType)
-    {
-      memberType = nullptr;
-      break;
-    }
-  }
-  if(memberType)
-  {
-    type = getArrayType(memberType, 1);
-  }
-  else
-  {
-    type = getTupleType(memberTypes);
-  }
+  type = getTupleType(memberTypes);
   for(auto mem : members)
   {
     deps.insert(mem->deps.begin(), mem->deps.end());
