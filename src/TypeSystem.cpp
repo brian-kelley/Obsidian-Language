@@ -24,6 +24,7 @@ set<TupleType*, TupleCompare> tuples;
 set<UnionType*, UnionCompare> unions;
 set<MapType*, MapCompare> maps;
 set<CallableType*, CallableCompare> callables;
+set<EnumType*> enums;
 
 //these are created in MiddleEnd
 DeferredTypeLookup* typeLookup;
@@ -947,80 +948,32 @@ bool AliasType::contains(Type* t)
 
 EnumType::EnumType(Parser::Enum* e, Scope* current)
 {
+  enums.insert(this);
   name = e->name;
-  set<int64_t> usedVals;
-  vector<int64_t> vals(e->items.size(), 0);
-  vector<bool> valsSet(e->items.size(), false);
-  //first, process all specified values
-  for(size_t i = 0; i < e->items.size(); i++)
+  set<int64_t> used;
+  int64_t autoVal = 0;
+  for(auto item : e->items)
   {
-    auto& item = *e->items[i];
-    if(item.value)
+    EnumConstant* ec = new EnumConstant;
+    ec->et = this;
+    ec->name = item->name;
+    if(item->value)
     {
-      vals[i] = item.value->val;
-      valsSet[i] = true;
-      if(usedVals.find(vals[i]) == usedVals.end())
-      {
-        usedVals.insert(vals[i]);
-      }
-      else
-      {
-        string errMsg = "Enum \"";
-        errMsg += e->name + "\" has a duplicate value " + to_string(vals[i]) + " with key \"" + item.name + "\"";
-        ERR_MSG(errMsg);
-      }
-    }
-  }
-  //now fill in remaining values automatically (start at 0)
-  int autoVal = 0;
-  for(size_t i = 0; i < e->items.size(); i++)
-  {
-    if(!valsSet[i])
-    {
-      //need a value for this key, pick one that hasn't been used already
-      while(usedVals.find(autoVal) != usedVals.end())
-      {
-        autoVal++;
-      }
-      vals[i] = autoVal;
-      usedVals.insert(autoVal);
-    }
-  }
-  for(size_t i = 0; i < e->items.size(); i++)
-  {
-    values[e->items[i]->name] = vals[i];
-  }
-  if(vals.size() == 0)
-  {
-    bytes = 1;
-  }
-  else
-  {
-    //get the min and max values
-    int64_t minVal = vals[0];
-    int64_t maxVal = vals[0];
-    for(size_t i = 1; i < vals.size(); i++)
-    {
-      if(vals[i] < minVal)
-        minVal = vals[i];
-      if(vals[i] > maxVal)
-        maxVal = vals[i];
-    }
-    int64_t absMax = std::max(-minVal, maxVal);
-    if(absMax <= 0xFF)
-      bytes = 1;
-    else if(absMax <= 0xFFFF)
-    {
-      bytes = 2;
-    }
-    else if(absMax <= 0xFFFFFFFF)
-    {
-      bytes = 4;
+      ec->value = item->value->val;
     }
     else
     {
-      bytes = 8;
+      ec->value = autoVal;
     }
+    autoVal = ec->value + 1;
+    if(used.find(ec->value) != used.end())
+    {
+      ERR_MSG("in enum " << name << ", key " <<
+          ec->name << " has repeated value");
+    }
+    used.insert(ec->value);
+    current->addName(ec);
+    values.push_back(ec);
   }
 }
 

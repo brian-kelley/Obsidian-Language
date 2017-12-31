@@ -138,6 +138,7 @@ extern set<TupleType*, TupleCompare> tuples;
 extern set<UnionType*, UnionCompare> unions;
 extern set<MapType*, MapCompare> maps;
 extern set<CallableType*, CallableCompare> callables;
+extern set<EnumType*> enums;
 
 typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
 //global type lookup to be used by some type constructors
@@ -348,12 +349,18 @@ struct AliasType : public Type
   bool contains(Type* t);
 };
 
+struct EnumConstant
+{
+  string name;
+  int64_t value;
+  EnumType* et;
+};
+
 struct EnumType : public Type
 {
   EnumType(Parser::Enum* e, Scope* enclosingScope);
   string name;
-  map<string, int64_t> values;
-  int bytes;    //number of bytes required to store all possible values (signed)
+  vector<EnumConstant*> values;
   bool canConvert(Type* other);
   //Enum values are equivalent to plain "int"s
   bool isEnum() {return true;}

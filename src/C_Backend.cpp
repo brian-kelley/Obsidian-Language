@@ -186,6 +186,11 @@ namespace C
     {
       allTypes.push_back(ct);
     }
+    for(auto et : TypeSystem::enums)
+    {
+      typesImplemented[et] = true;
+      types[et] = "int64_t";
+    }
     //primitives (string is a struct, all others are C primitives)
     types[TypeSystem::primNames["void"]] = "void";
     types[TypeSystem::primNames["bool"]] = "bool";
@@ -619,6 +624,10 @@ namespace C
       generateExpression(c, converted->value);
       c << ')';
     }
+    else if(auto ee = dynamic_cast<EnumExpr*>(expr))
+    {
+      c << '(' << ee->value << ')';
+    }
     else if(dynamic_cast<ErrorVal*>(expr))
     {
       INTERNAL_ERROR;
@@ -851,6 +860,14 @@ namespace C
         generateStatement(c, sw->block, swStmt);
         stmtIt++;
       }
+      while(labelIt < sw->caseLabels.size())
+      {
+        c << jumpLabels[labelIt++] << ":\n";
+      }
+      if(sw->defaultPosition == sw->block->stmts.size())
+      {
+        c << defaultLabel << ":\n";
+      }
       c << breakLabel << ":;\n";
       c << "}\n// End switch stmt\n";
     }
@@ -870,7 +887,8 @@ namespace C
         c << "{\n";
         generateLocalVariables(c, ma->cases[i]->scope);
         //assign the special variable of optType
-        c << vars[ma->caseVars[i]] << " = *((" << types[optType] << "*) " << temp << ".data);\n";
+        c << vars[ma->caseVars[i]] << " = *((" << types[optType];
+        c << "*) " << temp << ".data);\n";
         //generate all statements normally
         for(auto maStmt : ma->cases[i]->stmts)
         {
@@ -891,7 +909,7 @@ namespace C
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs)
   {
     //generateExpression can't be used with compound literals, so
-    //  any case where LHS and/or RHS are compound literals needs to be handled separately
+    //  any case where LHS and/or RHS are compound literals are special
     //LHS is compound literal:
     //  -RHS can be another compound lit, or anything else is tuple, struct
     //LHS is variable or indexed:
@@ -1177,7 +1195,7 @@ namespace C
     {
       //enum type always represented as signed integer, which is as
       //small as possible while still fitting all values
-      c << "typedef int" << 8 * et->bytes << "_t " << cName << ";\n";
+      c << "typedef int64_t " << cName << ";\n";
     }
     else
     {

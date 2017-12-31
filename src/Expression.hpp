@@ -247,6 +247,16 @@ struct Converted : public Expression
   }
 };
 
+struct EnumExpr : public Expression
+{
+  EnumExpr(TypeSystem::EnumConstant* ec);
+  int64_t value;
+  bool assignable()
+  {
+    return false;
+  }
+};
+
 struct ErrorVal : public Expression
 {
   ErrorVal();

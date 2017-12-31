@@ -462,7 +462,8 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
     return;
   }
   StructType* st = nullptr;
-  //before doing scope lookup, if root is a struct or bounded type, try to look up a subroutine
+  //before doing scope lookup, if root is a struct or bounded type,
+  //try to look up a subroutine
   if(root && rootFinal)
   {
     st = dynamic_cast<StructType*>(root->type);
@@ -474,7 +475,8 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         //is a subroutine member of iface
         if(ifaceIt->second.member)
         {
-          root = new SubroutineExpr(new StructMem(root, ifaceIt->second.member), ifaceIt->second.subr);
+          root = new SubroutineExpr(new StructMem(
+                root, ifaceIt->second.member), ifaceIt->second.subr);
         }
         else
         {
@@ -559,22 +561,44 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         break;
       }
     case Name::MODULE:
-      scope = (Scope*) n.item;
+      {
+        scope = (Scope*) n.item;
+        break;
+      }
     case Name::STRUCT:
-      scope = ((StructType*) n.item)->structScope;
+      {
+        scope = ((StructType*) n.item)->structScope;
+        break;
+      }
     case Name::TYPEDEF:
-    {
-      auto at = (AliasType*) n.item;
-      if(at->isStruct())
-        scope = ((StructType*) at->actual)->structScope;
-      else
-        scope = nullptr;
-    }
+      {
+        auto at = (AliasType*) n.item;
+        if(at->isStruct())
+          scope = ((StructType*) at->actual)->structScope;
+        else
+          scope = nullptr;
+        break;
+      }
+    case Name::ENUM_CONSTANT:
+      {
+        EnumConstant* ec = (EnumConstant*) n.item;
+        if(!root)
+        {
+          root = new EnumExpr(ec);
+          isFinal = true;
+          scope = nullptr;
+        }
+        else
+        {
+          ERR_MSG("enum constant " << ec->name << " can't be used as member");
+        }
+        break;
+      }
     default:
-    {
-      ERR_MSG("name " << name <<
-          " is not a scope, variable or subroutine");
-    }
+      {
+        ERR_MSG("name " << name <<
+            " is not a scope, variable, subroutine or enum constant");
+      }
   }
 }
 
@@ -1102,6 +1126,16 @@ Converted::Converted(Expression* val, Type* dst)
   {
     ERR_MSG("can't implicitly convert from " << val->type->getName() << " to " << type->getName());
   }
+}
+
+/************
+ * EnumExpr *
+ ************/
+
+EnumExpr::EnumExpr(TypeSystem::EnumConstant* ec)
+{
+  type = ec->et;
+  value = ec->value;
 }
 
 /*********

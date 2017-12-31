@@ -10,6 +10,7 @@ namespace TypeSystem
   struct Type;
   struct StructType;
   struct EnumType;
+  struct EnumConstant;
   struct AliasType;
   struct BoundedType;
   struct Trait;
@@ -35,7 +36,8 @@ struct Name
     BOUNDED_TYPE,
     TRAIT,
     SUBROUTINE,
-    VARIABLE
+    VARIABLE,
+    ENUM_CONSTANT
   };
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
   Name(ModuleScope* m, Scope* parent)
@@ -54,6 +56,8 @@ struct Name
     : item(subr), kind(SUBROUTINE), scope(s) {}
   Name(Variable* var, Scope* s)
     : item(var), kind(VARIABLE), scope(s) {}
+  Name(TypeSystem::EnumConstant* ec, Scope* s)
+    : item(ec), kind(ENUM_CONSTANT), scope(s) {}
   void* item;
   //All named declaration types
   Kind kind;
@@ -74,6 +78,7 @@ struct Scope
   Name lookup(string name);
   void addName(ModuleScope* m);
   void addName(TypeSystem::StructType* st);
+  void addName(TypeSystem::EnumConstant* ec);
   void addName(TypeSystem::EnumType* et);
   void addName(TypeSystem::AliasType* at);
   void addName(TypeSystem::BoundedType* bt);
