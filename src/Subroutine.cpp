@@ -663,6 +663,7 @@ Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
   auto stypeNT = new Parser::SubroutineTypeNT;
   stypeNT->retType = snt->retType;
   stypeNT->params = snt->params;
+  stypeNT->isStatic = snt->isStatic;
   stypeNT->isPure = snt->isPure;
   stypeNT->nonterm = snt->nonterm;
   TypeLookup tl(stypeNT, s);
