@@ -451,6 +451,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
 
 void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root, Scope*& scope)
 {
+  string path = scope ? scope->getFullPath() : "<null scope>";
   bool rootFinal = isFinal;
   isFinal = false;
   //special case: <array>.len
@@ -535,12 +536,18 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         {
           if(var->isMember)
           {
-            ERR_MSG("tried to access member variable " <<
-                var->name << " in static context");
+            //have no root but referencing non-static member
+            //use a StructMem(ThisExpr, var)
+            //if in static context, ThisExpr ctor will print error
+            root = new StructMem(new ThisExpr(scope), var);
           }
-          //first variable
-          root = new VarExpr(var);
+          else
+          {
+            //just a standalone (static) variable
+            root = new VarExpr(var);
+          }
         }
+        //update the search scope using new root expression type
         st = dynamic_cast<StructType*>(root->type);
         if(st)
           scope = st->structScope;
@@ -1112,6 +1119,36 @@ ArrayLength::ArrayLength(Expression* arr)
   array = arr;
   this->type = primitives[Parser::TypeNT::UINT];
   deps.insert(arr->deps.begin(), arr->deps.end());
+}
+
+/************
+ * ThisExpr *
+ ************/
+
+ThisExpr::ThisExpr(Scope* where)
+{
+  //figure out which struct "this" refers to,
+  //or show error if there is none
+  for(Scope* iter = where; iter; iter = iter->parent)
+  {
+    auto subrScope = dynamic_cast<SubroutineScope*>(iter);
+    auto structScope = dynamic_cast<StructScope*>(iter);
+    if(subrScope)
+    {
+      structType = subrScope->subr->type->ownerStruct;
+      break;
+    }
+    else if(structScope)
+    {
+      structType = structScope->type;
+      break;
+    }
+  }
+  if(!structType)
+  {
+    ERR_MSG("this pointer not available in static context");
+  }
+  type = structType;
 }
 
 /*************

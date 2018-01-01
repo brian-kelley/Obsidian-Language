@@ -101,7 +101,6 @@ namespace Parser
     while(!acceptPunct(RBRACE))
     {
       m->decls.push_back(parse<ScopedDecl>());
-      expectPunct(SEMICOLON);
     }
     return m;
   }

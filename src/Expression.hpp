@@ -237,6 +237,18 @@ struct ArrayLength : public Expression
   }
 };
 
+struct ThisExpr : public Expression
+{
+  ThisExpr(Scope* where);
+  //structType == (StructType*) type,
+  //structType is only for convenience
+  TypeSystem::StructType* structType;
+  bool assignable()
+  {
+    return true;
+  }
+};
+
 struct Converted : public Expression
 {
   Converted(Expression* val, TypeSystem::Type* dst);

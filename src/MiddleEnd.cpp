@@ -59,9 +59,10 @@ namespace MiddleEnd
 
   void visitModule(Scope* current, Parser::Module* m)
   {
-    Scope* mscope = new ModuleScope(m->name, current, m);
+    ModuleScope* mscope = new ModuleScope(m->name, current, m);
+    current->addName(mscope);
     //add all locally defined non-struct types in first pass:
-    for(auto& it : m->decls)
+    for(auto it : m->decls)
     {
       visitScopedDecl(mscope, it);
     }
@@ -252,16 +253,20 @@ namespace MiddleEnd
       }
       if(!local)
       {
+        Variable* var = nullptr;
         if(owner && !vd->isStatic)
         {
-          owner->type->members.push_back(new Variable(current, vd, true));
+          //use the struct member ctor (3rd arg: isMember)
+          var = new Variable(current, vd, true);
+          owner->type->members.push_back(var);
           owner->type->composed.push_back(vd->composed);
         }
         else
         {
           //static or global
-          current->addName(new Variable(current, vd));
+          var = new Variable(current, vd);
         }
+        current->addName(var);
       }
     }
     else

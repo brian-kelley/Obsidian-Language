@@ -638,6 +638,10 @@ namespace C
       generateExpression(c, al->array);
       c << ").dim";
     }
+    else if(dynamic_cast<ThisExpr*>(expr))
+    {
+      c << "this_";
+    }
     else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
     {
       //in C code, this is just the temporary variable's name

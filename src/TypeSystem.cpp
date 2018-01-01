@@ -185,6 +185,14 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
       //if scope is inside a StructScope, owner = corresponding struct type
       for(Scope* iter = scope; iter; iter = iter->parent)
       {
+        if(auto subrScope = dynamic_cast<SubroutineScope*>(iter))
+        {
+          if(iter != scope && subrScope->subr->type->ownerStruct == nullptr)
+          {
+            //this callable inside another static callable, so this must be static as well
+            break;
+          }
+        }
         if(auto ss = dynamic_cast<StructScope*>(iter))
         {
           owner = ss->type;
@@ -667,8 +675,6 @@ void StructType::check()
 
 bool StructType::contains(Type* t)
 {
-  if(t == this)
-    return true;
   for(auto mem : members)
   {
     if(mem->type == t || mem->type->contains(t))
