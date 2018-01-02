@@ -565,6 +565,10 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
 //direct conversion requires other to be the same type
 bool StructType::canConvert(Type* other)
 {
+  cout << "All members of struct " << name << ": ";
+  for(auto mem : members)
+    cout << mem->type->getName() << ' ';
+  cout << '\n';
   StructType* otherStruct = dynamic_cast<StructType*>(other);
   TupleType* otherTuple = dynamic_cast<TupleType*>(other);
   if(otherStruct)
@@ -840,7 +844,7 @@ bool TupleType::canConvert(Type* other)
     }
     return true;
   }
-  return false;
+  return members.size() == 1 && members[0]->canConvert(other);
 }
 
 bool TupleType::contains(Type* t)

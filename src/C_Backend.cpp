@@ -576,7 +576,7 @@ namespace C
             generateExpression(c, sm->base);
             c << "; ";
             //base is now available so evaluate the callable
-            c << baseTemp << "->mem";
+            c << '(' << baseTemp << "->mem";
             StructType* st = (StructType*) sm->base->type;
             for(size_t i = 0; i < st->members.size(); i++)
             {
@@ -586,7 +586,7 @@ namespace C
                 break;
               }
             }
-            c << '(' << baseTemp;
+            c << ")(" << baseTemp;
             for(auto arg : call->args)
             {
               c << ", ";
@@ -602,7 +602,7 @@ namespace C
             generateExpression(c, sm->base);
             c << "; ";
             //base is now available so evaluate the callable
-            c << baseTemp << ".mem";
+            c << '(' << baseTemp << ".mem";
             StructType* st = (StructType*) sm->base->type;
             for(size_t i = 0; i < st->members.size(); i++)
             {
@@ -612,7 +612,7 @@ namespace C
                 break;
               }
             }
-            c << "(&" << baseTemp;
+            c << ")(&" << baseTemp;
             for(auto arg : call->args)
             {
               c << ", ";
@@ -682,6 +682,10 @@ namespace C
       }
       c << memIndex;
     }
+    else if(auto subExpr = dynamic_cast<SubroutineExpr*>(expr))
+    {
+      c << subrs[subExpr->subr];
+    }
     else if(auto converted = dynamic_cast<Converted*>(expr))
     {
       c << getConvertFunc(converted->type, converted->value->type) << "(";
@@ -691,6 +695,20 @@ namespace C
     else if(auto ee = dynamic_cast<EnumExpr*>(expr))
     {
       c << '(' << ee->value << ')';
+    }
+    else if(auto cl = dynamic_cast<CompoundLiteral*>(expr))
+    {
+      //create a tuple representing compound lit,
+      //and assign each member individually in a statement expression
+      string tupName = getIdentifier();
+      c << "({" << types[cl->type] << ' ' << tupName << ";\n";
+      for(size_t i = 0; i < cl->members.size(); i++)
+      {
+        c << tupName << ".mem" << i << " = ";
+        generateExpression(c, cl->members[i]);
+        c << ";\n";
+      }
+      c << tupName << ";})";
     }
     else if(dynamic_cast<ErrorVal*>(expr))
     {
@@ -983,6 +1001,7 @@ namespace C
     //  -RHS can be anything that matches type
     if(auto clLHS = dynamic_cast<CompoundLiteral*>(lhs))
     {
+      cout << "LHS is a compound lit\n";
       //only compound literals, tuples and structs may be assigned to a compound literal
       if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
       {
@@ -1015,6 +1034,7 @@ namespace C
     }
     else if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
     {
+      cout << "RHS is a compound lit\n";
       //lhs may be a tuple, struct or array
       //know that lhs is not also a compound literal,
       //because that case is handled above
@@ -1305,7 +1325,20 @@ namespace C
     Oss def;
     utilFuncDecls << typeName << ' ' << func << "();\n";
     def << "inline " << typeName << ' ' << func << "()\n{\n";
-    if(t->isNumber() || t->isChar())
+    if(t->isEnum())
+    {
+      EnumType* et = (EnumType*) t;
+      if(et->values.size())
+      {
+        def << "return " << et->values[0]->value;
+      }
+      else
+      {
+        //enum has no members, just use 0 as default value
+        def << "return 0;\n";
+      }
+    }
+    else if(t->isNumber() || t->isChar())
     {
       def << "return 0;\n";
     }
@@ -1338,12 +1371,16 @@ namespace C
     }
     else if(t->isArray())
     {
-      //empty array doesn't need any allocation (leave data null)
+      //an empty array doesn't need any allocation (so leave data null)
       def << "return ((" << typeName << ") {NULL, 0});\n";
     }
     else if(t->isUnion())
     {
       def << "return ((" << typeName << ") {NULL, 0});\n";
+    }
+    else if(t->isCallable())
+    {
+      def << "return NULL;\n";
     }
     def << "}\n\n";
     utilFuncDefs << def.str();
@@ -1418,6 +1455,10 @@ namespace C
         def << "temp_.mem" << i << " = " << getCopyFunc(tt->members[i]) << "(data_.mem" << i << ");\n";
       }
       def << "return temp_;\n";
+    }
+    else if(dynamic_cast<CallableType*>(t))
+    {
+      def << "return data_;\n";
     }
     def << "}\n\n";
     utilFuncDefs << def.str();

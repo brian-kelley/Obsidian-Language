@@ -228,6 +228,8 @@ void Assign::commonCtor()
   {
     INTERNAL_ERROR;
   }
+  //need to convert rvalue to lvalue's type, UNLESS
+  //lvalue and/or rvalue are CompoundLiterals
   if(lvalue->type != rvalue->type)
   {
     //must explicitly convert

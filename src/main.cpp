@@ -45,7 +45,7 @@ int main(int argc, const char** argv)
   Parser::Module* parseTree;
   TIMEIT("Parsing", parseTree = Parser::parseProgram(toks););
   DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
-  TIMEIT("Semantic analysis ", MiddleEnd::load(parseTree););
+  TIMEIT("Semantic analysis", MiddleEnd::load(parseTree););
   /*
   DEBUG_DO({
     cout << "************************************\n";
