@@ -238,7 +238,7 @@ namespace C
             typeDecls << ", ";
           typeDecls << types[ct->argTypes[i]];
         }
-        typeDecls << ");\n";
+        typeDecls << "); //" << t->getName() << "\n";
       }
     }
     //implement all remaining (compound) types
@@ -294,15 +294,14 @@ namespace C
           {
             continue;
           }
-          Oss prototype;
           auto sub = (Subroutine*) n.second.item;
           string name = getIdentifier();
           subrs[sub] = name;
-          prototype << types[sub->type->returnType] << ' ' << name << '(';
+          funcDecls << types[sub->type->returnType] << ' ' << name << '(';
           int totalArgs = 0;
           if(sub->type->ownerStruct)
           {
-            prototype << types[sub->type->ownerStruct] << "* this_";
+            funcDecls << types[sub->type->ownerStruct] << "* this_";
             totalArgs++;
           }
           for(size_t i = 0; i < sub->args.size(); i++)
@@ -310,16 +309,45 @@ namespace C
             auto arg = sub->args[i];
             if(totalArgs > 0)
             {
-              prototype << ", ";
+              funcDecls << ", ";
             }
             totalArgs++;
             string argName = getIdentifier();
             vars[arg] = argName;
-            prototype << types[arg->type] << ' ' << argName;
+            funcDecls << types[arg->type] << ' ' << argName;
           }
-          prototype << ')';
-          funcDecls << prototype.str() << ";\n";
-          funcDefs << prototype.str() << '\n';
+          funcDecls << ");\n";
+        }
+      });
+    walkScopeTree([&] (Scope* s) -> void
+      {
+        for(auto& n : s->names)
+        {
+          if(n.second.kind != Name::SUBROUTINE || n.first == "main")
+          {
+            continue;
+          }
+          auto sub = (Subroutine*) n.second.item;
+          funcDefs << types[sub->type->returnType] << ' ' << subrs[sub] << '(';
+          int totalArgs = 0;
+          if(sub->type->ownerStruct)
+          {
+            funcDefs << types[sub->type->ownerStruct] << "* this_";
+            totalArgs++;
+          }
+          for(size_t i = 0; i < sub->args.size(); i++)
+          {
+            auto arg = sub->args[i];
+            if(totalArgs > 0)
+            {
+              funcDefs << ", ";
+            }
+            totalArgs++;
+            string argName = getIdentifier();
+            vars[arg] = argName;
+            funcDefs << types[arg->type] << ' ' << argName;
+          }
+          funcDefs << ")\n";
           generateBlock(funcDefs, sub->body);
           funcDefs << '\n';
         }

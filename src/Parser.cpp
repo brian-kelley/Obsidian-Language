@@ -367,6 +367,7 @@ namespace Parser
     Punct* punct = dynamic_cast<Punct*>(next);
     Ident* ident = dynamic_cast<Ident*>(next);
     StatementNT* s = new StatementNT;
+    Expr12* leadingExpr12;
     if(keyword)
     {
       switch(keyword->kw)
@@ -375,36 +376,44 @@ namespace Parser
           s->s = parse<PrintNT>();
           if(semicolon)
             expectPunct(SEMICOLON);
-          break;
+          return s;
         case RETURN:
           s->s = parse<Return>();
           if(semicolon)
             expectPunct(SEMICOLON);
-          break;
+          return s;
         case CONTINUE:
           s->s = parse<Continue>();
           if(semicolon)
             expectPunct(SEMICOLON);
-          break;
+          return s;
         case BREAK:
           s->s = parse<Break>();
           if(semicolon)
             expectPunct(SEMICOLON);
-          break;
+          return s;
         case SWITCH:
-          s->s = parse<Switch>(); break;
+          s->s = parse<Switch>();
+          return s;
         case MATCH:
-          s->s = parse<Match>(); break;
+          s->s = parse<Match>();
+          return s;
         case FOR:
-          s->s = parse<For>(); break;
+          s->s = parse<For>();
+          return s;
         case WHILE:
-          s->s = parse<While>(); break;
+          s->s = parse<While>();
+          return s;
         case IF:
-          s->s = parse<If>(); break;
+          s->s = parse<If>();
+          return s;
         case ASSERT:
           s->s = parse<Assertion>();
           if(semicolon)
             expectPunct(SEMICOLON);
+          return s;
+        case THIS:
+        case ERROR_VALUE:
           break;
         //handle various kinds of ScopedDecl
         case MODULE:
@@ -430,10 +439,9 @@ namespace Parser
         case FLOAT:
         case DOUBLE:
           s->s = parse<ScopedDecl>();
-          break;
+          return s;
         default: err("expected statement or declaration, but got keyword " + keywordTable[keyword->kw]);
       }
-      return s;
     }
     else if(punct && punct->val == LBRACE)
     {
@@ -448,7 +456,6 @@ namespace Parser
     //  Parse an Expr12
     //  If next token is '=', is a VarAssign
     //  Otherwise, must be a Call (check tail)
-    Expr12* leadingExpr12;
     if(ident)
     {
       //this must succeed when starting with an Ident
@@ -1596,6 +1603,8 @@ namespace Parser
           e12->e = new BoolLit(true);
         else if(kw->kw == ERROR_VALUE)
           e12->e = Expr12::Error();
+        else if(kw->kw == THIS)
+          e12->e = Expr12::This();
         else
           err("invalid keyword in expression");
         break;
@@ -1615,7 +1624,8 @@ namespace Parser
       case IDENTIFIER:
         e12->e = parse<Member>();
         break;
-      default: err("unexpected token in expression");
+      default:
+        err("unexpected token \"" + next->getStr() + "\" (type " + next->getDesc() + ") in expression");
     }
     parseExpr12Tail(e12);
     return e12;

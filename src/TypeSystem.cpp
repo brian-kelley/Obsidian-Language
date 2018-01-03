@@ -565,10 +565,6 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
 //direct conversion requires other to be the same type
 bool StructType::canConvert(Type* other)
 {
-  cout << "All members of struct " << name << ": ";
-  for(auto mem : members)
-    cout << mem->type->getName() << ' ';
-  cout << '\n';
   StructType* otherStruct = dynamic_cast<StructType*>(other);
   TupleType* otherTuple = dynamic_cast<TupleType*>(other);
   if(otherStruct)
@@ -619,7 +615,7 @@ void StructType::check()
     }
   }
   //now build the "interface": all direct subroutine members of this and composed members
-  //"this" members have top priority, then composed members in order of declaration
+  //overriding priority: direct members > 1st composed > 2nd composed > ...
   //for subroutines which are available through composition, need to know which member it belongs to
   for(auto& decl : structScope->names)
   {
@@ -637,8 +633,7 @@ void StructType::check()
       StructType* memberStruct = dynamic_cast<StructType*>(members[i]->type);
       if(memberStruct)
       {
-        //for each member subr of memberStruct, if its signature matches an existing subroutine,
-        //replace existing
+        //for each member subr of memberStruct, if its name isn't already in interface, add it
         StructScope* memScope = memberStruct->structScope;
         for(auto& decl : memScope->names)
         {

@@ -664,6 +664,7 @@ namespace Parser
     Expr12() : e(None()) {}
     Expr12(ExpressionNT* expr) : e(expr) {}
     struct Error {};
+    struct This {};
     variant<
       None,
       IntLit*,
@@ -674,7 +675,8 @@ namespace Parser
       ExpressionNT*,      //for expression inside parentheses
       StructLit*,
       Member*,
-      Error> e;
+      Error,
+      This> e;
     vector<Expr12RHS*> tail;  //tail is a chain of 0 or more member acesses, array indices and member calls
   };
 

@@ -391,6 +391,10 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   {
     root = new CompoundLiteral(s, expr->e.get<Parser::StructLit*>());
   }
+  else if(expr->e.is<Parser::Expr12::This>())
+  {
+    root = new ThisExpr(s);
+  }
   else if(expr->e.is<Parser::Expr12::Error>())
   {
     root = new ErrorVal;

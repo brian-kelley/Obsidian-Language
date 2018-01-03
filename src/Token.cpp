@@ -439,6 +439,7 @@ Keyword::Keyword(string text)
 
 Keyword::Keyword(int val)
 {
+  type = KEYWORD;
   this->kw = val;
 }
 

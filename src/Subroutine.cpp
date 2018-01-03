@@ -631,12 +631,9 @@ Print::Print(Parser::PrintNT* p, BlockScope* s)
 
 void Print::checkPurity(Scope* s)
 {
-  for(auto e : exprs)
+  if(s)
   {
-    if(!e->pureWithin(s))
-    {
-      ERR_MSG("printed value violates purity");
-    }
+    ERR_MSG("print() has side effects and can't be used in a function");
   }
 }
 
