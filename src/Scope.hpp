@@ -13,7 +13,6 @@ namespace TypeSystem
   struct EnumConstant;
   struct AliasType;
   struct BoundedType;
-  struct Trait;
   struct TType;
 }
 
@@ -33,8 +32,6 @@ struct Name
     STRUCT,
     ENUM,
     TYPEDEF,
-    BOUNDED_TYPE,
-    TRAIT,
     SUBROUTINE,
     VARIABLE,
     ENUM_CONSTANT
@@ -48,10 +45,6 @@ struct Name
     : item(e), kind(ENUM), scope(s) {}
   Name(TypeSystem::AliasType* a, Scope* s)
     : item(a), kind(TYPEDEF), scope(s) {}
-  Name(TypeSystem::BoundedType* b, Scope* s)
-    : item(b), kind(BOUNDED_TYPE), scope(s) {}
-  Name(TypeSystem::Trait* t, Scope* s)
-    : item(t), kind(TRAIT), scope(s) {}
   Name(Subroutine* subr, Scope* s)
     : item(subr), kind(SUBROUTINE), scope(s) {}
   Name(Variable* var, Scope* s)
@@ -82,7 +75,6 @@ struct Scope
   void addName(TypeSystem::EnumType* et);
   void addName(TypeSystem::AliasType* at);
   void addName(TypeSystem::BoundedType* bt);
-  void addName(TypeSystem::Trait* t);
   void addName(Subroutine* s);
   void addName(Variable* v);
   map<string, Name> names;
@@ -124,16 +116,6 @@ struct SubroutineScope : public Scope
   SubroutineScope(Scope* parent) : Scope(parent), subr(nullptr) {}
   string getLocalName();  //local name uses index to produce a unique name
   Subroutine* subr;
-};
-
-//Need a scope for traits so that T can be created locally as a type
-struct TraitScope : public Scope
-{
-  TraitScope(Scope* parent, string n);
-  TypeSystem::Trait* trait;
-  TypeSystem::TType* ttype;
-  string getLocalName();
-  string name; //local name
 };
 
 #endif

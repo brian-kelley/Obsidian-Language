@@ -172,7 +172,6 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   {
     return nullptr;
   }
-  cout << "About to internal error, actual Parser Statement tag: " << stmt->s.which() << '\n';
   INTERNAL_ERROR;
   return nullptr;
 }
@@ -653,26 +652,16 @@ void Assertion::checkPurity(Scope* s)
 Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
 {
   name = snt->name;
-  scope = dynamic_cast<SubroutineScope*>(s);
-  if(!scope)
-  {
-    INTERNAL_ERROR;
-  }
-  //first, compute the type by building a SubroutineTypeNT
+  scope = (SubroutineScope*) s;
+  body = nullptr;
   auto stypeNT = new Parser::SubroutineTypeNT;
   stypeNT->retType = snt->retType;
   stypeNT->params = snt->params;
   stypeNT->isStatic = snt->isStatic;
   stypeNT->isPure = snt->isPure;
   stypeNT->nonterm = snt->nonterm;
-  TypeLookup tl(stypeNT, s);
+  TypeLookup tl(stypeNT, scope);
   TypeSystem::typeLookup->lookup(tl, (Type*&) type);
-  body = nullptr;
-  if(snt->body)
-  {
-    body = new Block(snt->body, blockScopes[snt->body], this);
-    //but don't add statements yet
-  }
 }
 
 void Subroutine::check()

@@ -201,7 +201,7 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  //constructor doesn't process the body in any way
+  //constructor doesn't process the type or body in any way
   Subroutine(Parser::SubroutineNT* snt, Scope* s);
   string name;
   //the full type of this subroutine

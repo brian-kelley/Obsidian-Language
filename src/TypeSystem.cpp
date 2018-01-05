@@ -18,7 +18,6 @@ namespace TypeSystem
 vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<StructType*> structs;
-vector<BoundedType*> boundedTypes;
 set<ArrayType*, ArrayCompare> arrays;
 set<TupleType*, TupleCompare> tuples;
 set<UnionType*, UnionCompare> unions;
@@ -28,7 +27,6 @@ set<EnumType*> enums;
 
 //these are created in MiddleEnd
 DeferredTypeLookup* typeLookup;
-DeferredTraitLookup* traitLookup;
 
 void createBuiltinTypes()
 {
@@ -98,13 +96,6 @@ string typeErrorMessage(TypeLookup& lookup)
   return oss.str();
 }
 
-string traitErrorMessage(TraitLookup& lookup)
-{
-  Oss oss;
-  oss << "unknown trait: " << *(lookup.name);
-  return oss.str();
-}
-
 Type* lookupType(Parser::TypeNT* type, Scope* scope)
 {
   //handle array immediately - just make an array and then handle the singular element type
@@ -126,19 +117,13 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
   {
     //intercept special case: "T" inside a trait decl
     auto mem = type->t.get<Member*>();
-    if(mem->names.size() == 1 && mem->names[0] == "T")
-    {
-      if(auto ts = dynamic_cast<TraitScope*>(scope))
-      {
-        return ts->ttype;
-      }
-    }
     Name n = scope->findName(mem);
     if(!n.item)
+    {
       return nullptr;
+    }
     if(n.kind == Name::STRUCT ||
-        n.kind == Name::ENUM ||
-        n.kind == Name::BOUNDED_TYPE)
+        n.kind == Name::ENUM)
     {
       return (Type*) n.item;
     }
@@ -205,21 +190,7 @@ Type* lookupType(Parser::TypeNT* type, Scope* scope)
     vector<Type*> argTypes;
     for(auto param : stNT->params)
     {
-      if(param->type.is<TypeNT*>())
-      {
-        argTypes.push_back(lookupType(param->type.get<TypeNT*>(), scope));
-      }
-      else
-      {
-        auto bt = param->type.get<BoundedTypeNT*>();
-        //attempt to look up the bounded type by name
-        Member m;
-        m.names.push_back(bt->localName);
-        TypeNT wrapper;
-        wrapper.t = &m;
-        Type* namedBT = lookupType(&wrapper, scope);
-        argTypes.push_back(namedBT);
-      }
+      argTypes.push_back(lookupType(param->type, scope));
     }
     return getSubroutineType(owner, pure, nonterm, retType, argTypes);
   }
@@ -420,23 +391,6 @@ Type* lookupTypeDeferred(TypeLookup& args)
   }
 }
 
-Trait* lookupTrait(Parser::Member* name, Scope* scope)
-{
-  Name n = scope->findName(name);
-  if(!n.item)
-    return nullptr;
-  if(n.kind != Name::TRAIT)
-  {
-    ERR_MSG(*name << " is not a trait");
-  }
-  return (Trait*) n.item;
-}
-
-Trait* lookupTraitDeferred(TraitLookup& args)
-{
-  return lookupTrait(args.name, args.scope);
-}
-
 Type* getIntegerType(int bytes, bool isSigned)
 {
   using Parser::TypeNT;
@@ -459,88 +413,6 @@ Type* getIntegerType(int bytes, bool isSigned)
   return NULL;
 }
 
-/****************/
-/* Bounded Type */
-/****************/
-
-BoundedType::BoundedType(Parser::BoundedTypeNT* tt, Scope* s)
-{
-  boundedTypes.push_back(this);
-  name = tt->localName;
-  traits.resize(tt->traits.size());
-  for(size_t i = 0; i < tt->traits.size(); i++)
-  {
-    TraitLookup tl(tt->traits[i], s);
-    traitLookup->lookup(tl, traits[i]);
-  }
-}
-
-bool BoundedType::canConvert(Type* other)
-{
-  //only requirement is that other implements all traits of this
-  for(auto t : traits)
-  {
-    if(!other->implementsTrait(t))
-      return false;
-  }
-  return true;
-}
-
-void BoundedType::check()
-{
-  //all the traits must be loaded, so make a list of the subroutines
-  //that any implmentation of this must have
-  for(auto t : traits)
-  {
-    for(size_t i = 0; i < t->callables.size(); i++)
-    {
-      string& sname = t->subrNames[i];
-      if(subrs.find(sname) != subrs.end())
-      {
-        ERR_MSG("bounded type " << name << " is invalid because subroutines with name "
-            << sname << " exist in more than one of its traits");
-        subrs[sname] = t->callables[i];
-      }
-    }
-  }
-}
-
-/***********/
-/*  Trait  */
-/***********/
-
-Trait::Trait(Parser::TraitDecl* td, TraitScope* s)
-{
-  name = td->name;
-  scope = s;
-  //pre-allocate subr and names vectors
-  subrNames.resize(td->members.size());
-  callables.resize(td->members.size());
-  //use deferred callable type lookup for members
-  for(size_t i = 0; i < td->members.size(); i++)
-  {
-    Parser::SubroutineNT* subr = td->members[i];
-    if(subr->isStatic)
-    {
-      ERR_MSG("subroutine " << subr->name << " in trait " << name << " is static");
-    }
-    if(subr->body)
-    {
-      ERR_MSG("subroutine " << subr->name << " in trait " << name << " has a body which is not allowed");
-    }
-    subrNames[i] = subr->name;
-    //Make a new SubroutineTypeNT from the informtion in subr
-    auto subrType = new Parser::SubroutineTypeNT;
-    subrType->retType = subr->retType;
-    subrType->params = subr->params;
-    subrType->isPure = subr->isPure;
-    subrType->isStatic = subr->isStatic;
-    subrType->nonterm = subr->nonterm;
-    TypeLookup lookupArgs(subrType, s);
-    typeLookup->lookup(lookupArgs, (Type*&) callables[i]);
-  }
-}
-
 /***************/
 /* Struct Type */
 /***************/
@@ -552,13 +424,6 @@ StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScop
   this->structScope = sscope;
   //have struct scope point back to this
   sscope->type = this;
-  //Load traits using deferred trait lookup
-  traits.resize(sd->traits.size());
-  for(size_t i = 0; i < sd->traits.size(); i++)
-  {
-    TraitLookup lookupArgs(sd->traits[i], enclosingScope);
-    traitLookup->lookup(lookupArgs, traits[i]);
-  }
   checked = false;
 }
 
@@ -646,28 +511,6 @@ void StructType::check()
       }
     }
   }
-  //go through each trait, and make sure this supports an exactly matching
-  //subroutine (name, purity, nontermness, staticness, retun type, arg types)
-  //(ownerStruct does NOT have to match because of composition)
-  for(auto t : traits)
-  {
-    for(size_t i = 0; i < t->subrNames.size(); i++)
-    {
-      //get the name directly inside struct scope (must exist)
-      string subrName = t->subrNames[i];
-      if(interface.find(subrName) == interface.end())
-      {
-        ERR_MSG("struct " << name << " doesn't implement subroutine " <<
-            subrName << " required by trait " << t->name);
-      }
-      CallableType* subrType = t->callables[i];
-      if(!subrType->sameExceptOwner(interface[subrName].subr->type))
-      {
-        ERR_MSG("subroutine " << name << "." << subrName <<
-            "has a different signature than in trait " << t->name); 
-      }
-    }
-  }
   checked = true;
   checking = false;
 }
@@ -682,12 +525,6 @@ bool StructType::contains(Type* t)
     }
   }
   return false;
-}
-
-bool StructType::implementsTrait(Trait* t)
-{
-  assert(checked);
-  return find(traits.begin(), traits.end(), t) != traits.end();
 }
 
 /**************/
@@ -1140,22 +977,6 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
   return lexicographical_compare(
       lhs->argTypes.begin(), lhs->argTypes.end(),
       rhs->argTypes.begin(), rhs->argTypes.end());
-}
-
-TType::TType(TraitScope* ts)
-{
-  scope = ts;
-}
-
-bool TType::canConvert(Type* other)
-{
-  //other can convert to TType if other implements this trait
-  TraitScope* ts = dynamic_cast<TraitScope*>(scope);
-  if(!ts || !ts->trait)
-  {
-    INTERNAL_ERROR;
-  }
-  return other->implementsTrait(ts->trait);
 }
 
 } //namespace TypeSystem

@@ -492,21 +492,6 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         return;
       }
     }
-    BoundedType* bt = dynamic_cast<BoundedType*>(root->type);
-    if(bt)
-    {
-      //now, name MUST refer to unique subr in bt
-      //because BoundedType has no other members
-      auto it = bt->subrs.find(name);
-      if(it == bt->subrs.end())
-      {
-        ERR_MSG(name << " is not a subroutine in bounded type " << bt->name);
-      }
-      root = new TraitSubroutineExpr(root, name, it->second);
-      isFinal = true;
-      scope = nullptr;
-      return;
-    }
   }
   if(!scope)
   {
@@ -834,15 +819,15 @@ IntLiteral::IntLiteral(uint64_t val) : value(val)
 
 void IntLiteral::setType()
 {
-  //if value fits in a signed int, use that as the type
-  //when in doubt, don't use auto
+  //use int32 (or int64 if too big for 32)
+  //this constant is INT_MAX
   if(value > 0x7FFFFFFF)
   {
-    type = primitives[Parser::TypeNT::ULONG];
+    type = primitives[Parser::TypeNT::LONG];
   }
   else
   {
-    type = primitives[Parser::TypeNT::UINT];
+    type = primitives[Parser::TypeNT::INT];
   }
 }
 
@@ -1064,19 +1049,6 @@ SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
   type = s->type;
   deps.insert(root->deps.begin(), root->deps.end());
   pure = root->pure;
-}
-
-/******************
- * SubroutineExpr *
- ******************/
-
-TraitSubroutineExpr::TraitSubroutineExpr(Expression* b, string n, CallableType* t)
-{
-  base = b;
-  name = n;
-  type = t;
-  deps.insert(b->deps.begin(), b->deps.end());
-  pure = b->pure;
 }
 
 /*************

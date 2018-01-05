@@ -21,14 +21,11 @@ namespace MiddleEnd
     //create AST scopes, types, traits, subroutines
     TypeSystem::typeLookup = new TypeSystem::DeferredTypeLookup(
         TypeSystem::lookupTypeDeferred, TypeSystem::typeErrorMessage);
-    TypeSystem::traitLookup = new TypeSystem::DeferredTraitLookup(
-        TypeSystem::lookupTraitDeferred, TypeSystem::traitErrorMessage);
     for(auto& it : ast->decls)
     {
       visitScopedDecl(global, it);
     }
     TypeSystem::typeLookup->flush();
-    TypeSystem::traitLookup->flush();
     for(auto st : TypeSystem::structs)
       st->check();
     for(auto mt : TypeSystem::maps)
@@ -37,8 +34,6 @@ namespace MiddleEnd
       tt->check();
     for(auto at : TypeSystem::arrays)
       at->check();
-    for(auto bt : TypeSystem::boundedTypes)
-      bt->check();
     //now that all type-related info is loaded to IR,
     //can actually load all subroutine implementations
     programHasMain = false;
@@ -72,33 +67,13 @@ namespace MiddleEnd
   {
     //create a scope for the subroutine and its body
     SubroutineScope* ss = new SubroutineScope(current);
-    for(auto param : subrNT->params)
-    {
-      if(param->type.is<Parser::BoundedTypeNT*>())
-      {
-        //create a named bounded type for the param and add to ss
-        ss->addName(new TypeSystem::BoundedType(param->type.get<Parser::BoundedTypeNT*>(), ss));
-      }
-    }
     Subroutine* subr = new Subroutine(subrNT, ss);
     ss->subr = subr;
     current->addName(subr);
     //add parameter variables
     for(auto param : subrNT->params)
     {
-      Parser::TypeNT* paramType;
-      Parser::Member temp;
-      if(param->type.is<Parser::BoundedTypeNT*>())
-      {
-        paramType = new Parser::TypeNT;
-        temp.names.push_back(param->type.get<Parser::BoundedTypeNT*>()->localName);
-        paramType->t = &temp;
-      }
-      else
-      {
-        paramType = param->type.get<Parser::TypeNT*>();
-      }
-      auto t = TypeSystem::lookupType(paramType, ss);
+      auto t = TypeSystem::lookupType(param->type, ss);
       if(!t)
       {
         ERR_MSG("parameter " << param->name << " to subroutine " << subr->name << " has an unknown type");
@@ -180,14 +155,6 @@ namespace MiddleEnd
     }
   }
 
-  void visitTrait(Scope* current, Parser::TraitDecl* td)
-  {
-    TraitScope* tscope = new TraitScope(current, td->name);
-    //Create the trait
-    current->addName(new TypeSystem::Trait(td, tscope));
-    //trait scope can't have child scopes, so done here
-  }
-
   void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
   {
     if(sd->decl.is<Parser::Enum*>())
@@ -209,10 +176,6 @@ namespace MiddleEnd
     else if(sd->decl.is<Parser::SubroutineNT*>())
     {
       visitSubroutine(current, sd->decl.get<Parser::SubroutineNT*>());
-    }
-    else if(sd->decl.is<Parser::TraitDecl*>())
-    {
-      visitTrait(current, sd->decl.get<Parser::TraitDecl*>());
     }
     else if(sd->decl.is<Parser::VarDecl*>())
     {

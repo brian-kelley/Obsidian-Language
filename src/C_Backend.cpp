@@ -149,7 +149,6 @@ namespace C
             //don't process TYPEDEF here because aliases
             //are never used directly in the IR
             case Name::STRUCT:
-            case Name::BOUNDED_TYPE:
             case Name::ENUM:
               allTypes.push_back((Type*) t.second.item);
               break;
@@ -173,12 +172,6 @@ namespace C
     for(auto at : TypeSystem::arrays)
     {
       allTypes.push_back(at);
-    }
-    for(auto bt : TypeSystem::boundedTypes)
-    {
-      //bounded types are implemented as void*
-      typesImplemented[bt] = true;
-      types[bt] = "void*";
     }
     for(auto ct : TypeSystem::callables)
     {
@@ -502,10 +495,10 @@ namespace C
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
       //all int literals are unsigned
-      c << intLit->value << "U";
-      if(intLit->value >= 0xFFFFFFFF)
+      c << intLit->value;
+      if(intLit->value >= INT_MAX)
       {
-        c << "ULL";
+        c << "LL";
       }
     }
     else if(FloatLiteral* floatLit = dynamic_cast<FloatLiteral*>(expr))
@@ -582,7 +575,7 @@ namespace C
         }
         for(size_t i = 0; i < call->args.size(); i++)
         {
-          if(i > 0)
+          if(i > 0 || subrExpr->thisObject)
           {
             c << ", ";
           }
@@ -656,7 +649,7 @@ namespace C
           c << '(';
           for(size_t i = 0; i < call->args.size(); i++)
           {
-            if(i > 0)
+            if(i > 0 || sm->base->assignable())
             {
               c << ", ";
             }

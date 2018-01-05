@@ -25,8 +25,6 @@ ADD_NAME(TypeSystem::StructType,   "struct",        Name::STRUCT);
 ADD_NAME(TypeSystem::EnumConstant, "enum constant", Name::ENUM_CONSTANT);
 ADD_NAME(TypeSystem::EnumType,     "enum",          Name::ENUM);
 ADD_NAME(TypeSystem::AliasType,    "typedef",       Name::TYPEDEF);
-ADD_NAME(TypeSystem::BoundedType,  "bounded type",  Name::BOUNDED_TYPE);
-ADD_NAME(TypeSystem::Trait,        "trait",         Name::TRAIT);
 ADD_NAME(Subroutine,               "subroutine",    Name::SUBROUTINE);
 ADD_NAME(Variable,                 "variable",      Name::VARIABLE);
 
@@ -153,14 +151,5 @@ string BlockScope::getLocalName()
   //note: Onyx identifiers can't begin with underscore, so if it ever
   //matters this local name can't conflict with any other scope name
   return string("_B") + to_string(index);
-}
-
-/* TraitScope */
-
-TraitScope::TraitScope(Scope* par, string n) : Scope(par), ttype(nullptr), name(n) {}
-
-string TraitScope::getLocalName()
-{
-  return name;
 }
 

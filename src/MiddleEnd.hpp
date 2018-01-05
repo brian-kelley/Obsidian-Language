@@ -29,7 +29,6 @@ namespace MiddleEnd
   void visitStatement(Scope* current, Parser::StatementNT* s);
   void visitStruct(Scope* current, Parser::StructDecl* sd);
   void visitSubroutine(Scope* current, Parser::SubroutineNT* subr);
-  void visitTrait(Scope* current, Parser::TraitDecl* td);
   void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd);
 }
 

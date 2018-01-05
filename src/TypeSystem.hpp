@@ -31,7 +31,6 @@ namespace TypeSystem
 {
 
 struct Type;
-struct Trait;
 //All Type subclasses:
 struct StructType;
 struct TupleType;
@@ -89,24 +88,13 @@ struct TypeLookup
   Scope* scope;
 };
 
-struct TraitLookup
-{
-  TraitLookup(Parser::Member* n, Scope* s) : name(n), scope(s) {}
-  Parser::Member* name;
-  Scope* scope;
-};
-
 //type error message function, to be used by DeferredLookup on types
 string typeErrorMessage(TypeLookup& lookup);
-string traitErrorMessage(TraitLookup& lookup);
 
 Type* lookupType(Parser::TypeNT* type, Scope* scope);
 CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope);
 //wrapper for lookupType used by deferred type lookup
 Type* lookupTypeDeferred(TypeLookup& args);
-
-Trait* lookupTrait(Parser::Member* type, Scope* scope);
-Trait* lookupTraitDeferred(TraitLookup& args);
 
 Type* getIntegerType(int bytes, bool isSigned);
 
@@ -144,9 +132,6 @@ typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(Type
 //global type lookup to be used by some type constructors
 extern DeferredTypeLookup* typeLookup;
 
-typedef DeferredLookup<Trait, Trait* (*)(TraitLookup&), TraitLookup, string (*)(TraitLookup&)> DeferredTraitLookup;
-extern DeferredTraitLookup* traitLookup;
-
 struct Type
 {
   virtual ~Type() {}
@@ -154,7 +139,6 @@ struct Type
   virtual bool canConvert(Type* other) = 0;
   //get the type's name
   virtual string getName() = 0;
-  virtual bool implementsTrait(Trait* t) {return false;}
   //whether this "contains" t, for finding circular memberships
   virtual bool contains(Type* t) {return false;}
   virtual bool isArray()    {return false;}
@@ -177,48 +161,15 @@ struct Type
   virtual bool isBounded()  {return false;}
 };
 
-//Bounded type: a set of traits that define a polymorphic argument type (like Java)
-//Only used in subroutine declarations, and belongs to subroutine scope
-struct BoundedType : public Type
-{
-  BoundedType(Parser::BoundedTypeNT* nt, Scope* s);
-  BoundedType(string n, vector<Trait*> t, Scope* s) : name(n), traits(t) {}
-  string name;
-  vector<Trait*> traits;
-  map<string, CallableType*> subrs;
-  bool canConvert(Type* other);
-  bool implementsTrait(Trait* t) {return find(traits.begin(), traits.end(), t) != traits.end();}
-  bool isBounded()
-  {
-    return true;
-  }
-  string getName()
-  {
-    return name;
-  }
-  void check();
-};
-
-struct Trait
-{
-  Trait(Parser::TraitDecl* td, TraitScope* parent);
-  string name;
-  TraitScope* scope;
-  vector<string> subrNames;
-  vector<CallableType*> callables;
-};
-
 struct StructType : public Type
 {
   StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
   string name;
   vector<Variable*> members;
   vector<bool> composed; //1-1 correspondence with members
-  vector<Trait*> traits;
   StructScope* structScope;
   bool canConvert(Type* other);
   bool isStruct() {return true;}
-  bool implementsTrait(Trait* t);
   void check(); //called once per struct at end of semantic checking
   string getName()
   {
@@ -484,18 +435,6 @@ struct CallableType : public Type
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
   bool sameExceptOwner(CallableType* other);
-};
-
-struct TType : public Type
-{
-  TType(TraitScope* ts);
-  TraitScope* scope;
-  //canConvert: other implements this trait
-  bool canConvert(Type* other);
-  string getName()
-  {
-    return "T";
-  }
 };
 
 } //namespace TypeSystem

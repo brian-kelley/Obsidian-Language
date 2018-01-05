@@ -46,11 +46,9 @@ namespace Parser
   template<> SubroutineTypeNT* parse<SubroutineTypeNT>();
   template<> Parameter* parse<Parameter>();
   template<> StructDecl* parse<StructDecl>();
-  template<> TraitDecl* parse<TraitDecl>();
   template<> StructLit* parse<StructLit>();
   template<> BoolLit* parse<BoolLit>();
   template<> Member* parse<Member>();
-  template<> BoundedTypeNT* parse<BoundedTypeNT>();
   template<> TupleTypeNT* parse<TupleTypeNT>();
   template<> UnionTypeNT* parse<UnionTypeNT>();
   template<> MapTypeNT* parse<MapTypeNT>();
@@ -134,8 +132,6 @@ namespace Parser
           sd->decl = new Typedef(name, t);
           break;
         }
-        case TRAIT:
-          sd->decl = parse<TraitDecl>(); break;
         case ENUM:
           sd->decl = parse<Enum>(); break;
         case TYPEDEF:
@@ -419,7 +415,6 @@ namespace Parser
         case MODULE:
         case STRUCT:
         case UNION:
-        case TRAIT:
         case ENUM:
         case FUNC:
         case PROC:
@@ -981,16 +976,7 @@ namespace Parser
     Parameter* p = new Parameter;
     //look ahead for Ident followed by ':' (means bounded type)
     //otherwise, just parse regular TypeNT
-    Ident* nextID = dynamic_cast<Ident*>(lookAhead(0));
-    Punct* punct = dynamic_cast<Punct*>(lookAhead(1));
-    if(nextID && punct && punct->val == COLON)
-    {
-      p->type = parse<BoundedTypeNT>();
-    }
-    else
-    {
-      p->type = parse<TypeNT>();
-    }
+    p->type = parse<TypeNT>();
     //optional parameter name
     Ident* paramName = (Ident*) accept(IDENTIFIER);
     if(paramName)
@@ -1027,7 +1013,7 @@ namespace Parser
     subr->name = ((Ident*) expect(IDENTIFIER))->name;
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    subr->params = parseStar<Parameter>(rparen);
+    subr->params = parseStarComma<Parameter>(rparen);
     subr->body = nullptr;
     if(!acceptPunct(SEMICOLON))
     {
@@ -1061,7 +1047,7 @@ namespace Parser
     st->retType = parse<TypeNT>();
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
-    st->params = parseStar<Parameter>(rparen);
+    st->params = parseStarComma<Parameter>(rparen);
     return st;
   }
 
@@ -1079,18 +1065,6 @@ namespace Parser
     Punct rbrace(RBRACE);
     sd->members = parseStar<ScopedDecl>(rbrace);
     return sd;
-  }
-
-  template<>
-  TraitDecl* parse<TraitDecl>()
-  {
-    TraitDecl* td = new TraitDecl;
-    expectKeyword(TRAIT);
-    td->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LBRACE);
-    Punct rbrace(RBRACE);
-    td->members = parseStar<SubroutineNT>(rbrace);
-    return td;
   }
 
   template<>
@@ -1114,18 +1088,6 @@ namespace Parser
       m->names.push_back(((Ident*) expect(IDENTIFIER))->name);
     }
     return m;
-  }
-
-  template<>
-  BoundedTypeNT* parse<BoundedTypeNT>()
-  {
-    // <ident> : <trait1, trait2, ... traitN>
-    // Given the ':', there must be one or more trait names
-    BoundedTypeNT* bt = new BoundedTypeNT;
-    bt->localName = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(COLON);
-    bt->traits = parsePlusComma<Member>();
-    return bt;
   }
 
   template<>

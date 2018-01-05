@@ -64,11 +64,9 @@ namespace Parser
   struct SubroutineNT;
   struct SubroutineTypeNT;
   struct StructDecl;    // [value1, value2]
-  struct TraitDecl;
   struct StructLit;
   struct Member;
   //Syntactic types
-  struct BoundedTypeNT; // typeName: trait1, trait2
   struct TupleTypeNT;   // (type1, type2, type3)
   struct UnionTypeNT;   // Haskell-style union: type1 | type2 | type3
   struct MapTypeNT;     // map/dictionary: (key : value)
@@ -128,7 +126,6 @@ namespace Parser
       Module*,
       VarDecl*,
       StructDecl*,
-      TraitDecl*,
       Enum*,
       Typedef*,
       SubroutineNT*,
@@ -377,7 +374,7 @@ namespace Parser
   //Parameter - used by SubroutineNT
   struct Parameter : public ParseNode
   {
-    variant<None, TypeNT*, BoundedTypeNT*> type;
+    TypeNT* type;
     //name is optional (if not present, is "")
     string name;
   };
@@ -413,12 +410,6 @@ namespace Parser
     string name;
     vector<Member*> traits;
     vector<ScopedDecl*> members;
-  };
-
-  struct TraitDecl : public ParseNode
-  {
-    string name;
-    vector<SubroutineNT*> members;
   };
 
   struct StructLit : public ParseNode

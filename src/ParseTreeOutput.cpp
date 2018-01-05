@@ -91,11 +91,9 @@ template<> int emit<Parameter>(Parameter* n);
 template<> int emit<SubroutineNT>(SubroutineNT* n);
 template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n);
 template<> int emit<StructDecl>(StructDecl* n);
-template<> int emit<TraitDecl>(TraitDecl* n);
 template<> int emit<StructLit>(StructLit* n);
 template<> int emit<BoolLit>(BoolLit* n);
 template<> int emit<Member>(Member* n);
-template<> int emit<BoundedTypeNT>(BoundedTypeNT* n);
 template<> int emit<TupleTypeNT>(TupleTypeNT* n);
 template<> int emit<UnionTypeNT>(UnionTypeNT* n);
 template<> int emit<MapTypeNT>(MapTypeNT* n);
@@ -139,8 +137,6 @@ template<> int emit<ScopedDecl>(ScopedDecl* n)
     return emit(n->decl.get<VarDecl*>());
   else if(n->decl.is<StructDecl*>())
     return emit(n->decl.get<StructDecl*>());
-  else if(n->decl.is<TraitDecl*>())
-    return emit(n->decl.get<TraitDecl*>());
   else if(n->decl.is<Enum*>())
     return emit(n->decl.get<Enum*>());
   else if(n->decl.is<Typedef*>())
@@ -518,14 +514,7 @@ template<> int emit<CallOp>(CallOp* n)
 template<> int emit<Parameter>(Parameter* n)
 {
   int root = node("Parameter");
-  if(n->type.is<TypeNT*>())
-  {
-    link(root, emit(n->type.get<TypeNT*>()));
-  }
-  else if(n->type.is<BoundedTypeNT*>())
-  {
-    link(root, emit(n->type.get<BoundedTypeNT*>()));
-  }
+  link(root, emit(n->type));
   if(n->name.size())
     link(root, node(n->name));
   return root;
@@ -603,26 +592,7 @@ template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n)
 template<> int emit<StructDecl>(StructDecl* n)
 {
   int root = node("Struct " + n->name);
-  if(n->traits.size())
-  {
-    int traitList = node("Traits");
-    link(root, traitList);
-    for(auto trait : n->traits)
-    {
-      link(traitList, emit(trait));
-    }
-  }
   for(auto mem : n->members)
-  {
-    link(root, emit(mem));
-  }
-  return root;
-}
-
-template<> int emit<TraitDecl>(TraitDecl* n)
-{
-  int root = node("Trait " + n->name);
-  for(auto& mem : n->members)
   {
     link(root, emit(mem));
   }
@@ -657,14 +627,6 @@ template<> int emit<Member>(Member* mem)
     }
   }
   return node(oss.str());
-}
-
-template<> int emit<BoundedTypeNT>(BoundedTypeNT* n)
-{
-  int root = node("Bounded type " + n->localName);
-  for(auto t : n->traits)
-    link(root, emit(t));
-  return root;
 }
 
 template<> int emit<TupleTypeNT>(TupleTypeNT* n)

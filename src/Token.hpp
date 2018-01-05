@@ -40,7 +40,6 @@ enum
   THIS,
   ERROR_TYPE,
   ERROR_VALUE,
-  TRAIT,
   IF,
   ELSE,
   FOR,
