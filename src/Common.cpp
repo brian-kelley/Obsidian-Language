@@ -35,10 +35,13 @@ void errAndQuit(string message)
   exit(EXIT_FAILURE);
 }
 
-bool runCommand(string command)
+bool runCommand(string command, bool silenced)
 {
-  string silencedCommand = command + " &> /dev/null";
-  return system(silencedCommand.c_str()) == 0;
+  if(silenced)
+  {
+    command += " &> /dev/null";
+  }
+  return system(command.c_str()) == 0;
 }
 
 string generateChar(char ch)

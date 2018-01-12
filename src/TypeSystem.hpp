@@ -38,11 +38,9 @@ struct ArrayType;
 struct UnionType;
 struct MapType;
 struct AliasType;
-struct BoundedType;
 struct EnumType;
 struct IntegerType;
 struct FloatType;
-struct StringType;
 struct CharType;
 struct BoolType;
 struct VoidType;
@@ -120,7 +118,6 @@ extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
 
 extern vector<StructType*> structs;
-extern vector<BoundedType*> boundedTypes;
 extern set<ArrayType*, ArrayCompare> arrays;
 extern set<TupleType*, TupleCompare> tuples;
 extern set<UnionType*, UnionCompare> unions;
@@ -317,7 +314,6 @@ struct EnumType : public Type
   bool isEnum() {return true;}
   bool isInteger() {return true;}
   bool isNumber() {return true;}
-  bool isPrimitive() {return true;}
   string getName()
   {
     return name;

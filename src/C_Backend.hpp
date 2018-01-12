@@ -10,6 +10,9 @@ namespace C
   void generate(string outputStem, bool keep);
   //add file label and basic libc includes
   void genCommon();
+  //generate generic map (hash table) implementation
+  //this goes in utilFuncDecls/Defs
+  void implHashTable();
   //forward-declare all compound types (and arrays),
   //then actually define them as C structs
   void genTypeDecls();
@@ -23,7 +26,6 @@ namespace C
   string getIdentifier();
   //given lambda f that takes a Scope*, run f on all scopes (depth-first)
   template<typename F> void walkScopeTree(F f);
-  void generateCompoundType(ostream& c, string cName, TypeSystem::Type* t);
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
   void generateExpression(ostream& c, Block* b, Expression* expr);
@@ -56,6 +58,8 @@ namespace C
   //program terminates if out of bounds
   string getAccessFunc(TypeSystem::ArrayType* at);
   string getAssignFunc(TypeSystem::ArrayType* at);
+  string getHashFunc(TypeSystem::Type* t);
+  string getHashInsert(TypeSystem::Type* t);
   //whether a type may own heap-allocated memory
   bool typeNeedsDealloc(TypeSystem::Type* t);
 }

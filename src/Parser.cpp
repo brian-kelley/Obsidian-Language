@@ -161,15 +161,13 @@ namespace Parser
     return parseScopedDeclGeneral(true);
   }
 
-  //if prec ("high precedence"), stop before ? and |
-  //anything in parens is automatically high precedence
-  static TypeNT* parseTypeGeneral(bool prec)
+  template<>
+  TypeNT* parse<TypeNT>()
   {
     TypeNT* type = new TypeNT;
     type->arrayDims = 0;
     //check for keyword
-    Keyword* keyword = (Keyword*) accept(KEYWORD);
-    if(keyword)
+    if(Keyword* keyword = (Keyword*) accept(KEYWORD))
     {
       switch(keyword->kw)
       {
@@ -210,36 +208,41 @@ namespace Parser
     }
     else if(acceptPunct(LPAREN))
     {
-      //parens always give the overall type high-precedence
-      prec = true;
-      TypeNT* first = parseTypeGeneral(false);
-      Punct comma(COMMA);
-      if(lookAhead()->compareTo(&comma))
+      //parens always give the overall type high-precedence,
+      //but expect high-precedence type(s) inside
+      TypeNT* first = parse<TypeNT>();
+      if(acceptPunct(COMMA))
       {
         //tuple
         vector<TypeNT*> tupleMembers;
         tupleMembers.push_back(first);
-        while(acceptPunct(COMMA))
+        do
         {
-          tupleMembers.push_back(parseTypeGeneral(false));
+          tupleMembers.push_back(parse<TypeNT>());
         }
+        while(acceptPunct(COMMA));
         expectPunct(RPAREN);
-        if(tupleMembers.size() == 1)
-        {
-          //not really a tuple (just a single type in parens)
-          //this could be a union, so no need to cover union type here
-          type = first;
-        }
-        else
-        {
-          type->t = new TupleTypeNT(tupleMembers);
-        }
+        type->t = new TupleTypeNT(tupleMembers);
       }
       else if(acceptPunct(COLON))
       {
-        TypeNT* valueType = parseTypeGeneral(false);
+        TypeNT* valueType = parse<TypeNT>();
         type->t = new MapTypeNT(first, valueType);
         expectPunct(RPAREN);
+      }
+      else if(acceptOper(BOR))
+      {
+        vector<TypeNT*> unionTypes;
+        unionTypes.push_back(type);
+        do
+        {
+          unionTypes.push_back(parse<TypeNT>());
+        }
+        while(acceptOper(BOR));
+        expectPunct(RPAREN);
+        TypeNT* wrapper = new TypeNT;
+        wrapper->t = new UnionTypeNT(unionTypes);
+        return wrapper;
       }
       else
       {
@@ -259,49 +262,28 @@ namespace Parser
     }
     Punct lbrack(LBRACKET);
     Punct rbrack(RBRACKET);
+    Punct quest(QUESTION);
     //check for square bracket pairs after, indicating array type
-    while(lookAhead(0)->compareTo(&lbrack) && lookAhead(1)->compareTo(&rbrack))
+    while(lookAhead()->compareTo(&lbrack) ||
+        lookAhead()->compareTo(&quest))
     {
-      accept();
-      accept();
-      type->arrayDims++;
-    }
-    if(acceptPunct(QUESTION))
-    {
-      //Form a union type with type and Error as its options
-      auto ut = new UnionTypeNT;
-      TypeNT* errType = new TypeNT;
-      errType->t = TypeNT::ERROR;
-      ut->types.push_back(type);
-      ut->types.push_back(errType);
-      type->t = ut;
-    }
-    //Union chain is low precedence, so stop if high prec is required
-    if(prec)
-      return type;
-    //have parsed a type: first check for "?" indicating (T | Error)
-    //(this has higher "precedence" than | for normal union)
-    //now check for "|" for union
-    if(acceptOper(BOR))
-    {
-      vector<TypeNT*> unionTypes;
-      unionTypes.push_back(type);
-      do
+      if(acceptPunct(LBRACKET))
       {
-        unionTypes.push_back(parseTypeGeneral(true));
+        expectPunct(RBRACKET);
+        type->arrayDims++;
       }
-      while(acceptOper(BOR));
-      TypeNT* wrapper = new TypeNT;
-      wrapper->t = new UnionTypeNT(unionTypes);
-      return wrapper;
+      else if(acceptPunct(QUESTION))
+      {
+        //Form a union type with type and Error as its options
+        auto ut = new UnionTypeNT;
+        TypeNT* errType = new TypeNT;
+        errType->t = TypeNT::ERROR;
+        ut->types.push_back(type);
+        ut->types.push_back(errType);
+        type->t = ut;
+      }
     }
     return type;
-  }
-
-  template<>
-  TypeNT* parse<TypeNT>()
-  {
-    return parseTypeGeneral(false);
   }
 
   Block* parseBlockWrappedStatement()
@@ -337,7 +319,7 @@ namespace Parser
       type->t = ut;
       while(acceptOper(BOR))
       {
-        ut->types.push_back(parseTypeGeneral(true));
+        ut->types.push_back(parse<TypeNT>());
       }
     }
     //type is done, get the var name (required) and then
@@ -438,10 +420,22 @@ namespace Parser
         default: err("expected statement or declaration, but got keyword " + keywordTable[keyword->kw]);
       }
     }
-    else if(punct && punct->val == LBRACE)
+    else if(punct)
     {
-      s->s = parse<Block>();
-      return s;
+      switch(punct->val)
+      {
+        case LBRACE:
+          s->s = parse<Block>();
+          return s;
+        case LPAREN:
+          //some type starting with '(': tuple/union/map
+          s->s = parse<ScopedDecl>();
+          return s;
+        default:
+        {
+          ERR_MSG("unexpected punctuation " << punct->getStr() << " in statement");
+        }
+      }
     }
     //at this point, need to distinguish between ScopedDecl, VarAssign and Call (as Expr12)
     //All 3 can begin as Member

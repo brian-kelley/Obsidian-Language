@@ -43,8 +43,8 @@ void writeFile(string& text, string filename);
 void errAndQuit(string message);
 
 //Run a command (return true if success, and return the elapsed time)
-//suppress all output to stdout and stderr
-bool runCommand(string command);
+//if silenced, suppress all output to stdout and stderr
+bool runCommand(string command, bool silenced = false);
 
 #define ERR_MSG(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
 #define ERR_MSG_LOC(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
