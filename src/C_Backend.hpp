@@ -53,6 +53,8 @@ namespace C
   string getConcatFunc(TypeSystem::ArrayType* at);
   string getAppendFunc(TypeSystem::ArrayType* at);
   string getPrependFunc(TypeSystem::ArrayType* at);
+  //generate "void sort_T_(T** data, size_type n)"
+  string getSortFunc(TypeSystem::Type* t);
   //given an array and an index, "safely" access the element
   //program terminates if out of bounds
   string getAccessFunc(TypeSystem::ArrayType* at);
