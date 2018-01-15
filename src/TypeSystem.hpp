@@ -446,9 +446,7 @@ struct CallableType : public Type
 //  (case 2) -Out = struct: in = struct or tuple
 //  (case 3) -Out = array: in = struct, tuple or array
 //  (case 4) -Out = map: in = map, array, or tuple
-//    -in = map: convert keys to keys and values to values;
-//      since maps are unordered, key conflicts are UB
-//    -in = array/tuple: key is int, values converted to values
-//    -in = struct: key is string, value 
+//    -in = (key' : value'): key' must convert to key and value' to value
+//    -in = (key, value)[]: use key-value pairs directly
 //  (case 2) -Out = tuple: in = struct or tuple
 

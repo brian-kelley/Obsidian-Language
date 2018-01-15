@@ -40,7 +40,6 @@ namespace C
   string getCopyFunc(TypeSystem::Type* t);
   //alloc functions take N integers and produce N-dimensional rectangular array
   string getAllocFunc(TypeSystem::ArrayType* t);
-  //precondition: typeNeedsDealloc(t)
   string getDeallocFunc(TypeSystem::Type* t);
   string getPrintFunc(TypeSystem::Type* t);
   //convert and deep-copy input from one type to another
@@ -60,8 +59,6 @@ namespace C
   string getAssignFunc(TypeSystem::ArrayType* at);
   string getHashFunc(TypeSystem::Type* t);
   string getHashInsert(TypeSystem::Type* t);
-  //whether a type may own heap-allocated memory
-  bool typeNeedsDealloc(TypeSystem::Type* t);
 }
 
 #endif

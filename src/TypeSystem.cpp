@@ -713,7 +713,6 @@ bool MapType::canConvert(Type* other)
   //Arrays can also convert to this if key of this is integer
   auto otherMap = dynamic_cast<MapType*>(other);
   auto otherArray = dynamic_cast<ArrayType*>(other);
-  auto otherTuple = dynamic_cast<TupleType*>(other);
   if(otherMap)
   {
     return key->canConvert(otherMap->key) &&
@@ -721,18 +720,12 @@ bool MapType::canConvert(Type* other)
   }
   if(otherArray)
   {
-    return key->isInteger() && value->canConvert(otherArray->subtype);
-  }
-  if(otherTuple)
-  {
-    if(!key->isInteger())
-      return false;
-    for(auto mem : otherTuple->members)
-    {
-      if(!value->canConvert(mem))
-        return false;
-    }
-    return true;
+    TupleType* subtypeTuple = dynamic_cast<TupleType*>(otherArray->subtype);
+    //must be "(k, v)[]" where k convertible to key and v convertible to value
+    return subtypeTuple &&
+      subtypeTuple->members.size() == 2 &&
+      key->canConvert(subtypeTuple->members[0]) &&
+      !value->canConvert(subtypeTuple->members[1]);
   }
   return false;
 }
