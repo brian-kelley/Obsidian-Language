@@ -205,9 +205,11 @@ namespace C
       "{\n"
       "for(int i = 0; i < bucket->size; i++)\n"
       "{\n"
-      "if(compareFn(bucket->keys[i], key))\n"
+      "if(compareFn(bucket->keys[i], key))\n{\n"
+      "printf(\"Found key in bucket, index %i\", i);\n"
       "return bucket->values[i];\n"
-      "}\n"
+      "}\n}\n"
+      "puts(\"Did not find key in bucket\");\n"
       "return NULL;\n"
       "}\n\n"
       //Insert item to hash table
@@ -217,8 +219,9 @@ namespace C
       "//resize table if necessary\n"
       "if(table->size == table->numBuckets)\n"
       "{\n"
-      "int nb = table->numBuckets + 1;\n"
-      "Bucket* newBuckets = calloc(1 << nb, sizeof(Bucket));\n"
+      //nb = new # of buckets
+      "int nb = table->numBuckets ? table->numBuckets * 2 : 16;\n"
+      "Bucket* newBuckets = calloc(nb, sizeof(Bucket));\n"
       "for(int i = 0; i < table->numBuckets; i++)\n"
       "{\n"
       "Bucket* oldBucket = table->buckets + i;\n"
@@ -234,18 +237,18 @@ namespace C
       "}\n"
       "free(table->buckets);\n"
       "table->buckets = newBuckets;\n"
-      "table->numBuckets++;\n"
+      "table->numBuckets = nb;\n"
       "}\n"
-      "uint64_t h = (table->hashFn)(key);\n"
-      "bucketInsert(table->buckets + (h & ((1 << table->numBuckets) - 1)), key, data, h);\n"
+      "uint32_t h = (table->hashFn)(key);\n"
+      "bucketInsert(table->buckets + (h & (table->numBuckets - 1)), key, data, h);\n"
       "}\n\n"
       //hash table lookup: NULL if not found
       "void* hashFind(HashTable* table, void* key)\n{\n"
-      "return bucketFind(table->buckets + ((table->hashFn)(key) & ((1 << table->numBuckets) - 1)), key, table->compareFn);\n"
+      "return bucketFind(table->buckets + ((table->hashFn)(key) & (table->numBuckets - 1)), key, table->compareFn);\n"
       "}\n\n"
       //hash table remove (if it exists, otherwise no-op)
       "void hashRemove(HashTable* table, void* key)\n{\n"
-      "bucketRemove(table->buckets + ((table->hashFn)(key) & ((1 << table->numBuckets) - 1)), key, table->compareFn);\n"
+      "bucketRemove(table->buckets + ((table->hashFn)(key) & (table->numBuckets - 1)), key, table->compareFn);\n"
       "}\n\n";
   }
 
@@ -844,8 +847,7 @@ namespace C
     }
     else if(dynamic_cast<ErrorVal*>(expr))
     {
-      //should never have to generate error directly: is same as "void"
-      INTERNAL_ERROR;
+      c << "NULL";
     }
     else if(ArrayLength* al = dynamic_cast<ArrayLength*>(expr))
     {
