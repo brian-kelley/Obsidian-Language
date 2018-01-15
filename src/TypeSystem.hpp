@@ -358,6 +358,7 @@ struct CharType : public Type
   bool canConvert(Type* other);
   bool isChar() {return true;}
   bool isInteger() {return true;}
+  bool isNumber() {return true;}
   bool isPrimitive() {return true;}
   string getName()
   {
