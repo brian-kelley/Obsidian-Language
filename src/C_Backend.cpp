@@ -135,7 +135,7 @@ namespace C
       c << "{\n";
       c << "fprintf(stderr, \"%s\\n\", why_);\n";
       c << "exit(1);\n";
-      c << "}\n\n";
+      c << "}\n";
   }
 
   void implHashTable()
@@ -162,7 +162,7 @@ namespace C
       "int numBuckets;\n"   //log2(actual number of buckets)
       "} HashTable;\n\n"
       //Insert (key, value, h(key)) into a bucket, expanding it as necessary
-      "void bucketInsert(Bucket* bucket, void* key, void* data, uint64_t hash)\n{\n"
+      "void bucketInsert(Bucket* bucket, void* key, void* data, uint32_t hash)\n{\n"
       "if(bucket->size == bucket->cap)\n"
       "{\n"
       "int newCap = (bucket->cap == 0) ? 1 : bucket->cap * 2;\n"
@@ -187,7 +187,7 @@ namespace C
       "//found it, shift all the arrays down 1 element\n"
       "memmove(bucket->keys + i, bucket->keys + i + 1, sizeof(void*) * (bucket->size - i - 1));\n"
       "memmove(bucket->values + i, bucket->values + i + 1, sizeof(void*) * (bucket->size - i - 1));\n"
-      "memmove(bucket->hashes + i, bucket->hashes + i + 1, sizeof(uint64_t) * (bucket->size - i - 1));\n"
+      "memmove(bucket->hashes + i, bucket->hashes + i + 1, sizeof(uint32_t) * (bucket->size - i - 1));\n"
       "bucket->size--;\n"
       "if(bucket->size == 0)\n"
       "{\n"
@@ -206,10 +206,9 @@ namespace C
       "for(int i = 0; i < bucket->size; i++)\n"
       "{\n"
       "if(compareFn(bucket->keys[i], key))\n{\n"
-      "printf(\"Found key in bucket, index %i\", i);\n"
+      "printf(\"Found key %p: value is %p\\n\", key, bucket->values[i]);\n"
       "return bucket->values[i];\n"
       "}\n}\n"
-      "puts(\"Did not find key in bucket\");\n"
       "return NULL;\n"
       "}\n\n"
       //Insert item to hash table
@@ -227,7 +226,7 @@ namespace C
       "Bucket* oldBucket = table->buckets + i;\n"
       "for(int j = 0; j < oldBucket->size; j++)\n"
       "{\n"
-      "Bucket* newBucket = newBuckets + oldBucket->hashes[j] % nb;\n"
+      "Bucket* newBucket = newBuckets + (oldBucket->hashes[j] & (nb - 1));\n"
       "bucketInsert(newBucket, oldBucket->keys[j], oldBucket->values[j], oldBucket->hashes[j]);\n"
       "}\n"
       "//free the bucket and its contents\n"
@@ -488,6 +487,7 @@ namespace C
       funcDefs << "for(int i = 0; i < argc - 1; i++)\n{\n";
       funcDefs << vars[arg] << "->data[i] = calloc(1, sizeof(" << types[stringType] << "));\n";
       funcDefs << vars[arg] << "->data[i]->data = stringToArray(argv[i]);\n";
+      funcDefs << vars[arg] << "->data[i]->dim = strlen(argv[i]));\n";
       funcDefs << "}\n";
     }
     else
@@ -1246,9 +1246,9 @@ namespace C
     else
     {
       generateExpression(c, lhs);
-      c << " = ";
+      c << " = " << getCopyFunc(rhs->type) << "(";
       generateExpression(c, rhs);
-      c << ";\n";
+      c << ");\n";
     }
   }
 
@@ -1463,7 +1463,7 @@ namespace C
       def << "cp->buckets[i]->size = data->buckets[i]->size;\n";
       def << "cp->buckets[i]->keys = malloc(sizeof(void*) * cp->buckets[i]->cap;\n";
       def << "cp->buckets[i]->values = malloc(sizeof(void*) * cp->buckets[i]->cap;\n";
-      def << "cp->buckets[i]->hashes = malloc(sizeof(uint64_t) * cp->buckets[i]->cap;\n";
+      def << "cp->buckets[i]->hashes = malloc(sizeof(uint32_t) * cp->buckets[i]->cap;\n";
       def << "for(int j = 0; j < cp->buckets[i]->size; j++)\n{\n";
       def << "cp->buckets[i]->keys[j] = " << getCopyFunc(mt->key) << "(data->buckets[i]->keys[j]);\n";
       def << "cp->buckets[i]->values[j] = " << getCopyFunc(mt->value) << "(data->buckets[i]->values[j]);\n";

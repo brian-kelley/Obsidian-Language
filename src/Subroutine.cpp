@@ -223,13 +223,16 @@ void Assign::commonCtor()
   {
     ERR_MSG("cannot assign to that expression");
   }
-  if(!lvalue->type)
+  //check for special case of map index as lvalue
+  //the type of this would normally be (Key | Error) but
+  //as an lvalue is just Key (backend expects this)
+  bool lvalueMapIndex = false;
+  if(auto indexed = dynamic_cast<Indexed*>(lvalue))
   {
-    INTERNAL_ERROR;
+    if(indexed->group->type->isMap())
+      lvalueMapIndex = true;
   }
-  //need to convert rvalue to lvalue's type, UNLESS
-  //lvalue and/or rvalue are CompoundLiterals
-  if(lvalue->type != rvalue->type)
+  if(lvalue->type != rvalue->type && !lvalueMapIndex)
   {
     //must explicitly convert
     rvalue = new Converted(rvalue, lvalue->type);
