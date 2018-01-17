@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <ctime>
+#include <climits>
 #include <cassert>
 #include <sstream>
 #include <stdexcept>

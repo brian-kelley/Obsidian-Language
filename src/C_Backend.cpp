@@ -206,7 +206,6 @@ namespace C
       "for(int i = 0; i < bucket->size; i++)\n"
       "{\n"
       "if(compareFn(bucket->keys[i], key))\n{\n"
-      "printf(\"Found key %p: value is %p\\n\", key, bucket->values[i]);\n"
       "return bucket->values[i];\n"
       "}\n}\n"
       "return NULL;\n"
@@ -275,7 +274,49 @@ namespace C
     for(auto et : enums)
     {
       typesImplemented[et] = true;
-      types[et] = "int64_t";
+      //figure out the range of types for the enum,
+      //then use the smallest int type (in bytes)
+      //that can hold all values
+      if(et->values.size() == 0)
+      {
+        types[et] = "char";
+      }
+      else
+      {
+        long long minVal = LLONG_MAX;
+        long long maxVal = LLONG_MIN;
+        for(auto val : et->values)
+        {
+          if(val->value < minVal)
+            minVal = val->value;
+          if(val->value > maxVal)
+            maxVal = val->value;
+        }
+        if(minVal >= 0)
+        {
+          //unsigned
+          if(maxVal < (1LL << 8))
+            types[et] = "uint8_t";
+          else if(maxVal < (1LL << 16))
+            types[et] = "uint16_t";
+          else if(maxVal < (1LL << 32))
+            types[et] = "uint32_t";
+          else
+            types[et] = "uint64_t";
+        }
+        else
+        {
+          //signed (2s complement)
+          if(minVal >= -(1LL << 7) && maxVal < (1LL << 7))
+            types[et] = "int8_t";
+          else if(minVal >= -(1LL << 15) && maxVal < (1LL << 15))
+            types[et] = "int16_t";
+          else if(minVal >= -(1LL << 31) && maxVal < (1LL << 31))
+            types[et] = "int32_t";
+          else
+            types[et] = "int64_t";
+        }
+      }
     }
     //maps are special because they are all just HashTable*
     //(HashTable has already been fully defined above)
@@ -515,11 +556,12 @@ namespace C
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
+      c << "({" << types[expr->type] << "* ptr = malloc(sizeof(" << types[expr->type] << ")); *ptr = ";
       c << '(';
       c << operatorTable[unary->op];
       c << "(*";
       generateExpression(c, unary->expr);
-      c << "))";
+      c << ")); ptr;})";
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
@@ -604,19 +646,21 @@ namespace C
       }
       else
       {
-        c << "(*";
+        c << "({" << types[expr->type] <<
+          "* ptr = malloc(sizeof(" << types[expr->type] << ")); ";
+        c << "*ptr = (*";
         generateExpression(c, binary->lhs);
         c << ')';
         c << operatorTable[binary->op];
         c << "(*";
         generateExpression(c, binary->rhs);
-        c << ')';
+        c << "); ptr;})";
       }
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
       //allocate with the proper size and then assign
-      c << "({" << types[intLit->type] << "* ptr = malloc(sizeof(" << types[intLit->type] << "); *ptr = " << intLit->value;
+      c << "({" << types[intLit->type] << "* ptr = malloc(sizeof(" << types[intLit->type] << ")); *ptr = " << intLit->value;
       if(intLit->value > INT_MAX)
       {
         c << "LL";
@@ -900,9 +944,6 @@ namespace C
     }
     else if(For* f = dynamic_cast<For*>(stmt))
     {
-      //generate a "break" label for this loop
-      string breakLabel = getIdentifier();
-      Context::forBreakLabels[f] = breakLabel;
       //open a C block for loop scope's vars
       c << "{\n";
       generateLocalVariables(c, f->loopBlock->scope);
@@ -933,13 +974,17 @@ namespace C
         generateStatement(c, b, f->increment);
       }
       c << "}\n";
-      //outside the loop, put break label
-      c << breakLabel << ":;\n";
+      //outside the loop, put break label if it was used
+      auto breakIt = Context::forBreakLabels.find(f);
+      if(breakIt != Context::forBreakLabels.end())
+      {
+        c << breakIt->second << ":;\n";
+      }
       c << "}\n";
     }
     else if(While* w = dynamic_cast<While*>(stmt))
     {
-      c << "while(";
+      c << "while(*";
       generateExpression(c, w->condition);
       c << ")\n";
       c << "{\n";
@@ -948,7 +993,7 @@ namespace C
     }
     else if(If* ii = dynamic_cast<If*>(stmt))
     {
-      c << "if(";
+      c << "if(*";
       generateExpression(c, ii->condition);
       c << ")\n{\n";
       generateStatement(c, b, ii->body);
@@ -956,7 +1001,7 @@ namespace C
     }
     else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
     {
-      c << "if(";
+      c << "if(*";
       generateExpression(c, ie->condition);
       c << ")\n";
       generateStatement(c, b, ie->trueBody);
@@ -978,14 +1023,24 @@ namespace C
     }
     else if(Break* brk = dynamic_cast<Break*>(stmt))
     {
-      //if a While, just use C break (always same semantics as Onyx)
+      //if a While, just use C break (same semantics as onyx)
       if(brk->breakable.is<While*>())
       {
         c << "break;\n";
       }
       else if(brk->breakable.is<For*>())
       {
-        c << "goto " << Context::forBreakLabels[brk->breakable.get<For*>()] << ";\n";
+        //generate the break label if it doesn't already exist
+        auto it = Context::forBreakLabels.find(brk->breakable.get<For*>());
+        if(it == Context::forBreakLabels.end())
+        {
+          string breakLabel = getIdentifier();
+          c << "goto " << breakLabel << ";\n";
+        }
+        else
+        {
+          c << "goto " << it->second << ";\n";
+        }
       }
       else if(brk->breakable.is<Switch*>())
       {
@@ -1020,7 +1075,7 @@ namespace C
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(stmt))
     {
-      c << "if(";
+      c << "if(!*";
       generateExpression(c, assertion->asserted);
       c << ")\n";
       c << "{\n";
@@ -2125,7 +2180,7 @@ namespace C
     lessImpl.insert(t);
     Oss def;
     Oss prototype;
-    prototype << "bool " << func << '(' << typeName << " lhs_, " << typeName << " rhs_)";
+    prototype << "bool " << func << '(' << typeName << "* lhs, " << typeName << "* rhs)";
     utilFuncDecls << prototype.str() << ';';
     def << prototype.str() << "\n{\n";
     if(t->isPrimitive() || t->isCallable())
