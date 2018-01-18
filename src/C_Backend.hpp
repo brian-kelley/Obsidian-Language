@@ -28,7 +28,7 @@ namespace C
   template<typename F> void walkScopeTree(F f);
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
-  void generateExpression(ostream& c, Block* b, Expression* expr);
+  string generateExpression(ostream& c, Block* b, Expression* expr);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
   void generateLocalVariables(ostream& c, BlockScope* b);
   //utility functions

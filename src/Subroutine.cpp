@@ -7,6 +7,8 @@ extern map<Parser::Block*, BlockScope*> blockScopes;
 extern bool programHasMain;
 extern ModuleScope* global;
 
+vector<Test*> Test::tests;
+
 //Block which is body of subroutine
 Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
 {
@@ -63,6 +65,14 @@ Block::Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent) : 
   this->funcScope = parent->funcScope;
   this->loop = w;
   this->breakable = w;
+}
+
+Block::Block(BlockScope* s) : scope(s)
+{
+  this->subr = nullptr;
+  this->funcScope = nullptr;
+  this->loop = None();
+  this->breakable = None();
 }
 
 void Block::addStatements(Parser::Block* ast)
@@ -697,5 +707,15 @@ void Subroutine::check()
     }
   }
   body->check();
+}
+
+Test::Test(Parser::TestDecl* td, Scope* s)
+{
+  tests.push_back(this);
+  //Create a dummy block
+  //to hold the statement
+  BlockScope* bs = blockScopes[td->block];
+  run = new Block(bs);
+  run->addStatements(td->block);
 }
 

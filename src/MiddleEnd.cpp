@@ -155,6 +155,23 @@ namespace MiddleEnd
     }
   }
 
+  void visitTestDecl(Scope* current, Parser::TestDecl* td)
+  {
+    for(Scope* iter = current; iter; iter = iter->parent)
+    {
+      if(dynamic_cast<ModuleScope*>(iter) == nullptr)
+      {
+        ERR_MSG("test at line " << td->line << ", col " << td->col << " declared in non-global scope");
+      }
+    }
+    BlockScope* bscope = new BlockScope(current, td->block);
+    blockScopes[td->block] = bscope;
+    for(auto st : td->block->statements)
+    {
+      visitStatement(bscope, st);
+    }
+  }
+
   void visitScopedDecl(Scope* current, Parser::ScopedDecl* sd)
   {
     if(sd->decl.is<Parser::Enum*>())
@@ -231,6 +248,10 @@ namespace MiddleEnd
         }
         current->addName(var);
       }
+    }
+    else if(sd->decl.is<Parser::TestDecl*>())
+    {
+      visitTestDecl(current, sd->decl.get<Parser::TestDecl*>());
     }
     else
     {

@@ -143,6 +143,9 @@ namespace Parser
         case PROC:
           sd->decl = parse<SubroutineNT>();
           break;
+        case TEST:
+          sd->decl = parse<TestDecl>();
+          break;
         default: found = false;
       }
       if(found)
@@ -759,7 +762,7 @@ namespace Parser
     expectKeyword(TEST);
     //test statement is executed, and the test
     //passes if no assertions fail
-    t->stmt = parse<StatementNT>();
+    t->block = parseBlockWrappedStatement();
     return t;
   }
 

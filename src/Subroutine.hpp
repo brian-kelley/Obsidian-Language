@@ -40,6 +40,8 @@ struct Procedure;
 struct For;
 struct While;
 
+struct Test;
+
 //Loop (used by continue)
 typedef variant<None, For*, While*> Loop;
 //Breakable (used by break)
@@ -58,6 +60,8 @@ struct Block : public Statement
   Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent);
   //Constructor for While loop body
   Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent);
+  //Constructor for dummy block in global scope (for tests)
+  Block(BlockScope* s);
   void addStatements(Parser::Block* ast);
   vector<Statement*> stmts;
   //scope of the block
@@ -213,6 +217,17 @@ struct Subroutine
   SubroutineScope* scope;
   //check both prototype and body
   void check();
+};
+
+struct Test
+{
+  Test(Parser::TestDecl* td, Scope* s);
+  Block* run;
+  //Remember where the test is declared to make
+  //test output useful
+  int line;
+  int column;
+  static vector<Test*> tests;
 };
 
 #endif

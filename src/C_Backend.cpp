@@ -98,7 +98,11 @@ namespace C
     {
       compileSuccess = runCommand("gcc -Os " + cflags + " &> cc.out");
       //shrink binary some more (no need for symbol names)
-      runCommand(string("gstrip --strip-all ") + exeName, true);
+      if(compileSuccess)
+      {
+        //stdout from this command is silenced
+        runCommand(string("gstrip --strip-all ") + exeName, true);
+      }
     }
     else
     {
@@ -323,7 +327,7 @@ namespace C
     for(auto t : maps)
     {
       types[t] = getIdentifier();
-      typeDecls << "typedef HashTable " << types[t] << "; //" << t->getName() << '\n';
+      typeDecls << "typedef HashTable* " << types[t] << "; //" << t->getName() << '\n';
       typesImplemented[t] = true;
     }
     //need to assign names to and forward declare structs
@@ -333,7 +337,7 @@ namespace C
       typesImplemented[t] = false;
       types[t] = getIdentifier();
       typeDecls << "struct _" << types[t] << ";\n";
-      typeDecls << "typedef struct _" << types[t] << ' ' << types[t] << "; //" << t->getName() << '\n';
+      typeDecls << "typedef struct _" << types[t] << "* " << types[t] << "; //" << t->getName() << '\n';
     };
     for(auto t : structs)
     {
@@ -364,7 +368,7 @@ namespace C
       {
         if(i != 0)
           typeDecls << ", ";
-        typeDecls << types[ct->argTypes[i]] << '*';
+        typeDecls << types[ct->argTypes[i]];
       }
       typeDecls << "); //" << t->getName() << "\n";
     }
@@ -375,7 +379,7 @@ namespace C
       typeDecls << "struct _" << types[at] << " //" << at->getName() << "\n{\n";
       //Two levels of indirection: data is dim-sized array of single subtype pointers
       //this is inefficient but makes freeing stuff much simpler
-      typeDecls << types[at->subtype] << "** data;\n";
+      typeDecls << types[at->subtype] << "* data;\n";
       typeDecls << size_type << " dim;\n";
       typeDecls << "};\n\n";
     }
@@ -384,7 +388,7 @@ namespace C
       typeDecls << "struct _" << types[tt] << " //" << tt->getName() << "\n{\n";
       for(size_t i = 0; i < tt->members.size(); i++)
       {
-        typeDecls << types[tt->members[i]] << "* mem" << i << ";\n";
+        typeDecls << types[tt->members[i]] << " mem" << i << ";\n";
       }
       typeDecls << "};\n\n";
     }
@@ -400,7 +404,7 @@ namespace C
       typeDecls << "struct _" << types[st] << " //" << st->getName() << "\n{\n";
       for(size_t i = 0; i < st->members.size(); i++)
       {
-        typeDecls << types[st->members[i]->type] << "* mem" << i << ";\n";
+        typeDecls << types[st->members[i]->type] << " mem" << i << ";\n";
       }
       typeDecls << "};\n\n";
     }
@@ -429,7 +433,7 @@ namespace C
           }
           string ident = getIdentifier();
           vars[v] = ident;
-          varDecls << types[v->type] << "* " << ident << "; //" << v->name << '\n';
+          varDecls << types[v->type] << ' ' << ident << "; //" << v->name << '\n';
           numGlobals = 0;
         }
       });
@@ -452,11 +456,11 @@ namespace C
           auto sub = (Subroutine*) n.second.item;
           string name = getIdentifier();
           subrs[sub] = name;
-          funcDecls << types[sub->type->returnType] << "* " << name << '(';
+          funcDecls << types[sub->type->returnType] << ' ' << name << '(';
           int totalArgs = 0;
           if(sub->type->ownerStruct)
           {
-            funcDecls << types[sub->type->ownerStruct] << "* this";
+            funcDecls << types[sub->type->ownerStruct] << " this";
             totalArgs++;
           }
           for(size_t i = 0; i < sub->args.size(); i++)
@@ -487,7 +491,7 @@ namespace C
           int totalArgs = 0;
           if(sub->type->ownerStruct)
           {
-            funcDefs << types[sub->type->ownerStruct] << "* this";
+            funcDefs << types[sub->type->ownerStruct] << " this";
             totalArgs++;
           }
           for(size_t i = 0; i < sub->args.size(); i++)
@@ -500,7 +504,7 @@ namespace C
             totalArgs++;
             string argName = getIdentifier();
             vars[arg] = argName;
-            funcDefs << types[arg->type] << "* " << argName;
+            funcDefs << types[arg->type] << ' ' << argName;
           }
           funcDefs << ")\n";
           generateBlock(funcDefs, sub->body);
@@ -523,11 +527,11 @@ namespace C
       Type* stringType = dynamic_cast<ArrayType*>(m->args[0]->type)->subtype;
       Variable* arg = m->args[0];
       vars[arg] = getIdentifier();
-      funcDefs << types[arg->type] << "* " << vars[arg] << " = ";
+      funcDefs << types[arg->type] << ' ' << vars[arg] << " = ";
       funcDefs << getAllocFunc((ArrayType*) arg->type) << "(argc - 1, 0);\n";
       funcDefs << "for(int i = 0; i < argc - 1; i++)\n{\n";
       funcDefs << vars[arg] << "->data[i] = calloc(1, sizeof(" << types[stringType] << "));\n";
-      funcDefs << vars[arg] << "->data[i]->data = stringToArray(argv[i]);\n";
+      funcDefs << vars[arg] << "->data[i]->data = strdup(argv[i]);\n";
       funcDefs << vars[arg] << "->data[i]->dim = strlen(argv[i]));\n";
       funcDefs << "}\n";
     }
@@ -551,17 +555,22 @@ namespace C
     funcDefs << "}\n";
   }
 
-  void generateExpression(ostream& c, Expression* expr)
+  string generateExpression(ostream& c, Expression* expr)
   {
+    //var is special case: don't generate a temporary
+    //just return C var name
+    if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
+    {
+      return vars[var->var];
+    }
+    Oss calc;
+    string ident = getIdentifier();
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
-      c << "({" << types[expr->type] << "* ptr = malloc(sizeof(" << types[expr->type] << ")); *ptr = ";
-      c << '(';
-      c << operatorTable[unary->op];
-      c << "(*";
-      generateExpression(c, unary->expr);
-      c << ")); ptr;})";
+      string operand = generateExpression(c, unary->expr);
+      calc << types[expr->type] << ' ' << ident << " = ";
+      calc << operatorTable[unary->op] << operand << ";\n";
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
@@ -570,155 +579,145 @@ namespace C
       //arithmetic operators are trivial (except array concatenation/prepend/append)
       if(binary->op == CMPEQ)
       {
-        c << getEqualsFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << getEqualsFunc(binary->lhs->type);
+        calc << '(' << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == CMPNEQ)
       {
-        c << "(!" << getEqualsFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << "))";
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << '!' << getEqualsFunc(binary->lhs->type);
+        calc << '(' << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == CMPL)
       {
-        c << getLessFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << getLessFunc(binary->lhs->type);
+        calc << '(' << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == CMPLE)
       {
-        c << "(!" << getLessFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->rhs);
-        c << ", ";
-        generateExpression(c, binary->lhs);
-        c << "))";
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << '!' << getLessFunc(binary->lhs->type);
+        calc << '(' << rhs << ", " << lhs << ");\n";
       }
       else if(binary->op == CMPG)
       {
-        c << getLessFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->rhs);
-        c << ", ";
-        generateExpression(c, binary->lhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << getLessFunc(binary->lhs->type);
+        calc << '(' << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == CMPGE)
       {
-        c << "(!" << getLessFunc(binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << "))";
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << "bool " << ident << " = ";
+        calc << '!' << getLessFunc(binary->lhs->type);
+        calc << '(' << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == PLUS &&
           binary->lhs->type->isArray() && binary->rhs->type->isArray())
       {
         //array concat
-        c << getConcatFunc((ArrayType*) binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << types[expr->type] << ' ' << ident << " = ";
+        calc << getConcatFunc((ArrayType*) binary->lhs->type) << '(';
+        calc << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->lhs->type->isArray())
       {
         //array append
-        c << getAppendFunc((ArrayType*) binary->lhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << types[expr->type] << ' ' << ident << " = ";
+        calc << getAppendFunc((ArrayType*) binary->lhs->type) << '(';
+        calc << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->rhs->type->isArray())
       {
         //array prepend
-        c << getPrependFunc((ArrayType*) binary->rhs->type) << '(';
-        generateExpression(c, binary->lhs);
-        c << ", ";
-        generateExpression(c, binary->rhs);
-        c << ')';
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << types[expr->type] << ' ' << ident << " = ";
+        calc << getPrependFunc((ArrayType*) binary->rhs->type) << '(';
+        calc << lhs << ", " << rhs << ");\n";
       }
       else
       {
-        c << "({" << types[expr->type] <<
-          "* ptr = malloc(sizeof(" << types[expr->type] << ")); ";
-        c << "*ptr = (*";
-        generateExpression(c, binary->lhs);
-        c << ')';
-        c << operatorTable[binary->op];
-        c << "(*";
-        generateExpression(c, binary->rhs);
-        c << "); ptr;})";
+        string lhs = generateExpression(c, binary->lhs);
+        string rhs = generateExpression(c, binary->rhs);
+        calc << types[expr->type] << ' ' << ident << " = ";
+        calc << lhs << ' ' << operatorTable[binary->op] << ' ' << rhs << ");\n";
       }
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
       //allocate with the proper size and then assign
-      c << "({" << types[intLit->type] << "* ptr = malloc(sizeof(" << types[intLit->type] << ")); *ptr = " << intLit->value;
+      calc << types[intLit->type] << " = " << intLit->value;
       if(intLit->value > INT_MAX)
       {
-        c << "LL";
+        calc << "LL";
       }
-      c << "; ptr;})";
+      calc << ";\n";
     }
     else if(FloatLiteral* floatLit = dynamic_cast<FloatLiteral*>(expr))
     {
-      //all float lits have type double
-      c << "({double* ptr = malloc(sizeof(double)); *ptr = ";
-      c << floatLit->value << "; ptr;})";
+      calc << types[floatLit->type] << " = " << floatLit->value << ";\n";
     }
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //allocate and populate char[] struct from string literal
-      string& t = types[TypeSystem::getArrayType(primNames["char"], 1)];
-      c << "({" << t << "* ptr = malloc(sizeof(" << t << "));\n";
-      c << "ptr->data = stringToArray(\"";
-      //generate the characters of the string literal one at a time, using escapes as needed
+      ArrayType* stringType = (ArrayType*) TypeSystem::getArrayType(primNames["char"], 1);
+      string& t = types[stringType];
+      calc << t << ' ' << ident << " = " << getAllocFunc(stringType) << '(' << stringLit->value.length() << ");\n";
+      calc << "strcpy(" << ident << "->data, \"";
+      //output chars one at a time, escaping as needed
       for(auto ch : stringLit->value)
       {
-        c << generateChar(ch);
+        calc << generateChar(ch);
       }
-      c << "\");\n";
-      c << "ptr->dim = " << stringLit->value.length() << "; ptr;})";
+      calc << "\");\n";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
-      c << "({char* ptr = malloc(1); ";
-      c << "*ptr = '";
-      c << generateChar(charLit->value);
-      c << "'; ptr;})";
+      calc << "char " << ident << " = '";
+      calc << generateChar(charLit->value);
+      calc << "';\n";
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
-      c << "({bool* ptr = malloc(sizeof(bool)); *bool = ";
-      c << (boolLit->value ? "true" : "false");
-      c << "; ptr;})";
+      calc << "bool " << ident << " = ";
+      calc << (boolLit->value ? "true" : "false");
+      calc << ";\n";
     }
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
       //Indexed expression must be either a tuple or array
       auto indexedType = indexed->group->type;
+      string group = generateExpression(c, indexed->group);
       if(ArrayType* at = dynamic_cast<ArrayType*>(indexedType))
       {
-        c << getAccessFunc(at) << '(';
-        generateExpression(c, indexed->group);
-        c << ", ";
-        generateExpression(c, indexed->index);
-        c << ')';
+        string index = generateExpression(c, indexed->index);
+        calc << types[at->subtype] << ' ' << ident << " = ";
+        calc << getAccessFunc(at) << '(' << group << ", ";
+        calc << index << ");\n";
       }
-      else if(dynamic_cast<TupleType*>(indexedType))
+      else if(TupleType* tt = dynamic_cast<TupleType*>(indexedType))
       {
-        //tuple: simply reference the requested member
-        c << '(';
-        generateExpression(c, indexed->group);
-        //index must be an IntLiteral (has already been checked)
-        c << ")->mem" << dynamic_cast<IntLiteral*>(indexed)->value << ')';
+        int which = dynamic_cast<IntLiteral*>(indexed)->value;
+        calc << types[tt->members[which]] << ' ' << ident << " = ";
+        calc << group << "->mem" << which << ";\n";
       }
       else if(auto mt = dynamic_cast<MapType*>(indexedType))
       {
@@ -738,8 +737,8 @@ namespace C
         {
           INTERNAL_ERROR;
         }
-        c << "({" << types[ut] << "* result = malloc(sizeof(" << types[ut] << "));\n";
-        c << types[mt->value] << "* found = (" << types[mt->value] << "*) hashFind(";
+        calc << types[ut] << ' ' << ident << " = malloc(sizeof(" << types[ut] << "));\n";
+        calc << ident << "->data = (" << types[mt->value] << ") hashFind(";
         generateExpression(c, indexed->group);
         c << ", ";
         generateExpression(c, indexed->index);
@@ -817,10 +816,6 @@ namespace C
           c << ')';
         }
       }
-    }
-    else if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
-    {
-      c << vars[var->var];
     }
     else if(NewArray* na = dynamic_cast<NewArray*>(expr))
     {
@@ -912,6 +907,8 @@ namespace C
       //compound literal, or anything else that hasn't been covered
       INTERNAL_ERROR;
     }
+    c << calc.str();
+    return ident;
   }
 
   void generateBlock(ostream& c, Block* b)
@@ -1828,7 +1825,7 @@ namespace C
       Oss prototype;
       prototype << types[out] << "* " << func << '(' << types[in] << "* in)";
       utilFuncDecls << prototype.str() << ";\n";
-      def << "inline " << prototype.str() << "\n{\n";
+      def << prototype.str() << "\n{\n";
     }
     //All supported type conversions:
     //  (case 1) -All primitives can be converted to each other trivially

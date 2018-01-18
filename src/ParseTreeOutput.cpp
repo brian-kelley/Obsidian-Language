@@ -433,7 +433,7 @@ template<> int emit<Assertion>(Assertion* n)
 template<> int emit<TestDecl>(TestDecl* n)
 {
   int root = node("Test Statement");
-  link(root, emit(n->stmt));
+  link(root, emit(n->block));
   return root;
 }
 

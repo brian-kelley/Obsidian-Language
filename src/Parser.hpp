@@ -315,8 +315,8 @@ namespace Parser
 
   struct TestDecl : public ParseNode
   {
-    TestDecl() : stmt(nullptr) {}
-    StatementNT* stmt;
+    TestDecl() : block(nullptr) {}
+    Block* block;
   };
 
   struct EnumItem : public ParseNode
