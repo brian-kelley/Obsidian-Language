@@ -605,6 +605,13 @@ Return::Return(Parser::Return* r, Block* b)
   }
 }
 
+Return::Return(Subroutine* s)
+{
+  value = nullptr; //void return
+  from = s;
+  //no other checking necessary
+}
+
 void Return::checkPurity(Scope* s)
 {
   if(value && !value->pureWithin(s))
@@ -682,6 +689,7 @@ void Subroutine::check()
   //Need special checks for main
   //ret type can be void or int
   //args are either string[] or nothing
+  auto voidType = primitives[Parser::TypeNT::VOID];
   if(name == "main")
   {
     if(type->pure)
@@ -693,7 +701,7 @@ void Subroutine::check()
       ERR_MSG("main() is not in global scope");
     }
     programHasMain = true;
-    if(type->returnType != primitives[Parser::TypeNT::VOID] &&
+    if(type->returnType != voidType &&
         type->returnType != primitives[Parser::TypeNT::INT])
     {
       ERR_MSG("proc main must return void or int");
@@ -707,6 +715,14 @@ void Subroutine::check()
     }
   }
   body->check();
+  //after checking body, check if it ends in a return
+  //if return type is void and there is no return, add it explicitly
+  //can't check for "missing return" until CFG support, which won't be in bootstrap
+  if(type->returnType == voidType &&
+      (body->stmts.size() == 0 || !dynamic_cast<Return&*>(body->stmts.back())))
+  {
+    body->stmts.push_back(new Return(this));
+  }
 }
 
 Test::Test(Parser::TestDecl* td, Scope* s)

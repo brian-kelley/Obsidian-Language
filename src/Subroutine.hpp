@@ -169,7 +169,10 @@ struct Switch : public Statement
 
 struct Return : public Statement
 {
+  //Normal constructor
   Return(Parser::Return* r, Block* s);
+  //Constructor for void return (only used in Subroutine::check())
+  Return(Subroutine* s);
   Expression* value; //can be null (void return)
   Subroutine* from;
   void checkPurity(Scope* s);

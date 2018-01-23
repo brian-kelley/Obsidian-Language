@@ -8,6 +8,8 @@ map<Type*, string> types;
 map<Type*, bool> typesImplemented;
 map<Subroutine*, string> subrs;
 map<Variable*, string> vars;
+//the variables that are stored as pointers
+set<Variable*> pointerVars;
 
 //The sets of types where util functions have been implemented
 set<Type*> initImpl;
@@ -41,6 +43,7 @@ namespace Context
 {
   map<Switch*, string> switchBreakLabels;
   map<For*, string> forBreakLabels;
+  map<While*, string> whileBreakLabels;
 }
 
 //The C type to use for array sizes/indices
@@ -126,15 +129,6 @@ namespace C
       c << "#include \"string.h\"\n";
       c << "#include \"stdint.h\"\n";
       c << "#include \"stdbool.h\"\n\n";
-      c << "char** stringToArray(const char* str)\n{\n";
-      c << size_type << " len = strlen(str);\n";
-      c << "char** arr = malloc(sizeof(char*) * len);\n";
-      c << "for(" << size_type << " i = 0; i < len; i++)\n{\n";
-      c << "arr[i] = malloc(sizeof(char));\n";
-      c << "*(arr[i]) = str[i];\n";
-      c << "}\n";
-      c << "return arr;\n";
-      c << "}\n\n";
       c << "void panic(const char* why_)\n";
       c << "{\n";
       c << "fprintf(stderr, \"%s\\n\", why_);\n";
@@ -256,8 +250,8 @@ namespace C
 
   void genTypeDecls()
   {
-    types[TypeSystem::primNames["void"]] = "void";
-    types[TypeSystem::primNames["Error"]] = "void";
+    types[TypeSystem::primNames["void"]] = "char";
+    types[TypeSystem::primNames["Error"]] = "char";
     types[TypeSystem::primNames["bool"]] = "bool";
     types[TypeSystem::primNames["char"]] = "char";
     types[TypeSystem::primNames["byte"]] = "int8_t";
@@ -327,7 +321,7 @@ namespace C
     for(auto t : maps)
     {
       types[t] = getIdentifier();
-      typeDecls << "typedef HashTable* " << types[t] << "; //" << t->getName() << '\n';
+      typeDecls << "typedef HashTable " << types[t] << "; //" << t->getName() << '\n';
       typesImplemented[t] = true;
     }
     //need to assign names to and forward declare structs
@@ -336,8 +330,9 @@ namespace C
     {
       typesImplemented[t] = false;
       types[t] = getIdentifier();
+      //C is annoying so you have to forward-decl the struct, then a typedef using it
       typeDecls << "struct _" << types[t] << ";\n";
-      typeDecls << "typedef struct _" << types[t] << "* " << types[t] << "; //" << t->getName() << '\n';
+      typeDecls << "typedef struct _" << types[t] << ' ' << types[t] << "; //" << t->getName() << '\n';
     };
     for(auto t : structs)
     {
@@ -368,7 +363,12 @@ namespace C
       {
         if(i != 0)
           typeDecls << ", ";
-        typeDecls << types[ct->argTypes[i]];
+        Type* argType = ct->argTypes[i];
+        typeDecls << types[argType];
+        if(!argType->isPrimitive())
+        {
+          typeDecls << '*';
+        }
       }
       typeDecls << "); //" << t->getName() << "\n";
     }
@@ -381,6 +381,15 @@ namespace C
       //this is inefficient but makes freeing stuff much simpler
       typeDecls << types[at->subtype] << "* data;\n";
       typeDecls << size_type << " dim;\n";
+      typeDecls << "};\n\n";
+    }
+    for(auto st : structs)
+    {
+      typeDecls << "struct _" << types[st] << " //" << st->getName() << "\n{\n";
+      for(size_t i = 0; i < st->members.size(); i++)
+      {
+        typeDecls << types[st->members[i]->type] << " mem" << i << ";\n";
+      }
       typeDecls << "};\n\n";
     }
     for(auto tt : tuples)
@@ -399,25 +408,22 @@ namespace C
       typeDecls << "int tag;\n";
       typeDecls << "};\n\n";
     }
-    for(auto st : structs)
-    {
-      typeDecls << "struct _" << types[st] << " //" << st->getName() << "\n{\n";
-      for(size_t i = 0; i < st->members.size(); i++)
-      {
-        typeDecls << types[st->members[i]->type] << " mem" << i << ";\n";
-      }
-      typeDecls << "};\n\n";
-    }
   }
 
   void genGlobals()
   {
+    //open the global scope (must be the root)
+    if(cscopes.size() != 0)
+    {
+      INTERNAL_ERROR;
+    }
+    pushScope();
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {
         if(dynamic_cast<BlockScope*>(s) || dynamic_cast<SubroutineScope*>(s))
         {
-          //don't do local variables
+          //don't do local variables now
           return;
         }
         for(auto n : s->names)
@@ -427,14 +433,18 @@ namespace C
             continue;
           }
           Variable* v = (Variable*) n.second.item;
+          //don't do struct members either
           if(v->isMember)
           {
-            return;
+            continue;
           }
+          //NOTE: initialization can't be done in C global scope,
+          //instead happens at the beginning of main()
           string ident = getIdentifier();
+          varDecls << types[v->type] << ' ' << ident << "; //" << v->type->getName() << ' ' << v->name << '\n';
           vars[v] = ident;
-          varDecls << types[v->type] << ' ' << ident << "; //" << v->name << '\n';
-          numGlobals = 0;
+          addScopedVar(v->type, ident);
+          numGlobals++;
         }
       });
     if(numGlobals)
@@ -460,20 +470,30 @@ namespace C
           int totalArgs = 0;
           if(sub->type->ownerStruct)
           {
-            funcDecls << types[sub->type->ownerStruct] << " this";
+            funcDecls << types[sub->type->ownerStruct] << "* this";
             totalArgs++;
           }
+          //open scope for subroutine
+          pushScope();
           for(size_t i = 0; i < sub->args.size(); i++)
           {
-            auto arg = sub->args[i];
+            Variable* arg = sub->args[i];
             if(totalArgs > 0)
             {
               funcDecls << ", ";
             }
             totalArgs++;
             string argName = getIdentifier();
+            //primitives passed by value, all others passed by ptr
             vars[arg] = argName;
-            funcDecls << types[arg->type] << ' ' << argName;
+            funcDecls << types[arg->type];
+            addScopedVar(arg->type, argName);
+            if(!arg->type->isPrimitive())
+            {
+              pointerVars.insert(arg);
+              funcDecls << '*';
+            }
+            funcDecls << ' ' << argName;
           }
           funcDecls << ");\n";
         }
@@ -491,7 +511,7 @@ namespace C
           int totalArgs = 0;
           if(sub->type->ownerStruct)
           {
-            funcDefs << types[sub->type->ownerStruct] << " this";
+            funcDefs << types[sub->type->ownerStruct] << "* this";
             totalArgs++;
           }
           for(size_t i = 0; i < sub->args.size(); i++)
@@ -504,9 +524,15 @@ namespace C
             totalArgs++;
             string argName = getIdentifier();
             vars[arg] = argName;
-            funcDefs << types[arg->type] << ' ' << argName;
+            funcDefs << types[arg->type];
+            if(!arg->type->isPrimitive())
+            {
+              funcDefs << '*';
+            }
+            funcDefs << ' ' << argName;
           }
           funcDefs << ")\n";
+          //any returns in this block will pop 2 scopes: the block and the subr
           generateBlock(funcDefs, sub->body);
           funcDefs << '\n';
         }
@@ -524,15 +550,17 @@ namespace C
       funcDefs << "int argc, const char** argv)\n{\n";
       //manually allocate the string[] and copy in the args
       //(don't include the first argument)
-      Type* stringType = dynamic_cast<ArrayType*>(m->args[0]->type)->subtype;
+      Type* stringType = ((ArrayType*) m->args[0]->type)->subtype;
       Variable* arg = m->args[0];
-      vars[arg] = getIdentifier();
-      funcDefs << types[arg->type] << ' ' << vars[arg] << " = ";
-      funcDefs << getAllocFunc((ArrayType*) arg->type) << "(argc - 1, 0);\n";
+      string argsArray = getIdentifier();
+      vars[arg] = argsArray;
+      addScopedVar(stringType, argsArray);
+      funcDefs << types[arg->type] << ' ' << vars[arg] << ";\n";
+      funcDefs << getAllocFunc((ArrayType*) arg->type) << "(&" << vars[arg];
+      funcDefs << ", argc - 1, 0);\n";
       funcDefs << "for(int i = 0; i < argc - 1; i++)\n{\n";
-      funcDefs << vars[arg] << "->data[i] = calloc(1, sizeof(" << types[stringType] << "));\n";
-      funcDefs << vars[arg] << "->data[i]->data = strdup(argv[i]);\n";
-      funcDefs << vars[arg] << "->data[i]->dim = strlen(argv[i]));\n";
+      funcDefs << vars[arg] << ".data[i].data = strdup(argv[i]);\n";
+      funcDefs << vars[arg] << ".data[i].dim = strlen(argv[i]));\n";
       funcDefs << "}\n";
     }
     else
@@ -557,11 +585,26 @@ namespace C
 
   string generateExpression(ostream& c, Expression* expr)
   {
-    //var is special case: don't generate a temporary
-    //just return C var name
+    //first, handle special cases where expr is C lvalue
     if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
     {
-      return vars[var->var];
+      if(pointerVars.find(var) == pointerVars.end())
+      {
+        return vars[var->var];
+      }
+      else
+      {
+        return "(*" + vars[var->var] + ')';
+      }
+    }
+    else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
+    {
+      //in C code, this is just the temporary variable's name
+      return tv->ident;
+    }
+    else if(dynamic_cast<ThisExpr*>(expr))
+    {
+      return "(*this)";
     }
     Oss calc;
     string ident = getIdentifier();
@@ -574,89 +617,43 @@ namespace C
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
+      string lhs = generateExpression(c, binary->lhs);
+      string rhs = generateExpression(c, binary->rhs);
       //fully parenthesize binary exprs so that it works
-      //in case onyx ends up with different operator precedence than C
-      //arithmetic operators are trivial (except array concatenation/prepend/append)
-      if(binary->op == CMPEQ)
+      //in case onyx has a different operator precedence than C
+      //all arithmetic operators have same behavior as C
+      //(except + with array concatenation/prepend/append)
+      if(binary->op == CMPEQ || binary->op == CMPNEQ ||
+          binary->op == CMPL || binary->op == CMPLE ||
+          binary->op == CMPG || binary->op == CMPGE)
       {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
         calc << "bool " << ident << " = ";
-        calc << getEqualsFunc(binary->lhs->type);
-        calc << '(' << lhs << ", " << rhs << ");\n";
-      }
-      else if(binary->op == CMPNEQ)
-      {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << "bool " << ident << " = ";
-        calc << '!' << getEqualsFunc(binary->lhs->type);
-        calc << '(' << lhs << ", " << rhs << ");\n";
-      }
-      else if(binary->op == CMPL)
-      {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << "bool " << ident << " = ";
-        calc << getLessFunc(binary->lhs->type);
-        calc << '(' << lhs << ", " << rhs << ");\n";
-      }
-      else if(binary->op == CMPLE)
-      {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << "bool " << ident << " = ";
-        calc << '!' << getLessFunc(binary->lhs->type);
-        calc << '(' << rhs << ", " << lhs << ");\n";
-      }
-      else if(binary->op == CMPG)
-      {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << "bool " << ident << " = ";
-        calc << getLessFunc(binary->lhs->type);
-        calc << '(' << lhs << ", " << rhs << ");\n";
-      }
-      else if(binary->op == CMPGE)
-      {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << "bool " << ident << " = ";
-        calc << '!' << getLessFunc(binary->lhs->type);
-        calc << '(' << lhs << ", " << rhs << ");\n";
+        generateComparison(calc, binary->op, lhs, rhs);
       }
       else if(binary->op == PLUS &&
           binary->lhs->type->isArray() && binary->rhs->type->isArray())
       {
         //array concat
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << types[expr->type] << ' ' << ident << " = ";
-        calc << getConcatFunc((ArrayType*) binary->lhs->type) << '(';
-        calc << lhs << ", " << rhs << ");\n";
+        calc << types[expr->type] << ' ' << ident << ";\n";
+        calc << getConcatFunc((ArrayType*) binary->lhs->type)
+        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->lhs->type->isArray())
       {
         //array append
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << types[expr->type] << ' ' << ident << " = ";
-        calc << getAppendFunc((ArrayType*) binary->lhs->type) << '(';
-        calc << lhs << ", " << rhs << ");\n";
+        calc << types[expr->type] << ' ' << ident << ";\n";
+        calc << getAppendFunc((ArrayType*) binary->lhs->type)
+        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->rhs->type->isArray())
       {
         //array prepend
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
-        calc << types[expr->type] << ' ' << ident << " = ";
-        calc << getPrependFunc((ArrayType*) binary->rhs->type) << '(';
-        calc << lhs << ", " << rhs << ");\n";
+        calc << types[expr->type] << ' ' << ident << ";\n";
+        calc << getPrependFunc((ArrayType*) binary->rhs->type)
+        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else
       {
-        string lhs = generateExpression(c, binary->lhs);
-        string rhs = generateExpression(c, binary->rhs);
         calc << types[expr->type] << ' ' << ident << " = ";
         calc << lhs << ' ' << operatorTable[binary->op] << ' ' << rhs << ");\n";
       }
@@ -710,14 +707,14 @@ namespace C
       {
         string index = generateExpression(c, indexed->index);
         calc << types[at->subtype] << ' ' << ident << " = ";
-        calc << getAccessFunc(at) << '(' << group << ", ";
+        calc << getAccessFunc(at) << "(&" << group << ", &";
         calc << index << ");\n";
       }
       else if(TupleType* tt = dynamic_cast<TupleType*>(indexedType))
       {
         int which = dynamic_cast<IntLiteral*>(indexed)->value;
         calc << types[tt->members[which]] << ' ' << ident << " = ";
-        calc << group << "->mem" << which << ";\n";
+        calc << group << ".mem" << which << ";\n";
       }
       else if(auto mt = dynamic_cast<MapType*>(indexedType))
       {
@@ -737,35 +734,49 @@ namespace C
         {
           INTERNAL_ERROR;
         }
-        calc << types[ut] << ' ' << ident << " = malloc(sizeof(" << types[ut] << "));\n";
-        calc << ident << "->data = (" << types[mt->value] << ") hashFind(";
-        generateExpression(c, indexed->group);
-        c << ", ";
-        generateExpression(c, indexed->index);
-        c << ");\n";
-        c << "result->data = found;\n";
-        c << "result->tag = found ? " << valueTag << " : " << errTag << ";\n";
-        c << "result;})";
+        //the key, aka index
+        string index = generateExpression(c, indexed->index);
+        //form a union: (Value | Error)
+        calc << types[ut] << ' ' << ident << ";\n";
+        calc << "{\n";
+        calc << "void* temp = hashFind(" << group << ", " << index << ");\n";
+        calc << "if(temp)\n{\n";
+        //data was found, so heap-allocate space for underlying data and copy to it
+        calc << ident << ".data = malloc(sizeof(" << types[mt->value] << "));\n";
+        calc << getCopyFunc(mt->value) << '(' << ident << ".data, temp);\n";
+        calc << ident << ".tag = " << valueTag << ";\n";
+        calc << "}\n";
+        calc << "else\n{\n";
+        //error is a unary type so the data field of union doesn't matter
+        calc << ident << ".tag = " << errTag << ";\n";
+        calc << "}\n";
       }
     }
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
+      calc << types[call->type] << ' ' << ident << " = ";
       if(auto subrExpr = dynamic_cast<SubroutineExpr*>(call->callable))
       {
-        c << subrs[subrExpr->subr] << "(";
+        calc << subrs[subrExpr->subr] << '(';
         if(subrExpr->thisObject)
         {
-          generateExpression(c, subrExpr->thisObject);
+          calc << '&' << generateExpression(c, subrExpr->thisObject);
         }
         for(size_t i = 0; i < call->args.size(); i++)
         {
           if(i > 0 || subrExpr->thisObject)
           {
-            c << ", ";
+            calc << ", ";
           }
-          generateExpression(c, call->args[i]);
+          //this evaluates the arguments in order, before the call
+          //non-primitives passed by ref
+          if(!call->args[i]->type->isPrimitive())
+          {
+            calc << '&';
+          }
+          calc << generateExpression(c, call->args[i]);
         }
-        c << ')';
+        calc << ");\n";
       }
       else
       {
@@ -773,75 +784,77 @@ namespace C
         //is a method call iff callable is a StructMem
         if(auto sm = dynamic_cast<StructMem*>(call->callable))
         {
-          //need to evaluate sm->base exactly once
-          //this is because the value of base is used
-          //once to get the function ptr and again as this
-          string baseTemp = getIdentifier();
-          c << "({" << types[sm->base->type] << "* " << baseTemp << " = ";
-          generateExpression(c, sm->base);
-          c << "; ";
-          //base is now available so evaluate the callable
-          c << '(' << baseTemp << "->mem";
-          StructType* st = (StructType*) sm->base->type;
+          //evaluate base only once (it is used twice)
+          string base = generateExpression(c, sm->base);
+          calc << '(' << base << ".mem";
           for(size_t i = 0; i < st->members.size(); i++)
           {
             if(st->members[i] == sm->member)
             {
-              c << i;
+              calc << i;
               break;
             }
           }
-          c << ")(" << baseTemp;
+          calc << ")(&" << base;
           for(auto arg : call->args)
           {
-            c << ", ";
-            generateExpression(c, arg);
+            calc << ", ";
+            if(!arg->type->isPrimitive())
+            {
+              calc << '&';
+            }
+            calc << generateExpression(c, arg);
           }
-          c << ");})";
+          calc << ");\n";
         }
         else
         {
           //just evaluate the expression which
-          //is a function ptr, and do the non-method call
-          generateExpression(c, call->callable);
-          c << '(';
+          //is a function ptr, and do static call
+          calc << generateExpression(c, call->callable) << '(';
           for(size_t i = 0; i < call->args.size(); i++)
           {
-            if(i > 0 || sm->base->assignable())
+            if(i > 0)
             {
-              c << ", ";
+              calc << ", ";
             }
-            generateExpression(c, call->args[i]);
+            if(!call->args[i]->type->isPrimitive())
+            {
+              calc << '&';
+            }
+            calc << generateExpression(c, call->args[i]);
           }
-          c << ')';
+          calc << ");\n";
         }
       }
     }
     else if(NewArray* na = dynamic_cast<NewArray*>(expr))
     {
+      calc << types[expr->type] << ' ' << ident << ";\n";
       //call the new array function with na's dimensions
-      c << getAllocFunc((ArrayType*) na->type) << '(';
-      for(size_t i = 0; i < na->dims.size(); i++)
+      calc << getAllocFunc((ArrayType*) na->type);
+      calc << "(&" << ident;
+      for(int i = 0; i < na->dims.size(); i++)
       {
-        generateExpression(c, na->dims[i]);
-        if(i != na->dims.size() - 1)
-          c << ", ";
+        calc << ", ";
+        calc << generateExpression(c, na->dims[i]);
       }
-      c << ')';
+      calc << ");\n";
     }
     else if(auto se = dynamic_cast<SubroutineExpr*>(expr))
     {
-      c << subrs[se->subr];
+      calc << types[se->type] << ' ' << ident << " = " << subrs[se->subr] << ";\n";
     }
     else if(StructMem* sm = dynamic_cast<StructMem*>(expr))
     {
+      calc << types[sm->type] << ' ' << ident << " = ";
       if(dynamic_cast<ThisExpr*>(sm->base->type))
       {
-        c << "this";
+        calc << "(*this)";
       }
       else
       {
-        generateExpression(c, sm->base);
+        calc << generateExpression(c, sm->base);
       }
       //find index of sm->member
       int memIndex = -1;
@@ -854,53 +867,43 @@ namespace C
           break;
         }
       }
-      c << "->mem" << memIndex;
+      calc << ".mem" << memIndex << ";\n";
     }
     else if(auto subExpr = dynamic_cast<SubroutineExpr*>(expr))
     {
-      c << subrs[subExpr->subr];
+      calc << types[expr->type] << ' ' << ident;
+      calc << " = " << subrs[subExpr->subr] << ";\n";
     }
     else if(auto converted = dynamic_cast<Converted*>(expr))
     {
-      c << getConvertFunc(converted->type, converted->value->type) << "(";
-      generateExpression(c, converted->value);
-      c << ')';
+      calc << types[expr->type] << ' ' << ident << ";\n";
+      getConvertFunc(converted->type, converted->value->type);
+      calc << "(&" << ident << ", &";
+      calc << generateExpression(c, converted->value) << ");\n";
     }
     else if(auto ee = dynamic_cast<EnumExpr*>(expr))
     {
-      c << '(' << ee->value << ')';
+      calc << types[expr->type] << ' ' << ident << " = " << ee->value << ";\n";
     }
     else if(auto cl = dynamic_cast<CompoundLiteral*>(expr))
     {
       //create a tuple representing compound lit,
       //and assign each member individually in a statement expression
-      string tupName = getIdentifier();
-      c << "({" << types[cl->type] << ' ' << tupName << ";\n";
+      calc << types[expr->type] << ' ' << ident << ";\n";
       for(size_t i = 0; i < cl->members.size(); i++)
       {
-        c << tupName << "->mem" << i << " = ";
-        generateExpression(c, cl->members[i]);
-        c << ";\n";
+        calc << getCopyFunc(cl->members[i]->type) << "(&" << ident << ".mem" << i;
+        calc << ", " << generateExpression(c, cl->members[i]) << ");\n";
       }
-      c << tupName << ";})";
     }
     else if(dynamic_cast<ErrorVal*>(expr))
     {
-      c << "NULL";
+      calc << types[expr->type] << ' ' << ident << " = NULL;\n";
     }
     else if(ArrayLength* al = dynamic_cast<ArrayLength*>(expr))
     {
-      generateExpression(c, al->array);
-      c << "->dim";
-    }
-    else if(dynamic_cast<ThisExpr*>(expr))
-    {
-      c << "this";
-    }
-    else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
-    {
-      //in C code, this is just the temporary variable's name
-      c << tv->ident;
+      calc << types[expr->type] << ' ' << ident << " = ";
+      calc << generateExpression(c, al->array) << ".dim;\n";
     }
     else
     {
@@ -908,7 +911,33 @@ namespace C
       INTERNAL_ERROR;
     }
     c << calc.str();
+    addScopedVar(expr->type, ident);
     return ident;
+  }
+
+  void generateComparison(ostream& c, Oper op, Type* t, string lhs, string rhs)
+  {
+    c << "bool " << name << " = ";
+    if(op == CMPEQ || op == CMPNEQ)
+    {
+      if(op == CMPNEQ)
+      {
+        c << '!';
+      }
+      c << getEqualsFunc(t) << "(&" << lhs << ", &" << rhs << ')';
+    }
+    else
+    {
+      //less = lhs < rhs
+      //lesseq = !(rhs < lhs)
+      //greater = rhs < lhs
+      //greatereq = !(lhs < rhs)
+      bool negate = (op == CMPLE || op == CMPGE);
+      bool reverse = (op == CMPLE || op == CMPG);
+      if(negate)
+        c << '!';
+      c << getLessFunc(t) << "(&" << (reverse ? rhs : lhs) << ", &" << (reverse ? lhs : rhs) << ')';
+    }
   }
 
   void generateBlock(ostream& c, Block* b)
@@ -920,6 +949,8 @@ namespace C
     {
       generateStatement(c, b, blockStmt);
     }
+    //generate the code to free variables in b's scope
+    popScope(c);
     c << "}\n";
   }
 
@@ -936,30 +967,35 @@ namespace C
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(stmt))
     {
+      //if return value is non-void, to an unused temporary
+      c << '{';
+      pushScope();
       generateExpression(c, cs->eval);
-      c << ";\n";
+      popScope(c);
+      c << '}';
     }
     else if(For* f = dynamic_cast<For*>(stmt))
     {
       //open a C block for loop scope's vars
       c << "{\n";
+      pushScope();
       generateLocalVariables(c, f->loopBlock->scope);
       if(f->init)
       {
         generateStatement(c, b, f->init);
       }
-      //generate a while loop
-      c << "while(";
+      //generate a label for top of loop
+      string topLabel = getIdentifier();
+      c << topLabel << ":\n";
       if(f->condition)
       {
-        generateExpression(c, f->condition);
+        string cond = generateExpression(c, f->condition);
+        c << "if(!" << cond << ")\n{\n";
+        //need the break label
+        Context::forBreakLabels[f] = getIdentifier();
+        c << "goto " << Context::forBreakLabels[f] << ";\n}\n";
       }
-      else
-      {
-        c << '1';
-      }
-      c << ")\n{\n";
-      //generate loop body statements
+      //generate main loop body
       for(auto loopStmt : f->loopBlock->stmts)
       {
         generateStatement(c, b, loopStmt);
@@ -970,6 +1006,8 @@ namespace C
         //the automatic semicolon is OK
         generateStatement(c, b, f->increment);
       }
+      //jump to top of loop, right before condition evaluation
+      c << "goto " << topLabel << ";\n";
       c << "}\n";
       //outside the loop, put break label if it was used
       auto breakIt = Context::forBreakLabels.find(f);
@@ -977,33 +1015,36 @@ namespace C
       {
         c << breakIt->second << ":;\n";
       }
+      popScope();
       c << "}\n";
     }
     else if(While* w = dynamic_cast<While*>(stmt))
     {
-      c << "while(*";
-      generateExpression(c, w->condition);
-      c << ")\n";
-      c << "{\n";
+      string topLabel = getIdentifier();
+      Context::whileBreakLabels[w] = getIdentifier();
+      c << topLabel << ":\n";
+      string cond = generateExpression(c, w->condition);
+      c << "if(!" << cond << ")\n";
+      c << "goto " << Context::whileBreakLabels[w] << ";\n";
       generateBlock(c, w->loopBlock);
-      c << "}\n";
+      c << "goto " << topLabel << ";\n";
     }
     else if(If* ii = dynamic_cast<If*>(stmt))
     {
-      c << "if(*";
-      generateExpression(c, ii->condition);
-      c << ")\n{\n";
+      string cond = generateExpression(c, ii->condition);
+      c << "if(" << cond << ")\n{\n";
       generateStatement(c, b, ii->body);
       c << "}\n";
     }
     else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
     {
-      c << "if(*";
-      generateExpression(c, ie->condition);
-      c << ")\n";
+      string cond = generateExpression(c, ii->condition);
+      c << "if(" << cond << ")\n{\n";
       generateStatement(c, b, ie->trueBody);
-      c << "else\n";
+      c << "}\n";
+      c << "else\n{\n";
       generateStatement(c, b, ie->falseBody);
+      c << "}\n";
     }
     else if(Return* r = dynamic_cast<Return*>(stmt))
     {
@@ -1023,7 +1064,17 @@ namespace C
       //if a While, just use C break (same semantics as onyx)
       if(brk->breakable.is<While*>())
       {
-        c << "break;\n";
+        //generate the break label if it doesn't already exist
+        auto it = Context::whielBreakLabels.find(brk->breakable.get<While*>());
+        if(it == Context::whileBreakLabels.end())
+        {
+          string breakLabel = getIdentifier();
+          c << "goto " << breakLabel << ";\n";
+        }
+        else
+        {
+          c << "goto " << it->second << ";\n";
+        }
       }
       else if(brk->breakable.is<For*>())
       {
@@ -1051,31 +1102,28 @@ namespace C
     else if(Print* p = dynamic_cast<Print*>(stmt))
     {
       c << "{\n";
+      pushScope();
       //first, evaluate all arguments in order (assign to shallow-copy temps)
-      //this is so that side effects (e.g. out of bounds error) happen
-      //before anything gets printed
+      //so that side effects (e.g. out of bounds panic) happen
+      //before this print prints any chars
       vector<string> temps;
-      for(size_t i = 0; i < p->exprs.size(); i++)
+      for(auto expr : p->exprs)
       {
-        string argI = getIdentifier();
-        temps.push_back(argI);
-        c << types[p->exprs[i]->type] << "* " << argI << " = ";
-        generateExpression(c, p->exprs[i]);
-        c << ";\n";
+        temps.push_back(generateExpression(c, expr));
       }
       //now print them
       for(size_t i = 0; i < p->exprs.size(); i++)
       {
-        c << getPrintFunc(p->exprs[i]->type) << '(' << temps[i] << ");\n";
+        c << getPrintFunc(p->exprs[i]->type) << "(&" << temps[i] << ");\n";
       }
+      popScope(c);
       c << "}\n";
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(stmt))
     {
-      c << "if(!*";
-      generateExpression(c, assertion->asserted);
-      c << ")\n";
-      c << "{\n";
+      string asserted = generateExpression(c, assertion->asserted);
+      c << "if(!" << asserted << ")\n{\n";
+      //TODO: in testing executable, need some extra stuff here
       c << "puts(\"Assertion failed.\");\n";
       c << "exit(1);\n";
       c << "}\n";
@@ -1086,7 +1134,8 @@ namespace C
       //compare to each label value and jump directly to the proper statement
       //break is a jump to the end of switch
       //use Context::switchBreakLabel to hold this label
-      c << "// Begin switch stmt\n{\n";
+      c << "{\n";
+      pushScope();
       string breakLabel = getIdentifier();
       Context::switchBreakLabels[sw] = breakLabel;
       //generate the jump labels
@@ -1097,17 +1146,19 @@ namespace C
       }
       string defaultLabel = getIdentifier();
       //evaluate the switched expression and assign to temp
-      string temp = getIdentifier();
-      c << types[sw->switched->type] << ' ' << temp << " = ";
-      generateExpression(c, sw->switched);
-      c << ";\n";
+      string switched = generateExpression(c, sw->switched);
+      //evaluate all the case values
+      vector<string> caseValues;
+      for(auto caseLabel : sw->caseLabels)
+      {
+        caseValues.push_back(generateExpression(c, sw->caseValues[i]));
+      }
       for(size_t i = 0; i < sw->caseLabels.size(); i++)
       {
         if(i > 0)
           c << "else ";
-        c << "if(" << getEqualsFunc(sw->switched->type) << '(' << temp << ", ";
-        generateExpression(c, sw->caseValues[i]);
-        c << "))\n";
+        c << "if(" << getEqualsFunc(sw->switched->type) << "(&";
+        c << switched << ", &" << caseValues[i] << "))\n";
         c << "goto " << jumpLabels[i] << ";\n";
       }
       //else: default
@@ -1139,32 +1190,33 @@ namespace C
         c << defaultLabel << ":\n";
       }
       c << breakLabel << ":;\n";
-      c << "}\n// End switch stmt\n";
+      popScope(c);
+      c << "}\n
     }
     else if(Match* ma = dynamic_cast<Match*>(stmt))
     {
       //assign matched union expr to a temp
-      string temp = getIdentifier();
       UnionType* ut = (UnionType*) ma->matched->type;
-      c << types[ut] << "* " << temp << " = ";
-      generateExpression(c, ma->matched);
-      c << ";\n";
-      c << "switch(" << temp << "->tag)\n{\n";
+      string matched = generateExpression(c, ma->matched);
+      c << "switch(" << matched << ".tag)\n{\n";
       for(size_t i = 0; i < ut->options.size(); i++)
       {
         Type* optType = ut->options[i];
         c << "case " << i << ":\n";
         c << "{\n";
+        pushScope();
+        //case variable is declared here but not initialized
         generateLocalVariables(c, ma->cases[i]->scope);
-        //assign the special variable of optType
-        c << vars[ma->caseVars[i]] << " = (" << types[optType];
-        c << "*) " << temp << "->data;\n";
+        c << getCopyFunc(ma->caseVars[i]->type) << "(&";
+        c << vars[ma->caseVars[i]] << ", (" << types[optType];
+        c << "*) " << matched << ".data);\n";
         //generate all statements normally
         for(auto maStmt : ma->cases[i]->stmts)
         {
           generateStatement(c, ma->cases[i], maStmt);
         }
-        //need to break from the C switch
+        popScope(c);
+        //break from the C switch
         c << "break;\n}\n";
       }
       c << "}\n";
@@ -1313,11 +1365,17 @@ namespace C
         continue;
       }
       Variable* local = (Variable*) n.second.item;
-      string localIdent = getIdentifier();
-      vars[local] = localIdent;
-      c << types[local->type] << "* " << localIdent << " = " <<
-        getInitFunc(local->type) << "(); // " << local->type->getName() <<
-        ' ' << local->name << '\n';
+      Type* type = local->type;
+      string ident = getIdentifier();
+      c << types[local->type] << ' ' << ident << ";\n";
+      if(!type->isPrimitive())
+      {
+        string ptrIdent = getIdentifier();
+        c << types[local->type] << "* " << ptrIdent << " = &" << ident << ";\n";
+      }
+      c << getInitFunc(local->type) << "(&" << ident << ");\n";
+      vars[local] = ident;
+      addScopedVar(local->type, ident);
     }
   }
 
@@ -2588,6 +2646,42 @@ namespace C
       c << ' ';
     c << "//\n";
     c << "//////////////////////////////\n\n";
+  }
+
+  vector<CScope> cscopes;
+
+  //create a new, empty scope
+  void pushScope()
+  {
+    cscopes.emplace_back();
+  }
+
+  //add a local variable to topmost scope
+  void addScopedVar(Type* t, string name)
+  {
+    if(cscopes.size() == 0)
+    {
+      INTERNAL_ERROR;
+    }
+    cscopes.back().vars.emplace_back(t, name);
+  }
+
+  //generate free calls for all vars in top scope and then delete it
+  void popScope(ostream& code)
+  {
+    if(cscopes.size() == 0)
+    {
+      INTERNAL_ERROR;
+    }
+    auto& popped = cscopes.back();
+    for(auto& var : popped.vars)
+    {
+      //for non-primitives, the C variable var.name is already a pointer to type
+      if(!var.type->isPrimitive())
+      {
+        code << getDeallocFunc(var.type) << '(' << var.name << ");\n";
+      }
+    }
   }
 }
 

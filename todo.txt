@@ -2,12 +2,18 @@
       TODO:
 ---------------------
 -Allow subroutine overloading
--Calling with union argument will dispatch at runtime to the correct version for runtime contents
+-Calling with union argument will dispatch at runtime to the correct version for runtime contents IF version taking union directly doesn't exist
   -UNLESS the subroutine is defined for the exact union
   -Look for exact matches in type, then take the first where arguments are convertible (if none, error as no matching subroutine to call like C++)
--Make everything a pointer
-  -argument passing and shallow copies are much cheaper 
-  -Makes implementing maps a lot easier: comparison can be casted to bool(void*, void*) and hash is uint64_t(void*)
+
+-Emitting control flow statements (break, continue, return) should free locals in scopes that close
+  -normally, closing a block will call popScope() exactly once
+  -break from loop needs to pop from innermost block up to and including the loop block
+  -break from switch only pops blocks that are inside the switch
+  -continue in loop pops innermost block up to but not including the loop block
+  -return pops from innermost block up to and including the innermost subroutine
+  -this special control flow instructions don't actually call popScope() at all, because technically those scopes
+  are still open (even if the real block pop code is unreachable)
 
 -----------------------------------
    After core language compiler:
@@ -26,7 +32,8 @@ LANGUAGE BUILT-IN MODULES (all must be fully cross-platform and absolutely need 
      check for button states directly, and set up callbacks
   -UI (nice libUI interface, or something similar from scratch?)
   -Native audio wrapper
+  -Data structures: set(T) implemented as (T : void), binary heap
   -Compression (also use for serialization): zlib?
-  -Graphs (nice data structure, Dijkstra's, Kosaraju's, topological sort, MST)
-  -Support some video and audio codecs through free libraries (ffmpeg? lame?)
+  -Graphs (nice data structure, Dijkstra's for single source reachability/distnace, Kosaraju's for strongly connected components, topological sort, Prim's for minimum spanning tree)
+  -Support some video and audio codecs through ffmpeg
 

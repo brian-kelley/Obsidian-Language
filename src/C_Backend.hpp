@@ -29,6 +29,7 @@ namespace C
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
   string generateExpression(ostream& c, Block* b, Expression* expr);
+  void generateComparison(ostream& c, Oper op, string lhs, string rhs);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
   void generateLocalVariables(ostream& c, BlockScope* b);
   //utility functions
@@ -61,6 +62,26 @@ namespace C
   string getAssignFunc(TypeSystem::ArrayType* at);
   string getHashFunc(TypeSystem::Type* t);
   string getHashInsert(TypeSystem::Type* t);
+
+  //System for keeping track of and freeing objects in C scopes
+  struct CVar
+  {
+    CVar() : type(nullptr), name("") {}
+    CVar(TypeSystem::Type* t, string n) : type(t), name(n) {}
+    TypeSystem::Type* type;
+    string name;
+  };
+  struct CScope
+  {
+    vector<CVar> vars;
+  };
+  extern vector<CScope> cscopes;
+  //create a new, empty scope
+  void pushScope();
+  //add a local variable to topmost scope
+  void addScopedVar(TypeSystem::Type* t, string name);
+  //generate free calls for all vars in top scope and then delete it
+  void popScope(ostream& c);
 }
 
 #endif
