@@ -78,6 +78,8 @@ namespace C
     //genCommon and implHashTable write directly to the main stream
     genCommon();
     implHashTable();
+    //C builtins go in utilFuncDecls/Defs so they are available everywhere
+    genCoreBuiltins();
     //write types, vars, func decls, func defs in the ostringstreams
     c.write(typeDecls.str().c_str(), typeDecls.tellp());
     c << "\n";
@@ -133,7 +135,15 @@ namespace C
       c << "{\n";
       c << "fprintf(stderr, \"%s\\n\", why_);\n";
       c << "exit(1);\n";
-      c << "}\n";
+      c << "}\n\n";
+      //custom memory management: trivial way to make sure program doesn't leak
+      c << "static int allocatedBlocks = 0;\n\n";
+      c << "static void* onyxMalloc(size_t n)\n{\n";
+      c << "if(n == 0)\n";
+      c << "return NULL;\n";
+      c << "allocatedBlocks++;\n";
+      c << "return malloc(n);\n";
+      c << "}\n\n";
   }
 
   void implHashTable()
@@ -408,6 +418,109 @@ namespace C
       typeDecls << "int tag;\n";
       typeDecls << "};\n\n";
     }
+  }
+
+  bool genCoreBuiltins()
+  {
+    Type* byteType = primitives[Parser::TypeNT::UBYTE];
+    Type* charType = primitives[Parser::TypeNT::CHAR];
+    Type* stringType = getArrayType(charType, 1);
+    Type* byteArray = getArrayType(byteType, 1);
+    //  proc ubyte[] readFile(char[] filename)
+    //  proc void writeFile(ubyte[] data, char[] filename)
+    //  proc char[] readLine()
+    //  proc char[] readToken()
+    //  func uint floatRepr(float f)
+    //  func ulong doubleRepr(double d)
+    utilFuncDecls << types[byteArray] << " readFile(" <<
+      types[stringType] << "* filename);\n";
+    utilFuncDecls << "void writeFile(" << byteArray << "* data, " <<
+      types[stringType] << "* filename);\n";
+    utilFuncDecls << types[stringType] << " readLine();\n";
+    utilFuncDecls << types[stringType] << " readToken();\n";
+    utilFuncDecls << "uint32_t floatRepr(float f);\n";
+    utilFuncDecls << "uint64_t doubleRepr(double d);\n";
+    utilFuncDefs << types[byteArray] << " readFile(" <<
+      types[stringType] << "* filename)\n{\n"
+      //fopen wants a null-terminated string
+      "char* fname = malloc(filename->dim + 1);\n"
+      "memcpy(fname, filename->data);\n"
+      "fname[filename->dim] = 0;\n"
+      "FILE* f = fopen(fname, \"rb\");\n"
+      "free(fname);\n" <<
+      types[byteArray] << " data;\n"
+      "data.data = NULL;\n"
+      "data.dim = 0;\n"
+      "if(f)\n"
+      "{\n"
+      "fseek(f, 0, SEEK_END);\n"
+      "size_t bytes = ftell(f);\n"
+      "rewind(f);\n"
+      "data.data = malloc(bytes);\n"
+      "data.dim = bytes;\n"
+      "fread(data.data, 1, data.dim, f);\n"
+      "fclose(f);\n"
+      "}\n"
+      "return data;\n"
+      "}\n\n";
+    utilFuncDefs << "void writeFile(" << types[byteArray] << "* data, " <<
+      types[stringType] << "* filename)\n{\n"
+      "char* fname = malloc(
+      "}\n";
+    utilFuncDefs << types[stringType] << " readLine();\n";
+    utilFuncDefs << types[stringType] << " readToken();\n";
+    utilFuncDefs << "uint32_t floatRepr(float f)\n{\n"
+      "return *((uint32_t*) &f);\n"
+      "}\n\n";
+    utilFuncDefs << "uint64_t doubleRepr(double d)\n{\n"
+      "return *((uint64_t*) &d);\n"
+      "}\n\n";
+  }
+
+  bool typeNeedsDealloc(Type* t)
+  {
+    auto it = needsDealloc.find(t);
+    if(it != needsDealloc.find())
+    {
+      return it->second;
+    }
+    bool rv = false;
+    if(t->isPrimitive())
+    {
+      rv = false;
+    }
+    else if(auto st = dynamic_cast<StructType*(t))
+    {
+      for(auto mem : st->members)
+      {
+        if(typeNeedsDealloc(mem->type))
+        {
+          rv = true;
+          break;
+        }
+      }
+    }
+    else if(auto tt = dynamic_cast<TupleType*(t))
+    {
+      for(auto mem : tt->members)
+      {
+        if(typeNeedsDealloc(mem))
+        {
+          rv = true;
+          break;
+        }
+      }
+    }
+    else if(t->isArray() || t->isMap() || t->isUnion())
+    {
+      rv = true;
+    }
+    else
+    {
+      INTERNAL_ERROR;
+    }
+    needsDealloc[t] = rv;
+    return rv;
   }
 
   void genGlobals()
@@ -754,32 +867,94 @@ namespace C
     }
     else if(CallExpr* call = dynamic_cast<CallExpr*>(expr))
     {
-      calc << types[call->type] << ' ' << ident << " = ";
       if(auto subrExpr = dynamic_cast<SubroutineExpr*>(call->callable))
       {
-        calc << subrs[subrExpr->subr] << '(';
-        if(subrExpr->thisObject)
+        if(subrExpr->subr)
         {
-          calc << '&' << generateExpression(c, subrExpr->thisObject);
+          calc << types[call->type] << ' ' << ident << " = ";
+          calc << subrs[subrExpr->subr] << '(';
+          if(subrExpr->thisObject)
+          {
+            calc << '&' << generateExpression(c, subrExpr->thisObject);
+          }
+          for(size_t i = 0; i < call->args.size(); i++)
+          {
+            if(i > 0 || subrExpr->thisObject)
+            {
+              calc << ", ";
+            }
+            //this evaluates the arguments in order, before the call
+            //non-primitives passed by ref
+            if(!call->args[i]->type->isPrimitive())
+            {
+              calc << '&';
+            }
+            calc << generateExpression(c, call->args[i]);
+          }
+          calc << ");\n";
         }
-        for(size_t i = 0; i < call->args.size(); i++)
+        else
         {
-          if(i > 0 || subrExpr->thisObject)
+          //external subroutine
+          //just declare return value, generate argument values, and
+          //output the C code, replacing $x with rv/args
+          calc << types[call->type] << ' ' << ident << ";\n";
+          vector<string> args;
+          for(auto arg : call->args)
           {
-            calc << ", ";
+            args.push_back(generateExpression(c, arg));
           }
-          //this evaluates the arguments in order, before the call
-          //non-primitives passed by ref
-          if(!call->args[i]->type->isPrimitive())
+          string& cCode = subrExpr->exSubr->c;
+          auto subrType = subrExpr->exSubr->type;
+          calc << "{\n";
+          for(size_t i = 0; i < cCode.length();)
           {
-            calc << '&';
+            if(cCode[i] == '$')
+            {
+              i++;
+              if(i == cCode.length() - 1)
+              {
+                ERR_MSG("$ is last character in external C code snippet");
+              }
+              char next = cCode[i];
+              if(next == 'r')
+              {
+                //return value
+                calc << ident;
+              }
+              else if(isdigit(next))
+              {
+                int argNum = 0;
+                while(isdigit(cCode[i]))
+                {
+                  argNum *= 10;
+                  argNum += cCode[i] - '0';
+                  i++;
+                }
+                if(argNum < 0 || argNum >= subrType->args.size())
+                {
+                  ERR_MSG("in C snippet, argument index "
+                      << argNum << " out of bounds.\n");
+                }
+                calc << args[argNum];
+              }
+              else if(next == '$')
+              {
+                calc << '$';
+              }
+            }
+            else
+            {
+              calc << cCode[i];
+              i++;
+            }
           }
-          calc << generateExpression(c, call->args[i]);
+          calc << ";}\n";
         }
-        calc << ");\n";
       }
       else
       {
+        calc << types[call->type] << ' ' << ident << " = ";
         //subroutine is a first-class function (any expression)
         //is a method call iff callable is a StructMem
         if(auto sm = dynamic_cast<StructMem*>(call->callable))
@@ -1434,54 +1609,56 @@ namespace C
     }
     initImpl.insert(t);
     Oss def;
-    utilFuncDecls << typeName << "* " << func << "();\n";
-    def << typeName << "* " << func << "()\n{\n";
+    utilFuncDecls << "void " << func << '(' << typeName << "* data);\n";
+    def << "void " << func << '(' << typeName << "* data)\n{\n";
     if(t->isEnum())
     {
       EnumType* et = (EnumType*) t;
       if(et->values.size())
       {
-        def << "uint64_t* tmp = malloc(sizeof(uint64_t));\n";
-        def << "*tmp = " << et->values[0]->value;
-        def << "return tmp;\n";
+        def << "*data = " << et->values[0]->value << ";\n";
       }
       else
       {
         //0
-        def << "return calloc(1, sizeof(uint64_t));\n";
+        def << "*data = 0;\n";
       }
     }
     else if(t->isStruct() || t->isTuple())
     {
       auto st = dynamic_cast<StructType*>(t);
       auto tt = dynamic_cast<TupleType*>(t);
-      def << typeName << "* temp = malloc(sizeof(" << typeName << "));\n";
-      if(st)
+      size_t numMembers = st ? st->members.size() : tt->members.size();
+      for(size_t i = 0; i < numMembers; i++)
       {
-        for(size_t i = 0; i < st->members.size(); i++)
-        {
-          def << "temp->mem" << i << " = " <<
-            getInitFunc(st->members[i]->type) << "();\n";
-        }
+        Type* memType = st ? st->members[i]->type : tt->members[i];
+        def << getInitFunc(memType) << "(data->mem" << i << ");\n";
       }
-      else
-      {
-        for(size_t i = 0; i < tt->members.size(); i++)
-        {
-          def << "temp->mem" << i << " = " <<
-            getInitFunc(tt->members[i]) << "();\n";
-        }
-      }
-      def << "return temp;\n";
     }
-    else if(t->isArray() || t->isUnion() || t->isCallable()
-        || t->isPrimitive())
+    else if(t->isArray())
+    {
+      def << "data->dim = 0;\n";
+    }
+    else if(t->isUnion())
+    {
+      UnionType* ut = (UnionType*) t;
+      //union: just use the first tag and initialize it
+      //since types in unions have to be sorted by pointer (arbitrary),
+      //this isn't very useful but it does make union completely valid
+      def << "data->tag = 0;\n";
+      def << getInitFunc(ut->options[0]) << "(data->data);\n";
+    }
+    else if(t->isCallable())
+    {
+      def << "*data = nullptr;\n";
+    }
+    else if(t->isPrimitive())
     {
       //an empty array should have 0 size and NULL data
       //an uninitialized union should have tag 0 and NULL data
       //uninitialized fn ptr should be NULL for a clean segfault if called
       //in all these cases, the data is all 0 bytes
-      def << "return calloc(1, sizeof(" << typeName << "));\n";
+      def << "*data = 0;\n";
     }
     else if(auto mt = dynamic_cast<MapType*>(t))
     {
@@ -1489,10 +1666,11 @@ namespace C
       //note: getEqualsFunc produces bool(T*, T*) but really want bool(void*, void*)
       //so cast it here
       def << "typedef bool(*VoidComparator)(void*, void*);\n";
-      def << "HashTable* tab = calloc(1, sizeof(HashTable));\n";
-      def << "tab->hashFn = " << getHashFunc(mt->key) << ";\n";
-      def << "tab->compareFn = (VoidComparator) " << getEqualsFunc(mt->key) << ";\n";
-      def << "return tab;\n";
+      def << "data->numBuckets = 0;\n";
+      def << "data->size = 0;\n";
+      def << "data->buckets = NULL;\n";
+      def << "data->hashFn = " << getHashFunc(mt->key) << ";\n";
+      def << "data->compareFn = (VoidComparator) " << getEqualsFunc(mt->key) << ";\n";
     }
     def << "}\n\n";
     utilFuncDefs << def.str();
@@ -1511,73 +1689,75 @@ namespace C
     Oss def;
     {
       Oss prototype;
-      prototype << typeName << "* " << func << '(' << typeName << "* data)";
+      prototype << "void " << func << '(' << typeName << "* dst, " << typeName << "* src)";
       utilFuncDecls << prototype.str() << ";\n";
       def << prototype.str() << "\n{\n";
     }
-    def << typeName << "* cp = malloc(sizeof(";
-    def << typeName << "));\n";
     //note: void doesn't get a copy function because it will never be called
     //cannot have variable or argument of type void (checked in middle end)
     if(t->isPrimitive())
     {
       //primitives (integers, bool, floats) are trivially copyable
-      def << "memcpy(cp, data, sizeof(" << types[t] << "));\n";
+      def << "*dst = *src;\n";
     }
     else if(auto at = dynamic_cast<ArrayType*>(t))
     {
-      def << "cp->data = malloc(sizeof(void*) * data->dim);\n";
-      def << "for(" << size_type << " i = 0; i < data->dim; i++)\n{\n";
-      def << "cp->data[i] = " << getCopyFunc(at->subtype) << "(data->data[i]);\n";
+      //allocate dst array
+      def << "dst->dim = src->dim;\n";
+      def << "dst->data = dst->dim * sizeof(" << typeName << ");\n";
+      def << "for(" << size_type << " i = 0; i < src->dim; i++)\n{\n";
+      def << getCopyFunc(at->subtype) << "(dst->data + i, src->data + i);\n";
       def << "}\n";
-      def << "cp->dim = data->dim;\n";
     }
-    else if(auto st = dynamic_cast<StructType*>(t))
+    else if(t->isStruct() || t->isTuple())
     {
-      for(size_t i = 0; i < st->members.size(); i++)
+      auto st = dynamic_cast<StructType*>(t);
+      auto tt = dynamic_cast<TupleType*>(t);
+      size_t numMembers = st ? st->members.size() : tt->members.size();
+      for(size_t i = 0; i < numMembers; i++)
       {
-        def << "cp->mem" << i << " = " << getCopyFunc(st->members[i]->type) << "(data->mem" << i << ");\n";
+        Type* memType = st ? st->members[i]->type : tt->members[i];
+        def << getCopyFunc(memType) << "(&(dst->mem" << i << "), &(src->mem" << i << "));\n";
       }
     }
     else if(auto ut = dynamic_cast<UnionType*>(t))
     {
-      def << "cp->tag = data->tag;\n";
-      def << "switch(data->option)\n{\n";
+      def << "dst->tag = src->tag;\n";
+      def << "switch(dst->tag)\n{\n";
       for(size_t i = 0; i < ut->options.size(); i++)
       {
         Type* opType = ut->options[i];
         def << "case " << i << ":\n";
-        def << "cp->data = " << getCopyFunc(opType);
-        def << "((" << types[opType] << "*) data->data);\n";
+        getCopyFunc(opType);
+        def << "((" << types[opType] << "*) dst->data, (" << types[opType] << "*) src->data);\n";
         def << "break;\n";
       }
-      def << "default: panic(\"invalid union tag\");\n}\n";
-    }
-    else if(auto tt = dynamic_cast<TupleType*>(t))
-    {
-      for(size_t i = 0; i < tt->members.size(); i++)
-      {
-        def << "cp->mem" << i << " = " << getCopyFunc(tt->members[i]) << "(data->mem" << i << ");\n";
-      }
+      def << "default: panic(\"union has invalid tag which should not be possible\");\n}\n";
     }
     else if(auto mt = dynamic_cast<MapType*>(t))
     {
       //clone the hash table: same # of buckets, same bucket capacities
-      def << "cp->hashFn = data->hashFn;\n";
-      def << "cp->compareFn = data->compareFn;\n";
-      def << "cp->size = data->size;\n";
-      def << "cp->numBuckets = data->numBuckets;\n";
-      def << "cp->buckets = malloc(sizeof(Bucket) * cp->numBuckets);\n";
-      def << "for(" << size_type << " i = 0; i < cp->numBuckets; i++)\n{\n";
-      def << "cp->buckets[i]->cap = data->buckets[i]->cap;\n";
-      def << "cp->buckets[i]->size = data->buckets[i]->size;\n";
-      def << "cp->buckets[i]->keys = malloc(sizeof(void*) * cp->buckets[i]->cap;\n";
-      def << "cp->buckets[i]->values = malloc(sizeof(void*) * cp->buckets[i]->cap;\n";
-      def << "cp->buckets[i]->hashes = malloc(sizeof(uint32_t) * cp->buckets[i]->cap;\n";
-      def << "for(int j = 0; j < cp->buckets[i]->size; j++)\n{\n";
-      def << "cp->buckets[i]->keys[j] = " << getCopyFunc(mt->key) << "(data->buckets[i]->keys[j]);\n";
-      def << "cp->buckets[i]->values[j] = " << getCopyFunc(mt->value) << "(data->buckets[i]->values[j]);\n";
-      def << "cp->buckets[i]->hashes[j] = data->buckets[i]->hashes[j];\n";
+      def << "dst->hashFn = src->hashFn;\n";
+      def << "dst->compareFn = src->compareFn;\n";
+      def << "dst->size = src->size;\n";
+      def << "dst->numBuckets = src->numBuckets;\n";
+      def << "for(" << size_type << " i = 0; i < dst->numBuckets; i++)\n{\n";
+      def << "dst->buckets[i]->cap = src->buckets[i]->cap;\n";
+      def << "dst->buckets[i]->size = src->buckets[i]->size;\n";
+      def << "dst->buckets[i]->keys = malloc(sizeof(void*) * src->buckets[i]->cap;\n";
+      def << "dst->buckets[i]->values = malloc(sizeof(void*) * src->buckets[i]->cap;\n";
+      def << "dst->buckets[i]->hashes = malloc(sizeof(uint32_t) * src->buckets[i]->cap;\n";
+      def << "for(int j = 0; j < dst->buckets[i]->size; j++)\n{\n";
+      //have to heap allocate each dst key and value individually
+      def << "dst->buckets[i]->keys[j] = malloc(sizeof(" << types[mt->key] << "));\n";
+      def << getCopyFunc(mt->key) << "((" << types[mt->key];
+      def << "*) dst->buckets[i]->keys[j], (" << types[mt->key];
+      def << "*) src->buckets[i]->keys[j]);\n";
+      def << "dst->buckets[i]->values[j] = malloc(sizeof(" << types[mt->value] << "));\n";
+      def << getCopyFunc(mt->value) << "((" << types[mt->value];
+      def << "*) dst->buckets[i]->values[j], (" << types[mt->value];
+      def << "*) src->buckets[i]->values[j]);\n";
+      def << "dst->buckets[i]->hashes[j] = src->buckets[i]->hashes[j];\n";
       def << "}\n";
       def << "}\n";
     }
@@ -1601,76 +1781,43 @@ namespace C
     {
       args.push_back(getIdentifier());
     }
-    //names of loop counters
-    vector<string> counters;
-    for(int i = 0; i < t->dims; i++)
-    {
-      counters.push_back(getIdentifier());
-    }
     Oss def;
     {
       Oss prototype;
-      prototype << typeName << "* " << func << '(';
+      prototype << "void " << func << '(';
+      prototype << typeName << "* data";
       for(int i = 0; i < t->dims; i++)
       {
+        prototype << ", ";
         prototype << size_type << ' ' << args[i];
-        if(i != t->dims - 1)
-          prototype << ", ";
       }
       prototype << ')';
       utilFuncDecls << prototype.str() << ";\n";
       def << prototype.str() << "\n{\n";
     }
-    //the top-level array to be returned
-    def << typeName << "* array = calloc(1, sizeof(" << typeName << "));\n";
     //add prototype to both util decls and defs
     Type* subtype = t->subtype;
-    for(int i = 0; i < t->dims; i++)
+    //allocate top level array
+    def << "data->dim = " << args[0] << ";\n";
+    def << "data->data = malloc(data->dim * sizeof(" << types[subtype] << "));\n";
+    def << "for(" << size_type << " i = 0; i < " << args[0] << "; i++)\n{\n";
+    if(auto subArray = dynamic_cast<ArrayType*>(subtype))
     {
-      def << "array->data";
-      for(int j = 0; j < i; j++)
+      //call allocate function for subtype
+      def << getAllocFunc(subArray) << "(data->data + i";
+      //pass in all args to this function, except first one
+      for(int i = 1; i < args.size(); i++)
       {
-        def << "[" << counters[j] << "]->data";
+        def << ", " << args[i];
       }
-      //set data
-      def << " = malloc(" << args[i] << " * sizeof(void*));\n";
-      //set dimensions
-      def << "array";
-      for(int j = 0; j < i; j++)
-      {
-        def << "->data[" << counters[j] << "]";
-      }
-      //set data
-      def << "->dim = " << args[i] << ";\n";
-      //generate a loop for the ith dimension
-      def << "for(" << size_type << ' ' << counters[i] << " = 0; ";
-      def << counters[i] << " < " << args[i];
-      def << "; " << counters[i] << "++)\n{\n";
-      if(i == t->dims - 1)
-      {
-        //in innermost loop, call init() to each element of innermost array
-        def << "array";
-        for(int j = 0; j <= i; j++)
-        {
-          def << "->data[" << counters[j] << ']';
-        }
-        def << " = " << getInitFunc(subtype) << "();\n";
-      }
-      //if not in last iteration (where subtype is not an array),
-      //switch type to next lower dimension
-      if(i != t->dims - 1)
-      {
-        ArrayType* sub = dynamic_cast<ArrayType*>(subtype);
-        subtype = sub->subtype;
-      }
+      def << ");\n":
     }
-    //close all the loops
-    for(int i = 0; i < t->dims; i++)
+    else
     {
-      def << "}\n";
+      //initialize innermost data, which is not an array
+      def << getInitFunc(subtype) << "(data->data + i);\n";
     }
-    def << "return array;\n";
-    def << "}\n\n";
+    def << "}\n}\n\n";
     utilFuncDefs << def.str();
     return func;
   }
@@ -1685,21 +1832,34 @@ namespace C
     deallocImpl.insert(t);
     string& typeName = types[t];
     //only struct, tuple, array and unions need to be freed
-    utilFuncDecls << "void " << func << "(" << typeName << " data);\n";
+    utilFuncDecls << "void " << func << "(" << typeName << "* data);\n";
     Oss def;
-    def << "inline void " << func << "(" << typeName << " data)\n{\n";
+    def << "void " << func << "(" << typeName << " data)\n{\n";
+    //special case: this is actually a no-op, but need this empty function to exist for whatever reason
+    if(!typeNeedsDealloc(t))
+    {
+      def << "}\n\n";
+      utilFuncDefs << def.str();
+      return func;
+    }
     if(auto st = dynamic_cast<StructType*>(t))
     {
       for(size_t i = 0; i < st->members.size(); i++)
       {
-        def << getDeallocFunc(st->members[i]->type) << "(data->" << st->members[i]->type << ");\n";
+        if(typeNeedsDealloc(st->members[i]->type))
+        {
+          def << getDeallocFunc(st->members[i]->type) << "(&data->mem" << i << ");\n";
+        }
       }
     }
     else if(auto tt = dynamic_cast<TupleType*>(t))
     {
       for(size_t i = 0; i < tt->members.size(); i++)
       {
-        def << getDeallocFunc(tt->members[i]) << "(data->mem" << i << ");\n";
+        if(typeNeedsDealloc(tt->members[i]))
+        {
+          def << getDeallocFunc(tt->members[i]) << "(&data->mem" << i << ");\n";
+        }
       }
     }
     else if(auto ut = dynamic_cast<UnionType*>(t))
@@ -1712,28 +1872,32 @@ namespace C
         def << getDeallocFunc(ut->options[i]) << "((" << types[ut->options[i]] << "*) data->data);\n";
         def << "break;\n";
       }
+      def << "default: panic(\"union being deallocated has invalid tag\");\n";
       def << "}\n";
     }
     else if(auto at = dynamic_cast<ArrayType*>(t))
     {
-      def << "if(data->data)\n{\n";
       //add free calls for each element, if subtype has nontrivial deallocator
-      def << "for(" << size_type << " i = 0; i < data->dim; i++)\n{\n";
-      def << getDeallocFunc(at->subtype) << "(data->data[i]);\n";
-      def << "}\n";
+      if(typeNeedsDealloc(at->subtype))
+      {
+        def << "for(" << size_type << " i = 0; i < data->dim; i++)\n{\n";
+        def << getDeallocFunc(at->subtype) << "(data->data + i);\n";
+        def << "}\n";
+      }
       def << "free(data->data);\n";
-      def << "}\n";
     }
     else if(auto mt = dynamic_cast<MapType*>(t))
     {
       //have a hash table: free all the key/value pairs, then each
       //bucket's arrays, then the array of buckets
-      def << "for(int b = 0; b < data->numBuckets; b++)\n";
+      def << "for(" << size_type << " b = 0; b < data->numBuckets; b++)\n";
       def << "{\n";
-      def << "for(int i = 0; i < data->buckets[b]->size; i++)\n";
+      def << "for(" << size_type << " i = 0; i < data->buckets[b]->size; i++)\n";
       def << "{\n";
       def << getDeallocFunc(mt->key) << "((" << types[mt->key] << "*) data->buckets[b]->keys[i]);\n";
+      def << "free(data->buckets[b]->keys[i]);\n";
       def << getDeallocFunc(mt->value) << "((" << types[mt->value] << "*) data->buckets[b]->values[i]);\n";
+      def << "free(data->buckets[b]->values[i]);\n";
       def << "}\n";
       def << "free(buckets[b]->keys);\n";
       def << "free(buckets[b]->values);\n";
@@ -1741,7 +1905,6 @@ namespace C
       def << "}\n";
       def << "free(data->buckets);\n";
     }
-    def << "free(data);\n";
     def << "}\n";
     utilFuncDefs << def.str();
     return func;
@@ -1810,15 +1973,14 @@ namespace C
         {
           //t is string (special case): print the chars verbatim
           def << "for(" << size_type << " i = 0; i < data->dim; i++)\n{\n";
-          def << "putchar(*data->data[i]);\n";
+          def << "putchar(*(data->data[i]));\n";
           def << "}\n";
         }
         else
         {
           def << "putchar('{');\n";
-          def << "for(" << size_type << " i = 0; ";
-          def << "i < data->dim; i++)\n{\n";
-          def << getPrintFunc(at->subtype) << "(data->data[i]);\n}\n";
+          def << "for(" << size_type << " i = 0; i < data->dim; i++)\n{\n";
+          def << getPrintFunc(at->subtype) << "(data->data + i);\n}\n";
           def << "putchar('}');\n";
         }
       }
@@ -1828,7 +1990,7 @@ namespace C
         //print each member, comma separated
         for(size_t i = 0; i < tt->members.size(); i++)
         {
-          def << getPrintFunc(tt->members[i]) << "(data->mem" << i << ");\n";
+          def << getPrintFunc(tt->members[i]) << "(&data->mem" << i << ");\n";
           if(i != tt->members.size() - 1)
           {
             def << "printf(\", \");\n";
@@ -1842,7 +2004,7 @@ namespace C
         //print each member, comma separated
         for(size_t i = 0; i < st->members.size(); i++)
         {
-          def << getPrintFunc(st->members[i]->type) << "(data->mem" << i << ");\n";
+          def << getPrintFunc(st->members[i]->type) << "(&data->mem" << i << ");\n";
           if(i != st->members.size() - 1)
           {
             def << "printf(\", \");\n";
@@ -1881,7 +2043,7 @@ namespace C
     Oss def;
     {
       Oss prototype;
-      prototype << types[out] << "* " << func << '(' << types[in] << "* in)";
+      prototype << "void " << func << '(' << types[out] << "* dst, " << types[in] << "* src)";
       utilFuncDecls << prototype.str() << ";\n";
       def << prototype.str() << "\n{\n";
     }
@@ -1904,16 +2066,13 @@ namespace C
     {
       if(out == TypeSystem::primitives[Parser::TypeNT::BOOL])
       {
-        def << "bool* out = malloc(sizeof(bool));\n";
-        def << "*out = *in != 0;\n";
-        def << "return out;\n";
+        //like C, out is true if and only if in is nonzero
+        def << "*dst = *src != 0;\n";
       }
       else
       {
-        def << types[out] << "* out = malloc(sizeof(" << types[out] << "));\n";
         //primitive: explicitly cast *in to out type
-        def << "*out = (" << types[out] << ") *in;\n";
-        def << "return out;";
+        def << "*dst = (" << types[out] << ") *src;\n";
       }
     }
     else if((out->isStruct() || out->isTuple()) &&

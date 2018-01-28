@@ -222,6 +222,13 @@ struct Subroutine
   void check();
 };
 
+struct ExternalSubroutine
+{
+  ExternalSubroutine(Parser::ExternSubroutineNT*, Scope* s);
+  TypeSystem::Callabletype* type;
+  string c;
+};
+
 struct Test
 {
   Test(Parser::TestDecl* td, Scope* s);

@@ -13,6 +13,22 @@ namespace C
   //generate generic map (hash table) implementation
   //this goes in utilFuncDecls/Defs
   void implHashTable();
+  //generate these core builtin subroutines that can't be written in Onyx
+  //(necessary for real compiler):
+  //  proc ubyte[] readFile(char[] filename)
+  //  proc void writeFile(ubyte[] data, char[] filename)
+  //  proc char[] readLine()
+  //  proc char[] readToken()
+  //  func uint floatRepr(float f)
+  //  func ulong doubleRepr(double d)
+  //
+  //  Note: following builtins are implemented in Onyx (see BuiltIn.cpp)
+  //
+  //  func long? stoi(char[] str)
+  //  func double? stod(char[] str)
+  //  func char[] printHex(ulong num)
+  //  func char[] printBin(ulong num)
+  bool genCoreBuiltins();
   //forward-declare all compound types (and arrays),
   //then actually define them as C structs
   void genTypeDecls();
@@ -62,6 +78,10 @@ namespace C
   string getAssignFunc(TypeSystem::ArrayType* at);
   string getHashFunc(TypeSystem::Type* t);
   string getHashInsert(TypeSystem::Type* t);
+
+  //(memoized)
+  //whether type needs explicit free (i.e. does it own heap memory)
+  bool typeNeedsDealloc(TypeSystem::Type* t);
 
   //System for keeping track of and freeing objects in C scopes
   struct CVar

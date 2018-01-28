@@ -64,7 +64,9 @@ enum
   BENCHMARK,
   ASSERT,
   STATIC,
-  ARRAY
+  ARRAY,
+  EXTERN,
+  EMIT
 };
 
 enum
@@ -117,7 +119,8 @@ enum
   DOT,
   COMMA,
   DOLLAR,
-  QUESTION
+  QUESTION,
+  HASH
 };
 
 enum

@@ -556,6 +556,17 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         isFinal = true;
         break;
       }
+      case Name::EXTERN_SUBR:
+      {
+        if(root)
+        {
+          ERR_MSG("C functions can't be used as member functions");
+        }
+        root = new SubroutineExpr((ExternalSubroutine*) n.item);
+        scope = nullptr;
+        isFinal = true;
+        break;
+      }
     case Name::MODULE:
       {
         scope = (Scope*) n.item;
@@ -1037,18 +1048,38 @@ VarExpr::VarExpr(Variable* v) : var(v)
 
 SubroutineExpr::SubroutineExpr(Subroutine* s)
 {
-  thisObject = nullptr;
+  this->thisObject = nullptr;
   this->subr = s;
-  type = s->type;
+  this->exSubr = nullptr;
+  this->type = s->type;
 }
 
 SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
 {
-  thisObject = root;
+  this->thisObject = root;
   this->subr = s;
-  type = s->type;
+  this->exSubr = nullptr;
+  this->type = s->type;
   deps.insert(root->deps.begin(), root->deps.end());
   pure = root->pure;
+}
+
+SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
+{
+  this->thisObject = nullptr;
+  this->subr = nullptr;
+  this->exSubr = es;
+  this->type = es->type;
+}
+
+/***********************
+ * External subroutine *
+ ***********************/
+
+ExternSubroutineExpr::ExternSubroutineExpr(ExternalSubroutine* es)
+{
+  exSubr = es;
+  type = exSubr->type;
 }
 
 /*************

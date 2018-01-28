@@ -6,6 +6,34 @@
   -UNLESS the subroutine is defined for the exact union
   -Look for exact matches in type, then take the first where arguments are convertible (if none, error as no matching subroutine to call like C++)
 
+-Metaprogramming:
+  -Statements/variables/declarations preceded by single '#'
+  Example: generate a loop that does b 10 times
+  //emit is a special proc that outputs code
+  #proc void do10(Block b)
+  {
+    emit("for i : 0,10 ");
+    emit(b);
+  }
+
+  #do10({print("Hello world\n");})
+
+  -Parser works through a single, linear token stream
+  -If at any point the parser looks ahead to '#', parse a meta-statement there
+  -In this context, statements can be declarations or actions
+
+-Lexer: text stream -> token stream
+-Parser: token stream -> parse tree
+-Middle end: parse tree -> middle end
+-Meta-interpreter: complete middle end statements/decls -> program text and parse tree nodes through emit()
+  -emitted text needs to be fed into lexer/parser/middle end
+  -emitted parse nodes only need middle end
+-Run different (pre-backend) compiler stages as a pipeline instead of distinct steps
+  -Allow for inserting program text at the start of stream without actually modifying original code string (performance)
+
+-Interoperation with arbitrary c libraries: function description is a C expression that is inlined at every call site in Onyx source
+-Variadics not supported
+
 -Emitting control flow statements (break, continue, return) should free locals in scopes that close
   -normally, closing a block will call popScope() exactly once
   -break from loop needs to pop from innermost block up to and including the loop block

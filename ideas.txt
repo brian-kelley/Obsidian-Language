@@ -1,9 +1,0 @@
-Onyx Language Features (language, not compiler)
-
-Casting never needed, have implicit conversion work on any primitive or compound type (arrays), and even that should be avoided in the compiler
-
-Testing features: test as more powerful assert()
--test(aFunction(input), goldStandard); ///// assert equality of two expressions, but is written as the first thing inside a function
-Put test(a, b) in global scope to do the test at (debug build) compile time, and inside to do whenever the func/proc is run (compile-time or run-time)
-All tests are left out of release builds
-

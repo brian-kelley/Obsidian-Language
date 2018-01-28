@@ -33,8 +33,10 @@ struct Name
     ENUM,
     TYPEDEF,
     SUBROUTINE,
+    EXTERN_SUBR,
     VARIABLE,
-    ENUM_CONSTANT
+    ENUM_CONSTANT,
+    META_VAR
   };
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
   Name(ModuleScope* m, Scope* parent)
@@ -47,6 +49,8 @@ struct Name
     : item(a), kind(TYPEDEF), scope(s) {}
   Name(Subroutine* subr, Scope* s)
     : item(subr), kind(SUBROUTINE), scope(s) {}
+  Name(ExternalSubroutine* subr, Scope* s)
+    : item(subr), kind(EXTERN_SUBR), scope(s) {}
   Name(Variable* var, Scope* s)
     : item(var), kind(VARIABLE), scope(s) {}
   Name(TypeSystem::EnumConstant* ec, Scope* s)
@@ -83,7 +87,7 @@ struct Scope
   void shadowCheck(string name);
 };
 
- struct ModuleScope : public Scope
+struct ModuleScope : public Scope
 {
   ModuleScope(string name, Scope* parent, Parser::Module* astIn);
   string getLocalName();

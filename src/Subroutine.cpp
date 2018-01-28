@@ -725,6 +725,12 @@ void Subroutine::check()
   }
 }
 
+ExternalSubroutine::ExternalSubroutine(Parser::ExternSubroutineNT* es, Scope* s)
+{
+  TypeSystem::typeLookup->lookup(es->type, (Type*&) type);
+  c = es->c;
+}
+
 Test::Test(Parser::TestDecl* td, Scope* s)
 {
   tests.push_back(this);

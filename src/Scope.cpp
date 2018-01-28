@@ -20,13 +20,14 @@ int BlockScope::nextBlockIndex = 0;
     names[item->name] = Name(item, this); \
   }
 
-ADD_NAME(ModuleScope,              "module",        Name::MODULE);
-ADD_NAME(TypeSystem::StructType,   "struct",        Name::STRUCT);
-ADD_NAME(TypeSystem::EnumConstant, "enum constant", Name::ENUM_CONSTANT);
-ADD_NAME(TypeSystem::EnumType,     "enum",          Name::ENUM);
-ADD_NAME(TypeSystem::AliasType,    "typedef",       Name::TYPEDEF);
-ADD_NAME(Subroutine,               "subroutine",    Name::SUBROUTINE);
-ADD_NAME(Variable,                 "variable",      Name::VARIABLE);
+ADD_NAME(ModuleScope,              "module",              Name::MODULE);
+ADD_NAME(TypeSystem::StructType,   "struct",              Name::STRUCT);
+ADD_NAME(TypeSystem::EnumConstant, "enum constant",       Name::ENUM_CONSTANT);
+ADD_NAME(TypeSystem::EnumType,     "enum",                Name::ENUM);
+ADD_NAME(TypeSystem::AliasType,    "typedef",             Name::TYPEDEF);
+ADD_NAME(Subroutine,               "subroutine",          Name::SUBROUTINE);
+ADD_NAME(ExternalSubroutine,       "external subroutine", Name::EXTERN_SUBR);
+ADD_NAME(Variable,                 "variable",            Name::VARIABLE);
 
 Scope::Scope(Scope* parentIn)
 {

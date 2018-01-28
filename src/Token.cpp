@@ -61,6 +61,8 @@ void initTokens()
   SET_KEY("nonterm", NONTERM)
   SET_KEY("static", STATIC);
   SET_KEY("array", ARRAY);
+  SET_KEY("extern", EXTERN);
+  SET_KEY("emit", EMIT);
   keywordTable.resize(keywordMap.size());
   for(auto& it : keywordMap)
   {
@@ -127,6 +129,7 @@ void initTokens()
   punctMap[','] = COMMA;
   punctMap['$'] = DOLLAR;
   punctMap['?'] = QUESTION;
+  punctMap['#'] = HASH;
   punctTable.resize(punctMap.size());
   for(auto& it : punctMap)
   {

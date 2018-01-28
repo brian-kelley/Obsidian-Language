@@ -1,4 +1,5 @@
 #include "Parser.hpp"
+#include "Meta.hpp"
 
 struct BlockScope;
 
@@ -38,11 +39,13 @@ namespace Parser
   template<> Enum* parse<Enum>();
   template<> Block* parse<Block>();
   template<> VarDecl* parse<VarDecl>();
+  template<> MetaVar* parse<MetaVar>();
   template<> VarAssign* parse<VarAssign>();
   template<> PrintNT* parse<PrintNT>();
   template<> ExpressionNT* parse<ExpressionNT>();
   template<> CallOp* parse<CallOp>();
   template<> SubroutineNT* parse<SubroutineNT>();
+  template<> ExternSubroutineNT* parse<ExternSubroutineNT>();
   template<> SubroutineTypeNT* parse<SubroutineTypeNT>();
   template<> Parameter* parse<Parameter>();
   template<> StructDecl* parse<StructDecl>();
@@ -108,6 +111,7 @@ namespace Parser
     ScopedDecl* sd = new ScopedDecl;
     //peek at next token to check for keywords that start decls
     //use short-circuit evaluation to find the pattern that parses successfully
+    Punct hash(HASH);
     Keyword* nextKeyword = dynamic_cast<Keyword*>(lookAhead());
     if(nextKeyword)
     {
@@ -143,18 +147,42 @@ namespace Parser
         case PROC:
           sd->decl = parse<SubroutineNT>();
           break;
+        case EXTERN:
+          sd->decl = parse<ExternSubroutineNT>();
+          break;
         case TEST:
           sd->decl = parse<TestDecl>();
           break;
         default: found = false;
       }
       if(found)
+      {
         return sd;
+      }
     }
-    //only other possibility is VarDecl
-    sd->decl = parse<VarDecl>();
-    if(semicolon)
-      expectPunct(SEMICOLON);
+    else if(lookAhead()->compareTo(&hash))
+    {
+      //must be a meta variable or meta-subroutine
+      Keyword* keywordAfter = dyanamic_cast<Keyword*>(lookAhead(1));
+      if(keywordAfter && (keywordAfter->kw == FUNC || keywordAfter->kw == PROC))
+      {
+        accept();
+        auto subr = parse<SubroutineNT>();
+        subr->meta = true;
+        sd->decl = subr;
+      }
+      else
+      {
+        sd->decl = parse<MetaVar>();
+      }
+    }
+    else
+    {
+      //only other possibility is VarDecl
+      sd->decl = parse<VarDecl>();
+      if(semicolon)
+        expectPunct(SEMICOLON);
+    }
     return sd;
   }
 
@@ -826,7 +854,7 @@ namespace Parser
     //note: semicolon must be handled by caller
     return vd;
   }
-  
+
   VarAssign* parseAssignGivenExpr12(Expr12* target)
   {
     VarAssign* va = new VarAssign;
@@ -949,6 +977,21 @@ namespace Parser
   }
 
   template<>
+  MetaVar* parse<MetaVar>()
+  {
+    MetaVar* mv = new MetaVar;
+    expectPunct(HASH);
+    mv->type = parse<TypeNT>();
+    mv->name = ((Ident*) expect(IDENTIFIER))->name;
+    if(acceptOper(ASSIGN))
+    {
+      mv->val = parse<ExpressionNT>();
+    }
+    return mv;
+  }
+
+
+  template<>
   VarAssign* parse<VarAssign>()
   {
     //need to determine lvalue and rvalue (target and rhs)
@@ -1017,6 +1060,32 @@ namespace Parser
       subr->body = parse<Block>();
     }
     return subr;
+  }
+
+  template<>
+  ExternSubroutineNT* parse<ExternSubroutineNT>()
+  {
+    ExternSubroutineNT* es = new ExternSubroutineNT;
+    es->type = new SubroutineTypeNT;
+    expectKeyword(EXTERN);
+    if(acceptKeyword(FUNC))
+      es->type->isPure = true;
+    else if(acceptKeyword(PROC))
+      es->type->isPure = false;
+    else
+      err("expected functype or proctype");
+    es->type->nonterm = false;
+    //all C functions are static, no matter where they are declared
+    es->type->isStatic = false;
+    //but nonterm is allowed
+    if(acceptKeyword(NONTERM))
+      es->type->nonterm = true;
+    es->type->retType = parse<TypeNT>();
+    expectPunct(LPAREN);
+    Punct rparen(RPAREN);
+    es->type->params = parseStarComma<Parameter>(rparen);
+    es->c = ((Ident*) expect(IDENTIFIER))->name;
+    return es;
   }
 
   template<>

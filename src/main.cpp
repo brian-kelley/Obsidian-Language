@@ -6,7 +6,7 @@
 #include "Parser.hpp"
 #include "ParseTreeOutput.hpp"
 #include "MiddleEnd.hpp"
-//#include "MiddleEndDebug.hpp"
+#include "BuiltIn.hpp"
 
 void init()
 {
@@ -24,8 +24,9 @@ int main(int argc, const char** argv)
     puts("Error: no input files.");
     return EXIT_FAILURE;
   }
-  string code = loadFile(op.input.c_str());
-  DEBUG_DO(cout << "Loaded " << code.size() << " bytes of source code.\n";);
+  //all program code 
+  string code = getBuiltins() + loadFile(op.input.c_str());
+  DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
   vector<Token*> toks;
   TIMEIT("Lexing", lex(code, toks););

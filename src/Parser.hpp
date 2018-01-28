@@ -129,6 +129,7 @@ namespace Parser
       Enum*,
       Typedef*,
       SubroutineNT*,
+      ExternSubroutineNT*,
       TestDecl*> decl;
   };
 
@@ -165,6 +166,10 @@ namespace Parser
     int arrayDims;
   };
 
+  struct Emit : public ParseNode
+  {
+  };
+
   struct StatementNT : public ParseNode
   {
     StatementNT() : s(None()) {}
@@ -173,7 +178,7 @@ namespace Parser
       ScopedDecl*,
       VarAssign*,
       PrintNT*,
-      Expr12*,  //call
+      Expr12*,  //call only: can't discard any expression like in C
       Block*,
       Return*,
       Continue*,
@@ -183,6 +188,7 @@ namespace Parser
       For*,
       While*,
       If*,
+      Emit*,
       Assertion*,
       EmptyStatement*> s;
   };
@@ -355,6 +361,14 @@ namespace Parser
     bool composed;
   };
 
+  struct MetaVar : public ParseNode
+  {
+    MetaVar() : type(nullptr), val(nullptr) {}
+    TypeNT* type;
+    string name;
+    ExpressionNT* val;
+  };
+
   VarAssign* parseAssignGivenExpr12(Expr12* e12);
 
   struct VarAssign : public ParseNode
@@ -381,7 +395,7 @@ namespace Parser
 
   struct SubroutineNT : public ParseNode
   {
-    SubroutineNT() : retType(nullptr), body(nullptr) {}
+    SubroutineNT() : retType(nullptr), body(nullptr), meta(false) {}
     TypeNT* retType;
     vector<Parameter*> params;
     //body is optional in syntax
@@ -391,6 +405,14 @@ namespace Parser
     bool isPure;
     bool isStatic;
     bool nonterm;
+    bool meta;
+  };
+
+  struct ExternSubroutineNT : public ParseNode
+  {
+    ExternSubroutineNT() : type(nullptr) {}
+    SubroutineTypeNT* type; //the type of this subroutine
+    string c;               //the C code to insert for this call
   };
 
   struct SubroutineTypeNT : public ParseNode

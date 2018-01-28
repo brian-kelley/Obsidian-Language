@@ -194,6 +194,10 @@ namespace MiddleEnd
     {
       visitSubroutine(current, sd->decl.get<Parser::SubroutineNT*>());
     }
+    else if(sd->decl.is<Parser::ExternSubroutineNT*>())
+    {
+      current->addName(new ExternalSubroutine(sd->decl.get<Parser::SubroutineNT*>(), current));
+    }
     else if(sd->decl.is<Parser::VarDecl*>())
     {
       //create the variable (ctor uses deferred lookup for type)

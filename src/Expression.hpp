@@ -186,20 +186,10 @@ struct SubroutineExpr : public Expression
 {
   SubroutineExpr(Subroutine* s);
   SubroutineExpr(Expression* thisObj, Subroutine* s);
+  SubroutineExpr(ExternalSubroutine* es);
   Subroutine* subr;
+  ExternalSubroutine* exSubr;
   Expression* thisObject;
-  bool assignable()
-  {
-    return false;
-  }
-};
-
-struct TraitSubroutineExpr : public Expression
-{
-  TraitSubroutineExpr(Expression* b, string n, TypeSystem::CallableType* t);
-  Expression* base;
-  string name;
-  TypeSystem::CallableType* type;
   bool assignable()
   {
     return false;
