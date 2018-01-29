@@ -55,6 +55,8 @@ struct Name
     : item(var), kind(VARIABLE), scope(s) {}
   Name(TypeSystem::EnumConstant* ec, Scope* s)
     : item(ec), kind(ENUM_CONSTANT), scope(s) {}
+  Name(MetaVar* var, Scope* s)
+    : item(var), kind(META_VAR), scope(s) {}
   void* item;
   //All named declaration types
   Kind kind;

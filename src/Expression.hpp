@@ -34,6 +34,10 @@ struct Indexed;
 struct CallExpr;
 struct VarExpr;
 struct NewArray;
+struct Converted;
+struct ArrayLength;
+struct ThisExpr;
+struct ErrorVal;
 
 //Create a new Expression given one of the ExprN nonterminals
 template<typename NT>
@@ -49,7 +53,6 @@ StructScope* scopeForExpr(Expression* expr);
 
 struct UnaryArith : public Expression
 {
-  //Precondition: ast->e is an Expr11::UnaryExpr
   UnaryArith(int op, Expression* expr);
   int op;
   Expression* expr;

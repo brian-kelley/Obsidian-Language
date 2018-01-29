@@ -199,6 +199,12 @@ struct Print : public Statement
   void checkPurity(Scope* s);
 };
 
+struct Emit : public Statement
+{
+  Emit()
+    variant<string, Token*, ParseNode*> emitted;
+};
+
 struct Assertion : public Statement
 {
   Assertion(Parser::Assertion* as, BlockScope* s);

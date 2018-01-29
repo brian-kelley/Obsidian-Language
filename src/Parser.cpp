@@ -416,6 +416,9 @@ namespace Parser
         case IF:
           s->s = parse<If>();
           return s;
+        case EMIT:
+          s->s = parse<EmitNT>();
+          return s;
         case ASSERT:
           s->s = parse<Assertion>();
           if(semicolon)
@@ -989,7 +992,6 @@ namespace Parser
     }
     return mv;
   }
-
 
   template<>
   VarAssign* parse<VarAssign>()

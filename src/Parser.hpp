@@ -9,6 +9,24 @@
 //Use empty struct as default (first) value for variants (always trivially constructible)
 struct None{};
 
+enum struct Prim
+{
+  BOOL,
+  CHAR,
+  BYTE,
+  UBYTE,
+  SHORT,
+  USHORT,
+  INT,
+  UINT,
+  LONG,
+  ULONG,
+  FLOAT,
+  DOUBLE,
+  VOID,
+  ERROR
+};
+
 namespace Parser
 {
   struct Module;
@@ -138,23 +156,6 @@ namespace Parser
   struct TypeNT : public ParseNode
   {
     TypeNT() : t(None()), arrayDims(0) {}
-    enum Prim
-    {
-      BOOL,
-      CHAR,
-      BYTE,
-      UBYTE,
-      SHORT,
-      USHORT,
-      INT,
-      UINT,
-      LONG,
-      ULONG,
-      FLOAT,
-      DOUBLE,
-      VOID,
-      ERROR
-    };
     variant<
       None,
       Prim,
@@ -166,8 +167,10 @@ namespace Parser
     int arrayDims;
   };
 
-  struct Emit : public ParseNode
+  struct EmitNT : public ParseNode
   {
+    EmitNT() : emitted("") {}
+    variant<string, Token*, ParseNode*> emitted;
   };
 
   struct StatementNT : public ParseNode
@@ -188,7 +191,7 @@ namespace Parser
       For*,
       While*,
       If*,
-      Emit*,
+      EmitNT*,
       Assertion*,
       EmptyStatement*> s;
   };

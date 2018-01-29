@@ -42,6 +42,67 @@ namespace Meta
   //(there are only a few basic things that need to go here)
   namespace Interp
   {
+    struct Value
+    {
+      virtual ~Value();
+      Type* type;
+    };
+
+    struct PrimitiveValue : public Value
+    {
+      PrimitiveValue() : type(nullptr) {}
+      PrimitiveValue(PrimitiveValue& pv)
+      {
+        type = pv.type;
+        data = pv.data;
+        size = pv.size;
+        t = pv.t;
+      }
+      union
+      {
+        long long ll;
+        unsigned long long ull;
+        double d;
+        float f;
+        bool b;
+      } data;
+      enum Type
+      {
+        LL,
+        ULL,
+        D,
+        F,
+        B
+      };
+      Type t;
+      //size, in bytes
+      //only matters if t is LL or ULL
+      int size;
+    };
+
+    //CompoundValue covers both structs and tuples
+    struct CompoundValue : public Value
+    {
+      vector<Value*> members;
+    };
+
+    struct UnionValue : public Value
+    {
+      //which option is actually contained in v
+      Type* actual;
+      Value* v;
+    };
+
+    struct ArrayValue : public Value
+    {
+      vector<Value*> data;
+    };
+
+    struct MapValue : public Value
+    {
+      map<Value*, Value*> data;
+    };
+
     Value* expression(Expression* expr);
     void statement(Statement* stmt);
   }
