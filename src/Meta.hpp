@@ -48,6 +48,12 @@ namespace Meta
       Type* type;
     };
 
+    Value* expression(Expression* expr);
+    bool compareEqual(Value* lhs, Value* rhs);
+    bool compareLess(Value* lhs, Value* rhs);
+    Value* convert(Value* val, TypeSystem::Type* type);
+    void statement(Statement* stmt);
+
     struct PrimitiveValue : public Value
     {
       PrimitiveValue() : type(nullptr) {}
@@ -98,13 +104,18 @@ namespace Meta
       vector<Value*> data;
     };
 
-    struct MapValue : public Value
+    struct MapOrderFunctor
     {
-      map<Value*, Value*> data;
+      bool operator()(Value* lhs, Value* rhs)
+      {
+        return compareLess(lhs, rhs);
+      }
     };
 
-    Value* expression(Expression* expr);
-    void statement(Statement* stmt);
+    struct MapValue : public Value
+    {
+      map<Value*, Value*, MapOrderFunctor> data;
+    };
   }
 }
 
