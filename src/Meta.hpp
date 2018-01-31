@@ -49,6 +49,7 @@ namespace Meta
     };
 
     Value* expression(Expression* expr);
+    Value* call(CallExpr* c);
     bool compareEqual(Value* lhs, Value* rhs);
     bool compareLess(Value* lhs, Value* rhs);
     Value* convert(Value* val, TypeSystem::Type* type);
@@ -78,7 +79,8 @@ namespace Meta
         ULL,
         D,
         F,
-        B
+        B,
+        ERR
       };
       Type t;
       //size, in bytes
@@ -86,10 +88,10 @@ namespace Meta
       int size;
     };
 
-    //CompoundValue covers both structs and tuples
+    //this covers all ordered sets of values: structs, tuples and arrays
     struct CompoundValue : public Value
     {
-      vector<Value*> members;
+      vector<Value*> data;
     };
 
     struct UnionValue : public Value
@@ -97,11 +99,6 @@ namespace Meta
       //which option is actually contained in v
       Type* actual;
       Value* v;
-    };
-
-    struct ArrayValue : public Value
-    {
-      vector<Value*> data;
     };
 
     struct MapOrderFunctor

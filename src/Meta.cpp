@@ -6,6 +6,8 @@
 
 using namespace TypeSystem;
 
+map<Variable*, Value*> varValues;
+
 namespace Interp
 {
   Value* expression(Expression* expr)
@@ -69,9 +71,9 @@ namespace Interp
             //plus is special: can be concat, prepend or append
             if(lhs->type->isArray() && rhs->type->isArray())
             {
-              ArrayValue* larray = (ArrayValue*) lhs;
-              ArrayValue* rarray = (ArrayValue*) rhs;
-              ArrayValue* cat = new ArrayValue(*larray);
+              CompoundValue* larray = (CompoundValue*) lhs;
+              CompoundValue* rarray = (CompoundValue*) rhs;
+              CompoundValue* cat = new CompoundValue(*larray);
               for(auto elem : rarray->data)
               {
                 cat->data.push_back(elem);
@@ -80,15 +82,15 @@ namespace Interp
             }
             else if(lhs->type->isArray())
             {
-              ArrayValue* larray = (ArrayValue*) lhs;
-              ArrayValue* appended = new ArrayValue(*larray);
+              CompoundValue* larray = (CompoundValue*) lhs;
+              CompoundValue* appended = new CompoundValue(*larray);
               appended->value->data.push_back(rhs);
               return appended;
             }
             else if(rhs->type->isArray())
             {
-              ArrayValue* rarray = (ArrayValue*) rhs;
-              ArrayValue* prepended = new ArrayValue;
+              CompoundValue* rarray = (CompoundValue*) rhs;
+              CompoundValue* prepended = new CompoundValue;
               prepended->data.push_back(lhs);
               for(auto elem : rarray->data)
               {
@@ -386,48 +388,213 @@ namespace Interp
             return pv;
           }
         case CMPEQ:
+            return compareEqual(lhs, rhs);
         case CMPNEQ:
+            return !compareEqual(lhs, rhs);
         case CMPL:
+            return compareLess(lhs, rhs);
         case CMPLE:
+            return !compareLess(rhs, lhs);
         case CMPG:
+            return compareLess(rhs, lhs);
         case CMPGE:
+            return !compareLess(lhs, rhs);
         default:
           INTERNAL_ERROR;
       }
     }
     else if(IntLiteral* il = dynamic_cast<IntLiteral*>(expr))
     {
+      //create a new unsigned integer primitive to hold il's value
+      auto pv = new PrimitiveValue;
+      pv->data.ull = il->value;
+      pv->t = PrimitiveValue::ULL;
+      //make sure type is exactly il's type
+      pv->size = ((IntegerType*) il->type)->size;
+      return pv;
     }
     else if(FloatLiteral* fl = dynamic_cast<FloatLiteral*>(expr))
     {
+      //create a new unsigned integer primitive to hold il's value
+      auto pv = new PrimitiveValue;
+      pv->data.d = fl->value;
+      pv->t = PrimitiveValue::d;
+      return pv;
     }
     else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(expr))
     {
+      auto av = new CompoundValue;
+      for(auto ch : sl->value)
+      {
+        auto elem = new PrimitiveValue;
+        elem->t = PrimitiveValue::ULL;
+        elem->size = 1;
+        elem->data.ull = ch;
+        av->data.push_back(elem);
+      }
+      return av;
     }
     else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(expr))
     {
+      //encode cl's value as a 1-byte unsigned integer
+      auto pv = new PrimitiveValue;
+      pv->data.ull = cl->value;
+      pv->t = PrimitiveValue::ULL;
+      pv->size = 1;
+      return pv;
     }
     else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(expr))
     {
+      auto pv = new PrimitiveValue;
+      pv->data.b = bl->value;
+      pv->t = PrimitiveValue::B;
+      return pv;
     }
     else if(CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(expr))
     {
+      //only 2 cases: tuple -> compound value, array -> array value
+      if(cl->type->isTuple() || cl->type->isArray())
+      {
+        auto cv = new CompoundValue;
+        for(auto mem : cl->members)
+        {
+          cv->data.push_back(expression(mem));
+        }
+        return cv;
+      }
     }
     else if(Indexed* in = dynamic_cast<Indexed*>(expr))
     {
+      Value* group = expression(in->group);
+      Value* index = expression(in->index);
+      if(group->type->isMap())
+      {
+        //map lookup
+        auto mv = (MapValue*) group;
+        auto mt = (MapType*) group->type;
+        //lookup in the map produces either a value, or "not found"
+        auto it = mv->data.find(index);
+        auto uv = new UnionValue;
+        if(it == mv->data.end())
+        {
+          auto errVal = new PrimitiveValue;
+          errVal->t = PrimitiveValue::ERR;
+          uv->actual = primitives[Prim::ERROR];
+          uv->v = errVal;
+        }
+        else
+        {
+          uv->actual = mt->value;
+          uv->v = it->second;
+        }
+        return uv;
+      }
+      else
+      {
+        //index must be integer
+        long long index = 0;
+        auto primIndex = (PrimitiveValue*) index;
+        if(primIndex->t == PrimitiveValue::ULL)
+        {
+          index = primIndex->data.ull;
+        }
+        else if(primIndex->t == PrimitiveValue::LL)
+        {
+          index = primIndex->data.ll;
+        }
+        else
+        {
+          INTERNAL_ERROR;
+        }
+        auto compoundVal = (CompoundValue*) group;
+        if(index < 0 || index >= compoundVal->members.size())
+        {
+          ERR_MSG("array/tuple index out of bounds");
+        }
+        return compoundVal->data[index];
+      }
     }
     else if(CallExpr* ce = dynamic_cast<CallExpr*>(expr))
     {
+      return call(ce);
     }
     else if(VarExpr* ve = dynamic_cast<VarExpr*>(expr))
     {
+      //lazily create (0-initialize) the variable's value if it doesn't exist
+      if(varValues.find(ve->var) == varValues.end())
+      {
+        auto newVal = initialize(ve->type);
+        varValues[ve->var] = newVal;
+        return newVal;
+      }
+      else
+      {
+        return varValues[ve->var];
+      }
     }
     else if(NewArray* na = dynamic_cast<NewArray*>(expr))
     {
+      //allocate rectangular array with proper dimensions, then
+      //initialize each element
+      auto elemType = ((ArrayType*) na->type)->elem;
+      CompoundValue* root = new CompoundRoot;
+      vector<unsigned> sizes;
+      for(size_t i = 0; i < na->dims.size(); i++)
+      {
+        auto dimPrim = (PrimitiveValue*) expression(na->dims[i]);
+        if(dimPrim->t == PrimitiveValue::ULL)
+        {
+          sizes.push_back(dimPrim->data.ull);
+        }
+        else if(dimPrim->t == PrimitiveValue::LL)
+        {
+          sizes.push_back(dimPrim->data.ll);
+        }
+        else
+        {
+          INTERNAL_ERROR;
+        }
+      }
+      //for each array "depth" levels from root, create subarrays or elements
+      auto fillLevel = [&] (CompoundValue* cv, int depth)
+      {
+        for(size_t i = 0; i < sizes[depth]; i++)
+        {
+          if(depth == sizes.size() - 1)
+          {
+            //base level: initialize single elements
+            cv->data.push_back(initialize(elemType));
+          }
+          else
+          {
+            auto subArray = new CompoundValue;
+            cv->data.push_back(subArray);
+            fillLevel(subArray, depth + 1);
+          }
+        }
+      };
+      fillLevel(root, 0);
+    }
+    else if(dynamic_cast<ErrorVal*>(expr))
+    {
+      auto pv = new PrimitiveValue;
+      pv->t = PrimitiveValue::ERR;
+      return pv;
     }
     else
     {
       INTERNAL_ERROR;
+    }
+  }
+
+  Value* call(CallExpr* c)
+  {
+    //eval args and "this" object (if applicable)
+    Value* callable = expression(c->callable);
+    vector<Value*> args;
+    for(auto a : c->args)
+    {
+      args.push_back(expression(a));
     }
   }
 
@@ -467,10 +634,28 @@ namespace Interp
         INTERNAL_ERROR;
       }
     }
+    else if(lhs->type->isStruct() || lhs->type->isTuple())
+    {
+      //lex compare members
+      CompoundValue* lhsCompound = dynamic_cast<CompoundValue*>(lhs);
+      CompoundValue* rhsCompound = dynamic_cast<CompoundValue*>(rhs);
+      if(lhsCompound->members.size() != rhsCompound->members.size())
+      {
+        INTERNAL_ERROR;
+      }
+      for(size_t i = 0; i < lhsCompound->members.size(); i++)
+      {
+        if(!compareEqual(lhsCompound->members[i], rhsCompound->members[i]))
+        {
+          return false;
+        }
+      }
+      return true;
+    }
     else if(lhs->type->isArray())
     {
-      ArrayValue* lhsArray = dynamic_cast<ArrayValue*>(lhs);
-      ArrayValue* rhsArray = dynamic_cast<ArrayValue*>(rhs);
+      CompoundValue* lhsArray = dynamic_cast<CompoundValue*>(lhs);
+      CompoundValue* rhsArray = dynamic_cast<CompoundValue*>(rhs);
       if(lhsArray->data.size() != rhsArray->data.size())
       {
         return false;
@@ -566,10 +751,34 @@ namespace Interp
         INTERNAL_ERROR;
       }
     }
+    else if(lhs->type->isStruct() || lhs->type->isTuple())
+    {
+      //lex compare members
+      CompoundValue* lhsCompound = dynamic_cast<CompoundValue*>(lhs);
+      CompoundValue* rhsCompound = dynamic_cast<CompoundValue*>(rhs);
+      if(lhsCompound->members.size() != rhsCompound->members.size())
+      {
+        INTERNAL_ERROR;
+      }
+      for(size_t i = 0; i < lhsCompound->members.size(); i++)
+      {
+        if(compareLess(lhsCompound->members[i], rhsCompound->members[i]))
+        {
+          return true;
+        }
+        else if(!compareEqual(lhsCompound->members[i], rhsCompound->members[i]))
+        {
+          //element greater
+          return false;
+        }
+      }
+      //equal
+      return false;
+    }
     else if(lhs->type->isArray())
     {
-      ArrayValue* lhsArray = dynamic_cast<ArrayValue*>(lhs);
-      ArrayValue* rhsArray = dynamic_cast<ArrayValue*>(rhs);
+      CompoundValue* lhsArray = dynamic_cast<CompoundValue*>(lhs);
+      CompoundValue* rhsArray = dynamic_cast<CompoundValue*>(rhs);
       for(size_t i = 0;
           i < std::min(lhsArray->data.size(), rhsArray->data.size());
           i++)
@@ -590,11 +799,27 @@ namespace Interp
     {
       UnionValue* lhsUnion = dynamic_cast<UnionValue*>(lhs);
       UnionValue* rhsUnion = dynamic_cast<UnionValue*>(rhs);
-      if(lhsUnion->actual != rhsUnion->actual)
+      UnionType* ut = dynamic_cast<UnionType*>(lhs->type);
+      //get the relative order of tags within union type's option list
+      int lhsTagIndex = -1;
+      int rhsTagIndex = -1;
+      for(size_t i = 0; i < lhsUnion->type->options.size(); i++)
       {
-        return false;
+        if(ut->options[i] == lhsUnion->actual)
+          lhsTagIndex = i;
+        if(ut->options[i] == rhsUnion->actual)
+          rhsTagIndex = i;
       }
-      return compareEqual(lhsUnion->v, rhsUnion->v);
+      if(lhsTagIndex < 0 || rhsTagIndex < 0)
+      {
+        INTERNAL_ERROR;
+      }
+      if(lhsTagIndex < rhsTagIndex)
+        return true;
+      if(rhsTagIndex > rhsTagIndex)
+        return false;
+      //underlying types equal, can compare the values
+      return compareLess(lhsUnion->v, rhsUnion->v);
     }
     else if(lhs->type->isMap())
     {
@@ -602,18 +827,55 @@ namespace Interp
       //lhs k-v, make sure rhs has same k and that k maps to v
       MapValue* lhsMap = dynamic_cast<MapValue*>(lhs);
       MapValue* rhsMap = dynamic_cast<MapValue*>(rhs);
-      if(lhsMap->data.size() != rhsMap->data.size())
-      {
-        return false;
-      }
+      //generate sorted lists of each maps' keys
+      vector<Value*> lhsKeys;
       for(auto& kv : lhsMap->data)
       {
-        auto rhsIter = rhsMap->data.find(kv.first);
-        if(rhsIter == rhsMap->end())
+        lhsKeys.push_back(kv.first);
+      }
+      std::sort(lhsKeys.begin(), lhsKeys.end(), compareLess);
+      vector<Value*> rhsKeys;
+      for(auto& kv : rhsMap->data)
+      {
+        rhsKeys.push_back(kv.first);
+      }
+      std::sort(rhsKeys.begin(), rhsKeys.end(), compareLess);
+      //lex compare the key arrays
+      for(size_t i = 0; i < std::min(lhsKeys.size(), rhsKeys.size()), i++)
+      {
+        if(compareLess(lhsKeys[i], rhsKeys[i]))
+        {
+          return true;
+        }
+        else if(!compareEqual(lhsKeys[i], rhsKeys[i]))
         {
           return false;
         }
       }
+      if(lhsKeys.size() < rhsKeys.size())
+      {
+        return true;
+      }
+      else if(lhsKeys.size() > rhsKeys.size())
+      {
+        return false;
+      }
+      //both maps have exactly the same set of keys, so now lex compare values
+      size_t numKeys = lhsKeys.size();
+      for(size_t i = 0; i < numKeys; i++)
+      {
+        Value* key = lhsKeys[i];
+        if(compareLess(lhsMap->data.find(key)->second, rhsMap->Data.find(key)->second))
+        {
+          return true;
+        }
+        else if(!compareEqual(lhsMap->data.find(key)->second, rhsMap->Data.find(key)->second))
+        {
+          return false;
+        }
+      }
+      //maps identical, lhs < rhs false
+      return false;
     }
     else
     {
