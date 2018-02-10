@@ -3,31 +3,9 @@
 #include "Variable.hpp"
 #include "Subroutine.hpp"
 
-int BlockScope::nextBlockIndex = 0;
-
 /*******************************
 *   Scope & subclasses impl    *
 *******************************/
-
-#define ADD_NAME(T, tname, tenum) \
-  void Scope::addName(T* item) \
-  { \
-    if(names.find(item->name) != names.end()) \
-    { \
-      ERR_MSG(tname << ' ' << item->name << " causes scope name conflict"); \
-    } \
-    shadowCheck(item->name); \
-    names[item->name] = Name(item, this); \
-  }
-
-ADD_NAME(ModuleScope,              "module",              Name::MODULE);
-ADD_NAME(TypeSystem::StructType,   "struct",              Name::STRUCT);
-ADD_NAME(TypeSystem::EnumConstant, "enum constant",       Name::ENUM_CONSTANT);
-ADD_NAME(TypeSystem::EnumType,     "enum",                Name::ENUM);
-ADD_NAME(TypeSystem::AliasType,    "typedef",             Name::TYPEDEF);
-ADD_NAME(Subroutine,               "subroutine",          Name::SUBROUTINE);
-ADD_NAME(ExternalSubroutine,       "external subroutine", Name::EXTERN_SUBR);
-ADD_NAME(Variable,                 "variable",            Name::VARIABLE);
 
 Scope::Scope(Scope* parentIn)
 {
@@ -111,46 +89,5 @@ void Scope::shadowCheck(string name)
       ERR_MSG("name " << name << " shadows a previous declaration");
     }
   }
-}
-
-/* ModuleScope */
-
-ModuleScope::ModuleScope(string nameIn, Scope* par, Parser::Module* astIn) : Scope(par)
-{
-  name = nameIn;
-}
-
-string ModuleScope::getLocalName()
-{
-  return name;
-}
-
-/* StructScope */
-
-StructScope::StructScope(string nameIn, Scope* par, Parser::StructDecl* astIn) : Scope(par), type(nullptr), name(nameIn) {}
-
-string StructScope::getLocalName()
-{
-  return name;
-}
-
-/* SubroutineScope */
-
-string SubroutineScope::getLocalName()
-{
-  return subr->name;
-}
-
-/* BlockScope */
-
-BlockScope::BlockScope(Scope* par, Parser::Block* astIn) : Scope(par), index(nextBlockIndex++) {}
-
-BlockScope::BlockScope(Scope* par) : Scope(par), index(nextBlockIndex++) {}
-
-string BlockScope::getLocalName()
-{
-  //note: Onyx identifiers can't begin with underscore, so if it ever
-  //matters this local name can't conflict with any other scope name
-  return string("_B") + to_string(index);
 }
 

@@ -13,7 +13,6 @@ add_executable (onyx
   src/Lexer.cpp
   src/Parser.cpp
   src/ParseTreeOutput.cpp
-  src/MiddleEnd.cpp
   src/Meta.cpp
   src/Variable.cpp
   src/Expression.cpp

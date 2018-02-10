@@ -1191,9 +1191,3 @@ ErrorVal::ErrorVal()
   type = primitives[Parser::TypeNT::ERROR];
 }
 
-/***********
- * TempVar *
- ***********/
-
-TempVar::TempVar(string id, Type* t, Scope* s) : ident(id) {}
-

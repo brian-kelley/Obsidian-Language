@@ -5,7 +5,7 @@
 #include "Parser.hpp"
 #include "Expression.hpp"
 #include "Scope.hpp"
-#include "DeferredLookup.hpp"
+#include "AST.hpp"
 
 /***************************************************************************/
 // Subroutine: middle-end structures for program behavior and control flow //
@@ -60,7 +60,7 @@ struct Block : public Statement
   Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent);
   //Constructor for While loop body
   Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent);
-  //Constructor for dummy block in global scope (for tests)
+  //Constructor for dummy block (for meta-stmts/tests)
   Block(BlockScope* s);
   void addStatements(Parser::Block* ast);
   vector<Statement*> stmts;
@@ -82,6 +82,11 @@ struct Block : public Statement
 
 //Create any kind of Statement - adds to block
 Statement* createStatement(Block* s, Parser::StatementNT* stmt);
+
+//create a statement that doesn't belong directly to any block
+//(used only for meta-statements)
+Statement* standaloneStatement(Parser::StatementNT* stmt, Scope* s);
+
 //Given a VarDecl, add a new Variable to scope and then
 //create an Assign statement if that variable is initialized
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd);

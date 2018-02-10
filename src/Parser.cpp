@@ -79,6 +79,49 @@ namespace Parser
   template<> Expr12* parse<Expr12>();
   template<> NewArrayNT* parse<NewArrayNT>();
 
+  void metaStatement(size_t start)
+  {
+    //scan forward to the first '#', remembering tokens before
+    vector<Token*> preceding;
+    for(size_t i = 0; i < start; i++)
+    {
+      preceding.push_back(lookAhead(start));
+    }
+    Punct hash(HASH);
+    expect(hash);
+    if(!lookAhead()->compareTo(&hash))
+    {
+      INTERNAL_ERROR;
+    }
+    //parse a statement (could be a scoped decl)
+    auto stmt = parse<StatementNT>();
+    //statement must not be a scoped decl
+    //(metavar and metaproc are the only relevant declaration types
+    //and those must be declared without preceding '#')
+    if(stmt->s.is<ScopedDecl*>())
+    {
+    }
+    else
+    {
+      //process stmt's semantics and then execute it
+    }
+  }
+
+  void emit(string source)
+  {
+    emitBuffer += source + ' ';
+  }
+
+  void emit(ParseNode* nonterm)
+  {
+    emitBuffer += nonterm->unparse() + ' ';
+  }
+
+  void emit(Token* tok)
+  {
+    emitBuffer += tok->getStr() + ' ';
+  }
+
   Module* parseProgram(vector<Token*>& toks)
   {
     pos = 0;
@@ -104,6 +147,17 @@ namespace Parser
       m->decls.push_back(parse<ScopedDecl>());
     }
     return m;
+  }
+
+  vector<Token*> Module::unparse()
+  {
+    vector<Token*> toks = lex("module " + name + "{");
+    for(auto decl : decls)
+    {
+      toks += decl->unparse();
+    }
+    toks += lex("}");
+    return toks;
   }
 
   static ScopedDecl* parseScopedDeclGeneral(bool semicolon)
@@ -164,7 +218,8 @@ namespace Parser
     {
       //must be a meta variable or meta-subroutine
       Keyword* keywordAfter = dyanamic_cast<Keyword*>(lookAhead(1));
-      if(keywordAfter && (keywordAfter->kw == FUNC || keywordAfter->kw == PROC))
+      if(keywordAfter &&
+          (keywordAfter->kw == FUNC || keywordAfter->kw == PROC))
       {
         accept();
         auto subr = parse<SubroutineNT>();
@@ -190,6 +245,27 @@ namespace Parser
   ScopedDecl* parse<ScopedDecl>()
   {
     return parseScopedDeclGeneral(true);
+  }
+
+  string ScopedDecl::unparse()
+  {
+    if(decl.is<Module*>())
+      return decl.get<Module*>()->unparse();
+    if(decl.is<VarDecl*>())
+      return decl.get<VarDecl*>()->unparse();
+    if(decl.is<StructDecl*>())
+      return decl.get<StructDecl*>()->unparse();
+    if(decl.is<Enum*>())
+      return decl.get<Enum*>()->unparse();
+    if(decl.is<Typedef*>())
+      return decl.get<Typedef*>()->unparse();
+    if(decl.is<SubroutineNT*>())
+      return decl.get<SubroutineNT*>()->unparse();
+    if(decl.is<ExternSubroutineNT*>())
+      return decl.get<ExternSubroutineNT*>()->unparse();
+    if(decl.is<TestDecl*>())
+      return decl.get<TestDecl*>()->unparse();
+    return vector<Token*>();
   }
 
   template<>
@@ -317,6 +393,71 @@ namespace Parser
     return type;
   }
 
+  vector<Token*> TypeNT::unparse()
+  {
+    vector<Token*> toks;
+    if(t.is<TypeNT::Prim>())
+    {
+      switch(t.get<TypeNT::Prim>())
+      {
+        case Prim::BOOL:
+          toks = lex("bool"); break;
+        case Prim::CHAR:
+          toks = lex("char"); break;
+        case Prim::BYTE:
+          toks = lex("byte"); break;
+        case Prim::UBYTE:
+          toks = lex("ubyte"); break;
+        case Prim::SHORT:
+          toks = lex("short"); break;
+        case Prim::USHORT:
+          toks = lex("ushort"); break;
+        case Prim::INT:
+          toks = lex("int"); break;
+        case Prim::UINT:
+          toks = lex("uint"); break;
+        case Prim::LONG:
+          toks = lex("long"); break;
+        case Prim::ULONG:
+          toks = lex("ulong"); break;
+        case Prim::FLOAT:
+          toks = lex("float"); break;
+        case Prim::DOUBLE:
+          toks = lex("double"); break;
+        case Prim::VOID:
+          toks = lex("void"); break;
+        case Prim::ERROR:
+          toks = lex("Error"); break;
+        default:;
+      }
+    }
+    else if(t.is<Member*>())
+    {
+      toks = t.get<Member*>()->unparse();
+    }
+    else if(t.is<TupleTypeNT*>())
+    {
+      toks = t.get<TupleTypeNT*>()->unparse();
+    }
+    else if(t.is<UnionTypeNT*>())
+    {
+      toks = t.get<UnionTypeNT*>()->unparse();
+    }
+    else if(t.is<MapTypeNT*>())
+    {
+      toks = t.get<MapTypeNT*>()->unparse();
+    }
+    else if(t.is<SubroutineTypeNT*>())
+    {
+      toks = t.get<SubroutineTypeNT*>()->unparse();
+    }
+    for(int i = 0; i < arrayDims; i++)
+    {
+      toks += lex("[]");
+    }
+    return toks;
+  }
+
   Block* parseBlockWrappedStatement()
   {
     Block* b = new Block;
@@ -327,9 +468,9 @@ namespace Parser
     return b;
   }
 
-  StatementNT* parseVarDeclGivenMember(Member* mem)
+  Statement* parseVarDeclGivenMember(Member* mem)
   {
-    auto stmt = new StatementNT;
+    auto stmt = new Statement;
     auto sd = new ScopedDecl;
     auto vd = new VarDecl;
     auto type = new TypeNT;
@@ -368,7 +509,7 @@ namespace Parser
     return stmt;
   }
 
-  StatementNT* parseStatementGeneral(bool semicolon)
+  Statement* parseStatementGeneral(bool semicolon)
   {
     //Get some possibilities for the next token
     Token* next = lookAhead();
@@ -1776,9 +1917,8 @@ namespace Parser
 
   void expect(Token& t)
   {
-    Token* next = lookAhead();
-    bool res = t.compareTo(next);
-    if(res)
+    auto next = lookAhead();
+    if(t.compareTo(next))
     {
       pos++;
       return;
@@ -1789,11 +1929,14 @@ namespace Parser
   Token* expect(int tokType)
   {
     Token* next = lookAhead();
-    bool res = next->getType() == tokType;
-    if(res)
+    if(next->getType() == tokType)
+    {
       pos++;
+    }
     else
+    {
       err(string("expected a ") + tokTypeTable[tokType] + " but got " + next->getStr());
+    }
     return next;
   }
 
@@ -1819,9 +1962,13 @@ namespace Parser
   {
     int index = pos + n;
     if(index >= tokens->size())
+    {
       return &PastEOF::inst;
+    }
     else
+    {
       return (*tokens)[index];
+    }
   }
 
   void err(string msg)

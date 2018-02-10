@@ -1,26 +1,8 @@
 #ifndef SCOPE_H
 #define SCOPE_H
 
-#include "Parser.hpp"
 #include "Common.hpp"
-
-//Forward-declare all the things that Scopes contain
-namespace TypeSystem
-{
-  struct Type;
-  struct StructType;
-  struct EnumType;
-  struct EnumConstant;
-  struct AliasType;
-  struct BoundedType;
-  struct TType;
-}
-
-struct Subroutine;
-struct Variable;
-struct Scope;
-struct ModuleScope;
-struct StructScope;
+#include "AST.hpp"
 
 // Unified name lookup system
 struct Name
@@ -39,13 +21,13 @@ struct Name
     META_VAR
   };
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
-  Name(ModuleScope* m, Scope* parent)
+  Name(Module* m, Scope* parent)
     : item(m), kind(MODULE), scope(parent) {}
-  Name(TypeSystem::StructType* st, Scope* s)
+  Name(Struct* st, Scope* s)
     : item(st), kind(STRUCT), scope(s) {}
-  Name(TypeSystem::EnumType* e, Scope* s)
+  Name(Enum* e, Scope* s)
     : item(e), kind(ENUM), scope(s) {}
-  Name(TypeSystem::AliasType* a, Scope* s)
+  Name(Alias* a, Scope* s)
     : item(a), kind(TYPEDEF), scope(s) {}
   Name(Subroutine* subr, Scope* s)
     : item(subr), kind(SUBROUTINE), scope(s) {}
@@ -53,7 +35,7 @@ struct Name
     : item(subr), kind(EXTERN_SUBR), scope(s) {}
   Name(Variable* var, Scope* s)
     : item(var), kind(VARIABLE), scope(s) {}
-  Name(TypeSystem::EnumConstant* ec, Scope* s)
+  Name(EnumConstant* ec, Scope* s)
     : item(ec), kind(ENUM_CONSTANT), scope(s) {}
   Name(MetaVar* var, Scope* s)
     : item(var), kind(META_VAR), scope(s) {}
@@ -75,53 +57,11 @@ struct Scope
   Name findName(Parser::Member* mem);
   Name findName(string name);
   Name lookup(string name);
-  void addName(ModuleScope* m);
-  void addName(TypeSystem::StructType* st);
-  void addName(TypeSystem::EnumConstant* ec);
-  void addName(TypeSystem::EnumType* et);
-  void addName(TypeSystem::AliasType* at);
-  void addName(TypeSystem::BoundedType* bt);
-  void addName(Subroutine* s);
-  void addName(Variable* v);
+  void addName(Name n);
   map<string, Name> names;
   private:
   //make sure that name won't shadow any existing declaration
   void shadowCheck(string name);
-};
-
-struct ModuleScope : public Scope
-{
-  ModuleScope(string name, Scope* parent, Parser::Module* astIn);
-  string getLocalName();
-  string name;  //local name
-};
-
-struct StructScope : public Scope
-{
-  StructScope(string name, Scope* parent, Parser::StructDecl* astIn);
-  TypeSystem::StructType* type;
-  string getLocalName();
-  string name;  //local name
-};
-
-struct BlockScope : public Scope
-{
-  //constructor sets index automatically
-  //also makes astIn point back to this
-  BlockScope(Scope* parent, Parser::Block* astIn);
-  BlockScope(Scope* parent);
-  string getLocalName();  //local name uses index to produce a unique name
-  int index;
-  static int nextBlockIndex;
-};
-
-struct SubroutineScope : public Scope
-{
-  //constructor sets index automatically
-  //also makes astIn point back to this
-  SubroutineScope(Scope* parent) : Scope(parent), subr(nullptr) {}
-  string getLocalName();  //local name uses index to produce a unique name
-  Subroutine* subr;
 };
 
 #endif

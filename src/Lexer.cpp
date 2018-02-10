@@ -86,10 +86,10 @@ struct CodeStream
   int nextTokCol;
 };
 
-void lex(string& code, vector<Token*>& tokList)
+vector<Token*> lex(string code)
 {
+  vector<Token*> tokList;
   CodeStream cs(code, tokList);
-  vector<Token*> tokens;
   //note: i is incremented various amounts depending on the tokens
   while(cs)
   {
@@ -310,6 +310,7 @@ void lex(string& code, vector<Token*>& tokList)
   //set the proper location of EOF
   PastEOF::inst.line = cs.line;
   PastEOF::inst.col = cs.col;
+  return tokList;
 }
 
 char getEscapedChar(char ident)

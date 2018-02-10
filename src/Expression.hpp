@@ -3,11 +3,12 @@
 
 #include "Parser.hpp"
 #include "TypeSystem.hpp"
-#include "variant.h"
+#include "AST.hpp"
 
-struct Expression
+struct Expression : public Node
 {
   Expression() : type(nullptr), pure(true) {}
+  virtual void resolve(bool err) {}
   TypeSystem::Type* type;
   //list of all variables used to compute this
   set<Variable*> deps;
@@ -60,6 +61,7 @@ struct UnaryArith : public Expression
   {
     return false;
   }
+  void resolve(bool err);
 };
 
 struct BinaryArith : public Expression
@@ -111,7 +113,6 @@ struct StringLiteral : public Expression
 struct CharLiteral : public Expression
 {
   CharLiteral(CharLit* ast);
-  CharLit* ast;
   char value;
   bool assignable()
   {
@@ -122,7 +123,6 @@ struct CharLiteral : public Expression
 struct BoolLiteral : public Expression
 {
   BoolLiteral(Parser::BoolLit* ast);
-  Parser::BoolLit* ast;
   bool value;
   bool assignable()
   {
@@ -135,7 +135,6 @@ struct BoolLiteral : public Expression
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(Scope* s, Parser::StructLit* ast);
-  Parser::StructLit* ast;
   bool assignable()
   {
     return lvalue;
@@ -271,16 +270,20 @@ struct ErrorVal : public Expression
   }
 };
 
-//Temporary variable (only used in C backend)
-//id should always come from C::getIdentifier()
-struct TempVar : public Expression
+struct UnresolvedExpr : public Expression
 {
-  TempVar(string id, TypeSystem::Type* t, Scope* s);
-  string ident;
+  UnresolvedExpr(Parser::Member* m, Scope* s)
+  {
+    type = nullptr;
+    name = m;
+    usage = s;
+  }
   bool assignable()
   {
-    return true;
+    return false;
   }
+  Parser::Member* name;
+  Scope* usage;
 };
 
 #endif

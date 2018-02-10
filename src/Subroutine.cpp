@@ -186,6 +186,11 @@ Statement* createStatement(Block* b, Parser::StatementNT* stmt)
   return nullptr;
 }
 
+Statement* standaloneStatement(Parser::StatementNT* stmt, Scope* s)
+{
+  Block tempBlock
+}
+
 Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
 {
   //Create variable
@@ -717,7 +722,7 @@ void Subroutine::check()
   body->check();
   //after checking body, check if it ends in a return
   //if return type is void and there is no return, add it explicitly
-  //can't check for "missing return" until CFG support, which won't be in bootstrap
+  //TODO: check for "missing return" when CFG is supported
   if(type->returnType == voidType &&
       (body->stmts.size() == 0 || !dynamic_cast<Return&*>(body->stmts.back())))
   {

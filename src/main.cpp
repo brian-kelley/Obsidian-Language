@@ -29,43 +29,20 @@ int main(int argc, const char** argv)
   DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
   vector<Token*> toks;
-  TIMEIT("Lexing", lex(code, toks););
-  /*
-  DEBUG_DO({
-    cout << "************************************\n";
-    cout << "*            TOKENS                *\n";
-    cout << "************************************\n";
-    for(auto& it : toks)
-    {
-      cout << it->getDesc() << " : " << it->getStr() << "\n";
-    }
-    cout << '\n';
-  });
-  */
+  TIMEIT("Lexing", toks = lex(code););
   //Parse the global/root module
   Parser::Module* parseTree;
+  Parser p(toks);
   TIMEIT("Parsing", parseTree = Parser::parseProgram(toks););
   DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
   TIMEIT("Semantic analysis", MiddleEnd::load(parseTree););
-  /*
-  DEBUG_DO({
-    cout << "************************************\n";
-    cout << "*          Scopes/Types            *\n";
-    cout << "************************************\n";
-    MiddleEndDebug::printTypeTree();
-    cout << "************************************\n";
-    cout << "*          Subroutines             *\n";
-    cout << "************************************\n";
-    MiddleEndDebug::printSubroutines();
-  });
-  */
-  DEBUG_DO(cout << "Running C backend.\n";)
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
   int lines = PastEOF::inst.line;
-  cout << "Processed " << lines << " lines (" << lines / elapsed << " lines/s, or " << code.length() / (elapsed * 1000000) << " MB/s)\n";
+  cout << "Processed " << lines << " lines (" << lines / elapsed;
+  cout << " lines/s, or " << code.length() / (elapsed * 1000000) << " MB/s)\n";
   return 0;
 }
 

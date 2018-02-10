@@ -142,7 +142,7 @@ struct Token
   Token();
   virtual bool compareTo(Token* rhs) = 0;
   virtual int getType() = 0;
-  virtual string getStr() = 0;    //string equal to (or at least describing) token for error messages
+  virtual string getStr() = 0;    //string equivalent to original text
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   int type;
   int line;

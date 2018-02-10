@@ -2025,6 +2025,20 @@ namespace C
         def << "default:;\n";
         def << "}\n";
       }
+      else if(MapType* mt = dynamic_cast<MapType*>(t))
+      {
+        //format: {key: value, key: value, ...}
+        def << "putchar('{');\n";
+        def << "for(size_t i = 0; i < data->numBuckets; i++)\n{\n";
+        def << "for(size_t j = 0; j < data->buckets[i]->size; j++)\n{\n";
+        def << getPrintFunc(mt->key) << "(data->buckets[i]->keys[j]);\n";
+        def << "printf(\": \");\n";
+        def << getPrintFunc(mt->value) << "(data->buckets[i]->values[j]);\n";
+        def << "if(i == data->numBuckets - 1 && j == data->buckets[i]->size - 1)\n{\n";
+        def << "printf(\", \");\n";
+        def << "}\n}\n}\n";
+        def << "putchar('}');\n";
+      }
     }
     def << "}\n\n";
     utilFuncDefs << def.str();

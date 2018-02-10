@@ -17,6 +17,8 @@
 #include <stdexcept>
 #include <new>
 
+#include "variant.h"
+
 using std::string;
 using std::vector;
 using std::map;
@@ -77,6 +79,23 @@ bool runCommand(string command, bool silenced = false);
 //generate a character for use in C code (i.e. "a" or "\n" or "\x4A")
 //doesn't add any quotes
 string generateChar(char ch);
+
+template<typename T>
+vector<T> operator+(const vector<T>& lhs, const vector<T>& rhs)
+{
+  vector<T> cat;
+  cat.reserve(lhs.size() + rhs.size());
+  cat.insert(lhs.begin(), lhs.end());
+  cat.insert(rhs.begin(), rhs.end());
+  return cat;
+}
+
+template<typename T>
+void operator+=(vector<T>& lhs, const vector<T>& rhs)
+{
+  lhs.reserve(lhs.size() + rhs.size());
+  lhs.insert(rhs.begin(), rhs.end());
+}
 
 #endif
 

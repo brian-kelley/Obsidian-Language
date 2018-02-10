@@ -27,11 +27,23 @@ enum struct Prim
   ERROR
 };
 
-namespace Parser
+struct Parser
 {
+  //Parser initialization
+  Parser(vector<Token*>& toks);
+  //Token stream management
+  vector<vector<Token*>> tokenQueue;
+
+  string emitBuffer;
+  //execute the meta-statement starting at offset start in code stream
+  void metaStatement(size_t start);
+  void emit(string source);
+  void emit(ParseNode* nonterm);
+  void emit(Token* tok);
+
   struct Module;
-  //Parse a program from token string (only function needed outside namespace)
-  Module* parseProgram(vector<Token*>& toks);
+  //Parse a program from token string (only parsing function called from main)
+  Module* parseProgram();
 
   //Token stream & utilities
   extern size_t pos;                //token iterator
@@ -115,23 +127,9 @@ namespace Parser
   struct Expr12RHS;
   struct NewArrayNT;
 
-  struct ParseNode
+  struct Module : public Node
   {
-    ParseNode()
-    {
-      setLoc(lookAhead());
-    }
-    void setLoc(Token* t)
-    {
-      line = t->line;
-      col = t->col;
-    }
-    int line;
-    int col;
-  };
-
-  struct Module : public ParseNode
-  {
+    vector<Token*> unparse();
     string name;
     vector<ScopedDecl*> decls;
   };
@@ -139,6 +137,7 @@ namespace Parser
   struct ScopedDecl : public ParseNode
   {
     ScopedDecl() : decl(None()) {}
+    vector<Token*> unparse();
     variant<
       None,
       Module*,
@@ -156,6 +155,7 @@ namespace Parser
   struct TypeNT : public ParseNode
   {
     TypeNT() : t(None()), arrayDims(0) {}
+    vector<Token*> unparse();
     variant<
       None,
       Prim,
@@ -170,6 +170,7 @@ namespace Parser
   struct EmitNT : public ParseNode
   {
     EmitNT() : emitted("") {}
+    vector<Token*> unparse();
     variant<string, Token*, ParseNode*> emitted;
   };
 

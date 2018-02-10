@@ -44,16 +44,45 @@ namespace Meta
   {
     struct Value
     {
-      virtual ~Value();
+      virtual ~Value() {}
       Type* type;
     };
 
     Value* expression(Expression* expr);
     Value* call(CallExpr* c);
+    void print(Value* v);
+    Value* initialize(TypeSystem::Type* type);
     bool compareEqual(Value* lhs, Value* rhs);
     bool compareLess(Value* lhs, Value* rhs);
     Value* convert(Value* val, TypeSystem::Type* type);
     void statement(Statement* stmt);
+
+    //Stack frame: for storing local variables correctly even with recursion
+    struct Frame
+    {
+      //local variables
+      map<Variable*, Value*> vars;
+      //the "this" value, if it exists (the pointer should alias an existing value)
+      Value* thisVal;
+      Value* returnVal;
+    };
+
+    struct CallStack
+    {
+      vector<Frame> frames;
+      Frame& top()
+      {
+        return frames.back();
+      }
+      void push()
+      {
+        frames.push_back(Frame());
+      }
+      void pop()
+      {
+        frames.pop_back();
+      }
+    };
 
     struct PrimitiveValue : public Value
     {
@@ -113,6 +142,15 @@ namespace Meta
     {
       map<Value*, Value*, MapOrderFunctor> data;
     };
+
+    struct CallableValue : public Value
+    {
+      CallableValue() : thisObj(nullptr), subr(nullptr) {}
+      Value* thisObj;
+      Subroutine* subr;
+    };
+
+    struct ErrorValue : public Value {};
   }
 }
 
