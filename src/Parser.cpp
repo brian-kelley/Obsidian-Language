@@ -1,5 +1,7 @@
 #include "Parser.hpp"
 #include "Meta.hpp"
+#include "Scope.hpp"
+#include <stack>
 
 struct BlockScope;
 
@@ -7,6 +9,8 @@ namespace Parser
 {
   size_t pos;
   vector<Token*>* tokens;
+
+  std::stack<Scope*> scopeStack;
 
   template<typename NT>
   NT* parse()
@@ -1352,394 +1356,176 @@ namespace Parser
     return bl;
   }
 
-  Expr1::Expr1(Expr2* ex)
+  Expression* parseExpr1()
   {
-    e = ex;
-  }
-
-  Expr1::Expr1(Expr3* ex)
-  {
-    e = new Expr2(ex);
-  }
-
-  Expr1::Expr1(Expr4* ex)
-  {
-    e = new Expr2(new Expr3(ex));
-  }
-
-  Expr1::Expr1(Expr5* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(ex)));
-  }
-
-  Expr1::Expr1(Expr6* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(ex))));
-  }
-
-  Expr1::Expr1(Expr7* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(ex)))));
-  }
-
-  Expr1::Expr1(Expr8* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(ex))))));
-  }
-
-  Expr1::Expr1(Expr9* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(ex)))))));
-  }
-
-  Expr1::Expr1(Expr10* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7(new Expr8(new Expr9(ex))))))));
-  }
-
-  Expr1::Expr1(Expr11* ex)
-  {
-    e = new Expr2(new Expr3(new Expr4(new Expr5(new Expr6(new Expr7( new Expr8(new Expr9(new Expr10(ex)))))))));
-  }
-
-  Expr1::Expr1(Expr12* e12)
-  {
-    e = new Expr2(e12);
-  }
-
-  Expr2::Expr2(Expr12* e12)
-  {
-    head = new Expr3(e12);
-  }
-
-  Expr3::Expr3(Expr12* e12)
-  {
-    head = new Expr4(e12);
-  }
-
-  Expr4::Expr4(Expr12* e12)
-  {
-    head = new Expr5(e12);
-  }
-
-  Expr5::Expr5(Expr12* e12)
-  {
-    head = new Expr6(e12);
-  }
-
-  Expr6::Expr6(Expr12* e12)
-  {
-    head = new Expr7(e12);
-  }
-
-  Expr7::Expr7(Expr12* e12)
-  {
-    head = new Expr8(e12);
-  }
-
-  Expr8::Expr8(Expr12* e12)
-  {
-    head = new Expr9(e12);
-  }
-
-  Expr9::Expr9(Expr12* e12)
-  {
-    head = new Expr10(e12);
-  }
-
-  Expr10::Expr10(Expr12* e12)
-  {
-    head = new Expr11(e12);
-  }
-
-  Expr11::Expr11(Expr12* e12)
-  {
-    e = e12;
-  }
-
-  template<>
-  Expr1* parse<Expr1>()
-  {
-    Expr1* e1 = new Expr1;
-    if(acceptKeyword(ARRAY))
+    Expression* root = parseExpr2();
+    while(true)
     {
-      unget();
-      e1->e = parse<NewArrayNT>();
-      //no tail for NewArrayNT (not compatible with any operands)
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || nextOp->op != LOR)
+        break;
+      accept();
+      root = new BinaryArith(root, LOR, parseExpr2());
     }
-    else
+    root->tryResolve();
+    return root;
+  }
+
+  Expression* parseExpr2()
+  {
+    Expression* root = parseExpr3();
+    while(true)
     {
-      e1->e = parse<Expr2>();
-      //check whether parse<Expr1RHS>() should succeed
-      Token* next = lookAhead();
-      while(next->type == OPERATOR && ((Oper*) next)->op == LOR)
-      {
-        e1->tail.push_back(parse<Expr1RHS>());
-        next = lookAhead();
-      }
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || nextOp->op != LAND)
+        break;
+      accept();
+      root = new BinaryArith(root, LAND, parseExpr3());
     }
-    return e1;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr1RHS* parse<Expr1RHS>()
+  Expression* parseExpr3()
   {
-    Expr1RHS* e1r = new Expr1RHS;
-    expectOper(LOR);
-    e1r->rhs = parse<Expr2>();
-    return e1r;
-  }
-
-  template<>
-  Expr2* parse<Expr2>()
-  {
-    Expr2* e2 = new Expr2;
-    e2->head = parse<Expr3>();
-    Token* next = lookAhead();
-    while(next->type == OPERATOR && ((Oper*) next)->op == LAND)
+    Expression* root = parseExpr4();
+    while(true)
     {
-      e2->tail.push_back(parse<Expr2RHS>());
-      next = lookAhead();
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || nextOp->op != BOR)
+        break;
+      accept();
+      root = new BinaryArith(root, BOR, parseExpr4());
     }
-    return e2;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr2RHS* parse<Expr2RHS>()
+  Expression* parseExpr4()
   {
-    Expr2RHS* e2r = new Expr2RHS;
-    expectOper(LAND);
-    e2r->rhs = parse<Expr3>();
-    return e2r;
-  }
-
-  template<>
-  Expr3* parse<Expr3>()
-  {
-    Expr3* e3 = new Expr3;
-    e3->head = parse<Expr4>();
-    Token* next = lookAhead();
-    while(next->type == OPERATOR && ((Oper*) next)->op == BOR)
+    Expression* root = parseExpr5();
+    while(true)
     {
-      e3->tail.push_back(parse<Expr3RHS>());
-      next = lookAhead();
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || nextOp->op != BXOR)
+        break;
+      accept();
+      root = new BinaryArith(root, BXOR, parseExpr5());
     }
-    return e3;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr3RHS* parse<Expr3RHS>()
+  Expression* parseExpr5()
   {
-    Expr3RHS* e3r = new Expr3RHS;
-    expectOper(BOR);
-    e3r->rhs = parse<Expr4>();
-    return e3r;
-  }
-
-  template<>
-  Expr4* parse<Expr4>()
-  {
-    Expr4* e4 = new Expr4;
-    e4->head = parse<Expr5>();
-    Token* next = lookAhead();
-    while(next->type == OPERATOR && ((Oper*) next)->op == BXOR)
+    Expression* root = parseExpr6();
+    while(true)
     {
-      e4->tail.push_back(parse<Expr4RHS>());
-      next = lookAhead();
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || nextOp->op != BAND)
+        break;
+      accept();
+      root = new BinaryArith(root, BAND, parseExpr6());
     }
-    return e4;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr4RHS* parse<Expr4RHS>()
+  Expression* parseExpr6()
   {
-    Expr4RHS* e4r = new Expr4RHS;
-    expectOper(BXOR);
-    e4r->rhs = parse<Expr5>();
-    return e4r;
-  }
-
-  template<>
-  Expr5* parse<Expr5>()
-  {
-    Expr5* e5 = new Expr5;
-    e5->head = parse<Expr6>();
-    Token* next = lookAhead();
-    while(next->type == OPERATOR && ((Oper*) next)->op == BAND)
+    Expression* root = parseExpr7();
+    while(true)
     {
-      e5->tail.push_back(parse<Expr5RHS>());
-      next = lookAhead();
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || (nextOp->op != CMPEQ && nextOp->op != CMPNEQ))
+        break;
+      accept();
+      root = new BinaryArith(root, nextOp->op, parseExpr7());
     }
-    return e5;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr5RHS* parse<Expr5RHS>()
+  Expression* parseExpr7()
   {
-    Expr5RHS* e5r = new Expr5RHS;
-    expectOper(BAND);
-    e5r->rhs = parse<Expr6>();
-    return e5r;
-  }
-
-  template<>
-  Expr6* parse<Expr6>()
-  {
-    Expr6* e6 = new Expr6;
-    e6->head = parse<Expr7>();
-    Token* next = lookAhead();
-    while(next->type == OPERATOR && (((Oper*) next)->op == CMPEQ || ((Oper*) next)->op == CMPNEQ))
+    Expression* root = parseExpr8();
+    while(true)
     {
-      e6->tail.push_back(parse<Expr6RHS>());
-      next = lookAhead();
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || (nextOp->op != CMPL && nextOp->op != CMPLE
+            && nextOp->op != CMPG && nextOp->op != CMPGE))
+        break;
+      accept();
+      root = new BinaryArith(root, nextOp->op, parseExpr8());
     }
-    return e6;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr6RHS* parse<Expr6RHS>()
+  Expression* parseExpr8()
   {
-    Expr6RHS* e6r = new Expr6RHS;
-    e6r->op = ((Oper*) expect(OPERATOR))->op;
-    if(e6r->op != CMPEQ && e6r->op != CMPNEQ)
+    Expression* root = parseExpr9();
+    while(true)
     {
-      err("expected == !=");
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || (nextOp->op != SHL && nextOp->op != SHR))
+        break;
+      accept();
+      root = new BinaryArith(root, nextOp->op, parseExpr9());
     }
-    e6r->rhs = parse<Expr7>();
-    return e6r;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr7* parse<Expr7>()
+  Expression* parseExpr9()
   {
-    Expr7* e7 = new Expr7;
-    e7->head = parse<Expr8>();
-    Oper* next = dynamic_cast<Oper*>(lookAhead());
-    while(next && (next->op == CMPL || next->op == CMPLE || next->op == CMPG || next->op == CMPGE))
+    Expression* root = parseExpr10();
+    while(true)
     {
-      e7->tail.push_back(parse<Expr7RHS>());
-      next = dynamic_cast<Oper*>(lookAhead());
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp || (nextOp->op != PLUS && nextOp->op != SUB))
+        break;
+      accept();
+      root = new BinaryArith(root, nextOp->op, parseExpr10());
     }
-    return e7;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr7RHS* parse<Expr7RHS>()
+  Expression* parseExpr10()
   {
-    Expr7RHS* e7r = new Expr7RHS;
-    e7r->op = ((Oper*) expect(OPERATOR))->op;
-    if(e7r->op != CMPL && e7r->op != CMPLE &&
-        e7r->op != CMPG && e7r->op != CMPGE)
+    Expression* root = parseExpr11();
+    while(true)
     {
-      err("expected < > <= >=");
+      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
+      if(!nextOp ||
+          (nextOp->op != MUL && nextOp->op != DIV && nextOp->op != MOD))
+        break;
+      accept();
+      root = new BinaryArith(root, nextOp->op, parseExpr11());
     }
-    e7r->rhs = parse<Expr8>();
-    return e7r;
+    root->tryResolve();
+    return root;
   }
 
-  template<>
-  Expr8* parse<Expr8>()
+  Expression* parseExpr11()
   {
-    Expr8* e8 = new Expr8;
-    e8->head = parse<Expr9>();
-    Oper* next = dynamic_cast<Oper*>(lookAhead());
-    while(next && (next->op == SHL || next->op == SHR))
-    {
-      e8->tail.push_back(parse<Expr8RHS>());
-      next = dynamic_cast<Oper*>(lookAhead());
-    }
-    return e8;
-  }
-
-  template<>
-  Expr8RHS* parse<Expr8RHS>()
-  {
-    Expr8RHS* e8r = new Expr8RHS;
-    e8r->op = ((Oper*) expect(OPERATOR))->op;
-    if(e8r->op != SHL && e8r->op != SHR)
-    {
-      err("expected << >>");
-    }
-    e8r->rhs = parse<Expr9>();
-    return e8r;
-  }
-
-  template<>
-  Expr9* parse<Expr9>()
-  {
-    Expr9* e9 = new Expr9;
-    e9->head = parse<Expr10>();
-    Oper* next = dynamic_cast<Oper*>(lookAhead());
-    while(next && (next->op == PLUS || next->op == SUB))
-    {
-      e9->tail.push_back(parse<Expr9RHS>());
-      next = dynamic_cast<Oper*>(lookAhead());
-    }
-    return e9;
-  }
-
-  template<>
-  Expr9RHS* parse<Expr9RHS>()
-  {
-    Expr9RHS* e9r = new Expr9RHS;
-    e9r->op = ((Oper*) expect(OPERATOR))->op;
-    if(e9r->op != PLUS && e9r->op != SUB)
-    {
-      err("expected + -");
-    }
-    e9r->rhs = parse<Expr10>();
-    return e9r;
-  }
-
-  template<>
-  Expr10* parse<Expr10>()
-  {
-    Expr10* e10 = new Expr10;
-    e10->head = parse<Expr11>();
-    Oper* next = dynamic_cast<Oper*>(lookAhead());
-    while(next && (next->op == MUL || next->op == DIV || next->op == MOD))
-    {
-      e10->tail.push_back(parse<Expr10RHS>());
-      next = dynamic_cast<Oper*>(lookAhead());
-    }
-    return e10;
-  }
-
-  template<>
-  Expr10RHS* parse<Expr10RHS>()
-  {
-    Expr10RHS* e10r = new Expr10RHS;
-    e10r->op = ((Oper*) expect(OPERATOR))->op;
-    if(e10r->op != MUL && e10r->op != DIV && e10r->op != MOD)
-    {
-      err("expected * / % but got " + operatorTable[e10r->op]);
-    }
-    e10r->rhs = parse<Expr11>();
-    return e10r;
-  }
-
-  template<>
-  Expr11* parse<Expr11>()
-  {
-    Expr11* e11 = new Expr11;
     if(Oper* oper = (Oper*) accept(OPERATOR))
     {
-      Expr11::UnaryExpr ue;
-      ue.op = oper->op;
-      ue.rhs = parse<Expr11>();
-      e11->e = ue;
+      if(oper->op != LNOT && oper->op != BNOT && oper->op != SUB)
+      {
+        err("expected one of: ! ~ -");
+      }
+      Expression* ue = new UnaryArith(oper->op, parseExpr11());
+      ue->tryResolve();
+      return ue;
     }
-    else
-    {
-      e11->e = parse<Expr12>();
-    }
-    return e11;
+    return parseExpr12();
   }
 
-  template<>
-  Expr12* parse<Expr12>()
+  Expression* parseExpr12()
   {
-    Expr12* e12 = new Expr12;
+    Expression* root = nullptr;
     Token* next = lookAhead();
     switch(next->type)
     {
@@ -1750,13 +1536,13 @@ namespace Parser
         {
           accept();
           //expression in parentheses
-          e12->e = parse<ExpressionNT>();
+          root = parseExpr1();
           expectPunct(RPAREN);
         }
         else if(punct->val == LBRACKET)
         {
           //struct lit
-          e12->e = parse<StructLit>();
+          root = parseStructLit();
         }
         else
         {
@@ -1769,19 +1555,21 @@ namespace Parser
       {
         Keyword* kw = (Keyword*) expect(KEYWORD);
         if(kw->kw == TRUE)
-          e12->e = new BoolLit(true);
+          root = new BoolLiteral(true);
         else if(kw->kw == FALSE)
-          e12->e = new BoolLit(true);
+          root = new BoolLiteral(false);
         else if(kw->kw == ERROR_VALUE)
-          e12->e = Expr12::Error();
+          root = new ErrorVal;
         else if(kw->kw == THIS)
-          e12->e = Expr12::This();
+          root = new ThisExpr;
+        else if(kw->kw == ARRAY)
+          root = parse<NewArray>();
         else
           err("invalid keyword in expression");
         break;
       }
       case INT_LITERAL:
-        e12->e = (IntLit*) expect(INT_LITERAL);
+        root = new (IntLit*) expect(INT_LITERAL);
         break;
       case FLOAT_LITERAL:
         e12->e = (FloatLit*) expect(FLOAT_LITERAL);
@@ -1793,7 +1581,7 @@ namespace Parser
         e12->e = (StrLit*) expect(STRING_LITERAL);
         break;
       case IDENTIFIER:
-        e12->e = parse<Member>();
+        root = new UnresolvedExpr(parseMember());
         break;
       default:
         err("unexpected token \"" + next->getStr() + "\" (type " + next->getDesc() + ") in expression");

@@ -11,7 +11,7 @@ using namespace Parser;
 
 struct ModuleScope;
 
-extern ModuleScope* global;
+extern Scope* global;
 
 namespace TypeSystem
 {
@@ -94,107 +94,6 @@ string typeErrorMessage(TypeLookup& lookup)
     INTERNAL_ERROR;
   }
   return oss.str();
-}
-
-Type* lookupType(Parser::TypeNT* type, Scope* scope)
-{
-  //handle array immediately - just make an array and then handle the singular element type
-  if(type->arrayDims)
-  {
-    int dims = type->arrayDims;
-    //now look up the type for the singular element type
-    type->arrayDims = 0;
-    Type* elemType = lookupType(type, scope);
-    //restore original type to preserve parse tree (just in case)
-    type->arrayDims = dims;
-    return getArrayType(elemType, dims);
-  }
-  else if(type->t.is<TypeNT::Prim>())
-  {
-    return primitives[(int) type->t.get<TypeNT::Prim>()];
-  }
-  else if(type->t.is<Member*>())
-  {
-    //intercept special case: "T" inside a trait decl
-    auto mem = type->t.get<Member*>();
-    Name n = scope->findName(mem);
-    if(!n.item)
-    {
-      return nullptr;
-    }
-    if(n.kind == Name::STRUCT ||
-        n.kind == Name::ENUM)
-    {
-      return (Type*) n.item;
-    }
-    else if(n.kind == Name::TYPEDEF)
-    {
-      return ((AliasType*) n.item)->actual;
-    }
-    return nullptr;
-  }
-  else if(type->t.is<TupleTypeNT*>())
-  {
-    //get a list of member types
-    vector<Type*> members;
-    for(auto mem : type->t.get<TupleTypeNT*>()->members)
-    {
-      members.push_back(lookupType(mem, scope));
-    }
-    return getTupleType(members);
-  }
-  else if(type->t.is<UnionTypeNT*>())
-  {
-    auto utNT = type->t.get<UnionTypeNT*>();
-    vector<Type*> options;
-    for(auto t : utNT->types)
-    {
-      options.push_back(lookupType(t, scope));
-    }
-    return getUnionType(options);
-  }
-  else if(type->t.is<MapTypeNT*>())
-  {
-    auto mtNT = type->t.get<MapTypeNT*>();
-    return getMapType(lookupType(mtNT->keyType, scope), lookupType(mtNT->valueType, scope));
-  }
-  else if(type->t.is<SubroutineTypeNT*>())
-  {
-    auto stNT = type->t.get<SubroutineTypeNT*>();
-    //find the owner struct (from scope), if it exists
-    StructType* owner = nullptr;
-    bool pure = stNT->isPure;
-    bool nonterm = stNT->nonterm;
-    if(!stNT->isStatic)
-    {
-      //if scope is inside a StructScope, owner = corresponding struct type
-      for(Scope* iter = scope; iter; iter = iter->parent)
-      {
-        if(auto subrScope = dynamic_cast<SubroutineScope*>(iter))
-        {
-          if(iter != scope && subrScope->subr->type->ownerStruct == nullptr)
-          {
-            //this callable inside another static callable, so this must be static as well
-            break;
-          }
-        }
-        if(auto ss = dynamic_cast<StructScope*>(iter))
-        {
-          owner = ss->type;
-          break;
-        }
-      }
-    }
-    //get return type and argument types (return nullptr if those aren't available)
-    Type* retType = lookupType(stNT->retType, scope);
-    vector<Type*> argTypes;
-    for(auto param : stNT->params)
-    {
-      argTypes.push_back(lookupType(param->type, scope));
-    }
-    return getSubroutineType(owner, pure, nonterm, retType, argTypes);
-  }
-  return nullptr;
 }
 
 CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope)
@@ -970,6 +869,134 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
   return lexicographical_compare(
       lhs->argTypes.begin(), lhs->argTypes.end(),
       rhs->argTypes.begin(), rhs->argTypes.end());
+}
+
+void resolveType(Type*& t, bool err)
+{
+  if(t->isResolved())
+  {
+    //nothing to do
+    return;
+  }
+  UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t);
+  if(!unres)
+    return;
+  Type* finalType = nullptr;
+  switch(unres->k)
+  {
+    case UnresolvedType::Primitive:
+      finalType = primitives[unres->data.primitive];
+      break;
+    case UnresolvedType::NamedType:
+      {
+        //search for member from scope
+        Name found = unres->scope->findName(unres->data.m);
+        if(!found.item && err)
+        {
+          ERR_MSG("unknown type " << *unres->data.m);
+        }
+        switch(found.kind)
+        {
+          case Name::STRUCT:
+            finalType = (Struct*) found.item;
+            break;
+          case Name::ENUM:
+            finalType = (Enum*) found.item;
+            break;
+          case Name::ALIAS:
+            finalType = ((Alias*) found.item)->actual;
+            break;
+          default:
+            ERR_MSG("name " << *unres->data.m << " does not refer to a type");
+        }
+        break;
+      }
+    case UnresolvedType::Tuple:
+      {
+        //resolve member types individually
+        bool allResolved = true;
+        for(Type*& mem : unres->data.t)
+        {
+          resolveType(mem, err);
+          if(!mem->isResolved())
+            allResolved = false;
+        }
+        if(allResolved)
+        {
+          finalType = getTupleType(unres->data.t);
+        }
+        break;
+      }
+    case UnresolvedType::Union:
+      {
+        //resolve member types individually
+        bool allResolved = true;
+        for(Type*& option : unres->data.u)
+        {
+          resolveType(option, err);
+          if(!t->isResolved())
+            allResolved = false;
+        }
+        if(allResolved)
+        {
+          finalType = getUnionType(unres->data.u);
+        }
+        break;
+      }
+    case UnresolvedType::Map:
+      {
+        Type*& key = unres->data.mt.key;
+        Type*& value = unres->data.mt.value;
+        resolveType(key, err);
+        resolveType(value, err);
+        if(key->isResolved() && value->isResolved())
+        {
+          finalType = getMapType(key, value);
+        }
+        break;
+      }
+    case UnresolvedType::SubrType:
+      {
+        //walk up scope tree to see if in a non-static context
+        Struct* ownerStruct = unres->scope->getStructContext();
+        auto& ct = unres->data.ct;
+        bool allResolved = true;
+        resolveType(ct.retType, err);
+        if(!ct.retType->isResolved())
+        {
+          allResolved = false;
+        }
+        for(auto& param : ct.params)
+        {
+          resolveType(param, err);
+          if(!param->isResolved())
+          {
+            allResolved = false;
+          }
+        }
+        if(allResolved)
+        {
+          finalType = getSubroutineType(ownerStruct, ct.pure,
+              ct.nonterm, ct.retType, ct.params);
+        }
+        break;
+      }
+  }
+  if(!finalType)
+  {
+    //can't apply array dimensions, so return early
+    if(err)
+    {
+      //shouldn't get here: any error should have been produced
+      //above when attempting to resolve dependency types
+      INTERNAL_ERROR;
+    }
+    return;
+  }
+  //if arrayDims is 0, this is a no-op
+  finalType = getArrayType(finalType, ct.arrayDims);
+  //finally, replace unres with finalType
+  t = finalType;
 }
 
 } //namespace TypeSystem

@@ -39,6 +39,7 @@ struct Converted;
 struct ArrayLength;
 struct ThisExpr;
 struct ErrorVal;
+struct UnresolvedExpr;
 
 //Create a new Expression given one of the ExprN nonterminals
 template<typename NT>
@@ -211,7 +212,7 @@ struct StructMem : public Expression
 
 struct NewArray : public Expression
 {
-  NewArray(Scope* s, Parser::NewArrayNT* ast);
+  NewArray(Type* elemType, vector<Expression*> dims);
   vector<Expression*> dims;
   bool assignable()
   {

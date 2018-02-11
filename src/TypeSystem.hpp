@@ -27,6 +27,24 @@ struct StructScope;
 //need to forward-declare this to resolve mutual dependency
 struct Expression;
 
+enum struct Prim
+{
+  BOOL,
+  CHAR,
+  BYTE,
+  UBYTE,
+  SHORT,
+  USHORT,
+  INT,
+  UINT,
+  LONG,
+  ULONG,
+  FLOAT,
+  DOUBLE,
+  VOID,
+  ERROR
+};
+
 namespace TypeSystem
 {
 
@@ -156,6 +174,7 @@ struct Type
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
   virtual bool isBounded()  {return false;}
+  virtual bool isResolved() {return true;}
 };
 
 struct StructType : public Type
@@ -408,7 +427,7 @@ struct CallableType : public Type
   //constructor for members
   CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args, bool nonterm = false);
   string getName();
-  StructType* ownerStruct;  //true iff non-static and in struct scope
+  Struct* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
   vector<Type*> argTypes;
   bool pure;            //true for functions, false for procedures
@@ -433,6 +452,50 @@ struct CallableType : public Type
   bool canConvert(Type* other);
   bool sameExceptOwner(CallableType* other);
 };
+
+struct UnresolvedType : public Type
+{
+  enum Kind
+  {
+    Primitive,
+    NamedType,
+    Tuple,
+    Union,
+    Map,
+    Callable
+  };
+  struct UnresCallable
+  {
+    Type* retType;
+    vector<Type*> params;
+    bool isPure;    //true = func, false = proc
+    bool isStatic;
+    bool nonterm;
+  };
+  struct UnresMap
+  {
+    Type* key;
+    Type* value;
+  };
+  union
+  {
+    //Prim: enum values defined above
+    Prim p;
+    Member* m;
+    vector<Type*> t;
+    vector<Type*> u;
+    UnresMap mt;
+    UnresCallable ct;
+  } data;
+  Kind k;
+  Scope* scope;
+  int arrayDims;
+  bool isResolved() {return false;}
+};
+
+//If t is an unresolved type, replace it with a fully resolved version
+//(if possible)
+void resolveType(Type*& t, bool err);
 
 } //namespace TypeSystem
 

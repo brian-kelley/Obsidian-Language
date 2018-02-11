@@ -3,6 +3,8 @@
 #include "Variable.hpp"
 #include "Subroutine.hpp"
 
+Scope* global;
+
 /*******************************
 *   Scope & subclasses impl    *
 *******************************/
@@ -10,10 +12,6 @@
 Scope::Scope(Scope* parentIn)
 {
   parent = parentIn;
-  if(parent)
-  {
-    parent->children.push_back(this);
-  }
 }
 
 string Scope::getFullPath()
@@ -89,5 +87,27 @@ void Scope::shadowCheck(string name)
       ERR_MSG("name " << name << " shadows a previous declaration");
     }
   }
+}
+
+Struct* Scope::getStructContext()
+{
+  //walk up scope tree, looking for a Struct scope before
+  //reaching a static subroutine or global scope
+  for(Scope* iter = this; iter; iter = iter->parent)
+  {
+    if(iter->node.is<Struct*>())
+    {
+      return iter->node.get<Struct*>();
+    }
+    if(iter->node.is<Subroutine*>())
+    {
+      auto subrType = iter->node.get<Subroutine*>()->type;
+      if(subrType->ownerStruct)
+      {
+        return subrType->ownerStruct;
+      }
+    }
+  }
+  return nullptr;
 }
 

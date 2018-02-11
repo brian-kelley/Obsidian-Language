@@ -45,6 +45,12 @@ struct Name
   Scope* scope;
 };
 
+struct Module
+{
+  //name is empty str for global
+  string name;
+};
+
 //Scopes own all funcs/structs/traits/etc
 struct Scope
 {
@@ -52,17 +58,22 @@ struct Scope
   virtual string getLocalName() = 0;
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
-  vector<Scope*> children;            //owned scopes
   //unified name handling
   Name findName(Parser::Member* mem);
   Name findName(string name);
   Name lookup(string name);
   void addName(Name n);
   map<string, Name> names;
+  //if in static context, this returns NULL
+  //otherwise, returns the Struct that "this" would refer to
+  Struct* getStructContext();
+  variant<Module*, Struct*, Subroutine*, Block*, Enum*> node;
   private:
   //make sure that name won't shadow any existing declaration
   void shadowCheck(string name);
 };
+
+extern Scope* global;
 
 #endif
 

@@ -227,8 +227,8 @@ struct Subroutine
   //Local variables in subroutine scope representing arguments, in order
   vector<Variable*> args;
   Block* body;
-  //the scope OF the subroutine, not the one containing it
-  SubroutineScope* scope;
+  //scope->node is this
+  Scope* scope;
   //check both prototype and body
   void check();
 };
@@ -236,7 +236,7 @@ struct Subroutine
 struct ExternalSubroutine
 {
   ExternalSubroutine(Parser::ExternSubroutineNT*, Scope* s);
-  TypeSystem::Callabletype* type;
+  TypeSystem::CallableType* type;
   string c;
 };
 
