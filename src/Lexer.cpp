@@ -7,13 +7,14 @@ char getEscapedChar(char ident);
 
 struct CodeStream
 {
-  CodeStream(string& srcIn, vector<Token*>& toksIn) : src(srcIn), toks(toksIn)
+  CodeStream(string& srcIn, vector<Token*>& toksIn, int file) : src(srcIn), toks(toksIn)
   {
     iter = 0;
     //no error can happen with iter at 0,
     //so prev position doesn't matter (no chars read yet)
     prevLine = 0;
     prevCol = 0;
+    fileID = file;
     line = 1;
     col = 1;
   }
@@ -53,6 +54,7 @@ struct CodeStream
   }
   void addToken(Token* tok)
   {
+    tok->file = fileID;
     tok->line = nextTokLine;
     tok->col = nextTokCol;
     toks.push_back(tok);
@@ -76,6 +78,7 @@ struct CodeStream
   vector<Token*>& toks;
   size_t iter;
   //current location in stream
+  int fileID;
   int line;
   int col;
   //location in stream one source character ago
@@ -86,10 +89,10 @@ struct CodeStream
   int nextTokCol;
 };
 
-vector<Token*> lex(string code)
+vector<Token*> lex(string code, int file)
 {
   vector<Token*> tokList;
-  CodeStream cs(code, tokList);
+  CodeStream cs(code, tokList, file);
   //note: i is incremented various amounts depending on the tokens
   while(cs)
   {

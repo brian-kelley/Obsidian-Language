@@ -11,7 +11,7 @@
 // Subroutine: middle-end structures for program behavior and control flow //
 /***************************************************************************/
 
-struct Statement
+struct Statement : public Node
 {
   //Check that the statement doesn't violate the purity
   //requirement of functions (s should be innermost fn scope)
@@ -237,6 +237,7 @@ struct ExternalSubroutine
 {
   ExternalSubroutine(Parser::ExternSubroutineNT*, Scope* s);
   TypeSystem::CallableType* type;
+  //the C code that provides the body of this subroutine
   string c;
 };
 

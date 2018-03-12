@@ -45,6 +45,8 @@ enum struct Prim
   ERROR
 };
 
+extern vector<Type*> primitives;
+
 namespace TypeSystem
 {
 
@@ -132,7 +134,6 @@ Type* maybe(Type* t);
 
 void createBuiltinTypes();
 
-extern vector<Type*> primitives;
 extern map<string, Type*> primNames;
 
 extern vector<StructType*> structs;
@@ -201,7 +202,7 @@ struct StructType : public Type
   };
   map<string, IfaceMember> interface;
   private:
-  bool checked; //whether check() has been called
+  bool checked;   //whether check() has been called
   bool checking;  //whether check() was called but hasn't returned yet
 };
 
@@ -237,7 +238,6 @@ struct ArrayType : public Type
   bool contains(Type* t);
   void check();
 };
-
 
 struct TupleType : public Type
 {
@@ -450,7 +450,6 @@ struct CallableType : public Type
   //all terminating procedures can be used in place of nonterminating ones
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
-  bool sameExceptOwner(CallableType* other);
 };
 
 struct UnresolvedType : public Type

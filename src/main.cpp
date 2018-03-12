@@ -4,6 +4,7 @@
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "AST.hpp"
 #include "ParseTreeOutput.hpp"
 #include "MiddleEnd.hpp"
 #include "BuiltIn.hpp"
@@ -24,12 +25,15 @@ int main(int argc, const char** argv)
     puts("Error: no input files.");
     return EXIT_FAILURE;
   }
-  //all program code 
-  string code = getBuiltins() + loadFile(op.input.c_str());
+  //all program code: prepend builtin code to source file
+  string code = getBuiltins() + loadFile(op.input);
   DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
   vector<Token*> toks;
-  TIMEIT("Lexing", toks = lex(code););
+  sourceFiles.push_back(op.input);
+  //empty "includes" is for root file (no other file is including it)
+  includes.emplace_back();
+  TIMEIT("Lexing", toks = lex(code, 0););
   //Parse the global/root module
   Parser::Module* parseTree;
   Parser p(toks);

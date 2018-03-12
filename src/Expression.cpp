@@ -5,343 +5,13 @@
 
 using namespace TypeSystem;
 
-bool Expression::pureWithin(Scope* s)
+Expression* resolveExpr(Expression*& expr)
 {
-  return pure && withinScope(s);
-}
-
-bool Expression::withinScope(Scope* s)
-{
-  for(auto dep : deps)
-  {
-    //from var's scope, walk up, looking for s
-    //if global is reached first, return false
-    bool depInS = false;
-    for(Scope* iter = dep->scope; iter; iter = iter->parent)
-    {
-      if(iter == s)
-      {
-        //dep does live in s, so it's OK
-        depInS = true;
-        break;
-      }
-    }
-    if(!depInS)
-      return false;
-  }
-  return true;
 }
 
 /**********************
  * Expression loading *
  **********************/
-
-template<> Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* ast);
-template<> Expression* getExpression<Parser::Expr2>(Scope* s, Parser::Expr2* ast);
-template<> Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* ast);
-template<> Expression* getExpression<Parser::Expr4>(Scope* s, Parser::Expr4* ast);
-template<> Expression* getExpression<Parser::Expr5>(Scope* s, Parser::Expr5* ast);
-template<> Expression* getExpression<Parser::Expr6>(Scope* s, Parser::Expr6* ast);
-template<> Expression* getExpression<Parser::Expr7>(Scope* s, Parser::Expr7* ast);
-template<> Expression* getExpression<Parser::Expr8>(Scope* s, Parser::Expr8* ast);
-template<> Expression* getExpression<Parser::Expr9>(Scope* s, Parser::Expr9* ast);
-template<> Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* ast);
-template<> Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* ast);
-template<> Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* ast);
-
-template<>
-Expression* getExpression<Parser::Expr1>(Scope* s, Parser::Expr1* expr)
-{
-  //Expr1 can either be an "array Type[dim1][dim2]...[dimN]"
-  //expression or a binary expr chain like the others
-  if(expr->e.is<Parser::NewArrayNT*>())
-  {
-    return new NewArray(s, expr->e.get<Parser::NewArrayNT*>());
-  }
-  else
-  {
-    //Get a list of the Expr2s
-    vector<Expression*> leaves;
-    leaves.push_back(getExpression(s, expr->e.get<Parser::Expr2*>()));
-    for(auto e : expr->tail)
-    {
-      leaves.push_back(getExpression(s, e->rhs));
-    }
-    if(leaves.size() == 1)
-    {
-      return leaves.front();
-    }
-    else
-    {
-      //build chain of BinaryAriths that evaluates left to right
-      BinaryArith* chain = new BinaryArith(leaves[0], LOR, leaves[1]);
-      for(size_t i = 2; i < leaves.size(); i++)
-      {
-        //form another BinaryArith with root and expr2[i] as operands
-        chain = new BinaryArith(chain, LOR, leaves[i]);
-      }
-      return chain;
-    }
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr2>(Scope* s, Parser::Expr2* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], LAND, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, LAND, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr3>(Scope* s, Parser::Expr3* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], BOR, leaves[1]);
-    //all expressions in a chain of logical AND must be bools
-    for(auto e : leaves)
-    {
-      if(e->type == NULL || !e->type->isInteger())
-      {
-        ERR_MSG("operands to && must both be booleans.");
-      }
-    }
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, BOR, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr4>(Scope* s, Parser::Expr4* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], BXOR, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, BXOR, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr5>(Scope* s, Parser::Expr5* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], BAND, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, BAND, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr6>(Scope* s, Parser::Expr6* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], expr->tail[0]->op, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, expr->tail[i - 1]->op, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr7>(Scope* s, Parser::Expr7* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], expr->tail[0]->op, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, expr->tail[i - 1]->op, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr8>(Scope* s, Parser::Expr8* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], expr->tail[0]->op, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, expr->tail[i - 1]->op, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr9>(Scope* s, Parser::Expr9* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], expr->tail[0]->op, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, expr->tail[i - 1]->op, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr10>(Scope* s, Parser::Expr10* expr)
-{
-  vector<Expression*> leaves;
-  leaves.push_back(getExpression(s, expr->head));
-  for(auto e : expr->tail)
-  {
-    leaves.push_back(getExpression(s, e->rhs));
-  }
-  if(leaves.size() == 1)
-  {
-    return leaves.front();
-  }
-  else
-  {
-    //build chain of BinaryAriths that evaluates left to right
-    BinaryArith* chain = new BinaryArith(leaves[0], expr->tail[0]->op, leaves[1]);
-    for(size_t i = 2; i < leaves.size(); i++)
-    {
-      //form another BinaryArith with root and expr2[i] as operands
-      chain = new BinaryArith(chain, expr->tail[i - 1]->op, leaves[i]);
-    }
-    return chain;
-  }
-}
-
-template<>
-Expression* getExpression<Parser::Expr11>(Scope* s, Parser::Expr11* expr)
-{
-  if(expr->e.is<Parser::Expr12*>())
-  {
-    return getExpression(s, expr->e.get<Parser::Expr12*>());
-  }
-  else
-  {
-    //unary expression, with a single Expr11 as the operand
-    auto unary = expr->e.get<Parser::Expr11::UnaryExpr>();
-    Expression* operand = getExpression(s, unary.rhs);
-    return new UnaryArith(unary.op, operand);
-  }
-}
 
 template<>
 Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
@@ -384,7 +54,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
     }
     if(!done)
     {
-      ERR_MSG("name " << mem->names.back() << " is not a valid expression");
+      errMsg("name " << mem->names.back() << " is not a valid expression");
     }
   }
   else if(expr->e.is<Parser::StructLit*>())
@@ -448,7 +118,7 @@ Expression* getExpression<Parser::Expr12>(Scope* s, Parser::Expr12* expr)
   }
   if(!isFinal)
   {
-    ERR_MSG("invalid expression");
+    errMsg("invalid expression");
   }
   return root;
 }
@@ -495,7 +165,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
   }
   if(!scope)
   {
-    ERR_MSG("tried to access member of non-struct");
+    errMsg("tried to access member of non-struct");
   }
   Name n;
   if(first)
@@ -505,7 +175,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
   if(n.item == nullptr)
   {
     //name doesn't exist at all
-    ERR_MSG("use of undeclared identifier " << name);
+    errMsg("use of undeclared identifier " << name);
   }
   switch(n.kind)
   {
@@ -516,7 +186,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         {
           if(!var->isMember)
           {
-            ERR_MSG("tried to access static variable " <<
+            errMsg("tried to access static variable " <<
                 var->name << " as member");
           }
           root = new StructMem(root, var);
@@ -560,7 +230,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
       {
         if(root)
         {
-          ERR_MSG("C functions can't be used as member functions");
+          errMsg("C functions can't be used as member functions");
         }
         root = new SubroutineExpr((ExternalSubroutine*) n.item);
         scope = nullptr;
@@ -597,13 +267,13 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
         }
         else
         {
-          ERR_MSG("enum constant " << ec->name << " can't be used as member");
+          errMsg("enum constant " << ec->name << " can't be used as member");
         }
         break;
       }
     default:
       {
-        ERR_MSG("name " << name <<
+        errMsg("name " << name <<
             " is not a scope, variable, subroutine or enum constant");
       }
   }
@@ -614,12 +284,12 @@ StructScope* scopeForExpr(Expression* expr)
   Type* t = expr->type;
   if(!t)
   {
-    ERR_MSG("cannot directly access members of compound literal");
+    errMsg("cannot directly access members of compound literal");
   }
   StructType* st = dynamic_cast<StructType*>(t);
   if(!st)
   {
-    ERR_MSG("cannot access members of non-struct type");
+    errMsg("cannot access members of non-struct type");
   }
   return st->structScope;
 }
@@ -630,11 +300,35 @@ StructScope* scopeForExpr(Expression* expr)
 
 UnaryArith::UnaryArith(int o, Expression* e)
 {
-  this->op = o;
-  this->expr = e;
-  deps = e->deps;
-  pure = e->pure;
-  type = e->type;
+  op = o;
+  expr = e;
+  type = nullptr;
+}
+
+void UnaryArith::resolve(bool err)
+{
+  expr->resolve(err);
+  if(expr->resolved)
+  {
+    if(op == LNOT && expr->type != primitives[Prim::BOOL])
+    {
+      errMsgLoc(this, "! operand must be a bool");
+    }
+    else if(op == BNOT && !expr->type->isInteger())
+    {
+      errMsgLoc(this, "~ operand must be an integer");
+    }
+    else if(op == SUB && !expr->type->isNumber())
+    {
+      errMsgLoc(this, "unary - operand must be a number");
+    }
+    else
+    {
+      //any other operator can't be parsed as unary
+      INTERNAL_ERROR;
+    }
+    type = expr->type;
+  }
 }
 
 /***************
@@ -656,7 +350,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
       if(ltype != primitives[TypeNT::BOOL] ||
          rtype != primitives[TypeNT::BOOL])
       {
-        ERR_MSG("operands to || and && must both be booleans.");
+        errMsg("operands to || and && must both be booleans.");
       }
       //type of expression is always bool
       this->type = primitives[TypeNT::BOOL];
@@ -669,7 +363,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
       //both operands must be integers
       if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        ERR_MSG("operands to bitwise operators must be integers.");
+        errMsg("operands to bitwise operators must be integers.");
       }
       //the resulting type is the wider of the two integers, favoring unsigned
       type = promote(ltype, rtype);
@@ -700,7 +394,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
         }
         else
         {
-          ERR_MSG("incompatible array concatenation operands: " <<
+          errMsg("incompatible array concatenation operands: " <<
               ltype->getName() << " and " << rtype->getName());
         }
         if(ltype != type)
@@ -719,7 +413,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
         Type* subtype = lhsAT->subtype;
         if(!subtype->canConvert(rtype))
         {
-          ERR_MSG("can't append type " << rtype->getName() <<
+          errMsg("can't append type " << rtype->getName() <<
               " to " << ltype->getName());
         }
         type = ltype;
@@ -735,7 +429,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
         Type* subtype = rhsAT->subtype;
         if(!subtype->canConvert(rtype))
         {
-          ERR_MSG("can't prepend type " << ltype->getName() <<
+          errMsg("can't prepend type " << ltype->getName() <<
               " to " << rtype->getName());
         }
         type = rtype;
@@ -755,7 +449,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
       //TODO: support array concatenation with +
       if(!(ltype->isNumber()) || !(rtype->isNumber()))
       {
-        ERR_MSG("operands to arithmetic operators must be numbers.");
+        errMsg("operands to arithmetic operators must be numbers.");
       }
       type = TypeSystem::promote(ltype, rtype);
       if(ltype != type)
@@ -774,7 +468,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
       //TODO (CTE): error for rhs < 0
       if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        ERR_MSG("operands to bit shifting operators must be integers.");
+        errMsg("operands to bit shifting operators must be integers.");
       }
       type = ltype;
       break;
@@ -791,7 +485,7 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
       type = primitives[TypeNT::BOOL];
       if(!ltype->canConvert(rtype) && !rtype->canConvert(ltype))
       {
-        ERR_MSG("can't compare " << ltype->getName() <<
+        errMsg("can't compare " << ltype->getName() <<
             " and " << rtype->getName());
       }
       if(ltype != rtype)
@@ -809,8 +503,6 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : lhs(l), rhs(r)
     }
     default: INTERNAL_ERROR;
   }
-  deps.insert(l->deps.begin(), l->deps.end());
-  deps.insert(r->deps.begin(), r->deps.end());
   pure = l->pure && r->pure;
 }
 
@@ -917,7 +609,7 @@ Indexed::Indexed(Expression* grp, Expression* ind)
   //Anything else is assumed to be an array and then the index can be any integer expression
   if(dynamic_cast<CompoundLiteral*>(group))
   {
-    ERR_MSG("Can't index a compound literal - assign it to an array first.");
+    errMsg("Can't index a compound literal - assign it to an array first.");
   }
   //note: ok if this is null
   //in all other cases, group must have a type now
@@ -932,13 +624,13 @@ Indexed::Indexed(Expression* grp, Expression* ind)
       auto val = intIndex->value;
       if(val >= tt->members.size())
       {
-        ERR_MSG(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));
+        errMsg(string("Tuple subscript out of bounds: tuple has ") + to_string(tt->members.size()) + " but requested member " + to_string(val));
       }
       type = tt->members[val];
     }
     else
     {
-      ERR_MSG("Tuple subscript must be an integer constant.");
+      errMsg("Tuple subscript must be an integer constant.");
     }
   }
   else if(auto at = dynamic_cast<ArrayType*>(group->type))
@@ -951,14 +643,14 @@ Indexed::Indexed(Expression* grp, Expression* ind)
     //make sure ind can be converted to the key type
     if(!mt->key->canConvert(ind->type))
     {
-      ERR_MSG("used incorrect type to index map");
+      errMsg("used incorrect type to index map");
     }
     //map lookup can fail, so return a "maybe" of value
     type = maybe(mt->value);
   }
   else
   {
-    ERR_MSG("expression can't be subscripted (is not an array, tuple or map)");
+    errMsg("expression can't be subscripted (is not an array, tuple or map)");
   }
   deps.insert(grp->deps.begin(), grp->deps.end());
   deps.insert(ind->deps.begin(), ind->deps.end());
@@ -976,7 +668,7 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
   auto ct = dynamic_cast<CallableType*>(c->type);
   if(!ct)
   {
-    ERR_MSG("expression is not callable");
+    errMsg("expression is not callable");
   }
   callable = c;
   args = a;
@@ -997,7 +689,7 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
   //make sure number of arguments matches
   if(callable->argTypes.size() != args.size())
   {
-    ERR_MSG("in call to " << (callable->ownerStruct ? "" : "static") <<
+    errMsg("in call to " << (callable->ownerStruct ? "" : "static") <<
         (callable->pure ? "function" : "procedure") << ", expected " <<
         callable->argTypes.size() << " arguments but got " << args.size());
   }
@@ -1006,7 +698,7 @@ void checkArgs(CallableType* callable, vector<Expression*>& args)
     //make sure arg value can be converted to expected type
     if(!callable->argTypes[i]->canConvert(args[i]->type))
     {
-      ERR_MSG("argument " << i + 1 << " to " << (callable->ownerStruct ? "" : "static") <<
+      errMsg("argument " << i + 1 << " to " << (callable->ownerStruct ? "" : "static") <<
         (callable->pure ? "function" : "procedure") << " has wrong type (expected " <<
         callable->argTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
@@ -1024,11 +716,11 @@ VarExpr::VarExpr(Scope* s, Parser::Member* ast)
   Name n = s->findName(ast);
   if(n.item == nullptr)
   {
-    ERR_MSG("use of undeclared identifier " << *ast);
+    errMsg("use of undeclared identifier " << *ast);
   }
   else if(n.kind != Name::VARIABLE)
   {
-    ERR_MSG(*ast << " is not a variable");
+    errMsg(*ast << " is not a variable");
   }
   var = (Variable*) n.item;
   //type of variable must be known
@@ -1082,6 +774,42 @@ ExternSubroutineExpr::ExternSubroutineExpr(ExternalSubroutine* es)
   type = exSubr->type;
 }
 
+/************
+ * NamedMem *
+ ************/
+
+NamedExpr::NamedExpr(Parser::Member* name, Scope* s)
+{
+  resolved = false;
+}
+
+NamedExpr::NamedExpr(Variable* v)
+{
+  value = v;
+  type = v->type;
+  resolved = true;
+}
+
+NamedExpr::NamedExpr(Subroutine* s)
+{
+  value = s;
+  type = s->type;
+  resolved = true;
+}
+
+NamedExpr::NamedExpr(ExternalSubroutine* ex)
+{
+  value = ex;
+  type = ex->type;
+  resolved = true;
+}
+
+void NamedExpr::resolve(bool err)
+{
+  if(resolved)
+    return;
+}
+
 /*************
  * StructMem *
  *************/
@@ -1112,7 +840,7 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast)
   {
     if(!dim->type->isInteger())
     {
-      ERR_MSG("array dimensions must be integers");
+      errMsg("array dimensions must be integers");
     }
   }
 }
@@ -1153,7 +881,7 @@ ThisExpr::ThisExpr(Scope* where)
   }
   if(!structType)
   {
-    ERR_MSG("this pointer not available in static context");
+    errMsg("this pointer not available in static context");
   }
   type = structType;
 }
@@ -1168,7 +896,7 @@ Converted::Converted(Expression* val, Type* dst)
   type = dst;
   if(!type->canConvert(value->type))
   {
-    ERR_MSG("can't implicitly convert from " << val->type->getName() << " to " << type->getName());
+    errMsg("can't implicitly convert from " << val->type->getName() << " to " << type->getName());
   }
 }
 
@@ -1189,5 +917,34 @@ EnumExpr::EnumExpr(TypeSystem::EnumConstant* ec)
 ErrorVal::ErrorVal()
 {
   type = primitives[Parser::TypeNT::ERROR];
+}
+
+/*************************/
+/* Expression resolution */
+/*************************/
+
+void resolveExpr(Expression*& expr, bool err)
+{
+  if(expr->isResolved())
+  {
+    return;
+  }
+  auto unres = (UnresolvedExpr*) expr;
+  Name name = unres->usage->findName(unres->name);
+  //name must be a variable (VarExpr) or subroutine (SubroutineExpr)
+  if(name.kind == Name::VARIABLE)
+  {
+    auto var = (Variable*) name.item;
+  }
+  else if(name.kind == Name::SUBROUTINE)
+  {
+  }
+  else
+  {
+    if(err)
+    {
+      errMsg(*unres->name << " is not a valid expression");
+    }
+  }
 }
 

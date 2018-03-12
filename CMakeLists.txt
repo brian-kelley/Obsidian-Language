@@ -12,6 +12,7 @@ add_executable (onyx
   src/Token.cpp
   src/Lexer.cpp
   src/Parser.cpp
+  src/AST.cpp
   src/ParseTreeOutput.cpp
   src/Meta.cpp
   src/Variable.cpp

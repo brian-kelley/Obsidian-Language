@@ -1,6 +1,42 @@
 ---------------------
       TODO:
 ---------------------
+-Finish merging AST with parse tree
+  -try to resolve each node right after parsing it
+    -unless it's a call (or contains a call) because
+      all overloads might not be available yet
+  -resolve the whole program (global module) after parsing
+  -backend shouldn't have to change very much
+-Add logic for inserting tokens in stream at current position
+  -token stream should be vector<vector<Token*>>
+  -after fully consuming an inner vector, erase it
+  -should only affect lookAhead() and eat() - eat should be a trivial accept()
+    -the real accept/expect functions can be implemented in terms of these
+-Add keyword include
+  -check that is inside static module
+  -read file (if that fails, give informative message)
+  -lex and insert tokens at current position
+  -maintain list of integer file IDs
+    -store these in AST nodes along with line/col
+    -included files should remember where they were included (create a tree)
+  -include should be idempotent (doing it again with same file is no-op)
+    -don't even need to read the file after first time, just find path in table
+-Implement external functions in backend
+-Allow shadowing
+-Implement overloading
+  -Name::SUBROUTINE needs to be changed to refer to all subrs with same name
+  -can't overload on return type alone
+  -all overloads must be in the same scope
+    -subrs with same name but diff scope shadows instead
+  -when resolving calls, choose first version with exact type match,
+    then the first one (lexically) that matches
+-Implement generic keyword (see below)
+  -generic is just another kind of ScopedDecl (and Name)
+-Add punctuation for meta: @ $ @> $>
+-In parser, add hook for meta statements (see a # means parse & exec stmt/decl)
+-At this point, core (non-meta) language is 100% done
+  -so finish the interpreter
+
 -Allow subroutine overloading
 -This is so that calling with union argument(s) will dynamic dispatch to the correct version for contents IF version taking the exact union directly doesn't exist
   -To find matching subr, take first found where arguments exactly match,
@@ -15,25 +51,88 @@
 -Metaprogramming:
   -Put '#' before any pseudo-statement (scoped decls and regular statements)
     -A scoped decl after # must be variable or subroutine
+      (all other scoped decls must exist in both meta world and regular program)
     -Meta-variables are different kind of name than (normal scoping applies)
-    -Meta-subroutines are allowed to contain emit(), regular ones aren't
+    -Meta-subroutines can contain $/@-statements, regular ones can't
       -they can still be represented as Subroutine, just add 'meta' bool
-    -Meta-statements are run at compile time and not included anywhere in generated code
-    -the '#' makes them trivial to parse: any time a '#' token is seen, parse and run a statement
-    -#emit(nonterminal); can also go anywhere
+    -Meta-statements are run at compile time (have no presense in final C/machine code output)
+  -#define <identifier> "..."; works just like C
+    -don't need function-like macros because meta-procs can do everything they do
+  -Implicit conversion from string to any AST node type is parsing
+
+  -New syntax rules:
+  * (any):                #<stmt>: execute meta-stmt or create meta-decl
+  * (stmt in meta-subr):  @<expr>: evaluate expr at compile time, expr must be string, and output lex(expr) to code stream
+  * (stmt in meta-subr):  $<expr>: evaluate expr at compile time, and output it to code
+  * $> <expr> and @> <expr> append tokens to end of code, not current position
+      * for values, create equivalent literal (ALL values can be represented as primitive or compound literals)
+      * for AST elements, unparse back to tokens
 
   //Example: do10(b) generates a loop that runs b 10 times
   #proc void do10(Block b)
   {
-    emit("for i : 0,10 ");
-    emit(b);
+    @"for i : 0,10";
+    $b;
   }
 
-  //this call will be 
-  #do10({print("Hello world\n");})
+  //This is a fully functional "include",
+  //although real compiler should have #include
+  //built in so that file/line/col works with multiple files
+  //also, should actually include each file once, even if #included
+  //multiple times
+  #proc void include(string fname)
+  {
+    string text = readFile(fname);
+    @text;
+  }
+
+  //C++ style generics (but with code size reduction option)
+  //need keyword "generic"
+  //example syntax:
+  generic(T)
+  func int serialSize(T val)
+  {
+    return serialize(val).len;
+  }
+
+  //compiler could implement by fully instantiating the decl for every type,
+  //or by creating a single decl that has a union that covers all uses
+  //suppose program uses:
+  serialSize(int)(6);
+  serialSize(string)("omgwtfbbq");
+  serialSize(byte[])([1, 2, 3, 4, 5]);
+
+  //there could be represented in final code by:
+  func int serialSize_int__(int val)
+  func int serialSize_string__(string val)
+  func int serialSize_byte_arr__(byte[] val)
+
+  //OR as:
+  //argument is implicitly converted to exact match in union,
+  //and if return value is a T union then extract the real value
+  func int serialSize((int | string | byte[]) val)
+  {
+    match v : val
+    {
+      case int:
+        return serialize(v).len;
+      case string:
+        return serialize(v).len;
+      case byte[]:
+        return serialize(v).len;
+    }
+  }
+
+  //this can reduce code size from exponential to linear for
+  //templates with multiple arguments (i.e. trilinos),
+  //with small constant time overhead per call
+  //(costs the union setup and an indirect jump, which is same as virtual call)
+
+  //always do this when optimizing for code size (i.e. debug builds)
+  //do this in cold code in release builds
 
   -Parser works through a single, linear token stream
-  -If at any point the parser looks ahead to '#', parse a meta-statement there
+  -If at any point the parser looks ahead to '#', parse/execute meta-statement
   -In this context, statements can be declarations or actions
 
 -Front end: text stream -> token stream -> parse tree
@@ -72,12 +171,14 @@ BUILT-IN MODULES (all must be fully cross-platform)
     -Mesh utilities (half-edge structure, loading, saving)
   -Font (Unicode support, antialiasing)
   -Input (keyboard, mouse, gamepad - portable across all machines)
-    -Want to be able to poll efficiently like SDL,
+    -Want to be able to poll keys/buttons efficiently like SDL,
       or set callbacks for specific events
-  -UI (something like libUI, but from scratch)
+    -callbacks are dead simple with first-class subrs
+  -UI (like libUI)
+    -should call native Win32/Cocoa/ GTK? for native look and feel
   -Native audio wrapper
   -set(T) in global, implemented as (T : void)
-  -Compression, for use with serialization: Zstandard?
+  -Compression, for use with serialization: Zstd? (speed > compression)
   -Graph
     -Directed and not
     -Dijkstra's algo for single source reachability/distance

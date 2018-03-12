@@ -4,6 +4,25 @@
 #include "Common.hpp"
 #include "Token.hpp"
 
+//List of source file paths
+extern vector<string> sourceFiles;
+
+struct IncludedFile
+{
+  IncludedFile() : including(-1), line(-1)
+  {}
+  IncludedFile(int i, int l) : including(i), line(l)
+  {}
+  //sourceFiles[including] is the file which includes this one
+  //-1 for the root file
+  int including;
+  //in sourceFiles[including], which line has the #include
+  //-1 for the root file
+  int line;
+};
+
+extern vector<IncludedFile> includes;
+
 struct Node
 {
   Node(Token* t)
@@ -27,9 +46,8 @@ struct Node
   }
   //Convert Node back into tokens (used by emit statements)
   virtual vector<Token*> unparse() = 0;
-  //Nodes know their own position in code
-  //TODO: use fileID in future, when multiple files are allowed
-  int fileID;
+  //All nodes know their position in code (for error messages)
+  int fileID; //index in sourceFiles
   int line;
   int col;
   bool resolved;

@@ -7,20 +7,17 @@
 
 struct Expression : public Node
 {
-  Expression() : type(nullptr), pure(true) {}
+  Expression() : type(nullptr) {}
   virtual void resolve(bool err) {}
   TypeSystem::Type* type;
-  //list of all variables used to compute this
-  set<Variable*> deps;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
-  //whether this expression is "pure" within given scope (uses dependencies)
-  bool pureWithin(Scope* s);
-  //are all variable dependencies enclosed in s?
-  bool withinScope(Scope* s);
-  //whether this expression relies on any procedure calls
-  bool pure;
 };
+
+//Resolve an expression in-place
+//this is needed because Expression::resolve() can't
+//help if resolved expr has different subclass than unresolved
+Expression* resolveExpr(Expression*& expr);
 
 //Subclasses of Expression
 struct UnaryArith;
@@ -75,6 +72,7 @@ struct BinaryArith : public Expression
   {
     return false;
   }
+  void resolve(bool err);
 };
 
 struct IntLiteral : public Expression
@@ -142,6 +140,7 @@ struct CompoundLiteral : public Expression
   }
   vector<Expression*> members;
   bool lvalue;
+  void resolve(bool err);
 };
 
 struct Indexed : public Expression
@@ -171,39 +170,31 @@ struct CallExpr : public Expression
 //helper to verify argument number and types
 void checkArgs(TypeSystem::CallableType* callable, vector<Expression*>& args);
 
-struct VarExpr : public Expression
+struct NamedExpr : public Expression
 {
-  VarExpr(Scope* s, Parser::Member* ast);
-  VarExpr(Variable* v);
-  Variable* var;  //var must be looked up from current scope
+  NamedExpr(Parser::Member* name, Scope* s);
+  NamedExpr(Variable* v);
+  NamedExpr(Subroutine* s);
+  NamedExpr(ExternalSubroutine* ex);
+  variant<Variable*, Subroutine*, ExternalSubroutine*> value;
+  Parser::Member* name;
+  Scope* usage;
   bool assignable()
   {
-    //all variables are lvalues
-    return true;
+    if(value.is<Variable*>())
+      return true;
+    else
+      return false;
   }
-};
-
-//Expression to represent constant callable
-//May be standalone, or may be applied to an object
-struct SubroutineExpr : public Expression
-{
-  SubroutineExpr(Subroutine* s);
-  SubroutineExpr(Expression* thisObj, Subroutine* s);
-  SubroutineExpr(ExternalSubroutine* es);
-  Subroutine* subr;
-  ExternalSubroutine* exSubr;
-  Expression* thisObject;
-  bool assignable()
-  {
-    return false;
-  }
+  void resolve(bool err);
 };
 
 struct StructMem : public Expression
 {
   StructMem(Expression* base, Variable* v);
   Expression* base;           //base->type is always a StructType
-  Variable* member;           //member must be a member of base->type
+  Parser::Member* member;
+  variant<Variable*, Subroutine*> member;           //member must be a member of base->type
   bool assignable()
   {
     return base->assignable();
@@ -271,21 +262,7 @@ struct ErrorVal : public Expression
   }
 };
 
-struct UnresolvedExpr : public Expression
-{
-  UnresolvedExpr(Parser::Member* m, Scope* s)
-  {
-    type = nullptr;
-    name = m;
-    usage = s;
-  }
-  bool assignable()
-  {
-    return false;
-  }
-  Parser::Member* name;
-  Scope* usage;
-};
+void resolveExpr(Expression*& expr, bool err);
 
 #endif
 

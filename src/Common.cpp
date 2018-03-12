@@ -1,4 +1,5 @@
 #include "Common.hpp"
+#include "AST.hpp"
 
 string loadFile(string filename)
 {
@@ -11,9 +12,9 @@ string loadFile(string filename)
   size_t size = ftell(f);
   rewind(f);
   string text;
-  text.resize(size + 2);
+  text.resize(size + 1);
   fread((void*) text.c_str(), 1, size, f);
-  text[size + 1] = '\n';
+  text[size] = '\n';
   fclose(f);
   return text;
 }
@@ -39,6 +40,7 @@ bool runCommand(string command, bool silenced)
 {
   if(silenced)
   {
+    //pipe stdout and stderr to null so it doesn't go to terminal
     command += " &> /dev/null";
   }
   return system(command.c_str()) == 0;

@@ -13,9 +13,10 @@ struct ModuleScope;
 
 extern Scope* global;
 
+vector<Type*> primitives;
+
 namespace TypeSystem
 {
-vector<Type*> primitives;
 map<string, Type*> primNames;
 vector<StructType*> structs;
 set<ArrayType*, ArrayCompare> arrays;
@@ -841,14 +842,6 @@ bool CallableType::canConvert(Type* other)
   if(argTypes != ct->argTypes)
     return false;
   return true;
-}
-
-bool CallableType::sameExceptOwner(CallableType* other)
-{
-  return pure == other->pure &&
-    nonterminating == other->nonterminating &&
-    returnType == other->returnType &&
-    argTypes == other->argTypes;
 }
 
 bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs)

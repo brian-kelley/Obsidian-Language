@@ -22,7 +22,8 @@ struct Variable
   Variable(Scope* s, string name, TypeSystem::Type* t, bool member = false);
   string name;
   TypeSystem::Type* type;
-  bool isMember;
+  //the struct where this is a member, or NULL if static/local
+  Struct* owner;
   Scope* scope; //variables need to know their own scope for fn purity checking
 };
 
