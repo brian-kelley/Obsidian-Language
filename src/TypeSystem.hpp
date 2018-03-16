@@ -184,7 +184,7 @@ struct StructType : public Type
   string name;
   vector<Variable*> members;
   vector<bool> composed; //1-1 correspondence with members
-  StructScope* structScope;
+  Scope* scope;
   bool canConvert(Type* other);
   bool isStruct() {return true;}
   void check(); //called once per struct at end of semantic checking
@@ -203,7 +203,6 @@ struct StructType : public Type
   map<string, IfaceMember> interface;
   private:
   bool checked;   //whether check() has been called
-  bool checking;  //whether check() was called but hasn't returned yet
 };
 
 struct UnionType : public Type

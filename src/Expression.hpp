@@ -8,16 +8,16 @@
 struct Expression : public Node
 {
   Expression() : type(nullptr) {}
-  virtual void resolve(bool err) {}
+  virtual void resolve(bool final) {}
   TypeSystem::Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
 };
 
 //Resolve an expression in-place
-//this is needed because Expression::resolve() can't
-//help if resolved expr has different subclass than unresolved
-Expression* resolveExpr(Expression*& expr);
+//this is needed because resolved expr may have
+//different type than unresolved
+Expression* resolveExpr(Expression*& expr, bool final);
 
 //Subclasses of Expression
 struct UnaryArith;
@@ -38,10 +38,6 @@ struct ThisExpr;
 struct ErrorVal;
 struct UnresolvedExpr;
 
-//Create a new Expression given one of the ExprN nonterminals
-template<typename NT>
-Expression* getExpression(Scope* s, NT* expr);
-
 //process one name as part of Expr12 or Expr12RHS
 //returns true iff root is a valid expression that uses all names
 void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root, Scope*& scope);
@@ -59,7 +55,7 @@ struct UnaryArith : public Expression
   {
     return false;
   }
-  void resolve(bool err);
+  void resolve(bool final);
 };
 
 struct BinaryArith : public Expression
@@ -72,7 +68,7 @@ struct BinaryArith : public Expression
   {
     return false;
   }
-  void resolve(bool err);
+  void resolve(bool final);
 };
 
 struct IntLiteral : public Expression
@@ -133,32 +129,32 @@ struct BoolLiteral : public Expression
 //CompoundLiteral covers both array and struct literals
 struct CompoundLiteral : public Expression
 {
-  CompoundLiteral(Scope* s, Parser::StructLit* ast);
+  CompoundLiteral(vector<Expression*> mems);
+  void resolve(bool final);
   bool assignable()
   {
     return lvalue;
   }
   vector<Expression*> members;
   bool lvalue;
-  void resolve(bool err);
 };
 
 struct Indexed : public Expression
 {
   Indexed(Expression* grp, Expression* ind);
+  void resolve(bool final);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
   bool assignable()
   {
     return group->assignable();
   }
-  private:
-  void semanticCheck(); //called by both constructors
 };
 
 struct CallExpr : public Expression
 {
   CallExpr(Expression* callable, vector<Expression*>& args);
+  void resolve(bool final);
   Expression* callable;
   vector<Expression*> args;
   bool assignable()
@@ -167,44 +163,68 @@ struct CallExpr : public Expression
   }
 };
 
-//helper to verify argument number and types
-void checkArgs(TypeSystem::CallableType* callable, vector<Expression*>& args);
-
-struct NamedExpr : public Expression
+struct VarExpr : public Expression
 {
-  NamedExpr(Parser::Member* name, Scope* s);
-  NamedExpr(Variable* v);
-  NamedExpr(Subroutine* s);
-  NamedExpr(ExternalSubroutine* ex);
-  variant<Variable*, Subroutine*, ExternalSubroutine*> value;
+  VarExpr(Variable* v, Scope* s);
+  VarExpr(Variable* v);
+  void resolve(bool final);
+  Variable* var;  //var must be looked up from current scope
+  Scope* scope;
+  bool assignable()
+  {
+    //all variables are lvalues
+    return true;
+  }
+};
+
+//Expression to represent constant callable
+//May be standalone, or may be applied to an object
+struct SubroutineExpr : public Expression
+{
+  SubroutineExpr(Subroutine* s);
+  SubroutineExpr(Expression* thisObj, Subroutine* s);
+  SubroutineExpr(ExternalSubroutine* es);
+  void resolve(bool final);
+  bool assignable()
+  {
+    return false;
+  }
+  Subroutine* subr;
+  ExternalSubroutine* exSubr;
+  Expression* thisObject; //null for static/extern
+};
+
+struct UnresolvedExpr : public Expression
+{
+  UnresolvedExpr(Parser::Member* name, Scope* s);
+  UnresolvedExpr(Expression* base, Parser::Member* name, Scope* s);
+  Expression* base; //null = no base
   Parser::Member* name;
   Scope* usage;
   bool assignable()
   {
-    if(value.is<Variable*>())
-      return true;
-    else
-      return false;
+    return false;
   }
-  void resolve(bool err);
 };
 
 struct StructMem : public Expression
 {
-  StructMem(Expression* base, Variable* v);
-  Expression* base;           //base->type is always a StructType
-  Parser::Member* member;
-  variant<Variable*, Subroutine*> member;           //member must be a member of base->type
+  StructMem(Expression* base, Variable* var);
+  void resolve(bool final);
+  Expression* base;           //base->type is always StructType
+  Variable* member;           //member must be a member of base->type
   bool assignable()
   {
-    return base->assignable();
+    return base->assignable() && member.is<Variable*>();
   }
 };
 
 struct NewArray : public Expression
 {
-  NewArray(Type* elemType, vector<Expression*> dims);
+  NewArray(UnresolvedType* elemType, vector<Expression*> dims);
+  UnresolvedType* elem;
   vector<Expression*> dims;
+  void resolve(bool final);
   bool assignable()
   {
     return false;
@@ -215,6 +235,7 @@ struct ArrayLength : public Expression
 {
   ArrayLength(Expression* arr);
   Expression* array;
+  void resolve(bool final);
   bool assignable()
   {
     return false;
@@ -262,7 +283,7 @@ struct ErrorVal : public Expression
   }
 };
 
-void resolveExpr(Expression*& expr, bool err);
+void resolveExpr(Expression*& expr, bool final);
 
 #endif
 

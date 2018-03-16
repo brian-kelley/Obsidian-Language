@@ -137,7 +137,7 @@ enum
   NUM_TOKEN_TYPES
 };
 
-struct Token
+struct Token : public Node
 {
   Token();
   virtual bool compareTo(Token* rhs) = 0;
@@ -145,8 +145,6 @@ struct Token
   virtual string getStr() = 0;    //string equivalent to original text
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   int type;
-  int line;
-  int col;
 };
 
 //Identifier: variable name or type name

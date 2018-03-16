@@ -364,7 +364,6 @@ void StructType::check()
   if(checked)
     return;
   //check for membership cycles
-  checking = true;
   if(contains(this))
   {
     ERR_MSG("struct " << name << " has itself as a member");
@@ -412,7 +411,6 @@ void StructType::check()
     }
   }
   checked = true;
-  checking = false;
 }
 
 bool StructType::contains(Type* t)

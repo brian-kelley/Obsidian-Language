@@ -3,7 +3,22 @@
 #include "Variable.hpp"
 #include "Subroutine.hpp"
 
+using namespace TypeSystem;
+
 Scope* global;
+
+bool Name::inScope(Scope* s)
+{
+  //see if scope is same as, or child of, s
+  for(Scope* iter = scope; iter = iter->parent; iter++)
+  {
+    if(iter == s)
+    {
+      return true;
+    }
+  }
+  return false;
+}
 
 /*******************************
 *   Scope & subclasses impl    *
@@ -89,7 +104,7 @@ void Scope::shadowCheck(string name)
   }
 }
 
-Struct* Scope::getStructContext()
+StructType* Scope::getStructContext()
 {
   //walk up scope tree, looking for a Struct scope before
   //reaching a static subroutine or global scope
@@ -109,5 +124,38 @@ Struct* Scope::getStructContext()
     }
   }
   return nullptr;
+}
+
+Scope* Scope::getFunctionContext()
+{
+  for(Scope* iter = this; iter; iter = iter->parent)
+  {
+    if(iter->node.is<Subroutine*>())
+    {
+      auto subr = iter->node.get<Subroutine*>();
+      if(subr->type->pure)
+      {
+        if(subr->type->ownerStruct)
+        {
+          return subr->type->ownerStruct->scope;
+        }
+        else
+        {
+          return subr->scope;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+bool Scope::contains(Scope* other)
+{
+  for(Scope* iter = other; iter; iter = iter->parent)
+  {
+    if(iter == this)
+      return true;
+  }
+  return false;
 }
 

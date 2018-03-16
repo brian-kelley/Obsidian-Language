@@ -4,6 +4,11 @@
 #include "Common.hpp"
 #include "AST.hpp"
 
+namespace TypeSystem
+{
+  struct StructType;
+}
+
 // Unified name lookup system
 struct Name
 {
@@ -43,6 +48,7 @@ struct Name
   //All named declaration types
   Kind kind;
   Scope* scope;
+  bool inScope(Scope* s);
 };
 
 struct Module
@@ -66,7 +72,17 @@ struct Scope
   map<string, Name> names;
   //if in static context, this returns NULL
   //otherwise, returns the Struct that "this" would refer to
-  Struct* getStructContext();
+  TypeSystem::StructType* getStructContext();
+  /*  take innermost function scope
+      if static, return that function's scope
+      if member, return owning struct
+      otherwise return NULL
+
+      This is used for purity checking
+  */
+  Scope* getFunctionContext();
+  //does this contain other?
+  bool contains(Scope* other);
   variant<Module*, Struct*, Subroutine*, Block*, Enum*> node;
   private:
   //make sure that name won't shadow any existing declaration

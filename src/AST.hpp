@@ -44,6 +44,12 @@ struct Node
     resolve(false);
     return resolved;
   }
+  void setLocation(Node* other)
+  {
+    fileID = other->fileID;
+    line = other->line;
+    col = other->col;
+  }
   //Convert Node back into tokens (used by emit statements)
   virtual vector<Token*> unparse() = 0;
   //All nodes know their position in code (for error messages)
