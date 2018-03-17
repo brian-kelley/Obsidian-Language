@@ -714,33 +714,169 @@ void resolveExpr(Expression*& expr, bool final)
     return;
   }
   Expression* base = unres->base; //might be null
-  resolveExpr(base, final);
   auto scope = unres->usage;
-  Scope* searchScope = nullptr;
   //set initial searchScope:
   //the struct scope if base is a struct, otherwise just usage
   size_t nameIter = 0;
-  vector<string&> names = unres->usage->names;
-  while(nameIter < names.size())
+  vector<string>& names = unres->usage->names;
+  //first, get a base expression
+  if(!base)
   {
-    if(base && base->type->isStruct())
+    Scope* baseSearch = usage;
+    while(!base)
     {
-      searchScope = ((StructType*) base->type)->scope;
-    }
-    else if(!base)
-    {
-      searchScope = scope;
-    }
-    else if(base && base->type->isArray() && n == "len")
-    {
-      base = new ArrayLength(base);
-      //since original base was resolved, can resolve new base
-      base->resolve(true);
-    }
-    else
-    {
-      errMsgLoc(this, "non-struct type " << base->type->getName() << " has no members");
+      Name found = baseSearch->findName(names[nameIter]);
+      if(!found->item)
+      {
+        if(!final)
+        {
+          //can't continue, but not an error either
+          return;
+        }
+        string fullPath = names[0];
+        for(int i = 0; i < nameIter; i++)
+        {
+          fullPath = fullPath + '.' + names[i];
+        }
+        errMsgLoc(this, "unknown identifier " << fullPath);
+      }
+      //based on type of name, either set base or update search scope
+      switch(found.kind)
+      {
+        case MODULE:
+          baseSearch = ((Module*) found.item)->scope;
+          break;
+        case STRUCT:
+          baseSearch = ((StructType*) found.item)->scope;
+          break;
+        case SUBROUTINE:
+          {
+            auto subr = (Subroutine*) found.item;
+            if(subr->type->ownerStruct)
+            {
+              //is a member subroutine, so create implicit "this"
+              ThisExpr* subrThis = new ThisExpr(usage);
+              subrThis->resolve(true);
+              //this must match owner type of subr
+              if(subr->type->ownerStruct != subrThis->structType)
+              {
+                errMsgLoc(this,
+                    "implicit 'this' here can't be used to call " \
+                    subr->type->ownerStruct->name << '.' << subr->name);
+              }
+              base = new SubroutineExpr(subrThis, (Subroutine*) found.item);
+            }
+            else
+            {
+              //nonmember subroutine can be called from anywhere,
+              //so no context checking here
+              base = new SubroutineExpr(subr);
+            }
+            break;
+          }
+        case EXTERN_SUBR:
+          base = new SubroutineExpr((ExternalSubroutine*) found.item);
+          break;
+        case VARIABLE:
+          {
+            auto var = (Variable*) found.item;
+            if(var->owner)
+            {
+              ThisExpr* varThis = new ThisExpr(usage);
+              if(varThis->structType != var->owner)
+              {
+                errMsgLoc(this,
+                    "implicit 'this' here can't be used to access " \
+                    var->owner->name << '.' << var->name);
+              }
+              base = new StructMem(varThis, var);
+            }
+            else
+            {
+              //static variable can be accessed anywhere
+              base = new VarExpr(var);
+            }
+            base = new VarExpr((Variable*) found.item);
+            break;
+          }
+        case ENUM_CONSTANT:
+          base = new EnumExpr((EnumConstant*) found.item);
+          break;
+        default:
+          errMsgLoc(this, "identifier is not a valid expression");
+      }
+      nameIter++;
     }
   }
+  base->resolve(final);
+  //base must be resolved (need its type) to continue
+  if(!base->resolved)
+    return;
+  //look up members in searchScope until a new expr can be formed
+  while(nameIter < names.size())
+  {
+    if(base->type->isArray() && names[nameIter] == "len")
+    {
+      base = new ArrayLength(base);
+      //this resolution can't fail
+      base->resolve(true);
+      nameIter++;
+      continue;
+    }
+    auto baseStruct = dynamic_cast<StructType*>(base->type);
+    if(!baseStruct)
+    {
+      errMsgLoc("cant access member of non-struct type " << base->type->getName());
+    }
+    bool validBase = false;
+    while(!validBase && nameIter < names.size())
+    {
+      Name found = baseSearch->findName(names[nameIter]);
+      if(!found->item)
+      {
+        if(!final)
+        {
+          //can't continue, but not an error either
+          return;
+        }
+        string fullPath = names[0];
+        for(int i = 0; i < nameIter; i++)
+        {
+          fullPath = fullPath + '.' + names[i];
+        }
+        errMsgLoc(this, "unknown identifier " << fullPath);
+      }
+      //based on type of name, either set base or update search scope
+      switch(found.kind)
+      {
+        case MODULE:
+          baseSearch = ((Module*) found.item)->scope;
+          break;
+        case SUBROUTINE:
+          base = new SubroutineExpr((Subroutine*) found.item);
+          validBase = true;
+          break;
+        case VARIABLE:
+          base = new StructMem(base, (Variable*) found.item);
+          validBase = true;
+          break;
+        default:
+          errMsgLoc(this, "identifier " << names[nameIter] << \
+              " is not a valid member of struct " << base->type->getName());
+      }
+    }
+    if(!validBase)
+    {
+      //used up all the names but ended up with a module, not an expr
+      string fullPath = names[0];
+      for(int i = 0; i < nameIter; i++)
+      {
+        fullPath = fullPath + '.' + names[i];
+      }
+      errMsgLoc(this, fullPath << " is not an expression");
+    }
+    base->resolve(final);
+  }
+  expr = base;
 }
 

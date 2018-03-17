@@ -121,6 +121,11 @@ StructType* Scope::getStructContext()
       {
         return subrType->ownerStruct;
       }
+      else
+      {
+        //in a static subroutine, which is always a static context
+        return nullptr;
+      }
     }
   }
   return nullptr;

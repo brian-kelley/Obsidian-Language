@@ -22,8 +22,7 @@ struct Name
     SUBROUTINE,
     EXTERN_SUBR,
     VARIABLE,
-    ENUM_CONSTANT,
-    META_VAR
+    ENUM_CONSTANT
   };
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
   Name(Module* m, Scope* parent)
@@ -42,8 +41,6 @@ struct Name
     : item(var), kind(VARIABLE), scope(s) {}
   Name(EnumConstant* ec, Scope* s)
     : item(ec), kind(ENUM_CONSTANT), scope(s) {}
-  Name(MetaVar* var, Scope* s)
-    : item(var), kind(META_VAR), scope(s) {}
   void* item;
   //All named declaration types
   Kind kind;
@@ -53,8 +50,9 @@ struct Name
 
 struct Module
 {
-  //name is empty str for global
+  //name is "" for global scope
   string name;
+  Scope* scope;
 };
 
 //Scopes own all funcs/structs/traits/etc
