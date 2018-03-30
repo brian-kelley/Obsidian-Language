@@ -687,6 +687,14 @@ ErrorVal::ErrorVal()
 /* Expression resolution */
 /*************************/
 
+UnresolvedExpr::UnresolvedExpr(string n, Scope* s)
+{
+  base = nullptr;
+  name = new Parser::Member;
+  name->names.push_back(n);
+  usage = s;
+}
+
 UnresolvedExpr::UnresolvedExpr(Parser::Member* n, Scope* s)
 {
   base = nullptr;

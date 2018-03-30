@@ -14,17 +14,22 @@ namespace TypeSystem
   struct Type;
 }
 
-struct Variable
+struct Variable : public Node
 {
-  //General constructor for static or local variables created through VarDecl
-  Variable(Scope* s, Parser::VarDecl* ast, bool member = false);
-  Variable(Scope* s, string name, Parser::TypeNT* t, bool member = false);
-  Variable(Scope* s, string name, TypeSystem::Type* t, bool member = false);
+  //ctor for global/static/member variables
+  Variable(Scope* s, string name, TypeSystem::Type* t, bool isStatic);
+  //ctor for local variables
+  Variable(string name, TypeSystem::Type* t, Block* b);
+  //this resolve() just resolves type
+  void resolve(bool final);
   string name;
   TypeSystem::Type* type;
   //the struct where this is a member, or NULL if static/local
   Struct* owner;
-  Scope* scope; //variables need to know their own scope for fn purity checking
+  Scope* scope;
+  //for local variables only: the position of VarDecl in the list of statements
+  //used to check for use-before-declare errors
+  //int blockPos;
 };
 
 #endif

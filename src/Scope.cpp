@@ -92,18 +92,6 @@ Name Scope::findName(string name)
   return findName(&m);
 }
 
-void Scope::shadowCheck(string name)
-{
-  for(Scope* iter = this; iter; iter = iter->parent)
-  {
-    Name n = iter->lookup(name);
-    if(n.item)
-    {
-      ERR_MSG("name " << name << " shadows a previous declaration");
-    }
-  }
-}
-
 StructType* Scope::getStructContext()
 {
   //walk up scope tree, looking for a Struct scope before

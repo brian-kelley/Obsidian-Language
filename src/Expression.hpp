@@ -196,6 +196,7 @@ struct SubroutineExpr : public Expression
 
 struct UnresolvedExpr : public Expression
 {
+  UnresolvedExpr(string name, Scope* s);
   UnresolvedExpr(Parser::Member* name, Scope* s);
   UnresolvedExpr(Expression* base, Parser::Member* name, Scope* s);
   Expression* base; //null = no base

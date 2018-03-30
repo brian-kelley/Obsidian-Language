@@ -81,10 +81,9 @@ struct Scope
   Scope* getFunctionContext();
   //does this contain other?
   bool contains(Scope* other);
+  //all types that can represent a Scope in the AST
+  //using this variant instead of having these types inherit Scope
   variant<Module*, Struct*, Subroutine*, Block*, Enum*> node;
-  private:
-  //make sure that name won't shadow any existing declaration
-  void shadowCheck(string name);
 };
 
 extern Scope* global;

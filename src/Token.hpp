@@ -2,6 +2,7 @@
 #define TOKEN_H
 
 #include "Common.hpp"
+#include "AST.hpp"
 
 extern vector<string> keywordTable;
 extern map<string, int> keywordMap;

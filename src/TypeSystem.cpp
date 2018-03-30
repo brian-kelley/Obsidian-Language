@@ -862,6 +862,18 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
       rhs->argTypes.begin(), rhs->argTypes.end());
 }
 
+ExprType::ExprType(Expression* e)
+{
+  expr = e;
+}
+
+void ExprType::resolve(bool)
+{
+  //should never get here,
+  //ExprType must be replaced by another type in resolveType()
+  INTERNAL_ERROR;
+}
+
 void resolveType(Type*& t, bool err)
 {
   if(t->isResolved())

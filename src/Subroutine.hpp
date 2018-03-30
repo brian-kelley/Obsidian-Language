@@ -13,14 +13,20 @@
 
 struct Statement : public Node
 {
-  //Check that the statement doesn't violate the purity
-  //requirement of functions (s should be innermost fn scope)
-  virtual void checkPurity(Scope* s) {}
+  //normal ctor: automatically set index within parent block
+  Statement()
+  {
+    resolved = false;
+  }
+  virtual void resolve(bool final);
   virtual ~Statement() {}
 };
 
 //Statement types
 struct Block;
+//LocalVar needs to be a kind of statement with a position in block,
+//because locals must be declared before use
+struct LocalVar;
 struct Assign;
 struct CallStmt;
 struct For;
@@ -37,109 +43,98 @@ struct Match;
 
 struct Subroutine;
 struct Procedure; 
-struct For;
-struct While;
 
 struct Test;
 
-//Loop (used by continue)
+//Loop (anything that can have continue statement)
 typedef variant<None, For*, While*> Loop;
-//Breakable (used by break)
+//Breakable (anything that can have break statement)
 typedef variant<None, For*, While*, Switch*> Breakable;
 
 //Block: list of statements
 struct Block : public Statement
 {
   //Constructor for function/procedure body
-  Block(Parser::Block* b, BlockScope* s, Subroutine* subr);
-  //Constructor for empty block (used inside For::For)
-  Block(BlockScope* s, Block* parent);
-  //Constructor for block inside a function/procedure
-  Block(Parser::Block* b, BlockScope* s, Block* parent);
+  Block(Subroutine* subr);
+  //Constructor for empty block
+  Block(Block* parent);
   //Constructor for For loop body
-  Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent);
+  Block(For* f);
   //Constructor for While loop body
-  Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent);
-  //Constructor for dummy block (for meta-stmts/tests)
-  Block(BlockScope* s);
-  void addStatements(Parser::Block* ast);
+  Block(While* w);
+  void resolve(bool final);
   vector<Statement*> stmts;
   //scope of the block
-  BlockScope* scope;
-  //subroutine whose body contains this block (passed down to child blocks that aren't 
+  Scope* scope;
+  //subroutine whose body contains this block (passed down to child blocks)
   Subroutine* subr;
-  //scope of innermost function enclosing this (passed down to child blocks)
-  Scope* funcScope;
-  //innermost "breakable" (loop/switch) containing this block (or NULL if none)
-  //  (all break statements correspond to this)
+  //innermost "breakable" (loop/switch) containing this block
   Breakable breakable;
-  //innermost loop whose body contains this block (or NULL if none)
-  //  (all continue statements correspond to this)
+  //innermost loop whose body is or contains this
   Loop loop;
-  void check();
-  void checkPurity(Scope* s);
+  int statementCount;
 };
 
 //Create any kind of Statement - adds to block
 Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 
-//create a statement that doesn't belong directly to any block
-//(used only for meta-statements)
-Statement* standaloneStatement(Parser::StatementNT* stmt, Scope* s);
-
-//Given a VarDecl, add a new Variable to scope and then
-//create an Assign statement if that variable is initialized
-Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd);
-//Create a local variable with given name and type
-Statement* addLocalVariable(BlockScope* s, string name, TypeSystem::Type* type, Expression* init);
-
 struct Assign : public Statement
 {
-  Assign(Parser::VarAssign* va, Scope* s);
-  Assign(Variable* target, Expression* e);
-  Assign(Indexed* target, Expression* e);
+  Assign(Expression* lhs, Expression* rhs);
+  void resolve(bool final);
   Expression* lvalue;
   Expression* rvalue;
-  void checkPurity(Scope* s);
-  private:
-  void commonCtor();  //actually do the semantic checking
 };
 
 struct CallStmt : public Statement
 {
   //Ctor for when it is known that Expr12 is a call
-  CallStmt(Parser::Expr12* call, BlockScope* s);
+  CallStmt(CallExpr* e);
+  void resolve(bool final);
   //code generator just needs to "evaluate" this expression and discard the result
   CallExpr* eval;
-  void checkPurity(Scope* s);
 };
 
 struct For : public Statement
 {
-  //note: scope provided in Parser::For
-  For(Parser::For* f, Block* b);
-  Block* loopBlock;
+  //C-style for loop
+  For(Statement* init, Expression* condition, Statement* increment, Block* body);
+  //for over array
+  For(vector<string>& tupIter, Expression* arr, Block* body);
+  //for over integer range
+  For(string counter, Expression* begin, Expression* end, Block* body);
+  void resolve(bool final);
   Statement* init;
-  Expression* condition;  //check this before each entry to loop body
+  Expression* condition;
   Statement* increment;
-  void checkPurity(Scope* s);
-  private: For() {} //only used inside the real ctor in the for over array case
+  Block* body;
+  //for a multidimensional for over array, bodyImpl is the outermost block,
+  //while body is the innermost
+  private:
+  //create init/condition/increment to iterate over integer range
+  //used by resolve() for both array and range constructors
+  //this creates a variable with name counter and type compatible with begin/end
+  //
+  //precondition: begin and end must be resolved and integers
+  Variable* setupRange(string counter, Expression* begin, Expression* end);
 };
 
 struct While : public Statement
 {
-  While(Parser::While* w, Block* b);
-  Block* loopBlock;
+  While(Expression* condition, Block* body);
+  void resolve(bool final);
   Expression* condition;
-  void checkPurity(Scope* s);
+  Block* body;
 };
 
 struct If : public Statement
 {
-  If(Parser::If* i, Block* b);
+  If(Expression* condition, Statement* body);
+  If(Expression* condition, Statement* tbody, Statement* fbody);
+  void resolve(bool final);
   Expression* condition;
   Statement* body;
-  void checkPurity(Scope* s);
+  Statement* elseBody; //null if no else
 };
 
 struct IfElse : public Statement
@@ -148,16 +143,14 @@ struct IfElse : public Statement
   Expression* condition;
   Statement* trueBody;
   Statement* falseBody;
-  void checkPurity(Scope* s);
 };
 
 struct Match : public Statement
 {
-  Match(Parser::Match* m, Block* b);
   Expression* matched;  //the given expression (must be of union type)
+  vector<TypeSystem::Type*> types;
   vector<Block*> cases; //correspond 1-1 with matched->type->options
   vector<Variable*> caseVars; //correspond 1-1 with cases
-  void checkPurity(Scope* s);
 };
 
 struct Switch : public Statement
@@ -169,7 +162,6 @@ struct Switch : public Statement
   int defaultPosition;
   //the block that holds all the statements but can't hold any scoped decls
   Block* block;
-  void checkPurity(Scope* s);
 };
 
 struct Return : public Statement
@@ -180,7 +172,6 @@ struct Return : public Statement
   Return(Subroutine* s);
   Expression* value; //can be null (void return)
   Subroutine* from;
-  void checkPurity(Scope* s);
 };
 
 struct Break : public Statement
@@ -201,20 +192,12 @@ struct Print : public Statement
 {
   Print(Parser::PrintNT* p, BlockScope* s);
   vector<Expression*> exprs;
-  void checkPurity(Scope* s);
-};
-
-struct Emit : public Statement
-{
-  Emit()
-    variant<string, Token*, ParseNode*> emitted;
 };
 
 struct Assertion : public Statement
 {
   Assertion(Parser::Assertion* as, BlockScope* s);
   Expression* asserted;
-  void checkPurity(Scope* s);
 };
 
 struct Subroutine
@@ -241,14 +224,10 @@ struct ExternalSubroutine
   string c;
 };
 
-struct Test
+struct Test : public Node
 {
-  Test(Parser::TestDecl* td, Scope* s);
+  Test(Block* b, Scope* s);
   Block* run;
-  //Remember where the test is declared to make
-  //test output useful
-  int line;
-  int column;
   static vector<Test*> tests;
 };
 

@@ -22,9 +22,6 @@
 **************************/
 
 struct Scope;
-struct StructScope;
-
-//need to forward-declare this to resolve mutual dependency
 struct Expression;
 
 enum struct Prim
@@ -94,25 +91,6 @@ struct CallableCompare
 {
   bool operator()(const CallableType* lhs, const CallableType* rhs);
 };
-
-struct TypeLookup
-{
-  TypeLookup(Parser::TypeNT* t, Scope* s) : type(t), scope(s) {}
-  TypeLookup(Parser::SubroutineTypeNT* t, Scope* s) : type(t), scope(s) {}
-  //Even though SubroutineTypeNT is an option for TypeNT,
-  //need it here separately for looking up trait subroutine types
-  variant<Parser::TypeNT*,
-          Parser::SubroutineTypeNT*> type;
-  Scope* scope;
-};
-
-//type error message function, to be used by DeferredLookup on types
-string typeErrorMessage(TypeLookup& lookup);
-
-Type* lookupType(Parser::TypeNT* type, Scope* scope);
-CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope);
-//wrapper for lookupType used by deferred type lookup
-Type* lookupTypeDeferred(TypeLookup& args);
 
 Type* getIntegerType(int bytes, bool isSigned);
 
@@ -488,6 +466,16 @@ struct UnresolvedType : public Type
   Kind k;
   Scope* scope;
   int arrayDims;
+  bool isResolved() {return false;}
+};
+
+//The type of an unresolved expression
+//(used internally for array for loops (and TODO auto vars))
+struct ExprType : public Type
+{
+  ExprType(Expression* e);
+  void resolve(bool final);
+  Expression* expr;
   bool isResolved() {return false;}
 };
 

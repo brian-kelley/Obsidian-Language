@@ -2,7 +2,6 @@
 #define AST_H
 
 #include "Common.hpp"
-#include "Token.hpp"
 
 //List of source file paths
 extern vector<string> sourceFiles;
@@ -22,6 +21,8 @@ struct IncludedFile
 };
 
 extern vector<IncludedFile> includes;
+
+struct Token;
 
 struct Node
 {

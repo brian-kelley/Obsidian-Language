@@ -3,478 +3,233 @@
 
 using namespace TypeSystem;
 
-extern map<Parser::Block*, BlockScope*> blockScopes;
 extern bool programHasMain;
 extern ModuleScope* global;
 
 vector<Test*> Test::tests;
 
 //Block which is body of subroutine
-Block::Block(Parser::Block* b, BlockScope* s, Subroutine* sub) : scope(s)
+Block::Block(Subroutine* s)
 {
-  this->subr = sub;
-  //to get func, walk up scope tree from s
-  //until a SubroutineScope for a function is reached
-  this->funcScope = nullptr;
-  for(Scope* iter = s; iter; iter = iter->parent)
-  {
-    SubroutineScope* ss = dynamic_cast<SubroutineScope*>(iter);
-    if(ss && ss->subr->type->pure)
-    {
-      this->funcScope = ss;
-      break;
-    }
-  }
-  this->loop = None();
-  this->breakable = None();
-  //don't add statements until 2nd middle end pass
+  breakable = None;
+  loop = None;
+  subr = s;
+  scope = new Scope(s->scope);
+  scope->node = this;
+  statementCount = 0;
 }
 
-//Block which is used as a regular statement in another block
-Block::Block(Parser::Block* b, BlockScope* s, Block* parent) : scope(s)
+Block::Block(Block* parent)
 {
-  this->subr = parent->subr;
-  this->funcScope = parent->funcScope;
-  this->loop = parent->loop;
-  this->breakable = parent->breakable;
-}
-
-//Internal-use ctor: create a block without any corresponding parsed Block
-Block::Block(BlockScope* s, Block* parent) : scope(s)
-{
-  this->subr = parent->subr;
-  this->funcScope = parent->funcScope;
-  this->loop = parent->loop;
-  this->breakable = parent->breakable;
-  //don't add any statements yet
+  breakable = parent->breakable;
+  loop = parent->loop;
+  subr = parent->subr;
+  scope = new Scope(parent->scope);
+  scope->node = this;
+  statementCount = 0;
 }
 
 //Block which is a for loop body
-Block::Block(Parser::For* forAST, For* f, BlockScope* s, Block* parent) : scope(s)
+//The loop body has the same index as the loop itself
+Block::Block(For* f, Block* parent)
 {
-  this->subr = parent->subr;
-  this->funcScope = parent->funcScope;
-  this->loop = f;
-  this->breakable = f;
+  subr = parent->subr;
+  loop = f;
+  breakable = f;
+  scope = new Scope(parent->scope);
+  scope->node = this;
+  statementCount = 0;
 }
 
 //Block which is a while loop body
-Block::Block(Parser::While* whileAST, While* w, BlockScope* s, Block* parent) : scope(s)
+Block::Block(While* w)
 {
-  this->subr = parent->subr;
-  this->funcScope = parent->funcScope;
-  this->loop = w;
-  this->breakable = w;
+  Block* parent = w->body->scope->parent->node.get<Block*>();
+  subr = parent->subr;
+  loop = w;
+  breakable = w;
+  scope = new Scope(parent->scope);
+  scope->node = this;
+  statementCount = 0;
 }
 
-Block::Block(BlockScope* s) : scope(s)
+Assign::Assign(Expression* lhs, Expression* rhs)
 {
-  this->subr = nullptr;
-  this->funcScope = nullptr;
-  this->loop = None();
-  this->breakable = None();
+  lvalue = lhs;
+  rvalue = rhs;
 }
 
-void Block::addStatements(Parser::Block* ast)
+void Assign::resolve(bool final)
 {
-  for(auto stmt : ast->statements)
+  resolveExpr(lvalue, final);
+  resolveExpr(rvalue, final);
+  if(!lvalue->resolved || !rvalue->resolved)
   {
-    auto s = createStatement(this, stmt);
-    if(s)
-    {
-      stmts.push_back(s);
-    }
+    return;
   }
-}
-
-void Block::check()
-{
-  if(funcScope)
-  {
-    checkPurity(funcScope);
-  }
-}
-
-void Block::checkPurity(Scope* s)
-{
-  for(auto stmt : stmts)
-  {
-    stmt->checkPurity(s);
-  }
-}
-
-Statement* createStatement(Block* b, Parser::StatementNT* stmt)
-{
-  auto scope = b->scope;
-  if(stmt->s.is<Parser::ScopedDecl*>())
-  {
-    //only scoped decl to handle now is VarDecl
-    auto sd = stmt->s.get<Parser::ScopedDecl*>();
-    if(sd->decl.is<Parser::VarDecl*>())
-    {
-      return addLocalVariable(b->scope, sd->decl.get<Parser::VarDecl*>());
-    }
-  }
-  else if(stmt->s.is<Parser::VarAssign*>())
-  {
-    return new Assign(stmt->s.get<Parser::VarAssign*>(), scope);
-  }
-  else if(stmt->s.is<Parser::PrintNT*>())
-  {
-    return new Print(stmt->s.get<Parser::PrintNT*>(), scope);
-  }
-  else if(stmt->s.is<Parser::Expr12*>())
-  {
-    return new CallStmt(stmt->s.get<Parser::Expr12*>(), scope);
-  }
-  else if(stmt->s.is<Parser::Block*>())
-  {
-    auto block = stmt->s.get<Parser::Block*>();
-    Block* newBlock = new Block(block, blockScopes[block], b);
-    newBlock->addStatements(block);
-    return newBlock;
-  }
-  else if(stmt->s.is<Parser::Return*>())
-  {
-    return new Return(stmt->s.get<Parser::Return*>(), b);
-  }
-  else if(stmt->s.is<Parser::Continue*>())
-  {
-    return new Continue(b);
-  }
-  else if(stmt->s.is<Parser::Break*>())
-  {
-    return new Break(b);
-  }
-  else if(stmt->s.is<Parser::Switch*>())
-  {
-    return new Switch(stmt->s.get<Parser::Switch*>(), b);
-  }
-  else if(stmt->s.is<Parser::Match*>())
-  {
-    return new Match(stmt->s.get<Parser::Match*>(), b);
-  }
-  else if(stmt->s.is<Parser::For*>())
-  {
-    return new For(stmt->s.get<Parser::For*>(), b);
-  }
-  else if(stmt->s.is<Parser::While*>())
-  {
-    return new While(stmt->s.get<Parser::While*>(), b);
-  }
-  else if(stmt->s.is<Parser::If*>())
-  {
-    auto i = stmt->s.get<Parser::If*>();
-    if(i->elseBody)
-    {
-      return new IfElse(i, b);
-    }
-    else
-    {
-      return new If(i, b);
-    }
-  }
-  else if(stmt->s.is<Parser::Assertion*>())
-  {
-    return new Assertion(stmt->s.get<Parser::Assertion*>(), scope);
-  }
-  else if(stmt->s.is<Parser::EmptyStatement*>())
-  {
-    return nullptr;
-  }
-  INTERNAL_ERROR;
-  return nullptr;
-}
-
-Statement* standaloneStatement(Parser::StatementNT* stmt, Scope* s)
-{
-  Block tempBlock
-}
-
-Statement* addLocalVariable(BlockScope* s, Parser::VarDecl* vd)
-{
-  //Create variable
-  Variable* newVar = new Variable(s, vd);
-  if(!newVar->type)
-  {
-    //all types must be available now
-    //need to check here because variable ctor uses deferred type lookup
-    ERR_MSG("variable " << newVar->name << " has unknown type");
-  }
-  //addName will check for shadowing
-  s->addName(newVar);
-  if(vd->val)
-  {
-    //add the initialization as a statement
-    return new Assign(newVar, getExpression(s, vd->val));
-  }
-  return nullptr;
-}
-
-Assign::Assign(Parser::VarAssign* va, Scope* s)
-{
-  lvalue = getExpression(s, va->target);
-  rvalue = getExpression(s, va->rhs);
-  commonCtor();
-}
-
-Assign::Assign(Variable* target, Expression* e)
-{
-  lvalue = new VarExpr(target);
-  rvalue = e;
-  commonCtor();
-}
-
-Assign::Assign(Indexed* target, Expression* e)
-{
-  lvalue = target;
-  rvalue = e;
-  commonCtor();
-}
-
-void Assign::commonCtor()
-{
   if(!lvalue->assignable())
   {
-    ERR_MSG("cannot assign to that expression");
+    errMsgLoc(this, "left-hand side of assignment is immutable");
   }
-  //check for special case of map index as lvalue
-  //the type of this would normally be (Key | Error) but
-  //as an lvalue is just Key (backend expects this)
-  bool lvalueMapIndex = false;
-  if(auto indexed = dynamic_cast<Indexed*>(lvalue))
+  if(!rvalue->type->canConvert(lvalue->type))
   {
-    if(indexed->group->type->isMap())
-      lvalueMapIndex = true;
+    errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());
   }
-  if(lvalue->type != rvalue->type && !lvalueMapIndex)
+  if(lvalue->type != rvalue->type)
   {
-    //must explicitly convert
     rvalue = new Converted(rvalue, lvalue->type);
+    rvalue->resolve(true);
   }
+  resolved = true;
 }
 
-void Assign::checkPurity(Scope* s)
+CallStmt(CallExpr* e)
 {
-  if(!lvalue->pureWithin(s))
-  {
-    ERR_MSG("in function, assignment lvalue lives outside fn scope");
-  }
-  if(!rvalue->pureWithin(s))
-  {
-    ERR_MSG("in function, assigned value isn't pure");
-  }
+  eval = e;
 }
 
-CallStmt::CallStmt(Parser::Expr12* call, BlockScope* s)
+void CallStmt::resolve(bool final)
 {
-  eval = (CallExpr*) getExpression(s, call);
+  eval->resolve(final);
+  if(!eval->resolved)
+    return;
+  resolved = true;
 }
 
-void CallStmt::checkPurity(Scope* s)
+For::For(Statement* i, Expression* cond, Statement* incr, Block* b)
 {
-  if(!eval->pureWithin(s))
-  {
-    ERR_MSG("call isn't allowed in function");
-  }
+  //variables declared in initialization should be in body's scope
+  init = i;
+  condition = cond;
+  increment = incr;
+  body = b;
 }
 
-For::For(Parser::For* f, Block* b)
+For::For(vector<string>& tupIter, Expression* arr, Block* innerBody)
 {
-  BlockScope* loopScope = blockScopes[f->body];
-  loopBlock = new Block(f, this, loopScope, b);
-  auto enclosing = loopScope->parent;
-  //constants that are helpful for generating loops
-  Expression* zero = new IntLiteral(0ULL);
-  Expression* one = new IntLiteral(1ULL);
-  if(f->f.is<Parser::ForC*>())
+  //recursively create the syntax of a nested for loop over each dim
+  //body is the bodyh of innermost loop only
+  if(tupIter.size() < 2)
   {
-    auto fc = f->f.get<Parser::ForC*>();
-    //if there is an initializer statement, add it to the block as the first statement
-    if(fc->decl)
-    {
-      //if fc->decl is a ScopedDecl/VarDecl,
-      //this will create the counter as local variable in loopScope
-      init = createStatement(loopBlock, fc->decl);
-    }
-    if(fc->condition)
-    {
-      condition = getExpression(loopScope, fc->condition);
-      if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
-      {
-        ERR_MSG("condition in C-style for loop must be a boolean expression");
-      }
-    }
-    if(fc->incr)
-    {
-      increment = createStatement(loopBlock, fc->incr);
-    }
-    loopBlock->addStatements(f->body);
+    errMsgLoc(this, "for over array needs >= 1 counter and an iteration variable");
   }
-  else if(f->f.is<Parser::ForOverArray*>())
+  body = new Block(this);
+  setupRange(tupIter.front(), new IntLiteral(0), new ArrayLength(arr));
+  //get arr[i] where i is this dimension's counter
+  Expression* subArr = new Indexed(arr,
+      new UnresolvedExpr(tupIter.front(), body->scope));
+  if(tupIter.size() == 2)
   {
-    auto foa = f->f.get<Parser::ForOverArray*>();
-    //get the array expression
-    Expression* arr = getExpression(enclosing, foa->expr);
-    //make sure arr is actually an array
-    ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
-    if(!arrType)
-    {
-      ERR_MSG("for over array given non-array expression");
-    }
-    //how many loops to generate
-    int loops = foa->tup.size() - 1;
-    if(arrType->dims < loops)
-    {
-      ERR_MSG("for-array tuple has more counters than array has dimensions");
-    }
-    //generate one for loop (including this one) as the body for each dimension
-    //and the "it" value in the innermost loop
-    For* dimLoop = this;
-    Block* dimBlock = loopBlock;
-    vector<Variable*> counters;
-    for(int i = 0; i < loops; i++)
-    {
-      if(i > 0)
-      {
-        //construct next loop's scope as child of loopScope
-        BlockScope* nextScope = new BlockScope(loopScope);
-        For* nextFor = new For;
-        Block* nextBlock = new Block(nextScope, dimBlock);
-        //break goes with the outermost loop, but continue goes with the innermost
-        nextBlock->breakable = this;
-        nextBlock->loop = nextFor;
-        nextFor->loopBlock = nextBlock;
-        //have the outer loop run the inner loop
-        dimBlock->stmts.push_back(nextFor);
-        dimLoop = nextFor;
-        dimBlock = nextBlock;
-      }
-      //generate counter for dimension i (adding it to scope implicitly catches shadowing errors)
-      Variable* counter = new Variable(dimBlock->scope, foa->tup[i], TypeSystem::primitives[Parser::TypeNT::INT]);
-      dimBlock->scope->addName(counter);
-      counters.push_back(counter);
-      VarExpr* counterExpr = new VarExpr(counter);
-      //in order to get length expression for loop condition, get array expression
-      Expression* subArr = arr;
-      for(int j = 0; j < i; j++)
-      {
-        subArr = new Indexed(subArr, new VarExpr(counters[j]));
-      }
-      dimLoop->init = new Assign(counter, zero);
-      dimLoop->condition = new BinaryArith(counterExpr, CMPL, new ArrayLength(subArr));
-      dimLoop->increment = new Assign(counter, new BinaryArith(counterExpr, PLUS, one));
-      //now create the "iter" value if this is the innermost loop
-      if(i == loops - 1)
-      {
-        Type* iterType = getArrayType(arrType->elem, arrType->dims - loops);
-        Variable* iterValue = new Variable(dimBlock->scope, foa->tup.back(), iterType);
-        dimBlock->scope->addName(iterValue);
-        //create the assignment to iterValue as first statement in innermost loop
-        dimBlock->stmts.push_back(new Assign(iterValue, new Indexed(subArr, counterExpr)));
-        //Then add all the actual statements from the body of foa
-        //Even though middle end originally tied it to the
-        //outermost loop, the statements go in the innermost
-        dimBlock->addStatements(f->body);
-      }
-    }
-  }
-  else if(f->f.is<Parser::ForRange*>())
-  {
-    auto fr = f->f.get<Parser::ForRange*>();
-    //Get start and end as expressions (their scopes are loop's parent)
-    Expression* start = getExpression(loopScope->parent, fr->start);
-    if(!start->type || !start->type->isInteger())
-    {
-      ERR_MSG("for over range: start value is not an integer");
-    }
-    Expression* end = getExpression(loopScope->parent, fr->end);
-    if(!end->type || !end->type->isInteger())
-    {
-      ERR_MSG("for over range: end value is not an integer");
-    }
-    //get counter type: whatever type is compatible with both start and end
-    Type* counterType = TypeSystem::promote(start->type, end->type);
-    Variable* counter = new Variable(loopScope, fr->name, counterType);
-    loopScope->addName(counter);
-    init = new Assign(counter, start);
-    condition = new BinaryArith(new VarExpr(counter), CMPL, end);
-    increment = new Assign(counter, new BinaryArith(new VarExpr(counter), PLUS, one));
-    loopBlock->addStatements(f->body);
+    //innermost loop
+    //create the final iteration variable and assign subArr to it
+    Variable* iterVar = new Variable(tupIter.back(), new ExprType(subArr), Block* b);
+    body->scope->addName(iterVar);
+    body->stmts.push_back(new Assign(new VarExpr(iterVar), subArr));
+    //finally, add the inner body,
+    //and fix its position in scope tree
+    innerBody->scope->parent = body->scope;
+    body->stmts.push_back(innerBody);
   }
   else
   {
-    INTERNAL_ERROR;
+    //not innermost loop,
+    //only statement in body is another For (with same innerBody)
+    vector<string> nextTupIter(tupIter.size() - 1);
+    for(size_t i = 1; i < tupIter.size(); i++)
+    {
+      nextTupIter[i - 1] = tupIter[i];
+    }
+    body->stmts.push_back(new For(nextTupIter, subArr, innerBody));
   }
 }
 
-void For::checkPurity(Scope* s)
+For::For(string counter, Expression* begin, Expression* end, Block* b)
 {
-  init->checkPurity(s);
-  if(!condition->pureWithin(s))
-  {
-    ERR_MSG("for loop in function has non-pure condition");
-  }
-  increment->checkPurity(s);
-  loopBlock->checkPurity(s);
+  body = new Block(this);
+  setupRange(counter, begin, end);
+  body->stmts.push_back(b);
+  b->scope->parent = body->scope;
 }
 
-While::While(Parser::While* w, Block* b)
+void For::resolve(bool final)
 {
-  auto enclosing = b->scope;
-  condition = getExpression(enclosing, w->cond);
-  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
-  {
-    ERR_MSG("while loop condition must be a bool");
-  }
-  loopBlock = new Block(w, this, blockScopes[w->body], b);
-  loopBlock->addStatements(w->body);
+  init->resolve(final);
+  if(!init->resolved)
+    return;
+  resolveExpr(condition, final);
+  if(!condition->resolved)
+    return;
+  increment->resolve(final);
+  if(!increment->resolved)
+    return;
+  body->resolve(final);
+  if(!body->resolved)
+    return;
+  resolved = true;
 }
 
-void While::checkPurity(Scope* s)
+Variable* For::setupRange(string counterName, Expression* begin, Expression* end)
 {
-  if(!condition->pureWithin(s))
-  {
-    ERR_MSG("while loop in function has non-pure condition");
-  }
-  loopBlock->checkPurity(s);
+  //get the correct type for the counter
+  Variable* counterVar = new Variable(counterName, primitives[Prim::LONG], body);
+  body->scope->addName(counterVar);
+  Expression* counterExpr = new VarExpr(counterVar);
+  counterExpr->resolve(true);
+  init = new VarAssign(counterExpr, new IntLiteral(0));
+  condition = new BinaryArith(counterExpr, CMPL, end);
+  increment = new VarAssign(counterExpr, new BinaryArith(counterExpr, PLUS, new IntLiteral(1)));
+  return counterVar;
 }
 
-If::If(Parser::If* i, Block* b)
+While::While(Expression* cond, Block* b)
 {
-  condition = getExpression(b->scope, i->cond);
-  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
-  {
-    ERR_MSG("if statement condition must be a bool");
-  }
-  body = createStatement(b, i->ifBody);
+  condition = cond;
+  body = b;
 }
 
-void If::checkPurity(Scope* s)
+void While::resolve(bool final)
 {
-  if(!condition->pureWithin(s))
+  resolveExpr(condition, final);
+  if(!condition->resolved)
+    return;
+  if(condition->type != primitives[Prim::BOOL])
   {
-    ERR_MSG("if statement in function has non-pure condition");
+    errMsgLoc(condition, "while loop condition must be bool");
   }
+  body->resolve(final);
+  if(!body->resolved)
+    return;
+  resolved = true;
 }
 
-IfElse::IfElse(Parser::If* i, Block* b)
+If::If(Expression* cond, Statement* b)
 {
-  condition = getExpression(b->scope, i->cond);
-  if(condition->type != TypeSystem::primitives[Parser::TypeNT::BOOL])
-  {
-    ERR_MSG("if/else condition must be a bool");
-  }
-  trueBody = createStatement(b, i->ifBody);
-  falseBody = createStatement(b, i->elseBody);
+  condition = cond;
+  body = b;
 }
 
-void IfElse::checkPurity(Scope* s)
+If::If(Expression* cond, Statement* tb, Statement* fb)
 {
-  if(!condition->pureWithin(s))
+  condition = cond;
+  body = tb;
+  elseBody = fb;
+}
+
+void If::resolve(bool final)
+{
+  resolveExpr(condition, final);
+  if(!condition->resolved)
+    return;
+  body->resolve(final);
+  if(!body->resolved)
+    return;
+  if(elseBody)
   {
-    ERR_MSG("if/else in function has non-pure condition");
+    elseBody->resolve(final);
+    if(!elseBody->resolved)
+      return;
   }
+  resolved = true;
 }
 
 Match::Match(Parser::Match* m, Block* b)
@@ -527,18 +282,6 @@ Match::Match(Parser::Match* m, Block* b)
   }
 }
 
-void Match::checkPurity(Scope* s)
-{
-  if(!matched->pureWithin(s))
-  {
-    ERR_MSG("type-matched expression in match statement violates purity");
-  }
-  for(auto c : cases)
-  {
-    c->checkPurity(s);
-  }
-}
-
 Switch::Switch(Parser::Switch* s, Block* b)
 {
   switched = getExpression(b->scope, s->value);
@@ -563,22 +306,6 @@ Switch::Switch(Parser::Switch* s, Block* b)
   block->breakable = this;
   //add all the statements right away
   block->addStatements(s->block);
-}
-
-void Switch::checkPurity(Scope* s)
-{
-  if(!switched->pureWithin(s))
-  {
-    ERR_MSG("switched value in switch statement violates purity");
-  }
-  for(auto cval : caseValues)
-  {
-    if(!cval->pureWithin(s))
-    {
-      ERR_MSG("switch statement case value violates purity");
-    }
-  }
-  block->checkPurity(s);
 }
 
 Return::Return(Parser::Return* r, Block* b)
@@ -617,14 +344,6 @@ Return::Return(Subroutine* s)
   //no other checking necessary
 }
 
-void Return::checkPurity(Scope* s)
-{
-  if(value && !value->pureWithin(s))
-  {
-    ERR_MSG("return value violates purity");
-  }
-}
-
 Break::Break(Block* b)
 {
   //make sure the break is inside a loop
@@ -653,25 +372,9 @@ Print::Print(Parser::PrintNT* p, BlockScope* s)
   }
 }
 
-void Print::checkPurity(Scope* s)
-{
-  if(s)
-  {
-    ERR_MSG("print() has side effects and can't be used in a function");
-  }
-}
-
 Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
 {
   asserted = getExpression(s, as->expr);
-}
-
-void Assertion::checkPurity(Scope* s)
-{
-  if(!asserted->pureWithin(s))
-  {
-    ERR_MSG("asserted value violates purity");
-  }
 }
 
 Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
