@@ -26,6 +26,13 @@ struct Token;
 
 struct Node
 {
+  Node()
+  {
+    fileID = 0;
+    line = 0;
+    col = 0;
+    resolved = false;
+  }
   Node(Token* t)
   {
     fileID = 0;

@@ -53,7 +53,7 @@ Block::Block(While* w)
   statementCount = 0;
 }
 
-Assign::Assign(Expression* lhs, Expression* rhs)
+Assign::Assign(Block* b, Expression* lhs, Expression* rhs) : Statement(b)
 {
   lvalue = lhs;
   rvalue = rhs;
@@ -83,7 +83,7 @@ void Assign::resolve(bool final)
   resolved = true;
 }
 
-CallStmt(CallExpr* e)
+CallStmt(Block* b, CallExpr* e) : Statement(b)
 {
   eval = e;
 }
@@ -96,16 +96,18 @@ void CallStmt::resolve(bool final)
   resolved = true;
 }
 
-For::For(Statement* i, Expression* cond, Statement* incr, Block* b)
+For::For(Block* b, Statement* i, Expression* cond, Statement* incr, Block* forBody)
+  : Statement(b)
 {
   //variables declared in initialization should be in body's scope
   init = i;
   condition = cond;
   increment = incr;
-  body = b;
+  body = forBody;
 }
 
-For::For(vector<string>& tupIter, Expression* arr, Block* innerBody)
+For::For(Block* b, vector<string>& tupIter, Expression* arr, Block* innerBody)
+  : Statement(b)
 {
   //recursively create the syntax of a nested for loop over each dim
   //body is the bodyh of innermost loop only
@@ -122,7 +124,7 @@ For::For(vector<string>& tupIter, Expression* arr, Block* innerBody)
   {
     //innermost loop
     //create the final iteration variable and assign subArr to it
-    Variable* iterVar = new Variable(tupIter.back(), new ExprType(subArr), Block* b);
+    Variable* iterVar = new Variable(tupIter.back(), new ExprType(subArr), innerBody);
     body->scope->addName(iterVar);
     body->stmts.push_back(new Assign(new VarExpr(iterVar), subArr));
     //finally, add the inner body,
@@ -143,12 +145,13 @@ For::For(vector<string>& tupIter, Expression* arr, Block* innerBody)
   }
 }
 
-For::For(string counter, Expression* begin, Expression* end, Block* b)
+For::For(Block* b, string counter, Expression* begin, Expression* end, Block* innerBody)
+  : Statement(b)
 {
   body = new Block(this);
   setupRange(counter, begin, end);
-  body->stmts.push_back(b);
-  b->scope->parent = body->scope;
+  body->stmts.push_back(innerBody);
+  innerBody->scope->parent = body->scope;
 }
 
 void For::resolve(bool final)
@@ -181,10 +184,11 @@ Variable* For::setupRange(string counterName, Expression* begin, Expression* end
   return counterVar;
 }
 
-While::While(Expression* cond, Block* b)
+While::While(Block* b, Expression* cond, Block* whileBody)
+  : Statement(b)
 {
   condition = cond;
-  body = b;
+  body = whileBody;
 }
 
 void While::resolve(bool final)
@@ -202,13 +206,15 @@ void While::resolve(bool final)
   resolved = true;
 }
 
-If::If(Expression* cond, Statement* b)
+If::If(Block* b, Expression* cond, Statement* b)
+  : Statement(b)
 {
   condition = cond;
   body = b;
 }
 
-If::If(Expression* cond, Statement* tb, Statement* fb)
+If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
+  : Statement(b)
 {
   condition = cond;
   body = tb;
@@ -230,6 +236,23 @@ void If::resolve(bool final)
       return;
   }
   resolved = true;
+}
+
+Match::Match(Block* b) : Statement(b)
+{
+}
+
+void Match::resolve(bool final)
+{
+  resolveExpr(matched, final);
+  if(!matched->resolved)
+    return;
+  auto ut = dynamic_cast<UnionType*>(matched->type);
+  if(!ut)
+  {
+    errMsgLoc(matched, "matched expression must be of union type");
+  }
+  //resolve each 
 }
 
 Match::Match(Parser::Match* m, Block* b)

@@ -14,10 +14,8 @@
 struct Statement : public Node
 {
   //normal ctor: automatically set index within parent block
-  Statement()
-  {
-    resolved = false;
-  }
+  Statement(Block* b) : block(b) {}
+  Block* block;
   virtual void resolve(bool final);
   virtual ~Statement() {}
 };
@@ -80,7 +78,7 @@ Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 
 struct Assign : public Statement
 {
-  Assign(Expression* lhs, Expression* rhs);
+  Assign(Block* b, Expression* lhs, Expression* rhs);
   void resolve(bool final);
   Expression* lvalue;
   Expression* rvalue;
@@ -89,7 +87,7 @@ struct Assign : public Statement
 struct CallStmt : public Statement
 {
   //Ctor for when it is known that Expr12 is a call
-  CallStmt(CallExpr* e);
+  CallStmt(Block* b, CallExpr* e);
   void resolve(bool final);
   //code generator just needs to "evaluate" this expression and discard the result
   CallExpr* eval;
@@ -98,11 +96,11 @@ struct CallStmt : public Statement
 struct For : public Statement
 {
   //C-style for loop
-  For(Statement* init, Expression* condition, Statement* increment, Block* body);
+  For(Block* b, Statement* init, Expression* condition, Statement* increment, Block* body);
   //for over array
-  For(vector<string>& tupIter, Expression* arr, Block* body);
+  For(Block* b, vector<string>& tupIter, Expression* arr, Block* body);
   //for over integer range
-  For(string counter, Expression* begin, Expression* end, Block* body);
+  For(Block* b, string counter, Expression* begin, Expression* end, Block* body);
   void resolve(bool final);
   Statement* init;
   Expression* condition;
@@ -121,7 +119,7 @@ struct For : public Statement
 
 struct While : public Statement
 {
-  While(Expression* condition, Block* body);
+  While(Block* b, Expression* condition, Block* body);
   void resolve(bool final);
   Expression* condition;
   Block* body;
@@ -129,28 +127,24 @@ struct While : public Statement
 
 struct If : public Statement
 {
-  If(Expression* condition, Statement* body);
-  If(Expression* condition, Statement* tbody, Statement* fbody);
+  If(Block* b, Expression* condition, Statement* body);
+  If(Block* b, Expression* condition, Statement* tbody, Statement* fbody);
   void resolve(bool final);
   Expression* condition;
   Statement* body;
   Statement* elseBody; //null if no else
 };
 
-struct IfElse : public Statement
-{
-  IfElse(Parser::If* ie, Block* b);
-  Expression* condition;
-  Statement* trueBody;
-  Statement* falseBody;
-};
-
 struct Match : public Statement
 {
-  Expression* matched;  //the given expression (must be of union type)
-  vector<TypeSystem::Type*> types;
-  vector<Block*> cases; //correspond 1-1 with matched->type->options
-  vector<Variable*> caseVars; //correspond 1-1 with cases
+  //Create an empty match statement
+  //Add the individual cases after constructing
+  Match(Block* b);
+  void resolve(bool final);
+  Expression* matched;              //the given expression (must be a union)
+  vector<TypeSystem::Type*> types;  //each type must be an option of matched->type
+  vector<Block*> cases;             //correspond 1-1 with types
+  vector<Variable*> caseVars;       //correspond 1-1 with cases
 };
 
 struct Switch : public Statement
@@ -166,10 +160,10 @@ struct Switch : public Statement
 
 struct Return : public Statement
 {
-  //Normal constructor
-  Return(Parser::Return* r, Block* s);
-  //Constructor for void return (only used in Subroutine::check())
-  Return(Subroutine* s);
+  //Constructor for returning a value
+  Return(Block* b, Expression* value);
+  //Constructor for void return
+  Return(Block* b);
   Expression* value; //can be null (void return)
   Subroutine* from;
 };
