@@ -129,7 +129,6 @@ extern DeferredTypeLookup* typeLookup;
 struct Type
 {
   virtual ~Type() {}
-  //get integer type corresponding to given size (bytes) and signedness
   virtual bool canConvert(Type* other) = 0;
   //get the type's name
   virtual string getName() = 0;

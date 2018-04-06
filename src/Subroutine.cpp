@@ -53,6 +53,17 @@ Block::Block(While* w)
   statementCount = 0;
 }
 
+void Block::resolve(bool final)
+{
+  for(auto& stmt : stmts)
+  {
+    stmt->resolve(final);
+    if(!stmt->resolved)
+      return;
+  }
+  resolved = true;
+}
+
 Assign::Assign(Block* b, Expression* lhs, Expression* rhs) : Statement(b)
 {
   lvalue = lhs;
@@ -238,8 +249,33 @@ void If::resolve(bool final)
   resolved = true;
 }
 
-Match::Match(Block* b) : Statement(b)
+Match::Match(Block* b, Expression* m, string varName,
+    vector<TypeSystem::Type*>& t,
+    vector<Block*>& caseBlocks)
+  : Statement(b)
 {
+  matched = m;
+  types = t;
+  blocks = caseBlocks;
+  //create blocks to enclose each case block, and
+  //add the value variables to each
+  if(types.size() != blocks.size())
+  {
+    INTERNAL_ERROR;
+  }
+  int n = types.size();
+  caseVars.resize(n);
+  for(int i = 0; i < n; i++)
+  {
+    Block* outerBlock = new Block(b);
+    outerBlock->setLocation(blocks[i]);
+    caseVars[i] = new Variable(varName, types[i], outerBlock);
+    outerBlock->scope->addName(caseVars[i]);
+    outerBlock->stmts.push_back(outerBlock);
+    Block* innerBlock = blocks[i];
+    innerBlock->scope->node = outerBlock;
+    blocks[i] = outerBlock;
+  }
 }
 
 void Match::resolve(bool final)
@@ -252,83 +288,75 @@ void Match::resolve(bool final)
   {
     errMsgLoc(matched, "matched expression must be of union type");
   }
-  //resolve each 
+  for(auto& t : types)
+  {
+    resolveType(t, final);
+    if(!t->resolved)
+      return;
+  }
+  for(auto t : types)
+  {
+    if(find(ut->options.begin(), ut->options.end(), t) == ut->options.end())
+    {
+      errMsgLoc(this, "match includes type " << t->getName() << " which is not a member of union " << ut->getName());
+    }
+  }
+  bool allResolved = true;
+  for(auto b : blocks)
+  {
+    b->resolve(final);
+    if(!b->resolved)
+      allResolved = false;
+  }
+  if(allResolved)
+    resolved = true;
 }
 
-Match::Match(Parser::Match* m, Block* b)
+Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> vals, vector<Statement*>& stmtList, int defaultPos)
+  : Statement(b)
 {
-  matched = getExpression(b->scope, m->value);
-  //get the relevant union type
-  UnionType* ut = dynamic_cast<UnionType*>(matched->type);
-  if(!ut)
-  {
-    ERR_MSG("match statement given a non-union expression");
-  }
-  //check for # of cases mismatch
-  if(ut->options.size() != m->cases.size())
-  {
-    ERR_MSG("number of match cases differs from number of union type options");
-  }
-  cases = vector<Block*>(ut->options.size(), nullptr);
-  caseVars = vector<Variable*>(ut->options.size(), nullptr);
-  //for each parsed case, get the type and find correct slot in cases
-  for(auto c : m->cases)
-  {
-    Type* caseType = lookupType(c.type, b->scope);
-    if(!caseType)
-    {
-      ERR_MSG("unknown type as match case");
-    }
-    int i = 0;
-    for(auto option : ut->options)
-    {
-      if(caseType == option)
-        break;
-      i++;
-    }
-    if(i == ut->options.size())
-    {
-      ERR_MSG("given match case type is not in union");
-    }
-    if(cases[i])
-    {
-      ERR_MSG("match case has same type as a previous case");
-    }
-    auto caseBlock = c.block;
-    //create the block as a child of b, but it doesn't get run unconditionally
-    cases[i] = new Block(blockScopes[caseBlock], b);
-    //create and add the value variable, which will be initialized in code gen
-    caseVars[i] = new Variable(cases[i]->scope, m->varName, caseType);
-    cases[i]->scope->addName(caseVars[i]);
-    //add statements to block
-    cases[i]->addStatements(caseBlock);
-  }
+  switched = s;
+  caseValues = vals;
+  caseLabels = inds;
+  defaultPosition = defaultPos;
+  stmts = stmtList;
 }
 
-Switch::Switch(Parser::Switch* s, Block* b)
+void Switch::resolve(bool final)
 {
-  switched = getExpression(b->scope, s->value);
-  for(auto& label : s->labels)
+  resolveExpr(switched, final);
+  if(!switched->resolve)
+    return;
+  //resolve case values and make sure they can convert to 
+  bool allResolved = true;
+  for(auto& caseVal : caseValues)
   {
-    Expression* caseExpr = getExpression(b->scope, label.value);
-    //make sure the case value can be converted to switched->type
-    if(!caseExpr->type->canConvert(switched->type))
+    resolveExpr(caseVal, final);
+    if(!caseVal->resolved)
     {
-      ERR_MSG("switched case value can't be compared with switched expression");
+      allResolved = false;
     }
-    if(caseExpr->type != switched->type)
+    else
     {
-      caseExpr = new Converted(caseExpr, switched->type);
+      if(!switched->type->canConvert(caseVal->type))
+      {
+        errMsgLoc(caseVal, "case value type incompatible with switch value type");
+      }
+      else if(switched->type != caseVal->type)
+      {
+        caseVal = new Converted(caseVal, switched->type);
+      }
     }
-    caseValues.push_back(caseExpr);
-    caseLabels.push_back(label.position);
   }
-  defaultPosition = s->defaultPosition;
-  //create the block and add statements
-  block = new Block(blockScopes[s->block], b);
-  block->breakable = this;
-  //add all the statements right away
-  block->addStatements(s->block);
+  //resolve all the statements
+  for(auto& stmt : stmts)
+  {
+    stmt->resolve(final);
+    if(!stmt->resolved)
+      allResolved = false;
+  }
+  if(allResolved)
+    resolved = true;
 }
 
 Return::Return(Parser::Return* r, Block* b)

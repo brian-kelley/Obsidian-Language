@@ -139,7 +139,9 @@ struct Match : public Statement
 {
   //Create an empty match statement
   //Add the individual cases after constructing
-  Match(Block* b);
+  Match(Block* b, Expression* m, string varName,
+      vector<TypeSystem::Type*>& types,
+      vector<Block*>& blocks);
   void resolve(bool final);
   Expression* matched;              //the given expression (must be a union)
   vector<TypeSystem::Type*> types;  //each type must be an option of matched->type
@@ -149,13 +151,14 @@ struct Match : public Statement
 
 struct Switch : public Statement
 {
-  Switch(Parser::Switch* s, Block* b);
+  Switch(Block* b, Expression* s, vector<int>& caseIndices, vector<Expression*> caseValues, vector<Statement*>& stmts, int defaultPos);
+  void resolve(bool final);
   Expression* switched;
   vector<Expression*> caseValues;
   vector<int> caseLabels; //correspond 1-1 with caseValues
   int defaultPosition;
-  //the block that holds all the statements but can't hold any scoped decls
-  Block* block;
+  //list of statements - belong to block enclosing the switch
+  vector<Statement*> stmts;
 };
 
 struct Return : public Statement
