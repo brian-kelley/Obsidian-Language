@@ -177,7 +177,7 @@ struct Return : public Statement
 struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
-  Break(Block* s);
+  Break(Block* b);
   void resolve(bool final);
   Breakable breakable;
 };
@@ -185,26 +185,30 @@ struct Break : public Statement
 struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop or Match
-  Continue(Block* s);
+  Continue(Block* b);
+  void resolve(bool final);
   Loop loop;
 };
 
 struct Print : public Statement
 {
-  Print(Parser::PrintNT* p, BlockScope* s);
+  Print(Block* b, vector<Expression*>& exprs);
+  void resolve(bool final);
   vector<Expression*> exprs;
 };
 
 struct Assertion : public Statement
 {
-  Assertion(Parser::Assertion* as, BlockScope* s);
+  Assertion(Block* b, Expression* a);
+  void resolve(bool final);
   Expression* asserted;
 };
 
 struct Subroutine
 {
   //constructor doesn't process the type or body in any way
-  Subroutine(Parser::SubroutineNT* snt, Scope* s);
+  Subroutine(Scope* s, string name, TypeSystem::CallableType* ct, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
+  void resolve(bool final);
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;
@@ -213,8 +217,6 @@ struct Subroutine
   Block* body;
   //scope->node is this
   Scope* scope;
-  //check both prototype and body
-  void check();
 };
 
 struct ExternalSubroutine

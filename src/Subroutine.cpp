@@ -397,56 +397,75 @@ void Return::resolve(bool final)
   resolved = true;
 }
 
-Break::Break(Block* b)
-{
-  //make sure the break is inside a loop
-  if(b->breakable.is<None>())
-  {
-    ERR_MSG("break statement used outside of a for, while or switch");
-  }
-  breakable = b->breakable;
-}
+Break::Break(Block* b) : Statement(b)
+{}
 
 void Break::resolve(bool final)
 {
-}
-
-Continue::Continue(Block* b)
-{
-  //make sure the continue is inside a loop
-  if(b->loop.is<None>())
+  if(block->breakable.is<None>())
   {
-    ERR_MSG("continue statement used outside of a for or while loop");
+    errMsgLoc(this, "break is not inside any loop or switch");
   }
-  loop = b->loop;
+  breakable = block->breakable;
 }
 
-Print::Print(Parser::PrintNT* p, BlockScope* s)
+Continue::Continue(Block* b) : Statement(b)
+{}
+
+void Continue::resolve(bool final)
 {
-  for(auto e : p->exprs)
+  if(block->loop.is<None>())
   {
-    exprs.push_back(getExpression(s, e));
+    errMsgLoc(this, "continue is not inside any loop");
   }
+  loop = block->loop;
 }
 
-Assertion::Assertion(Parser::Assertion* as, BlockScope* s)
+Print::Print(Block* b, vector<Expression*>& e) : Statement(b)
 {
-  asserted = getExpression(s, as->expr);
+  exprs = e;
 }
 
-Subroutine::Subroutine(Parser::SubroutineNT* snt, Scope* s)
+void Print::resolve(bool final)
 {
-  name = snt->name;
-  scope = (SubroutineScope*) s;
-  body = nullptr;
-  auto stypeNT = new Parser::SubroutineTypeNT;
-  stypeNT->retType = snt->retType;
-  stypeNT->params = snt->params;
-  stypeNT->isStatic = snt->isStatic;
-  stypeNT->isPure = snt->isPure;
-  stypeNT->nonterm = snt->nonterm;
-  TypeLookup tl(stypeNT, scope);
-  TypeSystem::typeLookup->lookup(tl, (Type*&) type);
+  for(auto& e : exprs)
+  {
+    resolveExpr(e, final);
+    if(!e->resolved)
+    {
+      return;
+    }
+  }
+  resolved = true;
+}
+
+Assertion::Assertion(Block* b, Expression* a) : Statement(b)
+{
+  asserted = a;
+}
+
+void Assertion::resolve(bool final)
+{
+  resolveExpr(asserted, final);
+  if(!asserted->resolved)
+  {
+    return;
+  }
+  if(asserted->type != primitives[Prim::BOOL])
+  {
+    errMsgLoc("asserted value has non-bool type " << asserted->type->getName());
+  }
+  resolved = true;
+}
+
+Subroutine::Subroutine(Scope* s, string n, TypeSystem::CallableType* ct, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* bodyBlock)
+{
+  scope = s;
+  name = n;
+}
+
+void Subroutine::resolve(bool final)
+{
 }
 
 void Subroutine::check()
