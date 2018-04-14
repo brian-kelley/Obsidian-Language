@@ -359,40 +359,42 @@ void Switch::resolve(bool final)
     resolved = true;
 }
 
-Return::Return(Parser::Return* r, Block* b)
+Return::Return(Block* b, Expression* e) : Statement(b)
 {
-  from = b->subr;
+  value = e;
+}
+
+Return(Block* b) : Statement(b)
+{
   value = nullptr;
-  if(r->ex)
-  {
-    value = getExpression(b->scope, r->ex);
-  }
-  Type* voidType = primitives[Parser::TypeNT::VOID];
-  Type* subrRetType = b->subr->type->returnType;
-  Type* actualRetType = voidType;
+}
+
+void Return::resolve(bool final)
+{
   if(value)
-    actualRetType = value->type;
-  //Make sure that the return expression has a type that matches the subroutine's retType
-  if(subrRetType != voidType && actualRetType == voidType)
   {
-    ERR_MSG("subroutine returns non-void but return not given expression");
+    value->resolve(final);
+    if(!value->resolved)
+      return;
   }
-  if(subrRetType == voidType && actualRetType != voidType)
+  //make sure value can be converted to enclosing subroutine's return type
+  auto subrRetType = block->subr->type->retType;
+  if(subrRetType == primitives[Prim::VOID])
   {
-    ERR_MSG("subroutine returns void but a return expression was provided");
+    if(value)
+    {
+      errMsgLoc(this, "returned a value from void subroutine");
+    }
   }
-  //see if value conversion necessary
-  if(subrRetType != actualRetType)
+  if(!subrRetType->canConvert(value->type))
+  {
+    errMsgLoc(this, "returned value of type " << value->type->getName() << " incompatible with subroutine return type " << subrRetType->getName());
+  }
+  else if(subrRetType != value->type)
   {
     value = new Converted(value, subrRetType);
   }
-}
-
-Return::Return(Subroutine* s)
-{
-  value = nullptr; //void return
-  from = s;
-  //no other checking necessary
+  resolved = true;
 }
 
 Break::Break(Block* b)
@@ -403,6 +405,10 @@ Break::Break(Block* b)
     ERR_MSG("break statement used outside of a for, while or switch");
   }
   breakable = b->breakable;
+}
+
+void Break::resolve(bool final)
+{
 }
 
 Continue::Continue(Block* b)

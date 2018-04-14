@@ -151,7 +151,10 @@ struct Match : public Statement
 
 struct Switch : public Statement
 {
-  Switch(Block* b, Expression* s, vector<int>& caseIndices, vector<Expression*> caseValues, vector<Statement*>& stmts, int defaultPos);
+  //caseIndices and defaultPos are the locations of labels within stmts
+  Switch(Block* b, Expression* s,
+      vector<int>& caseIndices, vector<Expression*> caseValues,
+      vector<Statement*>& stmts, int defaultPos);
   void resolve(bool final);
   Expression* switched;
   vector<Expression*> caseValues;
@@ -167,14 +170,15 @@ struct Return : public Statement
   Return(Block* b, Expression* value);
   //Constructor for void return
   Return(Block* b);
-  Expression* value; //can be null (void return)
-  Subroutine* from;
+  void resolve(bool final);
+  Expression* value; //null for void return
 };
 
 struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(Block* s);
+  void resolve(bool final);
   Breakable breakable;
 };
 
