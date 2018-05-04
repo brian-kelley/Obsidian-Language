@@ -196,7 +196,7 @@ Type* getMapType(Type* key, Type* value)
   }
 }
 
-Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* retType, vector<Type*>& argTypes)
+Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type*>& argTypes)
 {
   if(retType == nullptr)
     return nullptr;
@@ -205,7 +205,7 @@ Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* retTyp
     if(arg == nullptr)
       return nullptr;
   }
-  auto ct = new CallableType(pure, owner, retType, argTypes, nonterm);
+  auto ct = new CallableType(pure, owner, retType, argTypes);
   auto it = callables.find(ct);
   if(it == callables.end())
   {
@@ -777,21 +777,19 @@ bool VoidType::canConvert(Type* t)
 /* Callable Type */
 /*****************/
 
-CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args, bool nonterm)
+CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args);
 {
   pure = isPure;
   returnType = retType;
   argTypes = args;
-  nonterminating = nonterm;
   ownerStruct = NULL;
 }
 
-CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector<Type*>& args, bool nonterm)
+CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector<Type*>& args)
 {
   pure = isPure;
   returnType = retType;
   argTypes = args;
-  nonterminating = nonterm;
   ownerStruct = owner;
 }
 
@@ -820,7 +818,6 @@ string CallableType::getName()
 //all nonmember/static functions can
 //  be member functions (by ignoring the this argument)
 //member functions are only equivalent if they belong to same struct
-//all terminating procedures can be used in place of nonterminating ones
 bool CallableType::canConvert(Type* other)
 {
   //Only CallableTypes are convertible to other CallableTypes
@@ -831,8 +828,6 @@ bool CallableType::canConvert(Type* other)
   {
     return false;
   }
-  if(!nonterminating && ct->nonterminating)
-    return false;
   if(pure && !ct->pure)
     return false;
   //check that arguments are exactly the same
@@ -846,8 +841,6 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
 {
   //an arbitrary way to order all possible callables (is lhs < rhs?)
   if(!lhs->pure && rhs->pure)
-    return true;
-  if(!lhs->nonterminating && rhs->nonterminating)
     return true;
   if(lhs->returnType < rhs->returnType)
     return true;
@@ -980,7 +973,7 @@ void resolveType(Type*& t, bool err)
         if(allResolved)
         {
           finalType = getSubroutineType(ownerStruct, ct.pure,
-              ct.nonterm, ct.retType, ct.params);
+              ct.retType, ct.params);
         }
         break;
       }

@@ -58,7 +58,6 @@ void initTokens()
   SET_KEY("benchmark", BENCHMARK)
   SET_KEY("functype", FUNCTYPE)
   SET_KEY("proctype", PROCTYPE)
-  SET_KEY("nonterm", NONTERM)
   SET_KEY("static", STATIC);
   SET_KEY("array", ARRAY);
   SET_KEY("extern", EXTERN);

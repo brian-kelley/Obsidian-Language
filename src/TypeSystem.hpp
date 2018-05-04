@@ -399,9 +399,9 @@ struct ErrorType : public Type
 struct CallableType : public Type
 {
   //constructor for non-member callables
-  CallableType(bool isPure, Type* returnType, vector<Type*>& args, bool nonterm = false);
+  CallableType(bool isPure, Type* returnType, vector<Type*>& args);
   //constructor for members
-  CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args, bool nonterm = false);
+  CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args);
   string getName();
   Struct* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;

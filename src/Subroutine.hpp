@@ -206,14 +206,19 @@ struct Assertion : public Statement
 
 struct Subroutine
 {
-  //constructor doesn't process the type or body in any way
-  Subroutine(Scope* s, string name, TypeSystem::CallableType* ct, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
+  //isStatic is just whether there was an explicit "static" before declaration,
+  //everything else can be determined from context
+  //isPure is whether this is declared as a function
+  Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
   void resolve(bool final);
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;
   //Local variables in subroutine scope representing arguments, in order
   vector<Variable*> args;
+  //constructor sets owner to innermost struct if there is one and isStatic is false
+  //otherwise NULL
+  TypeSystem::StructType* owner;
   Block* body;
   //scope->node is this
   Scope* scope;
@@ -221,7 +226,7 @@ struct Subroutine
 
 struct ExternalSubroutine
 {
-  ExternalSubroutine(Parser::ExternSubroutineNT*, Scope* s);
+  ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argNames, string& code);
   TypeSystem::CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
@@ -229,8 +234,13 @@ struct ExternalSubroutine
 
 struct Test : public Node
 {
-  Test(Block* b, Scope* s);
+  Test(Scope* s, Block* b);
+  void resolve(bool final);
+  //scope needed to resolve run
+  Scope* scope;
   Block* run;
+  //since tests don't live in the program,
+  //keep a list of all tests
   static vector<Test*> tests;
 };
 

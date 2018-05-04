@@ -27,7 +27,7 @@ struct Name
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
   Name(Module* m, Scope* parent)
     : item(m), kind(MODULE), scope(parent) {}
-  Name(Struct* st, Scope* s)
+  Name(StructType* st, Scope* s)
     : item(st), kind(STRUCT), scope(s) {}
   Name(Enum* e, Scope* s)
     : item(e), kind(ENUM), scope(s) {}
@@ -58,13 +58,18 @@ struct Module
 //Scopes own all funcs/structs/traits/etc
 struct Scope
 {
-  Scope(Scope* parent);
+  Scope(Scope* parent, Module* m);
+  Scope(Scope* parent, StructType* s);
+  Scope(Scope* parent, Subroutine* s);
+  Scope(Scope* parent, Block* b);
+  Scope(Scope* parent, Enum* e);
   virtual string getLocalName() = 0;
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
-  //unified name handling
   Name findName(Parser::Member* mem);
+  //try to find name in this scope or a parent scope
   Name findName(string name);
+  //try to find name in this scope only
   Name lookup(string name);
   void addName(Name n);
   map<string, Name> names;
@@ -83,7 +88,7 @@ struct Scope
   bool contains(Scope* other);
   //all types that can represent a Scope in the AST
   //using this variant instead of having these types inherit Scope
-  variant<Module*, Struct*, Subroutine*, Block*, Enum*> node;
+  variant<Module*, StructType*, Subroutine*, Block*, Enum*> node;
 };
 
 extern Scope* global;

@@ -458,70 +458,68 @@ void Assertion::resolve(bool final)
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* s, string n, TypeSystem::CallableType* ct, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* bodyBlock)
+Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body)
 {
-  scope = s;
   name = n;
+  scope = new Scope(enclosing, this);
+  auto enclosingStruct = scope->getStructContext();
+  if(enclosingStruct && !isStatic)
+  {
+    type = new CallableType(pure, enclosingStruct, returnType, argTypes);
+    owner = enclosingStruct;
+  }
+  else
+  {
+    type = new CallableType(pure, returnType, argTypes);
+  }
+  //create argument variables
+  if(argNames.size() != argTypes.size())
+  {
+    INTERNAL_ERROR;
+  }
+  for(size_t i = 0; i < argNames.size(); i++)
+  {
+    Variable* v = new Variable(scope, argNames[i], argTypes[i], true);
+    args.push_back(v);
+    scope->addName(v);
+  }
+  body = bodyBlock;
 }
 
 void Subroutine::resolve(bool final)
 {
-}
-
-void Subroutine::check()
-{
-  //Need special checks for main
-  //ret type can be void or int
-  //args are either string[] or nothing
-  auto voidType = primitives[Parser::TypeNT::VOID];
-  if(name == "main")
+  type->resolve(final);
+  if(!type->resolved)
+    return;
+  for(auto arg : args)
   {
-    if(type->pure)
+    //resolving argument variables just resolves their types
+    arg->resolve(final);
+    if(!arg->resolved)
     {
-      ERR_MSG("main() must be a procedure");
-    }
-    if(scope->parent != global)
-    {
-      ERR_MSG("main() is not in global scope");
-    }
-    programHasMain = true;
-    if(type->returnType != voidType &&
-        type->returnType != primitives[Parser::TypeNT::INT])
-    {
-      ERR_MSG("proc main must return void or int");
-    }
-    bool noArgs = type->argTypes.size() == 0;
-    bool takesStringArray = type->argTypes.size() == 1 &&
-      type->argTypes[0] == getArrayType(primitives[Parser::TypeNT::CHAR], 2);
-    if(!noArgs && !takesStringArray)
-    {
-      ERR_MSG("proc main must take no arguments or only an array of strings");
+      return;
     }
   }
-  body->check();
-  //after checking body, check if it ends in a return
-  //if return type is void and there is no return, add it explicitly
-  //TODO: check for "missing return" when CFG is supported
-  if(type->returnType == voidType &&
-      (body->stmts.size() == 0 || !dynamic_cast<Return&*>(body->stmts.back())))
+  //resolve the body
+  //before doing this, mark self as "resolved" temporarily
+  //so that recursive calls to this inside own body can be
+  //resolved
+  resolved = true;
+  body->resolve(final);
+  if(!body->resolved)
   {
-    body->stmts.push_back(new Return(this));
+    resolved = false;
   }
 }
 
-ExternalSubroutine::ExternalSubroutine(Parser::ExternSubroutineNT* es, Scope* s)
+ExternalSubroutine::ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argNames, string& code)
 {
-  TypeSystem::typeLookup->lookup(es->type, (Type*&) type);
-  c = es->c;
 }
 
-Test::Test(Parser::TestDecl* td, Scope* s)
+Test::Test(Scope* s, Block* b) : scope(s), run(b)
+{}
+
+void Test::resolve(bool final)
 {
-  tests.push_back(this);
-  //Create a dummy block
-  //to hold the statement
-  BlockScope* bs = blockScopes[td->block];
-  run = new Block(bs);
-  run->addStatements(td->block);
 }
 

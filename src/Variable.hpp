@@ -16,7 +16,7 @@ namespace TypeSystem
 
 struct Variable : public Node
 {
-  //ctor for global/static/member variables
+  //ctor for global/static/member variables and arguments
   Variable(Scope* s, string name, TypeSystem::Type* t, bool isStatic);
   //ctor for local variables
   Variable(string name, TypeSystem::Type* t, Block* b);
@@ -25,7 +25,7 @@ struct Variable : public Node
   string name;
   TypeSystem::Type* type;
   //the struct where this is a member, or NULL if static/local
-  Struct* owner;
+  StructType* owner;
   Scope* scope;
   //for local variables only: the position of VarDecl in the list of statements
   //used to check for use-before-declare errors

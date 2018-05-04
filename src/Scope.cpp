@@ -24,10 +24,11 @@ bool Name::inScope(Scope* s)
 *   Scope & subclasses impl    *
 *******************************/
 
-Scope::Scope(Scope* parentIn)
-{
-  parent = parentIn;
-}
+Scope::Scope(Scope* p, Module* m) : parent(p), node(m) {}
+Scope::Scope(Scope* p, Struct* s) : parent(p), node(s) {}
+Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
+Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
+Scope::Scope(Scope* p, Enum* e) : parent(p), node(e) {}
 
 string Scope::getFullPath()
 {
