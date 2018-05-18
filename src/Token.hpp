@@ -51,7 +51,6 @@ enum
   DEFAULT,
   BREAK,
   CONTINUE,
-  UNION,
   ENUM,
   AUTO,
   MODULE,

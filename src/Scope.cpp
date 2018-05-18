@@ -30,6 +30,16 @@ Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
 Scope::Scope(Scope* p, Enum* e) : parent(p), node(e) {}
 
+void addName(Name n)
+{
+  Name prev = findName(n.name);
+  if(prev.item)
+  {
+    errMsgLoc("name " << n.name << " redefined (previous declaration on line " << prev.node->line << ", col " << prev.node->col << ")");
+  }
+  names[n.name] = n;
+}
+
 string Scope::getFullPath()
 {
   if(parent)
@@ -113,8 +123,26 @@ StructType* Scope::getStructContext()
       else
       {
         //in a static subroutine, which is always a static context
-        return nullptr;
+        break;
       }
+    }
+  }
+  return nullptr;
+}
+
+StructType* Scope::getMemberContext()
+{
+  //walk up scope tree, looking for a Struct scope before
+  //reaching a static subroutine or global scope
+  for(Scope* iter = this; iter; iter = iter->parent)
+  {
+    if(iter->node.is<Struct*>())
+    {
+      return iter->node.get<Struct*>();
+    }
+    else if(!iter->node.is<Module*>())
+    {
+      break;
     }
   }
   return nullptr;

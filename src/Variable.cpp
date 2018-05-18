@@ -6,7 +6,7 @@ Variable::Variable(Scope* s, string n, TypeSystem::Type* t, bool isStatic)
   name = n;
   type = t;
   owner = nullptr;
-  //blockPos = -1;
+  blockPos = -1;
   for(Scope* iter = s; iter; iter = iter->parent)
   {
     if(iter->node.is<Block*>())
@@ -28,7 +28,7 @@ Variable::Variable(string name, TypeSystem::Type* t, Block* b)
   name = n;
   type = t;
   owner = nullptr;
-  //blockPos = b->statementCount;
+  blockPos = b->statementCount;
 }
 
 void Variable::resolve(bool final)

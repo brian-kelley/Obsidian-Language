@@ -34,6 +34,9 @@ using std::to_string;
 
 typedef ostringstream Oss;
 
+//None type useful for working with variants
+struct None{};
+
 struct Node;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)

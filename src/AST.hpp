@@ -42,7 +42,10 @@ struct Node
   }
   //Do full context-sensitive semantic checking
   //Some nodes don't need to be checked, so provide empty default definition
-  virtual void resolve(bool) {};
+  //resolveImpl only does the type-specific logic to resolve a node, and set
+  //resolved = true on success.
+  //
+  //Externally, finalResolve or tryResolve should be used instead.
   void finalResolve()
   {
     resolve(true);
@@ -65,6 +68,20 @@ struct Node
   int line;
   int col;
   bool resolved;
+  bool resolving;
+
+  protected:
+  virtual void resolveImpl(bool) {};
+  void resolve(bool final)
+  {
+    if(resolved)
+      return;
+    if(resolving)
+      errMsgLoc(this, "Circular definition in program");
+    resolving = true;
+    resolveImpl(final);
+    resolving = false;
+  }
 };
 
 #endif

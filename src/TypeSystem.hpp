@@ -157,14 +157,15 @@ struct Type
 
 struct StructType : public Type
 {
-  StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* structScope);
+  //Constructor just creates an empty struct (no members)
+  //Parser should explicitly add members as they are parsed
+  StructType(string name, Scope* enclosingScope);
   string name;
   vector<Variable*> members;
   vector<bool> composed; //1-1 correspondence with members
   Scope* scope;
   bool canConvert(Type* other);
   bool isStruct() {return true;}
-  void check(); //called once per struct at end of semantic checking
   string getName()
   {
     return name;
@@ -178,8 +179,7 @@ struct StructType : public Type
     Subroutine* subr;
   };
   map<string, IfaceMember> interface;
-  private:
-  bool checked;   //whether check() has been called
+  void resolveImpl(bool final);
 };
 
 struct UnionType : public Type
@@ -198,7 +198,6 @@ struct ArrayType : public Type
   Type* elem;
   //Type of element of this array type (can be (dims-1) dimensional array, or same as elem)
   Type* subtype;
-  Parser::TypeNT* elemNT;
   int dims;
   bool canConvert(Type* other);
   bool isArray() {return true;}
@@ -212,7 +211,6 @@ struct ArrayType : public Type
     return name;
   }
   bool contains(Type* t);
-  void check();
 };
 
 struct TupleType : public Type

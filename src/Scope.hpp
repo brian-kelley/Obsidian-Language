@@ -26,25 +26,26 @@ struct Name
   };
   Name() : item(nullptr), kind(NONE), scope(nullptr) {}
   Name(Module* m, Scope* parent)
-    : item(m), kind(MODULE), scope(parent) {}
+    : item(m), kind(MODULE), scope(parent), node(m) {}
   Name(StructType* st, Scope* s)
-    : item(st), kind(STRUCT), scope(s) {}
+    : item(st), kind(STRUCT), scope(s), node(st) {}
   Name(Enum* e, Scope* s)
-    : item(e), kind(ENUM), scope(s) {}
+    : item(e), kind(ENUM), scope(s), node(e) {}
   Name(Alias* a, Scope* s)
-    : item(a), kind(TYPEDEF), scope(s) {}
+    : item(a), kind(TYPEDEF), scope(s), node(a) {}
   Name(Subroutine* subr, Scope* s)
-    : item(subr), kind(SUBROUTINE), scope(s) {}
+    : item(subr), kind(SUBROUTINE), scope(s), node(subr){}
   Name(ExternalSubroutine* subr, Scope* s)
-    : item(subr), kind(EXTERN_SUBR), scope(s) {}
+    : item(subr), kind(EXTERN_SUBR), scope(s), node(subr) {}
   Name(Variable* var, Scope* s)
-    : item(var), kind(VARIABLE), scope(s) {}
+    : item(var), kind(VARIABLE), scope(s), node(var) {}
   Name(EnumConstant* ec, Scope* s)
-    : item(ec), kind(ENUM_CONSTANT), scope(s) {}
+    : item(ec), kind(ENUM_CONSTANT), scope(s), node(ec) {}
   void* item;
   //All named declaration types
   Kind kind;
   Scope* scope;
+  Node* node;
   bool inScope(Scope* s);
 };
 
@@ -76,6 +77,9 @@ struct Scope
   //if in static context, this returns NULL
   //otherwise, returns the Struct that "this" would refer to
   TypeSystem::StructType* getStructContext();
+  //if in a struct (or module within struct) return the struct
+  //otherwise NULL
+  TypeSystem::StructType* getMemberContext();
   /*  take innermost function scope
       if static, return that function's scope
       if member, return owning struct

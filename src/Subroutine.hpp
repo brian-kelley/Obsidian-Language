@@ -16,8 +16,9 @@ struct Statement : public Node
   //normal ctor: automatically set index within parent block
   Statement(Block* b) : block(b) {}
   Block* block;
-  virtual void resolve(bool final);
+  virtual void resolveImpl(bool final);
   virtual ~Statement() {}
+  int statementIndex;
 };
 
 //Statement types
@@ -40,7 +41,6 @@ struct Switch;
 struct Match;
 
 struct Subroutine;
-struct Procedure; 
 
 struct Test;
 
@@ -60,7 +60,10 @@ struct Block : public Statement
   Block(For* f);
   //Constructor for While loop body
   Block(While* w);
-  void resolve(bool final);
+  //Constructor for standalone block (for tests)
+  Block(Scope* s);
+  void resolveImpl(bool final);
+  void addStatement(Statement* s);
   vector<Statement*> stmts;
   //scope of the block
   Scope* scope;
@@ -79,7 +82,7 @@ Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 struct Assign : public Statement
 {
   Assign(Block* b, Expression* lhs, Expression* rhs);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* lvalue;
   Expression* rvalue;
 };
@@ -88,7 +91,7 @@ struct CallStmt : public Statement
 {
   //Ctor for when it is known that Expr12 is a call
   CallStmt(Block* b, CallExpr* e);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   //code generator just needs to "evaluate" this expression and discard the result
   CallExpr* eval;
 };
@@ -101,7 +104,7 @@ struct For : public Statement
   For(Block* b, vector<string>& tupIter, Expression* arr, Block* body);
   //for over integer range
   For(Block* b, string counter, Expression* begin, Expression* end, Block* body);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Statement* init;
   Expression* condition;
   Statement* increment;
@@ -120,7 +123,7 @@ struct For : public Statement
 struct While : public Statement
 {
   While(Block* b, Expression* condition, Block* body);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* condition;
   Block* body;
 };
@@ -129,7 +132,7 @@ struct If : public Statement
 {
   If(Block* b, Expression* condition, Statement* body);
   If(Block* b, Expression* condition, Statement* tbody, Statement* fbody);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* condition;
   Statement* body;
   Statement* elseBody; //null if no else
@@ -142,7 +145,7 @@ struct Match : public Statement
   Match(Block* b, Expression* m, string varName,
       vector<TypeSystem::Type*>& types,
       vector<Block*>& blocks);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* matched;              //the given expression (must be a union)
   vector<TypeSystem::Type*> types;  //each type must be an option of matched->type
   vector<Block*> cases;             //correspond 1-1 with types
@@ -155,7 +158,7 @@ struct Switch : public Statement
   Switch(Block* b, Expression* s,
       vector<int>& caseIndices, vector<Expression*> caseValues,
       vector<Statement*>& stmts, int defaultPos);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* switched;
   vector<Expression*> caseValues;
   vector<int> caseLabels; //correspond 1-1 with caseValues
@@ -170,7 +173,7 @@ struct Return : public Statement
   Return(Block* b, Expression* value);
   //Constructor for void return
   Return(Block* b);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* value; //null for void return
 };
 
@@ -178,7 +181,7 @@ struct Break : public Statement
 {
   //this ctor checks that the statement is being used inside a loop
   Break(Block* b);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Breakable breakable;
 };
 
@@ -186,31 +189,31 @@ struct Continue : public Statement
 {
   //this ctor checks that the statement is being used inside a loop or Match
   Continue(Block* b);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Loop loop;
 };
 
 struct Print : public Statement
 {
   Print(Block* b, vector<Expression*>& exprs);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   vector<Expression*> exprs;
 };
 
 struct Assertion : public Statement
 {
   Assertion(Block* b, Expression* a);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* asserted;
 };
 
-struct Subroutine
+struct Subroutine : public Node
 {
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
   Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   string name;
   //the full type of this subroutine
   TypeSystem::CallableType* type;
@@ -224,18 +227,20 @@ struct Subroutine
   Scope* scope;
 };
 
-struct ExternalSubroutine
+struct ExternalSubroutine : public Node
 {
   ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argNames, string& code);
+  void resolveImpl(bool final);
   TypeSystem::CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
+  vector<string> argNames;
 };
 
 struct Test : public Node
 {
   Test(Scope* s, Block* b);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   //scope needed to resolve run
   Scope* scope;
   Block* run;

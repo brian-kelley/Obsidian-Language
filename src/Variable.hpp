@@ -29,7 +29,7 @@ struct Variable : public Node
   Scope* scope;
   //for local variables only: the position of VarDecl in the list of statements
   //used to check for use-before-declare errors
-  //int blockPos;
+  int blockPos;
 };
 
 #endif

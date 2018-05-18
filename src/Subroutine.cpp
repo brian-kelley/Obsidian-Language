@@ -14,8 +14,7 @@ Block::Block(Subroutine* s)
   breakable = None;
   loop = None;
   subr = s;
-  scope = new Scope(s->scope);
-  scope->node = this;
+  scope = new Scope(s->scope, this);
   statementCount = 0;
 }
 
@@ -24,8 +23,7 @@ Block::Block(Block* parent)
   breakable = parent->breakable;
   loop = parent->loop;
   subr = parent->subr;
-  scope = new Scope(parent->scope);
-  scope->node = this;
+  scope = new Scope(parent->scope, this);
   statementCount = 0;
 }
 
@@ -36,8 +34,7 @@ Block::Block(For* f, Block* parent)
   subr = parent->subr;
   loop = f;
   breakable = f;
-  scope = new Scope(parent->scope);
-  scope->node = this;
+  scope = new Scope(parent->scope, this);
   statementCount = 0;
 }
 
@@ -48,12 +45,26 @@ Block::Block(While* w)
   subr = parent->subr;
   loop = w;
   breakable = w;
-  scope = new Scope(parent->scope);
-  scope->node = this;
+  scope = new Scope(parent->scope, this);
   statementCount = 0;
 }
 
-void Block::resolve(bool final)
+Block::Block(Scope* s)
+{
+  subr = nullptr;
+  loop = None();
+  breakable = None();
+  statementCount = 0;
+  scope = new Scope(s, this);
+}
+
+void Block::addStatement(Statement* s)
+{
+  stmts.push_back(s);
+  statementCount++;
+}
+
+void Block::resolveImpl(bool final)
 {
   for(auto& stmt : stmts)
   {
@@ -70,7 +81,7 @@ Assign::Assign(Block* b, Expression* lhs, Expression* rhs) : Statement(b)
   rvalue = rhs;
 }
 
-void Assign::resolve(bool final)
+void Assign::resolveImpl(bool final)
 {
   resolveExpr(lvalue, final);
   resolveExpr(rvalue, final);
@@ -99,7 +110,7 @@ CallStmt(Block* b, CallExpr* e) : Statement(b)
   eval = e;
 }
 
-void CallStmt::resolve(bool final)
+void CallStmt::resolveImpl(bool final)
 {
   eval->resolve(final);
   if(!eval->resolved)
@@ -165,7 +176,7 @@ For::For(Block* b, string counter, Expression* begin, Expression* end, Block* in
   innerBody->scope->parent = body->scope;
 }
 
-void For::resolve(bool final)
+void For::resolveImpl(bool final)
 {
   init->resolve(final);
   if(!init->resolved)
@@ -202,7 +213,7 @@ While::While(Block* b, Expression* cond, Block* whileBody)
   body = whileBody;
 }
 
-void While::resolve(bool final)
+void While::resolveImpl(bool final)
 {
   resolveExpr(condition, final);
   if(!condition->resolved)
@@ -232,7 +243,7 @@ If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
   elseBody = fb;
 }
 
-void If::resolve(bool final)
+void If::resolveImpl(bool final)
 {
   resolveExpr(condition, final);
   if(!condition->resolved)
@@ -278,7 +289,7 @@ Match::Match(Block* b, Expression* m, string varName,
   }
 }
 
-void Match::resolve(bool final)
+void Match::resolveImpl(bool final)
 {
   resolveExpr(matched, final);
   if(!matched->resolved)
@@ -322,7 +333,7 @@ Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> v
   stmts = stmtList;
 }
 
-void Switch::resolve(bool final)
+void Switch::resolveImpl(bool final)
 {
   resolveExpr(switched, final);
   if(!switched->resolve)
@@ -369,7 +380,7 @@ Return(Block* b) : Statement(b)
   value = nullptr;
 }
 
-void Return::resolve(bool final)
+void Return::resolveImpl(bool final)
 {
   if(value)
   {
@@ -400,7 +411,7 @@ void Return::resolve(bool final)
 Break::Break(Block* b) : Statement(b)
 {}
 
-void Break::resolve(bool final)
+void Break::resolveImpl(bool final)
 {
   if(block->breakable.is<None>())
   {
@@ -412,7 +423,7 @@ void Break::resolve(bool final)
 Continue::Continue(Block* b) : Statement(b)
 {}
 
-void Continue::resolve(bool final)
+void Continue::resolveImpl(bool final)
 {
   if(block->loop.is<None>())
   {
@@ -426,7 +437,7 @@ Print::Print(Block* b, vector<Expression*>& e) : Statement(b)
   exprs = e;
 }
 
-void Print::resolve(bool final)
+void Print::resolveImpl(bool final)
 {
   for(auto& e : exprs)
   {
@@ -444,7 +455,7 @@ Assertion::Assertion(Block* b, Expression* a) : Statement(b)
   asserted = a;
 }
 
-void Assertion::resolve(bool final)
+void Assertion::resolveImpl(bool final)
 {
   resolveExpr(asserted, final);
   if(!asserted->resolved)
@@ -486,7 +497,7 @@ Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSyst
   body = bodyBlock;
 }
 
-void Subroutine::resolve(bool final)
+void Subroutine::resolveImpl(bool final)
 {
   type->resolve(final);
   if(!type->resolved)
@@ -501,25 +512,35 @@ void Subroutine::resolve(bool final)
     }
   }
   //resolve the body
-  //before doing this, mark self as "resolved" temporarily
-  //so that recursive calls to this inside own body can be
-  //resolved
-  resolved = true;
   body->resolve(final);
   if(!body->resolved)
-  {
-    resolved = false;
-  }
+    return;
+  resolved = true;
 }
 
-ExternalSubroutine::ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argNames, string& code)
+ExternalSubroutine::ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argN, string& code)
 {
+  type = new CallableType(false, returnType, argTypes);
+  c = code;
+  argNames = argN;
+}
+
+void ExternalSubroutine::resolveImpl(bool final)
+{
+  type->resolve(final);
+  if(!type->resolved)
+    return;
+  resolved = true;
 }
 
 Test::Test(Scope* s, Block* b) : scope(s), run(b)
-{}
-
-void Test::resolve(bool final)
 {
+  tests.push_back(this);
+}
+
+void Test::resolveImpl(bool final)
+{
+  run->resolve(final);
+  resolved = run->resolved;
 }
 

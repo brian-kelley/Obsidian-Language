@@ -8,7 +8,7 @@ struct BlockScope;
 namespace Parser
 {
   size_t pos;
-  vector<Token*>* tokens;
+  vector<Token*> tokens;
 
   std::stack<Scope*> scopeStack;
 
@@ -20,69 +20,7 @@ namespace Parser
     return NULL;
   }
 
-  //Need to forward-declare all parse() specializations
-  template<> Module* parse<Module>();
-  template<> ScopedDecl* parse<ScopedDecl>();
-  template<> TypeNT* parse<TypeNT>();
-  template<> StatementNT* parse<StatementNT>();
-  template<> Typedef* parse<Typedef>();
-  template<> Return* parse<Return>();
-  template<> Break* parse<Break>();
-  template<> Continue* parse<Continue>();
-  template<> Switch* parse<Switch>();
-  template<> Match* parse<Match>();
-  template<> ForC* parse<ForC>();
-  template<> ForOverArray* parse<ForOverArray>();
-  template<> ForRange* parse<ForRange>();
-  template<> For* parse<For>();
-  template<> While* parse<While>();
-  template<> If* parse<If>();
-  template<> Assertion* parse<Assertion>();
-  template<> TestDecl* parse<TestDecl>();
-  template<> EnumItem* parse<EnumItem>();
-  template<> Enum* parse<Enum>();
-  template<> Block* parse<Block>();
-  template<> VarDecl* parse<VarDecl>();
-  template<> MetaVar* parse<MetaVar>();
-  template<> VarAssign* parse<VarAssign>();
-  template<> PrintNT* parse<PrintNT>();
-  template<> ExpressionNT* parse<ExpressionNT>();
-  template<> CallOp* parse<CallOp>();
-  template<> SubroutineNT* parse<SubroutineNT>();
-  template<> ExternSubroutineNT* parse<ExternSubroutineNT>();
-  template<> SubroutineTypeNT* parse<SubroutineTypeNT>();
-  template<> Parameter* parse<Parameter>();
-  template<> StructDecl* parse<StructDecl>();
-  template<> StructLit* parse<StructLit>();
-  template<> BoolLit* parse<BoolLit>();
-  template<> Member* parse<Member>();
-  template<> TupleTypeNT* parse<TupleTypeNT>();
-  template<> UnionTypeNT* parse<UnionTypeNT>();
-  template<> MapTypeNT* parse<MapTypeNT>();
-  template<> Expr1* parse<Expr1>();
-  template<> Expr1RHS* parse<Expr1RHS>();
-  template<> Expr2* parse<Expr2>();
-  template<> Expr2RHS* parse<Expr2RHS>();
-  template<> Expr3* parse<Expr3>();
-  template<> Expr3RHS* parse<Expr3RHS>();
-  template<> Expr4* parse<Expr4>();
-  template<> Expr4RHS* parse<Expr4RHS>();
-  template<> Expr5* parse<Expr5>();
-  template<> Expr5RHS* parse<Expr5RHS>();
-  template<> Expr6* parse<Expr6>();
-  template<> Expr6RHS* parse<Expr6RHS>();
-  template<> Expr7* parse<Expr7>();
-  template<> Expr7RHS* parse<Expr7RHS>();
-  template<> Expr8* parse<Expr8>();
-  template<> Expr8RHS* parse<Expr8RHS>();
-  template<> Expr9* parse<Expr9>();
-  template<> Expr9RHS* parse<Expr9RHS>();
-  template<> Expr10* parse<Expr10>();
-  template<> Expr10RHS* parse<Expr10RHS>();
-  template<> Expr11* parse<Expr11>();
-  template<> Expr12* parse<Expr12>();
-  template<> NewArrayNT* parse<NewArrayNT>();
-
+  /*
   void metaStatement(size_t start)
   {
     //scan forward to the first '#', remembering tokens before
@@ -125,6 +63,7 @@ namespace Parser
   {
     emitBuffer += tok->getStr() + ' ';
   }
+  */
 
   Module* parseProgram(vector<Token*>& toks)
   {
@@ -153,6 +92,7 @@ namespace Parser
     return m;
   }
 
+  /*
   vector<Token*> Module::unparse()
   {
     vector<Token*> toks = lex("module " + name + "{");
@@ -162,6 +102,52 @@ namespace Parser
     }
     toks += lex("}");
     return toks;
+  }
+  */
+
+  bool parseScopedDecl(Scope* s, bool semicolon)
+  {
+    Punct colon(COLON);
+    if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
+    {
+      switch(kw->kw)
+      {
+      }
+    }
+    else if(Ident* id = dynamic_cast<Ident*>(lookAhead()))
+    {
+      //variable declaration
+      parseVarDecl(s);
+    }
+  }
+
+  void parseVarDecl(Scope* s)
+  {
+    Ident* id = (Ident*) expect(IDENTIFIER);
+    expectPunct(COLON);
+    Keyword stat(STATIC);
+    bool isStatic = false;
+    if(lookAhead()->compareTo(&stat))
+    {
+      isStatic = true;
+    }
+    Type* type = parseType(s);
+    //create the variable and add to scope
+    Variable* var;
+    if(s->node.is<Block*>())
+    {
+      //local variable uses special constructor
+      var = new Variable(id->name, type, s->node.get<Block*>());
+    }
+    else
+    {
+      //at parse time, if a variable is static, make sure it's in a struct
+      if(!s->getMemberContext() && isStatic)
+      {
+        err("static variable declared outside any struct");
+      }
+      var = new Variable(s, id->name, type, isStatic);
+    }
   }
 
   static ScopedDecl* parseScopedDeclGeneral(bool semicolon)
@@ -251,6 +237,7 @@ namespace Parser
     return parseScopedDeclGeneral(true);
   }
 
+  /*
   string ScopedDecl::unparse()
   {
     if(decl.is<Module*>())
@@ -271,6 +258,7 @@ namespace Parser
       return decl.get<TestDecl*>()->unparse();
     return vector<Token*>();
   }
+  */
 
   template<>
   TypeNT* parse<TypeNT>()
@@ -397,6 +385,7 @@ namespace Parser
     return type;
   }
 
+  /*
   vector<Token*> TypeNT::unparse()
   {
     vector<Token*> toks;
@@ -461,16 +450,7 @@ namespace Parser
     }
     return toks;
   }
-
-  Block* parseBlockWrappedStatement()
-  {
-    Block* b = new Block;
-    StatementNT* s = parse<StatementNT>();
-    if(s->s.is<Block*>())
-      return s->s.get<Block*>();
-    b->statements.push_back(s);
-    return b;
-  }
+  */
 
   Statement* parseVarDeclGivenMember(Member* mem)
   {
@@ -966,14 +946,34 @@ namespace Parser
     return e;
   }
 
-  template<>
-  Block* parse<Block>()
+  void parseStatementOrDecl(Block* b)
+  {
+  }
+
+  Block* parseBlock(Scope* s)
   {
     Block* b = new Block;
     expectPunct(LBRACE);
-    Punct rbrace(RBRACE);
-    b->statements = parseStar<StatementNT>(rbrace);
+    while(!acceptPunct(RBRACE))
+    {
+    }
     return b;
+  }
+
+  Block* parseBlock(Scope* s)
+  {
+  }
+
+  Block* parseBlock(Subroutine* s)
+  {
+  }
+
+  Block* parseBlock(For* f)
+  {
+  }
+
+  Block* parseBlock(While* w)
+  {
   }
 
   template<>

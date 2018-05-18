@@ -8,7 +8,7 @@
 struct Expression : public Node
 {
   Expression() : type(nullptr) {}
-  virtual void resolve(bool final) {}
+  virtual void resolveImpl(bool final) {}
   TypeSystem::Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
@@ -55,7 +55,7 @@ struct UnaryArith : public Expression
   {
     return false;
   }
-  void resolve(bool final);
+  void resolveImpl(bool final);
 };
 
 struct BinaryArith : public Expression
@@ -68,7 +68,7 @@ struct BinaryArith : public Expression
   {
     return false;
   }
-  void resolve(bool final);
+  void resolveImpl(bool final);
 };
 
 struct IntLiteral : public Expression
@@ -130,7 +130,7 @@ struct BoolLiteral : public Expression
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(vector<Expression*> mems);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   bool assignable()
   {
     return lvalue;
@@ -142,7 +142,7 @@ struct CompoundLiteral : public Expression
 struct Indexed : public Expression
 {
   Indexed(Expression* grp, Expression* ind);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* group; //the array or tuple being subscripted
   Expression* index;
   bool assignable()
@@ -154,7 +154,7 @@ struct Indexed : public Expression
 struct CallExpr : public Expression
 {
   CallExpr(Expression* callable, vector<Expression*>& args);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* callable;
   vector<Expression*> args;
   bool assignable()
@@ -167,7 +167,7 @@ struct VarExpr : public Expression
 {
   VarExpr(Variable* v, Scope* s);
   VarExpr(Variable* v);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Variable* var;  //var must be looked up from current scope
   Scope* scope;
   bool assignable()
@@ -184,7 +184,7 @@ struct SubroutineExpr : public Expression
   SubroutineExpr(Subroutine* s);
   SubroutineExpr(Expression* thisObj, Subroutine* s);
   SubroutineExpr(ExternalSubroutine* es);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   bool assignable()
   {
     return false;
@@ -211,7 +211,7 @@ struct UnresolvedExpr : public Expression
 struct StructMem : public Expression
 {
   StructMem(Expression* base, Variable* var);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* base;           //base->type is always StructType
   Variable* member;           //member must be a member of base->type
   bool assignable()
@@ -225,7 +225,7 @@ struct NewArray : public Expression
   NewArray(UnresolvedType* elemType, vector<Expression*> dims);
   UnresolvedType* elem;
   vector<Expression*> dims;
-  void resolve(bool final);
+  void resolveImpl(bool final);
   bool assignable()
   {
     return false;
@@ -236,7 +236,7 @@ struct ArrayLength : public Expression
 {
   ArrayLength(Expression* arr);
   Expression* array;
-  void resolve(bool final);
+  void resolveImpl(bool final);
   bool assignable()
   {
     return false;

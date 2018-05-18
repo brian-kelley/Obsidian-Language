@@ -12,7 +12,7 @@ using namespace TypeSystem;
 UnaryArith::UnaryArith(int o, Expression* e)
   : op(o), expr(e) {}
 
-void UnaryArith::resolve(bool final)
+void UnaryArith::resolveImpl(bool final)
 {
   expr = resolveExpr(expr, final);
   if(expr->resolved)
@@ -45,7 +45,7 @@ void UnaryArith::resolve(bool final)
 
 BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : op(o), lhs(l), rhs(r) {}
 
-void BinaryArith::resolve(bool final)
+void BinaryArith::resolveImpl(bool final)
 {
   lhs = resolveExpr(lhs, final);
   rhs = resolveExpr(rhs, final);
@@ -285,7 +285,7 @@ BoolLiteral::BoolLiteral(bool val);
 
 CompoundLiteral(vector<Expression*> mems) : members(mems) {}
 
-void CompoundLiteral::resolve(bool final)
+void CompoundLiteral::resolveImpl(bool final)
 {
   //first, try to resolve all members
   bool allResolved = true;
@@ -321,7 +321,7 @@ void CompoundLiteral::resolve(bool final)
 Indexed::Indexed(Expression* grp, Expression* ind)
   : group(grp), index(ind) {}
 
-void Indexed::resolve(bool final)
+void Indexed::resolveImpl(bool final)
 {
   resolveExpr(group, final);
   resolveExpr(index, final);
@@ -393,7 +393,7 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
   args = a;
 }
 
-void CallExpr::resolve(bool final)
+void CallExpr::resolveImpl(bool final)
 {
   resolveExpr(callable, final);
   bool allResolved = callable->resolved;
@@ -441,7 +441,7 @@ void CallExpr::resolve(bool final)
 VarExpr(Variable* v, Scope* s) : var(v), scope(s) {}
 VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
-void VarExpr::resolve(bool final)
+void VarExpr::resolveImpl(bool final)
 {
   type = var->type;
   if(scope)
@@ -484,7 +484,7 @@ SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
   this->exSubr = es;
 }
 
-void SubroutineExpr::resolve(bool final)
+void SubroutineExpr::resolveImpl(bool final)
 {
   if(subr)
     type = subr->type;
@@ -526,7 +526,7 @@ StructMem::StructMem(Expression* b, Subroutine* s)
   member = s;
 }
 
-void StructMem::resolve(bool final)
+void StructMem::resolveImpl(bool final)
 {
   resolveExpr(base, final);
   if(!base->resolved)
@@ -577,7 +577,7 @@ NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast)
   }
 }
 
-void NewArray::resolve(bool final)
+void NewArray::resolveImpl(bool final)
 {
   Type* elemType = elem;
   resolveType(elemType, final);
@@ -606,7 +606,7 @@ ArrayLength::ArrayLength(Expression* arr)
   array = arr;
 }
 
-void resolve(bool final)
+void ArrayLength::resolveImpl(bool final)
 {
   resolveExpr(array, final);
   if(!array->resolved)

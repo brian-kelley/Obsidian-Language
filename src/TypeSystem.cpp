@@ -317,14 +317,49 @@ Type* getIntegerType(int bytes, bool isSigned)
 /* Struct Type */
 /***************/
 
-StructType::StructType(Parser::StructDecl* sd, Scope* enclosingScope, StructScope* sscope)
+StructType::StructType(string name, Scope* enclosingScope)
 {
   structs.push_back(this);
-  this->name = sd->name;
-  this->structScope = sscope;
-  //have struct scope point back to this
-  sscope->type = this;
-  checked = false;
+  this->name = name;
+  scope = new Scope(enclosingScope, this);
+}
+
+void resolveImpl(bool final)
+{
+  //attempt to resolve all member variables
+  bool allResolved = true;
+  for(Variable* mem : members)
+  {
+    mem->resolve(final);
+    if(!mem->resolved)
+      allResolved = false;
+  }
+  if(!allResolved)
+    return;
+  //all members have been resolved, which means that
+  //all member types (including structs) are fully resolved
+  //so can now form the interface for this
+  //do in reverse priority order so that names are
+  //overwritten with higher priority automatically
+  for(int i = members.size() - 1; i >= 0; i--)
+  {
+    if(composed[i])
+    {
+      auto memStruct = dynamic_cast<StructType*>(members[i]->type);
+      if(!memStruct)
+      {
+        errMsgLoc(members[i], "composition requested on non-struct member");
+      }
+      //add everything in memStruct's interface to this interface
+      for(auto& ifaceKV : memStruct->interface)
+      {
+        string ifaceName = ifaceKV.first;
+        IfaceMember& ifaceMem = ifaceKV.second;
+        //construct a new IfaceMember with the correct
+      }
+    }
+  }
+  resolved = true;
 }
 
 //direct conversion requires other to be the same type
