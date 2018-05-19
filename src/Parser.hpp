@@ -47,14 +47,18 @@ namespace Parser
   };
 
   void parseScopedDecl(Scope* s, bool semicolon);
-  void parseStatement(Block* b);
+  Statement* parseStatement(Block* b);
   void parseStatementOrDecl(Block* b);
-  void parseVarDecl(Scope* s);
-
-  void parseBlock(Scope* s);
-  void parseBlock(Subroutine* s);
-  void parseBlock(For* f);
-  void parseBlock(While* w);
+  Variable* parseVarDecl(Scope* s, bool semicolon);
+  Subroutine* parseSubroutine(Scope* s);
+  ExternalSubroutine* parseExternalSubroutine(Scope* s);
+  AliasType* parseAlias(Scope* s);
+  Test* parseTest(Scope* s);
+  Type* parseType(Scope* s);
+  Block* parseBlock(Scope* s);
+  Block* parseBlock(Subroutine* s);
+  Block* parseBlock(For* f);
+  Block* parseBlock(While* w);
 }
 
 //Utils

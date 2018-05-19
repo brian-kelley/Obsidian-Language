@@ -30,7 +30,7 @@ Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
 Scope::Scope(Scope* p, Enum* e) : parent(p), node(e) {}
 
-void addName(Name n)
+void Scope::addName(Name n)
 {
   Name prev = findName(n.name);
   if(prev.item)
@@ -39,6 +39,21 @@ void addName(Name n)
   }
   names[n.name] = n;
 }
+
+#define IMPL_ADD_NAME(type) \
+void Scope::addName(type* item) \
+{ \
+  addName(Name(item, item->scope)); \
+}
+
+IMPL_ADD_NAME(Variable)
+IMPL_ADD_NAME(Module)
+IMPL_ADD_NAME(StructType)
+IMPL_ADD_NAME(Subroutine)
+IMPL_ADD_NAME(Alias)
+IMPL_ADD_NAME(ExternalSubroutine)
+IMPL_ADD_NAME(Enum)
+IMPL_ADD_NAME(EnumConstant)
 
 string Scope::getFullPath()
 {
@@ -179,5 +194,11 @@ bool Scope::contains(Scope* other)
       return true;
   }
   return false;
+}
+
+Module(string n, Scope* s)
+{
+  name = n;
+  scope = new Scope(s, this);
 }
 

@@ -1,24 +1,18 @@
 #include "Variable.hpp"
 
-Variable::Variable(Scope* s, string n, TypeSystem::Type* t, bool isStatic)
+Variable::Variable(Scope* s, string n, TypeSystem::Type* t, bool isStatic, bool compose)
 {
   scope = s;
   name = n;
   type = t;
-  owner = nullptr;
+  owner = s->getMemberContext();
   blockPos = -1;
-  for(Scope* iter = s; iter; iter = iter->parent)
+  //if this variable is nonstatic and is inside a struct, add it as member
+  if(!isStatic && owner)
   {
-    if(iter->node.is<Block*>())
-    {
-      break;
-    }
-    else if(iter->node.is<StructType*>())
-    {
-      if(!isStatic)
-        owner = iter->node.get<StructType*>();
-      break;
-    }
+    //add this as a member of the struct
+    owner->members.push_back(this);
+    owner->composed.push_back(compose);
   }
 }
 

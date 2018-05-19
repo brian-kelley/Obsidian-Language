@@ -52,7 +52,9 @@ struct Name
 struct Module
 {
   //name is "" for global scope
+  Module(string n, Scope* s);
   string name;
+  //scope->node == this
   Scope* scope;
 };
 
@@ -73,6 +75,14 @@ struct Scope
   //try to find name in this scope only
   Name lookup(string name);
   void addName(Name n);
+  void addName(Variable* v);
+  void addName(Module* m);
+  void addName(StructType* s);
+  void addName(Subroutine* s);
+  void addName(Alias* a);
+  void addName(ExternalSubroutine* s);
+  void addName(Enum* e);
+  void addName(EnumConstant* e);
   map<string, Name> names;
   //if in static context, this returns NULL
   //otherwise, returns the Struct that "this" would refer to

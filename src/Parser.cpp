@@ -5,6 +5,36 @@
 
 struct BlockScope;
 
+//Macros to help parse common patterns
+//func should be the whole call, i.e. parseThing(s)
+//end should be a token
+#define PARSE_STAR(list, type, func, end) \
+  while(!accept(end)) \
+  { \
+    list.push_back(func); \
+  }
+
+#define PARSE_STAR_COMMA(list, type, func, end) \
+  if(!accept(end)) \
+  { \
+    while(true) \
+    { \
+      list.push_back(func); \
+      if(accept(end)) \
+        break; \
+      expectPunct(COMMA); \
+    } \
+  }
+
+#define PARSE_PLUS_COMMA(list, type, func, end) \
+  while(true) \
+  { \
+    list.push_back(func); \
+    if(accept(end)) \
+      break; \
+    expectPunct(COMMA); \
+  }
+
 namespace Parser
 {
   size_t pos;
@@ -20,66 +50,19 @@ namespace Parser
     return NULL;
   }
 
-  /*
-  void metaStatement(size_t start)
-  {
-    //scan forward to the first '#', remembering tokens before
-    vector<Token*> preceding;
-    for(size_t i = 0; i < start; i++)
-    {
-      preceding.push_back(lookAhead(start));
-    }
-    Punct hash(HASH);
-    expect(hash);
-    if(!lookAhead()->compareTo(&hash))
-    {
-      INTERNAL_ERROR;
-    }
-    //parse a statement (could be a scoped decl)
-    auto stmt = parse<StatementNT>();
-    //statement must not be a scoped decl
-    //(metavar and metaproc are the only relevant declaration types
-    //and those must be declared without preceding '#')
-    if(stmt->s.is<ScopedDecl*>())
-    {
-    }
-    else
-    {
-      //process stmt's semantics and then execute it
-    }
-  }
-
-  void emit(string source)
-  {
-    emitBuffer += source + ' ';
-  }
-
-  void emit(ParseNode* nonterm)
-  {
-    emitBuffer += nonterm->unparse() + ' ';
-  }
-
-  void emit(Token* tok)
-  {
-    emitBuffer += tok->getStr() + ' ';
-  }
-  */
-
   Module* parseProgram(vector<Token*>& toks)
   {
     pos = 0;
     tokens = &toks;
-    Module* globalModule = new Module;
-    globalModule->name = "";
+    Module* globalModule = new Module("", nullptr);
     while(!accept(PastEOF::inst))
     {
-      globalModule->decls.push_back(parse<ScopedDecl>());
+      parseScopedDecl(globalModule->scope, true);
     }
     return globalModule;
   }
 
-  template<>
-  Module* parse<Module>()
+  Module* parseModule(Scope* s)
   {
     Module* m = new Module;
     expectKeyword(MODULE);
@@ -92,26 +75,34 @@ namespace Parser
     return m;
   }
 
-  /*
-  vector<Token*> Module::unparse()
-  {
-    vector<Token*> toks = lex("module " + name + "{");
-    for(auto decl : decls)
-    {
-      toks += decl->unparse();
-    }
-    toks += lex("}");
-    return toks;
-  }
-  */
-
-  bool parseScopedDecl(Scope* s, bool semicolon)
+  void parseScopedDecl(Scope* s, bool semicolon)
   {
     Punct colon(COLON);
     if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
       switch(kw->kw)
       {
+        case FUNC:
+        case PROC:
+          parseSubroutine(s);
+          break;
+        case EXTERN:
+          parseExternalSubroutine(s);
+          break;
+        case STRUCT:
+          parseStruct(s);
+          break;
+        case TYPEDEF:
+          parseAlias(s);
+          break;
+        case MODULE:
+          parseModule(s);
+          break;
+        case TEST:
+          parseTest(s);
+          break;
+        default:
+          INTERNAL_ERROR;
       }
     }
     else if(Ident* id = dynamic_cast<Ident*>(lookAhead()))
@@ -119,19 +110,63 @@ namespace Parser
       //variable declaration
       parseVarDecl(s);
     }
+    INTERNAL_ERROR;
   }
 
-  void parseVarDecl(Scope* s)
+  void parseType(Scope* s)
   {
+  }
+
+  void parseSubroutine(Scope* s)
+  {
+    Node* location = lookAhead();
+
+    //Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
+
+    bool pure;
+    if(acceptKeyword(FUNC))
+    {
+      subr->isPure = true;
+    }
+    else
+    {
+      expectKeyword(PROC);
+      pure = false;
+    }
+    bool isStatic = false;
+    if(acceptKeyword(STATIC))
+      isStatic = true;
+    Type* retType = parseType(s);
+    string name = ((Ident*) expect(IDENTIFIER))->name;
+    expectPunct(LPAREN);
+    vector<string> argNames;
+    vector<Type*> argTypes;
+    while(!acceptPunct(RPAREN))
+    {
+    }
+    subr->body = parse<Block>();
+    return subr;
+  }
+
+  void parseVarDecl(Scope* s, bool semicolon)
+  {
+    Node* loc = lookAhead();
     Ident* id = (Ident*) expect(IDENTIFIER);
     expectPunct(COLON);
-    Keyword stat(STATIC);
     bool isStatic = false;
-    if(lookAhead()->compareTo(&stat))
+    bool compose = false;
+    //"static" and "^" are mutually exclusive
+    if(acceptPunct(STATIC))
     {
       isStatic = true;
     }
+    else if(acceptOper(BXOR))
+    {
+      compose = true;
+    }
     Type* type = parseType(s);
+    if(semicolon)
+      expectPunct(SEMICOLON);
     //create the variable and add to scope
     Variable* var;
     if(s->node.is<Block*>())
@@ -146,8 +181,11 @@ namespace Parser
       {
         err("static variable declared outside any struct");
       }
-      var = new Variable(s, id->name, type, isStatic);
+      var = new Variable(s, id->name, type, isStatic, compose);
     }
+    var->setLocation(loc);
+    //add variable to scope
+    s->addName(var);
   }
 
   static ScopedDecl* parseScopedDeclGeneral(bool semicolon)
@@ -236,29 +274,6 @@ namespace Parser
   {
     return parseScopedDeclGeneral(true);
   }
-
-  /*
-  string ScopedDecl::unparse()
-  {
-    if(decl.is<Module*>())
-      return decl.get<Module*>()->unparse();
-    if(decl.is<VarDecl*>())
-      return decl.get<VarDecl*>()->unparse();
-    if(decl.is<StructDecl*>())
-      return decl.get<StructDecl*>()->unparse();
-    if(decl.is<Enum*>())
-      return decl.get<Enum*>()->unparse();
-    if(decl.is<Typedef*>())
-      return decl.get<Typedef*>()->unparse();
-    if(decl.is<SubroutineNT*>())
-      return decl.get<SubroutineNT*>()->unparse();
-    if(decl.is<ExternSubroutineNT*>())
-      return decl.get<ExternSubroutineNT*>()->unparse();
-    if(decl.is<TestDecl*>())
-      return decl.get<TestDecl*>()->unparse();
-    return vector<Token*>();
-  }
-  */
 
   template<>
   TypeNT* parse<TypeNT>()
@@ -383,114 +398,6 @@ namespace Parser
       }
     }
     return type;
-  }
-
-  /*
-  vector<Token*> TypeNT::unparse()
-  {
-    vector<Token*> toks;
-    if(t.is<TypeNT::Prim>())
-    {
-      switch(t.get<TypeNT::Prim>())
-      {
-        case Prim::BOOL:
-          toks = lex("bool"); break;
-        case Prim::CHAR:
-          toks = lex("char"); break;
-        case Prim::BYTE:
-          toks = lex("byte"); break;
-        case Prim::UBYTE:
-          toks = lex("ubyte"); break;
-        case Prim::SHORT:
-          toks = lex("short"); break;
-        case Prim::USHORT:
-          toks = lex("ushort"); break;
-        case Prim::INT:
-          toks = lex("int"); break;
-        case Prim::UINT:
-          toks = lex("uint"); break;
-        case Prim::LONG:
-          toks = lex("long"); break;
-        case Prim::ULONG:
-          toks = lex("ulong"); break;
-        case Prim::FLOAT:
-          toks = lex("float"); break;
-        case Prim::DOUBLE:
-          toks = lex("double"); break;
-        case Prim::VOID:
-          toks = lex("void"); break;
-        case Prim::ERROR:
-          toks = lex("Error"); break;
-        default:;
-      }
-    }
-    else if(t.is<Member*>())
-    {
-      toks = t.get<Member*>()->unparse();
-    }
-    else if(t.is<TupleTypeNT*>())
-    {
-      toks = t.get<TupleTypeNT*>()->unparse();
-    }
-    else if(t.is<UnionTypeNT*>())
-    {
-      toks = t.get<UnionTypeNT*>()->unparse();
-    }
-    else if(t.is<MapTypeNT*>())
-    {
-      toks = t.get<MapTypeNT*>()->unparse();
-    }
-    else if(t.is<SubroutineTypeNT*>())
-    {
-      toks = t.get<SubroutineTypeNT*>()->unparse();
-    }
-    for(int i = 0; i < arrayDims; i++)
-    {
-      toks += lex("[]");
-    }
-    return toks;
-  }
-  */
-
-  Statement* parseVarDeclGivenMember(Member* mem)
-  {
-    auto stmt = new Statement;
-    auto sd = new ScopedDecl;
-    auto vd = new VarDecl;
-    auto type = new TypeNT;
-    type->t = mem;
-    //can have any number of high-precedence types unioned together
-    //parse one full one first to see if this is actually a union
-    while(acceptPunct(LBRACKET))
-    {
-      type->arrayDims++;
-      expectPunct(RBRACKET);
-    }
-    Oper bor(BOR);
-    if(lookAhead()->compareTo(&bor))
-    {
-      UnionTypeNT* ut = new UnionTypeNT;
-      ut->types.push_back(type);
-      //now use "type" to store the overall union
-      type->t = ut;
-      while(acceptOper(BOR))
-      {
-        ut->types.push_back(parse<TypeNT>());
-      }
-    }
-    //type is done, get the var name (required) and then
-    //init expr (optional)
-    vd->type = type;
-    vd->name = ((Ident*) expect(IDENTIFIER))->name;
-    if(acceptOper(ASSIGN))
-    {
-      vd->val = parse<ExpressionNT>();
-    }
-    vd->isStatic = false;
-    vd->composed = false;
-    sd->decl = vd;
-    stmt->s = sd;
-    return stmt;
   }
 
   Statement* parseStatementGeneral(bool semicolon)
@@ -1175,39 +1082,6 @@ namespace Parser
   
   template<>
   SubroutineNT* parse<SubroutineNT>()
-  {
-    SubroutineNT* subr = new SubroutineNT;
-    if(acceptKeyword(FUNC))
-      subr->isPure = true;
-    else if(acceptKeyword(PROC))
-      subr->isPure = false;
-    else
-      err("expected func or proc");
-    //get modifiers (can be in any order)
-    subr->nonterm = false;
-    subr->isStatic = false;
-    if(acceptKeyword(NONTERM))
-      subr->nonterm = true;
-    if(acceptKeyword(STATIC))
-      subr->isStatic = true;
-    if(acceptKeyword(NONTERM))
-    {
-      if(subr->nonterm)
-        err("nonterm modifier given twice");
-      subr->nonterm = true;
-    }
-    subr->retType = parse<TypeNT>();
-    subr->name = ((Ident*) expect(IDENTIFIER))->name;
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    subr->params = parseStarComma<Parameter>(rparen);
-    subr->body = nullptr;
-    if(!acceptPunct(SEMICOLON))
-    {
-      subr->body = parse<Block>();
-    }
-    return subr;
-  }
 
   template<>
   ExternSubroutineNT* parse<ExternSubroutineNT>()

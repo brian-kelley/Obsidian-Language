@@ -473,7 +473,7 @@ Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSyst
 {
   name = n;
   scope = new Scope(enclosing, this);
-  auto enclosingStruct = scope->getStructContext();
+  auto enclosingStruct = scope->getMemberContext();
   if(enclosingStruct && !isStatic)
   {
     type = new CallableType(pure, enclosingStruct, returnType, argTypes);

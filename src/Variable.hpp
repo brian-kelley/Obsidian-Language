@@ -17,7 +17,7 @@ namespace TypeSystem
 struct Variable : public Node
 {
   //ctor for global/static/member variables and arguments
-  Variable(Scope* s, string name, TypeSystem::Type* t, bool isStatic);
+  Variable(Scope* s, string name, TypeSystem::Type* t, bool isStatic, bool compose = false);
   //ctor for local variables
   Variable(string name, TypeSystem::Type* t, Block* b);
   //this resolve() just resolves type

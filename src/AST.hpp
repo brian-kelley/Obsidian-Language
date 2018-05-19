@@ -67,6 +67,7 @@ struct Node
   int fileID; //index in sourceFiles
   int line;
   int col;
+  string printLocation();
   bool resolved;
   bool resolving;
 
