@@ -64,13 +64,15 @@ namespace Parser
 
   Module* parseModule(Scope* s)
   {
-    Module* m = new Module;
+    Node* location = lookAhead();
     expectKeyword(MODULE);
-    m->name = ((Ident*) expect(IDENTIFIER))->name;
+    string name = ((Ident*) expect(IDENTIFIER))->name;
+    Module* m = new Module(name, s);
+    m->setLocation(location);
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
-      m->decls.push_back(parse<ScopedDecl>());
+      parseScopedDecl(m->scope, true);
     }
     return m;
   }
@@ -144,7 +146,7 @@ namespace Parser
     while(!acceptPunct(RPAREN))
     {
     }
-    subr->body = parse<Block>();
+
     return subr;
   }
 
@@ -188,91 +190,8 @@ namespace Parser
     s->addName(var);
   }
 
-  static ScopedDecl* parseScopedDeclGeneral(bool semicolon)
+  ForArray* parseForArray(Block* b)
   {
-    ScopedDecl* sd = new ScopedDecl;
-    //peek at next token to check for keywords that start decls
-    //use short-circuit evaluation to find the pattern that parses successfully
-    Punct hash(HASH);
-    Keyword* nextKeyword = dynamic_cast<Keyword*>(lookAhead());
-    if(nextKeyword)
-    {
-      bool found = true;
-      switch(nextKeyword->kw)
-      {
-        case MODULE:
-          sd->decl = parse<Module>(); break;
-        case STRUCT:
-          sd->decl = parse<StructDecl>(); break;
-        case UNION:
-        {
-          //parse union <name> { type1, type2, ... }
-          accept();
-          string name = ((Ident*) expect(IDENTIFIER))->name;
-          expectPunct(LBRACE);
-          UnionTypeNT* ut = new UnionTypeNT(parsePlusComma<TypeNT>());
-          TypeNT* t = new TypeNT;
-          t->t = ut;
-          expectPunct(RBRACE);
-          //alias the union type
-          sd->decl = new Typedef(name, t);
-          break;
-        }
-        case ENUM:
-          sd->decl = parse<Enum>(); break;
-        case TYPEDEF:
-          sd->decl = parse<Typedef>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          break;
-        case FUNC:
-        case PROC:
-          sd->decl = parse<SubroutineNT>();
-          break;
-        case EXTERN:
-          sd->decl = parse<ExternSubroutineNT>();
-          break;
-        case TEST:
-          sd->decl = parse<TestDecl>();
-          break;
-        default: found = false;
-      }
-      if(found)
-      {
-        return sd;
-      }
-    }
-    else if(lookAhead()->compareTo(&hash))
-    {
-      //must be a meta variable or meta-subroutine
-      Keyword* keywordAfter = dyanamic_cast<Keyword*>(lookAhead(1));
-      if(keywordAfter &&
-          (keywordAfter->kw == FUNC || keywordAfter->kw == PROC))
-      {
-        accept();
-        auto subr = parse<SubroutineNT>();
-        subr->meta = true;
-        sd->decl = subr;
-      }
-      else
-      {
-        sd->decl = parse<MetaVar>();
-      }
-    }
-    else
-    {
-      //only other possibility is VarDecl
-      sd->decl = parse<VarDecl>();
-      if(semicolon)
-        expectPunct(SEMICOLON);
-    }
-    return sd;
-  }
-
-  template<>
-  ScopedDecl* parse<ScopedDecl>()
-  {
-    return parseScopedDeclGeneral(true);
   }
 
   template<>
@@ -398,188 +317,6 @@ namespace Parser
       }
     }
     return type;
-  }
-
-  Statement* parseStatementGeneral(bool semicolon)
-  {
-    //Get some possibilities for the next token
-    Token* next = lookAhead();
-    Keyword* keyword = dynamic_cast<Keyword*>(next);
-    Punct* punct = dynamic_cast<Punct*>(next);
-    Ident* ident = dynamic_cast<Ident*>(next);
-    StatementNT* s = new StatementNT;
-    Expr12* leadingExpr12;
-    if(keyword)
-    {
-      switch(keyword->kw)
-      {
-        case PRINT:
-          s->s = parse<PrintNT>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return s;
-        case RETURN:
-          s->s = parse<Return>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return s;
-        case CONTINUE:
-          s->s = parse<Continue>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return s;
-        case BREAK:
-          s->s = parse<Break>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return s;
-        case SWITCH:
-          s->s = parse<Switch>();
-          return s;
-        case MATCH:
-          s->s = parse<Match>();
-          return s;
-        case FOR:
-          s->s = parse<For>();
-          return s;
-        case WHILE:
-          s->s = parse<While>();
-          return s;
-        case IF:
-          s->s = parse<If>();
-          return s;
-        case EMIT:
-          s->s = parse<EmitNT>();
-          return s;
-        case ASSERT:
-          s->s = parse<Assertion>();
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return s;
-        case THIS:
-        case ERROR_VALUE:
-          break;
-        //handle various kinds of ScopedDecl
-        case MODULE:
-        case STRUCT:
-        case UNION:
-        case ENUM:
-        case FUNC:
-        case PROC:
-        case TYPEDEF:
-        case TEST:
-        //handle type keywords (the type for VarDecl)
-        case BOOL:
-        case CHAR:
-        case BYTE:
-        case UBYTE:
-        case SHORT:
-        case USHORT:
-        case INT:
-        case UINT:
-        case LONG:
-        case ULONG:
-        case FLOAT:
-        case DOUBLE:
-          s->s = parse<ScopedDecl>();
-          return s;
-        default: err("expected statement or declaration, but got keyword " + keywordTable[keyword->kw]);
-      }
-    }
-    else if(punct)
-    {
-      switch(punct->val)
-      {
-        case LBRACE:
-          s->s = parse<Block>();
-          return s;
-        case LPAREN:
-          //some type starting with '(': tuple/union/map
-          s->s = parse<ScopedDecl>();
-          return s;
-        default:
-        {
-          ERR_MSG("unexpected punctuation " << punct->getStr() << " in statement");
-        }
-      }
-    }
-    //at this point, need to distinguish between ScopedDecl, VarAssign and Call (as Expr12)
-    //All 3 can begin as Member
-    //If next token is Ident, parse a whole Member
-    //  If token after that is also Ident, is a ScopedDecl
-    //Otherwise, definitely not a ScopedDecl
-    //  Parse an Expr12
-    //  If next token is '=', is a VarAssign
-    //  Otherwise, must be a Call (check tail)
-    if(ident)
-    {
-      //this must succeed when starting with an Ident
-      Member* mem = parse<Member>();
-      Token* afterMem1 = lookAhead(0);
-      Token* afterMem2 = lookAhead(1);
-      //VarDecl always starts with type, so only ways for this
-      //to still be a VarDecl is:
-      // Member Ident ...
-      // Member[]...
-      // Member | ...
-      // Uses 2 tokens of lookahead
-      Punct lbrack(LBRACKET);
-      Punct rbrack(RBRACKET);
-      Oper bor(BOR);
-      if(afterMem1->type == IDENTIFIER ||
-          (afterMem1->compareTo(&lbrack) && afterMem2->compareTo(&rbrack)) ||
-          afterMem1->compareTo(&bor))
-      {
-        //definitely have a VarDecl, so parse a type given mem
-        s = parseVarDeclGivenMember(mem);
-        if(semicolon)
-          expectPunct(SEMICOLON);
-        return s;
-      }
-      else
-      {
-        //parse Expr12 using member
-        leadingExpr12 = parseExpr12GivenMember(mem);
-      }
-    }
-    else
-    {
-      //Don't have a member, but parse an Expr12
-      leadingExpr12 = parse<Expr12>();
-    }
-    //if '=' after Expr12, is an assign
-    //if Expr12 tail back is CallOp, is a call
-    //otherwise is an error
-    if(lookAhead()->type == OPERATOR)
-    {
-      s->s = parseAssignGivenExpr12(leadingExpr12);
-      if(semicolon)
-        expectPunct(SEMICOLON);
-      return s;
-    }
-    else if(leadingExpr12->tail.size() && leadingExpr12->tail.back()->e.is<CallOp*>())
-    {
-      //call
-      s->s = leadingExpr12;
-      if(semicolon)
-        expectPunct(SEMICOLON);
-      return s;
-    }
-    //parsing leadingExpr12 must have succeeded, so give
-    //error message knowing that there was some valid expression there
-    err("expected call or assignment, but got some other expression");
-    return nullptr;
-  }
-
-  StatementNT* parseStatementWithoutSemicolon()
-  {
-    return parseStatementGeneral(false);
-  }
-
-  template<>
-  StatementNT* parse<StatementNT>()
-  {
-    return parseStatementGeneral(true);
   }
 
   template<>

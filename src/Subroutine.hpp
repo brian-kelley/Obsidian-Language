@@ -96,6 +96,7 @@ struct CallStmt : public Statement
   CallExpr* eval;
 };
 
+/*
 struct For : public Statement
 {
   //C-style for loop
@@ -104,6 +105,7 @@ struct For : public Statement
   For(Block* b, vector<string>& tupIter, Expression* arr, Block* body);
   //for over integer range
   For(Block* b, string counter, Expression* begin, Expression* end, Block* body);
+  void setBody(Block* b);
   void resolveImpl(bool final);
   Statement* init;
   Expression* condition;
@@ -118,6 +120,39 @@ struct For : public Statement
   //
   //precondition: begin and end must be resolved and integers
   Variable* setupRange(string counter, Expression* begin, Expression* end);
+};
+*/
+
+struct For : public Statement
+{
+  For(Block* b);
+};
+
+struct ForArray : public For
+{
+  ForArray(Block* b, Expression* arr, vector<string>& iters);
+  void resolveImpl(bool final);
+  //create an empty inner body (parser puts user's statements here)
+  Block* createInnerBody();
+  //the integer (u64) counters that count from 0 to each dimension of the array
+  vector<Variable*> counters;
+  Variable* iter;
+  Expression* arr;
+  //outerBody is a special block (invisible to user) that holds the counters/iter
+  Block* outerBody;
+privte:
+  string iterName;
+};
+
+struct ForRange : public Statement
+{
+  ForRange(Block* b, string counterName, Expression* begin, Expression* end);
+  //b should be fully parsed, and should be (by scope) a child of the 
+  void setBody(Block* b);
+  Variable* counter;
+  Expression* begin;
+  Expression* end;
+  void resolveImpl(bool final);
 };
 
 struct While : public Statement
@@ -212,7 +247,7 @@ struct Subroutine : public Node
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
-  Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
+  Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes);
   void resolveImpl(bool final);
   string name;
   //the full type of this subroutine

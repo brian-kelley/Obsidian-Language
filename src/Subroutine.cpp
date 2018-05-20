@@ -118,6 +118,7 @@ void CallStmt::resolveImpl(bool final)
   resolved = true;
 }
 
+/*
 For::For(Block* b, Statement* i, Expression* cond, Statement* incr, Block* forBody)
   : Statement(b)
 {
@@ -204,6 +205,64 @@ Variable* For::setupRange(string counterName, Expression* begin, Expression* end
   condition = new BinaryArith(counterExpr, CMPL, end);
   increment = new VarAssign(counterExpr, new BinaryArith(counterExpr, PLUS, new IntLiteral(1)));
   return counterVar;
+}
+*/
+
+For::For(Block* b) : Statement(b)
+{}
+
+ForArray::ForArray(Block* b, Expression* a, vector<string>& iters) : For(b)
+{
+  //create outerBody
+  outerBody = new Block(b);
+  b->addStatement(outerBody);
+  //create counter variables (parser guarantees there is at least one)
+  for(size_t i = 0; i < iters.size() - 1; i++)
+  {
+    Variable* countI = new Variable(iters[i], primitives[Prim::ULONG], outerBody);
+    counters.push_back(countI);
+    outerBody->scope->addName(countI);
+  }
+  //can't create iter yet since its type is not known (do that in resolveImpl())
+  iter = nullptr;
+  iterName = iters.back();
+  arr = a;
+}
+
+Block* ForArray::getInnerBody()
+{
+  Block* b = new Block(outerBody);
+  outerBody->addStatement(b);
+  b->loop = this;
+  return b;
+}
+
+void ForArray::resolveImpl(bool final)
+{
+  resolveExpr(arr, final);
+  if(!arr->resolved)
+    return;
+  //create the iteration variable since type of arr is known
+  ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
+  if(!arrType)
+  {
+    errMsgLoc(this, "can't iterate over non-array expression");
+  }
+  if(counters.size() > arrType->dims)
+  {
+    errMsgLoc(this, "given " << counters.size() <<
+        " loop counters but array only has " << arrType->dims << " dimensions");
+  }
+  if(!iter)
+  {
+    //find the element type
+    auto iterType = TypeSystem::getArrayType(arrType->elem, arrType->dims - counters.size());
+    iter = new Variable(outerBody->scope, iterName, iterType, false);
+    outerBody->scope->addName(iter);
+  }
+  outerBody->resolve(final);
+  if(outerBody->resolved)
+    resolved = true;
 }
 
 While::While(Block* b, Expression* cond, Block* whileBody)

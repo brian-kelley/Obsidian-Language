@@ -53,6 +53,7 @@ namespace Parser
   Subroutine* parseSubroutine(Scope* s);
   ExternalSubroutine* parseExternalSubroutine(Scope* s);
   AliasType* parseAlias(Scope* s);
+  ForArray* parseForArray(Block* b);
   Test* parseTest(Scope* s);
   Type* parseType(Scope* s);
   Block* parseBlock(Scope* s);
