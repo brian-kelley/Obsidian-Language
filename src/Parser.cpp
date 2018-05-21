@@ -66,7 +66,7 @@ namespace Parser
   {
     Node* location = lookAhead();
     expectKeyword(MODULE);
-    string name = ((Ident*) expect(IDENTIFIER))->name;
+    string name = expectIdent();
     Module* m = new Module(name, s);
     m->setLocation(location);
     expectPunct(LBRACE);
@@ -115,8 +115,168 @@ namespace Parser
     INTERNAL_ERROR;
   }
 
-  void parseType(Scope* s)
+  void parseBlock(Block* b)
   {
+    b->setLocation(lookAhead());
+    expectPunct(LBRACE);
+    while(!acceptPunct(RBRACE))
+    {
+      parseStatementOrDecl(b);
+    }
+  }
+
+  Type* parseType(Scope* s)
+  {
+    UnresolvedType* t = new UnresolvedType;
+    t->scope = s;
+    t->setLocation(lookAhead());
+    type->arrayDims = 0;
+    //check for keyword
+    if(Keyword* keyword = (Keyword*) accept(KEYWORD))
+    {
+      bool pure = false;
+      //all possible types now (except Callables) are primitive, so set kind
+      switch(keyword->kw)
+      {
+        case BOOL:
+          t->t = Prim::BOOL; break;
+        case CHAR:
+          t->t = Prim::CHAR; break;
+        case BYTE:
+          t->t = Prim::BYTE; break;
+        case SHORT:
+          t->t = Prim::SHORT; break;
+        case USHORT:
+          t->t = Prim::USHORT; break;
+        case INT:
+          t->t = Prim::INT; break;
+        case UINT:
+          t->t = Prim::UINT; break;
+        case LONG:
+          t->t = Prim::LONG; break;
+        case ULONG:
+          t->t = Prim::ULONG; break;
+        case FLOAT:
+          t->t = Prim::FLOAT; break;
+        case DOUBLE:
+          t->t = Prim::DOUBLE; break;
+        case VOID:
+          t->t = Prim::VOID; break;
+        case ERROR_TYPE:
+          t->t = Prim::ERROR; break;
+        case FUNCTYPE:
+          pure = true;
+          //fall through!
+        case PROCTYPE:
+          {
+            bool isStatic = acceptKeyword(STATIC);
+            Type* retType = parseType(s);
+            expectPunct(LPAREN);
+            Punct colon(COLON);
+            vector<Type*> params;
+            while(!acceptPunct(RPAREN))
+            {
+              //if "IDENT :" are next two tokens, accept and discard
+              //(parameter names are optional in callable types)
+              if(lookAhead(0)->type == IDENTIFIER && lookAhead(1)->compareTo(&colon))
+              {
+                accept();
+                accept();
+              }
+              params.push_back(parseType(s));
+            }
+            t->t = UnresolvedType::Callable(pure, isStatic, retType, params);
+            break;
+          }
+        default:
+          err("expected type");
+      }
+    }
+    else if(acceptPunct(LPAREN))
+    {
+      //parens always give the overall type high-precedence,
+      //but expect high-precedence type(s) inside
+      Type* first = parseType(s);
+      if(acceptPunct(COMMA))
+      {
+        //tuple
+        UnresolvedType::TupleList types;
+        types.push_back(first);
+        do
+        {
+          types.push_back(parseType(s));
+        }
+        while(acceptPunct(COMMA));
+        t->t = types;
+      }
+      else if(acceptPunct(COLON))
+      {
+        //map
+        t->t = UnresolvedType::Map(first, parseType(s));
+      }
+      else if(acceptOper(BOR))
+      {
+        //union
+        UnresolvedType::UnionList types;
+        types.push_back(first);
+        do
+        {
+          types.push_back(parseType(s));
+        }
+        while(acceptOper(BOR));
+        t->t = types;
+      }
+      else
+      {
+        err("expected tuple, map or union type");
+      }
+      expectPunct(RPAREN);
+    }
+    else if(lookAhead()->getType() == IDENTIFIER)
+    {
+      //a named type
+      t->t = parseMember();
+    }
+    else
+    {
+      //unexpected token type
+      err("expected a type");
+    }
+    Punct lbrack(LBRACKET);
+    Punct rbrack(RBRACKET);
+    Punct quest(QUESTION);
+    //check for square bracket pairs after, indicating array type
+    while(lookAhead()->compareTo(&lbrack) ||
+        lookAhead()->compareTo(&quest))
+    {
+      if(acceptPunct(LBRACKET))
+      {
+        expectPunct(RBRACKET);
+        t->arrayDims++;
+      }
+      else if(acceptPunct(QUESTION))
+      {
+        UnresolvedType::UnionList optionalTypes;
+        optionalTypes.push_back(t);
+        optionalTypes.push_back(primitives[Prim::ERROR]);
+        t = new UnresolvedType;
+        t->scope = s;
+        t->t = optionalTypes;
+      }
+    }
+    return t;
+  }
+
+  Member* parseMember()
+  {
+    Member* m = new Member;
+    m->setLocation(lookAhead());
+    m->names.push_back(expectIdent());
+    while(acceptPunct(DOT))
+    {
+      m->names.push_back(expectIdent());
+    }
+    return m;
   }
 
   void parseSubroutine(Scope* s)
@@ -139,21 +299,22 @@ namespace Parser
     if(acceptKeyword(STATIC))
       isStatic = true;
     Type* retType = parseType(s);
-    string name = ((Ident*) expect(IDENTIFIER))->name;
+    string name = expectIdent();
     expectPunct(LPAREN);
     vector<string> argNames;
     vector<Type*> argTypes;
     while(!acceptPunct(RPAREN))
     {
+      //all arguments must be given names (for now)
+      argNames.push_back(
     }
-
     return subr;
   }
 
-  void parseVarDecl(Scope* s, bool semicolon)
+  Assign* parseVarDecl(Scope* s, bool semicolon)
   {
     Node* loc = lookAhead();
-    Ident* id = (Ident*) expect(IDENTIFIER);
+    Ident* id = expectIdent();
     expectPunct(COLON);
     bool isStatic = false;
     bool compose = false;
@@ -167,8 +328,11 @@ namespace Parser
       compose = true;
     }
     Type* type = parseType(s);
-    if(semicolon)
-      expectPunct(SEMICOLON);
+    Expression* init = nullptr;
+    if(acceptOper(ASSIGN))
+    {
+      init = parseExpression(s);
+    }
     //create the variable and add to scope
     Variable* var;
     if(s->node.is<Block*>())
@@ -183,163 +347,71 @@ namespace Parser
       {
         err("static variable declared outside any struct");
       }
-      var = new Variable(s, id->name, type, isStatic, compose);
+      var = new Variable(s, id->name, type, init, isStatic, compose);
     }
+    if(semicolon)
+      expectPunct(SEMICOLON);
     var->setLocation(loc);
     //add variable to scope
     s->addName(var);
+    if(s->node.is<Block*>())
+    {
+      return new Assign(s->node.get<Block*>(), new VarExpr(var), init);
+    }
+    else
+    {
+      return nullptr;
+    }
+  }
+
+  ForC* parseForC(Block* b)
+  {
+    ForC* fc = new ForC(b);
+    fc->setLocation(lookAhead());
+    expectKeyword(FOR);
+    expectPunct(LPAREN);
+    //note: all 3 parts of the ForC are optional
+    if(!acceptPunct(SEMICOLON))
+    {
+      fc->init = parseStatementOrDecl(fc->outer, true);
+    }
+    if(!acceptPunct(SEMICOLON))
+    {
+      fc->condition = parseExpression(fc->outer->scope);
+    }
+    if(!acceptPunct(RPAREN))
+    {
+      //disallow declarations in the increment
+      fc->increment = parseStatement(fc->outer, false);
+      expectPunct(RPAREN);
+    }
+    //now parse the body as a regular statement
+    auto body = parseStatement(fc->inner, true);
+    fc->inner->addStatement(body);
+    return fc;
   }
 
   ForArray* parseForArray(Block* b)
   {
-  }
-
-  template<>
-  TypeNT* parse<TypeNT>()
-  {
-    TypeNT* type = new TypeNT;
-    type->arrayDims = 0;
-    //check for keyword
-    if(Keyword* keyword = (Keyword*) accept(KEYWORD))
+    ForArray* fa = new ForArray(b);
+    fa->setLocation(lookAhead());
+    vector<string> tup;
+    expectKeyword(FOR);
+    expectPunct(LBRACKET);
+    tup.push_back(expectIdent());
+    while(acceptPunct(COMMA))
     {
-      switch(keyword->kw)
-      {
-        case BOOL:
-          type->t = TypeNT::Prim::BOOL; break;
-        case CHAR:
-          type->t = TypeNT::Prim::CHAR; break;
-        case BYTE:
-          type->t = TypeNT::Prim::BYTE; break;
-        case SHORT:
-          type->t = TypeNT::Prim::SHORT; break;
-        case USHORT:
-          type->t = TypeNT::Prim::USHORT; break;
-        case INT:
-          type->t = TypeNT::Prim::INT; break;
-        case UINT:
-          type->t = TypeNT::Prim::UINT; break;
-        case LONG:
-          type->t = TypeNT::Prim::LONG; break;
-        case ULONG:
-          type->t = TypeNT::Prim::ULONG; break;
-        case FLOAT:
-          type->t = TypeNT::Prim::FLOAT; break;
-        case DOUBLE:
-          type->t = TypeNT::Prim::DOUBLE; break;
-        case VOID:
-          type->t = TypeNT::Prim::VOID; break;
-        case ERROR_TYPE:
-          type->t = TypeNT::Prim::ERROR; break;
-        case FUNCTYPE:
-        case PROCTYPE:
-          unget();
-          type->t = parse<SubroutineTypeNT>();
-          break;
-        default:
-          err("expected type");
-      }
+      tup.push_back(expectIdent());
     }
-    else if(acceptPunct(LPAREN))
+    expectPunct(RBRACKET);
+    if(tup.size() < 2)
     {
-      //parens always give the overall type high-precedence,
-      //but expect high-precedence type(s) inside
-      TypeNT* first = parse<TypeNT>();
-      if(acceptPunct(COMMA))
-      {
-        //tuple
-        vector<TypeNT*> tupleMembers;
-        tupleMembers.push_back(first);
-        do
-        {
-          tupleMembers.push_back(parse<TypeNT>());
-        }
-        while(acceptPunct(COMMA));
-        expectPunct(RPAREN);
-        type->t = new TupleTypeNT(tupleMembers);
-      }
-      else if(acceptPunct(COLON))
-      {
-        TypeNT* valueType = parse<TypeNT>();
-        type->t = new MapTypeNT(first, valueType);
-        expectPunct(RPAREN);
-      }
-      else if(acceptOper(BOR))
-      {
-        vector<TypeNT*> unionTypes;
-        unionTypes.push_back(type);
-        do
-        {
-          unionTypes.push_back(parse<TypeNT>());
-        }
-        while(acceptOper(BOR));
-        expectPunct(RPAREN);
-        TypeNT* wrapper = new TypeNT;
-        wrapper->t = new UnionTypeNT(unionTypes);
-        return wrapper;
-      }
-      else
-      {
-        expectPunct(RPAREN);
-        return first;
-      }
+      errMsgLoc(fa, "for over array requires an iterator and at least one counter");
     }
-    else if(lookAhead()->getType() == IDENTIFIER)
-    {
-      //must be a member
-      type->t = parse<Member>();
-    }
-    else
-    {
-      //unexpected token type
-      err("expected type");
-    }
-    Punct lbrack(LBRACKET);
-    Punct rbrack(RBRACKET);
-    Punct quest(QUESTION);
-    //check for square bracket pairs after, indicating array type
-    while(lookAhead()->compareTo(&lbrack) ||
-        lookAhead()->compareTo(&quest))
-    {
-      if(acceptPunct(LBRACKET))
-      {
-        expectPunct(RBRACKET);
-        type->arrayDims++;
-      }
-      else if(acceptPunct(QUESTION))
-      {
-        //Form a union type with type and Error as its options
-        auto ut = new UnionTypeNT;
-        TypeNT* errType = new TypeNT;
-        errType->t = TypeNT::ERROR;
-        ut->types.push_back(type);
-        ut->types.push_back(errType);
-        type->t = ut;
-      }
-    }
-    return type;
-  }
-
-  template<>
-  Break* parse<Break>()
-  {
-    Break* b = new Break;
-    expectKeyword(BREAK);
-    return b;
-  }
-
-  template<>
-  Continue* parse<Continue>()
-  {
-    Continue* c = new Continue;
-    expectKeyword(CONTINUE);
-    return c;
-  }
-
-  template<>
-  EmptyStatement* parse<EmptyStatement>()
-  {
-    EmptyStatement* es = new EmptyStatement;
-    return es;
+    fa->createIterators(tup);
+    auto body = parseStatement(fc->inner, true);
+    fc->inner->addStatement(body);
+    return fa;
   }
 
   template<>
@@ -348,7 +420,7 @@ namespace Parser
     Typedef* td = new Typedef;
     expectKeyword(TYPEDEF);
     td->type = parse<TypeNT>();
-    td->ident = ((Ident*) expect(IDENTIFIER))->name;
+    td->ident = expectIdent();
     return td;
   }
 
@@ -413,7 +485,7 @@ namespace Parser
   {
     Match* m = new Match;
     expectKeyword(MATCH);
-    m->varName = ((Ident*) expect(IDENTIFIER))->name;
+    m->varName = expectIdent();
     expectPunct(COLON);
     m->value = parse<ExpressionNT>();
     expectPunct(LBRACE);
@@ -461,10 +533,10 @@ namespace Parser
   {
     ForOverArray* foa = new ForOverArray;
     expectPunct(LBRACKET);
-    foa->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+    foa->tup.push_back(expectIdent());
     while(acceptPunct(COMMA))
     {
-      foa->tup.push_back(((Ident*) expect(IDENTIFIER))->name);
+      foa->tup.push_back(expectIdent());
     }
     expectPunct(RBRACKET);
     expectPunct(COLON);
@@ -476,7 +548,7 @@ namespace Parser
   ForRange* parse<ForRange>()
   {
     ForRange* fr = new ForRange;
-    fr->name = ((Ident*) expect(IDENTIFIER))->name;
+    fr->name = expectIdent();
     expectPunct(COLON);
     fr->start = parse<ExpressionNT>();
     expectPunct(COMMA);
@@ -531,14 +603,18 @@ namespace Parser
     return w;
   }
 
-  template<>
-  If* parse<If>()
+  If(Block* b, Expression* condition, Statement* body);
+  If(Block* b, Expression* condition, Statement* tbody, Statement* fbody);
+
+  If* parseIf(Block* b)
   {
-    If* i = new If;
+    Node* location = lookAhead();
     expectKeyword(IF);
     expectPunct(LPAREN);
-    i->cond = parse<ExpressionNT>();
+    Expression* cond = parseExpression(b->scope);
     expectPunct(RPAREN);
+    Statement* stmt = parseStatement(b);
+    Statement* stmt = parseStatement(b);
     i->ifBody = parse<StatementNT>();
     if(acceptKeyword(ELSE))
       i->elseBody = parse<StatementNT>();
@@ -555,14 +631,13 @@ namespace Parser
     return a;
   }
 
-  template<>
-  TestDecl* parse<TestDecl>()
+  Test* parseTest(Scope* s)
   {
-    TestDecl* t = new TestDecl;
-    expectKeyword(TEST);
-    //test statement is executed, and the test
-    //passes if no assertions fail
-    t->block = parseBlockWrappedStatement();
+    Node* location = lookAhead();
+    Block* b = new Block(s);
+    parseBlock(b);
+    Test* t = new Test(s, b);
+    t->setLocation(location);
     return t;
   }
 
@@ -570,7 +645,7 @@ namespace Parser
   EnumItem* parse<EnumItem>()
   {
     EnumItem* ei = new EnumItem;
-    ei->name = ((Ident*) expect(IDENTIFIER))->name;
+    ei->name = expectIdent();
     if(acceptOper(ASSIGN))
       ei->value = (IntLit*) expect(INT_LITERAL);
     else
@@ -583,15 +658,59 @@ namespace Parser
   {
     Enum* e = new Enum;
     expectKeyword(ENUM);
-    e->name = ((Ident*) expect(IDENTIFIER))->name;
+    e->name = expectIdent();
     expectPunct(LBRACE);
     e->items = parsePlusComma<EnumItem>();
     expectPunct(RBRACE);
     return e;
   }
 
-  void parseStatementOrDecl(Block* b)
+  void parseStatementOrDecl(Block* b, bool semicolon)
   {
+    Token* next = lookAhead(0);
+    Token* next2 = lookAhead(1);
+    Punct colon(COLON);
+    if(next->type == IDENTIFIER && next2->type->compareTo(&colon))
+    {
+      //variable declaration
+      parseVarDecl(b->scope, semicolon);
+    }
+    else if(next->type == IDENTIFIER)
+    {
+      return parseStatement(b);
+    }
+    else if(next->type == KEYWORD)
+    {
+      int kw = ((Keyword*) next)->kw;
+      switch(kw)
+      {
+        case STRUCT:
+        case FUNC:
+        case PROC:
+        case TEST:
+        case MODULE:
+        case TYPEDEF:
+        case ENUM:
+          parseScopedDecl(b->scope, semicolon);
+          return nullptr;
+        case FOR:
+        case WHILE:
+        case IF:
+        case SWITCH:
+        case MATCH:
+        case PRINT:
+          {
+            return parseStatement(b);
+          }
+        default:
+          INTERNAL_ERROR;
+      }
+    }
+    else
+    {
+      err("Expected statement or declaration");
+    }
+    return nullptr;
   }
 
   Block* parseBlock(Scope* s)
@@ -602,49 +721,6 @@ namespace Parser
     {
     }
     return b;
-  }
-
-  Block* parseBlock(Scope* s)
-  {
-  }
-
-  Block* parseBlock(Subroutine* s)
-  {
-  }
-
-  Block* parseBlock(For* f)
-  {
-  }
-
-  Block* parseBlock(While* w)
-  {
-  }
-
-  template<>
-  VarDecl* parse<VarDecl>()
-  {
-    VarDecl* vd = new VarDecl;
-    vd->isStatic = acceptKeyword(STATIC);
-    if(!vd->isStatic)
-    {
-      vd->composed = acceptOper(BXOR);
-    }
-    vd->type = nullptr;
-    if(!acceptKeyword(AUTO))
-    {
-      vd->type = parse<TypeNT>();
-    }
-    vd->name = ((Ident*) expect(IDENTIFIER))->name;
-    if(acceptOper(ASSIGN))
-    {
-      vd->val = parse<ExpressionNT>();
-    }
-    if(!vd->type && !vd->val)
-    {
-      err("auto declaration requires initialization");
-    }
-    //note: semicolon must be handled by caller
-    return vd;
   }
 
   VarAssign* parseAssignGivenExpr12(Expr12* target)
@@ -769,58 +845,6 @@ namespace Parser
   }
 
   template<>
-  MetaVar* parse<MetaVar>()
-  {
-    MetaVar* mv = new MetaVar;
-    expectPunct(HASH);
-    mv->type = parse<TypeNT>();
-    mv->name = ((Ident*) expect(IDENTIFIER))->name;
-    if(acceptOper(ASSIGN))
-    {
-      mv->val = parse<ExpressionNT>();
-    }
-    return mv;
-  }
-
-  template<>
-  VarAssign* parse<VarAssign>()
-  {
-    //need to determine lvalue and rvalue (target and rhs)
-    Expr12* target = parse<Expr12>();
-    return parseAssignGivenExpr12(target);
-  }
-
-  template<>
-  PrintNT* parse<PrintNT>()
-  {
-    PrintNT* p = new PrintNT;
-    expectKeyword(PRINT);
-    expectPunct(LPAREN);
-    p->exprs = parsePlusComma<ExpressionNT>();
-    expectPunct(RPAREN);
-    return p;
-  }
-
-  template<>
-  Parameter* parse<Parameter>()
-  {
-    Parameter* p = new Parameter;
-    //look ahead for Ident followed by ':' (means bounded type)
-    //otherwise, just parse regular TypeNT
-    p->type = parse<TypeNT>();
-    //optional parameter name
-    Ident* paramName = (Ident*) accept(IDENTIFIER);
-    if(paramName)
-    {
-      p->name = paramName->name;
-    }
-    return p;
-  }
-  
-  template<>
-  SubroutineNT* parse<SubroutineNT>()
-
-  template<>
   ExternSubroutineNT* parse<ExternSubroutineNT>()
   {
     ExternSubroutineNT* es = new ExternSubroutineNT;
@@ -842,7 +866,7 @@ namespace Parser
     expectPunct(LPAREN);
     Punct rparen(RPAREN);
     es->type->params = parseStarComma<Parameter>(rparen);
-    es->c = ((Ident*) expect(IDENTIFIER))->name;
+    es->c = expectIdent();
     return es;
   }
 
@@ -880,7 +904,7 @@ namespace Parser
   {
     StructDecl* sd = new StructDecl;
     expectKeyword(STRUCT);
-    sd->name = ((Ident*) expect(IDENTIFIER))->name;
+    sd->name = expectIdent();
     if(acceptPunct(COLON))
     {
       sd->traits = parsePlusComma<Member>();
@@ -889,82 +913,6 @@ namespace Parser
     Punct rbrace(RBRACE);
     sd->members = parseStar<ScopedDecl>(rbrace);
     return sd;
-  }
-
-  template<>
-  StructLit* parse<StructLit>()
-  {
-    StructLit* sl = new StructLit;
-    expectPunct(LBRACKET);
-    sl->vals = parsePlusComma<ExpressionNT>();
-    expectPunct(RBRACKET);
-    return sl;
-  }
-
-  template<>
-  Member* parse<Member>()
-  {
-    Member* m = new Member;
-    //get a list of all strings separated by dots
-    m->names.push_back(((Ident*) expect(IDENTIFIER))->name);
-    while(acceptPunct(DOT))
-    {
-      m->names.push_back(((Ident*) expect(IDENTIFIER))->name);
-    }
-    return m;
-  }
-
-  template<>
-  TupleTypeNT* parse<TupleTypeNT>()
-  {
-    TupleTypeNT* tt = new TupleTypeNT;
-    expectPunct(LPAREN);
-    tt->members = parsePlusComma<TypeNT>();
-    expectPunct(RPAREN);
-    return tt;
-  }
-
-  template<>
-  UnionTypeNT* parse<UnionTypeNT>()
-  {
-    UnionTypeNT* ut = new UnionTypeNT;
-    ut->types.push_back(parse<TypeNT>());
-    while(acceptOper(BOR))
-    {
-      ut->types.push_back(parse<TypeNT>());
-    }
-    return ut;
-  }
-
-  template<>
-  MapTypeNT* parse<MapTypeNT>()
-  {
-    MapTypeNT* mt = new MapTypeNT;
-    expectPunct(LPAREN);
-    mt->keyType = parse<TypeNT>();
-    expectPunct(COLON);
-    mt->valueType = parse<TypeNT>();
-    expectPunct(RPAREN);
-    return mt;
-  }
-
-  template<>
-  BoolLit* parse<BoolLit>()
-  {
-    BoolLit* bl = new BoolLit;
-    if(acceptKeyword(TRUE))
-    {
-      bl->val = true;
-    }
-    else if(acceptKeyword(FALSE))
-    {
-      bl->val = false;
-    }
-    else
-    {
-      err("invalid bool literal");
-    }
-    return bl;
   }
 
   Expression* parseExpr1()
@@ -1355,6 +1303,12 @@ namespace Parser
   {
     Punct p(type);
     expect(p);
+  }
+
+  string expectIdent()
+  {
+    Ident* i = (Ident*) expect(IDENTIFIER);
+    return i->name;
   }
 
   Token* lookAhead(int n)

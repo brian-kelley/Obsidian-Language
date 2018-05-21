@@ -140,7 +140,6 @@ struct Token : public Node
 {
   Token();
   virtual bool compareTo(Token* rhs) = 0;
-  virtual int getType() = 0;
   virtual string getStr() = 0;    //string equivalent to original text
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   int type;
@@ -153,7 +152,6 @@ struct Ident : public Token
   Ident(string name);
   bool compareTo(Token* rhs);
   bool operator==(Ident& rhs);
-  int getType();
   string getStr();
   string getDesc();
   string name;
@@ -166,7 +164,6 @@ struct Oper : public Token
   Oper(int op);
   bool compareTo(Token* rhs);
   bool operator==(Oper& rhs);
-  int getType();
   string getStr();
   string getDesc();
   int op;
@@ -179,7 +176,6 @@ struct StrLit : public Token
   StrLit(string val);
   bool compareTo(Token* rhs);
   bool operator==(StrLit& rhs);
-  int getType();
   string getStr();
   string getDesc();
   string val;
@@ -192,7 +188,6 @@ struct CharLit : public Token
   CharLit(char val);
   bool compareTo(Token* rhs);
   bool operator==(CharLit& rhs);
-  int getType();
   string getStr();
   string getDesc();
   char val;
@@ -205,7 +200,6 @@ struct IntLit : public Token
   IntLit(uint64_t val);
   bool compareTo(Token* rhs);
   bool operator==(IntLit& rhs);
-  int getType();
   string getStr();
   string getDesc();
   //note: val is always positive because any minus sign is read in as operator -
@@ -219,7 +213,6 @@ struct FloatLit : public Token
   FloatLit(double val);
   bool compareTo(Token* rhs);
   bool operator==(FloatLit& rhs);
-  int getType();
   string getStr();
   string getDesc();
   //note: val is always positive
@@ -233,7 +226,6 @@ struct Punct : public Token
   Punct(int val);
   bool compareTo(Token* rhs);
   bool operator==(Punct& rhs);
-  int getType();
   string getStr();
   string getDesc();
   int val;
@@ -246,7 +238,6 @@ struct Keyword : public Token
   Keyword(int val);
   bool compareTo(Token* rhs);
   bool operator==(Keyword& rhs);
-  int getType();
   string getStr();
   string getDesc();
   int kw;
@@ -258,7 +249,6 @@ struct PastEOF : public Token
   static PastEOF inst;
   bool compareTo(Token* rhs);
   bool operator==(PastEOF& rhs);
-  int getType();
   string getStr();
   string getDesc();
 };

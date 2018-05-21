@@ -902,130 +902,142 @@ void ExprType::resolve(bool)
   INTERNAL_ERROR;
 }
 
-void resolveType(Type*& t, bool err)
+void resolveType(Type*& t, bool final)
 {
   if(t->isResolved())
   {
     //nothing to do
     return;
   }
-  UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t);
-  if(!unres)
-    return;
   Type* finalType = nullptr;
-  switch(unres->k)
+  if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
   {
-    case UnresolvedType::Primitive:
-      finalType = primitives[unres->data.primitive];
-      break;
-    case UnresolvedType::NamedType:
+    if(unres->t.is<Prim>())
+    {
+      finalType = primitives[unres->t.get<Prim>()];
+    }
+    else if(unres->t.is<Member*>())
+    {
+      Name found = unres->scope->findName(unres->t.get<Member*>());
+      //name wasn't found
+      //if this is the last chance to resolve type, is an error
+      if(!found.item && final)
       {
-        //search for member from scope
-        Name found = unres->scope->findName(unres->data.m);
-        if(!found.item && err)
-        {
-          ERR_MSG("unknown type " << *unres->data.m);
-        }
-        switch(found.kind)
-        {
-          case Name::STRUCT:
-            finalType = (Struct*) found.item;
-            break;
-          case Name::ENUM:
-            finalType = (Enum*) found.item;
-            break;
-          case Name::ALIAS:
-            finalType = ((Alias*) found.item)->actual;
-            break;
-          default:
-            ERR_MSG("name " << *unres->data.m << " does not refer to a type");
-        }
-        break;
+        errMsgLoc(unres, "unknown type " << *unres->data.m);
       }
-    case UnresolvedType::Tuple:
+      switch(found.kind)
       {
-        //resolve member types individually
-        bool allResolved = true;
-        for(Type*& mem : unres->data.t)
-        {
-          resolveType(mem, err);
-          if(!mem->isResolved())
-            allResolved = false;
-        }
-        if(allResolved)
-        {
-          finalType = getTupleType(unres->data.t);
-        }
-        break;
+        case Name::STRUCT:
+          finalType = (Struct*) found.item;
+          break;
+        case Name::ENUM:
+          finalType = (Enum*) found.item;
+          break;
+        case Name::ALIAS:
+          finalType = ((Alias*) found.item)->actual;
+          break;
+        default:
+          errMsgLoc(unres, "name " << *unres->data.m << " does not refer to a type");
       }
-    case UnresolvedType::Union:
+    }
+    else if(unres->t.is<UnresolvedType::TupleList>())
+    {
+      //resolve member types individually
+      bool allResolved = true;
+      for(Type*& mem : unres->data.t)
       {
-        //resolve member types individually
-        bool allResolved = true;
-        for(Type*& option : unres->data.u)
-        {
-          resolveType(option, err);
-          if(!t->isResolved())
-            allResolved = false;
-        }
-        if(allResolved)
-        {
-          finalType = getUnionType(unres->data.u);
-        }
-        break;
+        resolveType(mem, err);
+        if(!mem->isResolved())
+          allResolved = false;
       }
-    case UnresolvedType::Map:
+      if(allResolved)
       {
-        Type*& key = unres->data.mt.key;
-        Type*& value = unres->data.mt.value;
-        resolveType(key, err);
-        resolveType(value, err);
-        if(key->isResolved() && value->isResolved())
-        {
-          finalType = getMapType(key, value);
-        }
-        break;
+        finalType = getTupleType(unres->data.t);
       }
-    case UnresolvedType::SubrType:
+    }
+    else if(unres->t.is<UnresolvedType::UnionList>())
+    {
+      //resolve member types individually
+      bool allResolved = true;
+      for(Type*& option : unres->data.u)
       {
-        //walk up scope tree to see if in a non-static context
-        Struct* ownerStruct = unres->scope->getStructContext();
-        auto& ct = unres->data.ct;
-        bool allResolved = true;
-        resolveType(ct.retType, err);
-        if(!ct.retType->isResolved())
+        resolveType(option, err);
+        if(!t->isResolved())
+          allResolved = false;
+      }
+      if(allResolved)
+      {
+        finalType = getUnionType(unres->data.u);
+      }
+    }
+    else if(unres->t.is<UnresolvedType::Map>())
+    {
+      Type*& key = unres->data.mt.key;
+      Type*& value = unres->data.mt.value;
+      resolveType(key, err);
+      resolveType(value, err);
+      if(key->isResolved() && value->isResolved())
+      {
+        finalType = getMapType(key, value);
+      }
+    }
+    else if(unres->t.is<UnresolvedType::Callable>())
+    {
+      //walk up scope tree to see if in a non-static context
+      Struct* ownerStruct = unres->scope->getStructContext();
+      Callable& ct = unres->t.get<UnresolvedType::Callable>();
+      bool allResolved = true;
+      resolveType(ct.returnType, err);
+      if(!ct.returnType->isResolved())
+      {
+        allResolved = false;
+      }
+      for(auto& param : ct.params)
+      {
+        resolveType(param, err);
+        if(!param->isResolved())
         {
           allResolved = false;
         }
-        for(auto& param : ct.params)
-        {
-          resolveType(param, err);
-          if(!param->isResolved())
-          {
-            allResolved = false;
-          }
-        }
-        if(allResolved)
-        {
-          finalType = getSubroutineType(ownerStruct, ct.pure,
-              ct.retType, ct.params);
-        }
-        break;
       }
-  }
-  if(!finalType)
-  {
-    //can't apply array dimensions, so return early
-    if(err)
-    {
-      //shouldn't get here: any error should have been produced
-      //above when attempting to resolve dependency types
-      INTERNAL_ERROR;
+      if(allResolved)
+      {
+        finalType = getSubroutineType(ownerStruct, ct.pure,
+            ct.retType, ct.params);
+      }
     }
+    if(!finalType)
+    {
+      //can't apply array dimensions, so return early
+      return;
+    }
+    //if arrayDims is 0, this is a no-op
+    finalType = getArrayType(finalType, unres->arrayDims);
+  }
+  else if(ExprType* et = dynamic_cast<ExprType*>(t))
+  {
+  }
+  else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
+  {
+    resolveExpr(eet->arr, final);
+    if(!eet->arr->resolved)
+      return;
+    ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
+    if(!arrType)
+    {
+      //arr's type is already singular, so use that
+      finalType = eet->arr->type;
+    }
+    else
+    {
+      finalType = arrType->elem;
+    }
+  }
+  else
+  {
+    t->resolve(final);
     return;
   }
-  //if arrayDims is 0, this is a no-op
-  finalType = getArrayType(finalType, ct.arrayDims);
   //finally, replace unres with finalType
   t = finalType;
 }

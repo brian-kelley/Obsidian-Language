@@ -23,9 +23,6 @@ struct Statement : public Node
 
 //Statement types
 struct Block;
-//LocalVar needs to be a kind of statement with a position in block,
-//because locals must be declared before use
-struct LocalVar;
 struct Assign;
 struct CallStmt;
 struct For;
@@ -89,66 +86,54 @@ struct Assign : public Statement
 
 struct CallStmt : public Statement
 {
-  //Ctor for when it is known that Expr12 is a call
   CallStmt(Block* b, CallExpr* e);
   void resolveImpl(bool final);
   //code generator just needs to "evaluate" this expression and discard the result
   CallExpr* eval;
 };
 
-/*
-struct For : public Statement
-{
-  //C-style for loop
-  For(Block* b, Statement* init, Expression* condition, Statement* increment, Block* body);
-  //for over array
-  For(Block* b, vector<string>& tupIter, Expression* arr, Block* body);
-  //for over integer range
-  For(Block* b, string counter, Expression* begin, Expression* end, Block* body);
-  void setBody(Block* b);
-  void resolveImpl(bool final);
-  Statement* init;
-  Expression* condition;
-  Statement* increment;
-  Block* body;
-  //for a multidimensional for over array, bodyImpl is the outermost block,
-  //while body is the innermost
-  private:
-  //create init/condition/increment to iterate over integer range
-  //used by resolve() for both array and range constructors
-  //this creates a variable with name counter and type compatible with begin/end
-  //
-  //precondition: begin and end must be resolved and integers
-  Variable* setupRange(string counter, Expression* begin, Expression* end);
-};
-*/
-
 struct For : public Statement
 {
   For(Block* b);
+  //Outer contains counters and nitialization/increment statements
+  Block* outer;
+  //Inner block is actually executed each iteration
+  //Loop/Breakable of inner are this loop
+  Block* inner;
+  virtual void resolveImpl(bool final) = 0;
+};
+
+//C-style for loop:
+struct ForC : public For
+{
+  //note: init, condition and increment are optional (can be NULL)
+  ForC(Block* b);
+  void resolveImpl(bool final);
+  //Parser directly assigns these members:
+  Statement* init;
+  Expression* condition;
+  Statement* increment;
 };
 
 struct ForArray : public For
 {
-  ForArray(Block* b, Expression* arr, vector<string>& iters);
+  ForArray(Block* b, vector<string>& iters);
+  void createIterators(vector<string>& iters);
   void resolveImpl(bool final);
   //create an empty inner body (parser puts user's statements here)
   Block* createInnerBody();
   //the integer (u64) counters that count from 0 to each dimension of the array
-  vector<Variable*> counters;
-  Variable* iter;
   Expression* arr;
+  Variable* iter;
+  vector<Variable*> counters;
   //outerBody is a special block (invisible to user) that holds the counters/iter
   Block* outerBody;
-privte:
-  string iterName;
+  virtual void resolveImpl(bool final);
 };
 
 struct ForRange : public Statement
 {
   ForRange(Block* b, string counterName, Expression* begin, Expression* end);
-  //b should be fully parsed, and should be (by scope) a child of the 
-  void setBody(Block* b);
   Variable* counter;
   Expression* begin;
   Expression* end;

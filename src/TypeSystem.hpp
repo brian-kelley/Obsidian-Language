@@ -426,43 +426,31 @@ struct CallableType : public Type
   bool canConvert(Type* other);
 };
 
-struct UnresolvedType : public Type
+struct UnresolvedType : public Type, public Node
 {
-  enum Kind
+  //tuple and union are both just vectors of types, so need this
+  //to differentiate them in the variant
+  struct TupleList : public vector<Type*> {}
+  struct UnionList : public vector<Type*> {}
+  struct Map
   {
-    Primitive,
-    NamedType,
-    Tuple,
-    Union,
-    Map,
-    Callable
-  };
-  struct UnresCallable
-  {
-    Type* retType;
-    vector<Type*> params;
-    bool isPure;    //true = func, false = proc
-    bool isStatic;
-    bool nonterm;
-  };
-  struct UnresMap
-  {
+    Map(Type* k, Type* v) : key(k), value(v) {}
     Type* key;
     Type* value;
   };
-  union
+  struct Callable
   {
-    //Prim: enum values defined above
-    Prim p;
-    Member* m;
-    vector<Type*> t;
-    vector<Type*> u;
-    UnresMap mt;
-    UnresCallable ct;
-  } data;
-  Kind k;
+    Callable(bool p, bool s, Type* ret, vector<Type*> paramList) :
+      pure(p), isStatic(s), returnType(ret), params(paramList) {}
+    bool pure;
+    bool isStatic;
+    Type* returnType;
+    vector<Type*> params;
+  };
+  variant<Prim, Member*, TupleList, UnionList, Map, Callable> t;
   Scope* scope;
   int arrayDims;
+  //UnresolvedType can never be resolved; it is replaced by something else
   bool isResolved() {return false;}
 };
 
@@ -476,9 +464,19 @@ struct ExprType : public Type
   bool isResolved() {return false;}
 };
 
+//Used by for-over-array to create an iteration variable at parse time
+//passing this to resolveType replaces it by arr's element type
+struct ElemExprType : public Type
+{
+  ElemExprType(Expression* arr);
+  void resolve(bool final);
+  Expression* arr;
+  bool isResolved() {return false;}
+};
+
 //If t is an unresolved type, replace it with a fully resolved version
 //(if possible)
-void resolveType(Type*& t, bool err);
+void resolveType(Type*& t, bool final);
 
 } //namespace TypeSystem
 

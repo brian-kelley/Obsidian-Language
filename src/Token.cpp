@@ -164,7 +164,7 @@ Ident::Ident(string n)
 
 bool Ident::compareTo(Token* rhs)
 {
-  if(rhs->getType() == IDENTIFIER && ((Ident*) rhs)->name == name)
+  if(rhs->type == IDENTIFIER && ((Ident*) rhs)->name == name)
     return true;
   return false;
 }
@@ -172,11 +172,6 @@ bool Ident::compareTo(Token* rhs)
 bool Ident::operator==(Ident& rhs)
 {
   return name == rhs.name;
-}
-
-int Ident::getType()
-{
-  return IDENTIFIER;
 }
 
 string Ident::getStr()
@@ -203,17 +198,12 @@ Oper::Oper(int o)
 
 bool Oper::compareTo(Token* rhs)
 {
-  return rhs->getType() == OPERATOR && ((Oper*) rhs)->op == op;
+  return rhs->type == OPERATOR && ((Oper*) rhs)->op == op;
 }
 
 bool Oper::operator==(Oper& rhs)
 {
   return op == rhs.op;
-}
-
-int Oper::getType()
-{
-  return OPERATOR;
 }
 
 string Oper::getStr()
@@ -240,17 +230,12 @@ StrLit::StrLit(string v)
 
 bool StrLit::compareTo(Token* rhs)
 {
-  return rhs->getType() == STRING_LITERAL && ((StrLit*) rhs)->val == val;
+  return rhs->type == STRING_LITERAL && ((StrLit*) rhs)->val == val;
 }
 
 bool StrLit::operator==(StrLit& rhs)
 {
   return val == rhs.val;
-}
-
-int StrLit::getType()
-{
-  return STRING_LITERAL;
 }
 
 string StrLit::getStr()
@@ -283,17 +268,12 @@ CharLit::CharLit(char v)
 
 bool CharLit::compareTo(Token* rhs)
 {
-  return rhs->getType() == CHAR_LITERAL && ((CharLit*) rhs)->val == val;
+  return rhs->type == CHAR_LITERAL && ((CharLit*) rhs)->val == val;
 }
 
 bool CharLit::operator==(CharLit& rhs)
 {
   return val == rhs.val;
-}
-
-int CharLit::getType()
-{
-  return CHAR_LITERAL;
 }
 
 string CharLit::getStr()
@@ -324,17 +304,12 @@ IntLit::IntLit(uint64_t v)
 
 bool IntLit::compareTo(Token* rhs)
 {
-  return rhs->getType() == INT_LITERAL && ((IntLit*) rhs)->val == val;
+  return rhs->type == INT_LITERAL && ((IntLit*) rhs)->val == val;
 }
 
 bool IntLit::operator==(IntLit& rhs)
 {
   return val == rhs.val;
-}
-
-int IntLit::getType()
-{
-  return INT_LITERAL;
 }
 
 string IntLit::getStr()
@@ -361,17 +336,12 @@ FloatLit::FloatLit(double v)
 
 bool FloatLit::compareTo(Token* rhs)
 {
-  return rhs->getType() == FLOAT_LITERAL && ((FloatLit*) rhs)->val == val;
+  return rhs->type == FLOAT_LITERAL && ((FloatLit*) rhs)->val == val;
 }
 
 bool FloatLit::operator==(FloatLit& rhs)
 {
   return val == rhs.val;
-}
-
-int FloatLit::getType()
-{
-  return FLOAT_LITERAL;
 }
 
 string FloatLit::getStr()
@@ -398,17 +368,12 @@ Punct::Punct(int v)
 
 bool Punct::compareTo(Token* rhs)
 {
-  return rhs->getType() == PUNCTUATION && ((Punct*) rhs)->val == val;
+  return rhs->type == PUNCTUATION && ((Punct*) rhs)->val == val;
 }
 
 bool Punct::operator==(Punct& rhs)
 {
   return val == rhs.val;
-}
-
-int Punct::getType()
-{
-  return PUNCTUATION;
 }
 
 string Punct::getStr()
@@ -446,17 +411,12 @@ Keyword::Keyword(int val)
 
 bool Keyword::compareTo(Token* rhs)
 {
-  return rhs->getType() == KEYWORD && ((Keyword*) rhs)->kw == kw;
+  return rhs->type == KEYWORD && ((Keyword*) rhs)->kw == kw;
 }
 
 bool Keyword::operator==(Keyword& rhs)
 {
   return kw == rhs.kw;
-}
-
-int Keyword::getType()
-{
-  return KEYWORD;
 }
 
 string Keyword::getStr()
@@ -476,17 +436,12 @@ PastEOF::PastEOF()
 
 bool PastEOF::compareTo(Token* t)
 {
-  return t->getType() == PAST_EOF;
+  return t->type == PAST_EOF;
 }
 
 bool PastEOF::operator==(PastEOF& rhs)
 {
   return true;
-}
-
-int PastEOF::getType()
-{
-  return PAST_EOF;
 }
 
 string PastEOF::getStr()

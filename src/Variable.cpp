@@ -28,9 +28,14 @@ Variable::Variable(string name, TypeSystem::Type* t, Block* b)
 void Variable::resolve(bool final)
 {
   resolveType(type, final);
-  if(type->resolved)
+  if(!type->resolved)
+    return;
+  if(init)
   {
-    resolved = true;
+    resolveExpr(init, final);
+    if(!init->resolved)
+      return;
   }
+  resolved = true;
 }
 

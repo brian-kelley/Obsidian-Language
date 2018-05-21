@@ -27,7 +27,7 @@ namespace Parser
   extern vector<Token*> tokens;    //all tokens from lexer
 
   void unget();                 //back up one token (no-op if at start of token string)
-  void accept();                //accept any token
+  void accept();                //accept (and discard) any token
   bool accept(Token& t);
   Token* accept(int tokType);   //return NULL if tokType doesn't match next
   bool acceptKeyword(int type);
@@ -38,6 +38,7 @@ namespace Parser
   void expectKeyword(int type);
   void expectOper(int type);
   void expectPunct(int type);
+  string expectIdent();
   Token* lookAhead(int n = 0);  //get the next token without advancing pos
   void err(string msg = "");
 
@@ -47,19 +48,27 @@ namespace Parser
   };
 
   void parseScopedDecl(Scope* s, bool semicolon);
+  //parse a statement, but don't add it to block
   Statement* parseStatement(Block* b);
-  void parseStatementOrDecl(Block* b);
-  Variable* parseVarDecl(Scope* s, bool semicolon);
+  //parse a statement or declaration
+  //if statement, return it but don't add to block
+  //if decl, add it to block's scope
+  Statement* parseStatementOrDecl(Block* b);
+  If* parseIf(Block* b);
+  While* parseWhile(Block* b);
+  //parse a variable declaration, and add the variable to scope
+  //if s belongs to a block and the variable is initialized, return the assignment
+  Assign* parseVarDecl(Scope* s, bool semicolon);
   Subroutine* parseSubroutine(Scope* s);
   ExternalSubroutine* parseExternalSubroutine(Scope* s);
   AliasType* parseAlias(Scope* s);
+  ForC* parseForC(Block* b);
   ForArray* parseForArray(Block* b);
+  Member* parseMember();
+  //Parse a block (which has already been constructed)
+  void parseBlock(Block* b);
   Test* parseTest(Scope* s);
   Type* parseType(Scope* s);
-  Block* parseBlock(Scope* s);
-  Block* parseBlock(Subroutine* s);
-  Block* parseBlock(For* f);
-  Block* parseBlock(While* w);
 }
 
 //Utils

@@ -41,7 +41,7 @@ struct Name
     : item(var), kind(VARIABLE), scope(s), node(var) {}
   Name(EnumConstant* ec, Scope* s)
     : item(ec), kind(ENUM_CONSTANT), scope(s), node(ec) {}
-  void* item;
+  Node* item;
   //All named declaration types
   Kind kind;
   Scope* scope;

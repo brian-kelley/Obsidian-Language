@@ -66,10 +66,18 @@ void Block::addStatement(Statement* s)
 
 void Block::resolveImpl(bool final)
 {
+  //Block needs to resolve both child statements and declarations in scope
   for(auto& stmt : stmts)
   {
     stmt->resolve(final);
     if(!stmt->resolved)
+      return;
+  }
+  for(auto& decl : scope->names)
+  {
+    Node* n = decl.second.item;
+    n->resolve(final);
+    if(!n->resolved)
       return;
   }
   resolved = true;
@@ -118,115 +126,79 @@ void CallStmt::resolveImpl(bool final)
   resolved = true;
 }
 
-/*
-For::For(Block* b, Statement* i, Expression* cond, Statement* incr, Block* forBody)
-  : Statement(b)
+For::For(Block* b) : Statement(b)
 {
-  //variables declared in initialization should be in body's scope
-  init = i;
-  condition = cond;
-  increment = incr;
-  body = forBody;
+  outer = new Block(b);
+  inner = new Block(outer);
+  inner->loop = this;
+  inner->breakable = this;
 }
 
-For::For(Block* b, vector<string>& tupIter, Expression* arr, Block* innerBody)
-  : Statement(b)
+ForC::ForC(Block* b) : For(b)
 {
-  //recursively create the syntax of a nested for loop over each dim
-  //body is the bodyh of innermost loop only
-  if(tupIter.size() < 2)
-  {
-    errMsgLoc(this, "for over array needs >= 1 counter and an iteration variable");
-  }
-  body = new Block(this);
-  setupRange(tupIter.front(), new IntLiteral(0), new ArrayLength(arr));
-  //get arr[i] where i is this dimension's counter
-  Expression* subArr = new Indexed(arr,
-      new UnresolvedExpr(tupIter.front(), body->scope));
-  if(tupIter.size() == 2)
-  {
-    //innermost loop
-    //create the final iteration variable and assign subArr to it
-    Variable* iterVar = new Variable(tupIter.back(), new ExprType(subArr), innerBody);
-    body->scope->addName(iterVar);
-    body->stmts.push_back(new Assign(new VarExpr(iterVar), subArr));
-    //finally, add the inner body,
-    //and fix its position in scope tree
-    innerBody->scope->parent = body->scope;
-    body->stmts.push_back(innerBody);
-  }
-  else
-  {
-    //not innermost loop,
-    //only statement in body is another For (with same innerBody)
-    vector<string> nextTupIter(tupIter.size() - 1);
-    for(size_t i = 1; i < tupIter.size(); i++)
-    {
-      nextTupIter[i - 1] = tupIter[i];
-    }
-    body->stmts.push_back(new For(nextTupIter, subArr, innerBody));
-  }
+  init = nullptr;
+  condition = nullptr;
+  increment = nullptr;
 }
 
-For::For(Block* b, string counter, Expression* begin, Expression* end, Block* innerBody)
-  : Statement(b)
+void ForC::resolveImpl(bool final)
 {
-  body = new Block(this);
-  setupRange(counter, begin, end);
-  body->stmts.push_back(innerBody);
-  innerBody->scope->parent = body->scope;
-}
-
-void For::resolveImpl(bool final)
-{
+  //Resolving outerwill only resolve the declarations in outer's scope,
+  //since no statements will be added to outer
+  outer->resolve(final);
+  if(!outer->resolved)
+    return;
   init->resolve(final);
   if(!init->resolved)
     return;
-  resolveExpr(condition, final);
+  condition->resolve(final);
   if(!condition->resolved)
     return;
+  if(condition->type != primitives[Prim::BOOL])
+  {
+    errMsgLoc(condition, "C-style for loop condition must be a bool");
+  }
   increment->resolve(final);
   if(!increment->resolved)
     return;
-  body->resolve(final);
-  if(!body->resolved)
+  //finally, resolve the body
+  inner->resolve(final);
+  if(!inner->resolved)
     return;
   resolved = true;
 }
 
-Variable* For::setupRange(string counterName, Expression* begin, Expression* end)
-{
-  //get the correct type for the counter
-  Variable* counterVar = new Variable(counterName, primitives[Prim::LONG], body);
-  body->scope->addName(counterVar);
-  Expression* counterExpr = new VarExpr(counterVar);
-  counterExpr->resolve(true);
-  init = new VarAssign(counterExpr, new IntLiteral(0));
-  condition = new BinaryArith(counterExpr, CMPL, end);
-  increment = new VarAssign(counterExpr, new BinaryArith(counterExpr, PLUS, new IntLiteral(1)));
-  return counterVar;
-}
-*/
-
-For::For(Block* b) : Statement(b)
+ForArray::ForArray(Block* b) : For(b)
 {}
 
-ForArray::ForArray(Block* b, Expression* a, vector<string>& iters) : For(b)
+void ForArray::createIterators(vector<string>& iters)
 {
-  //create outerBody
-  outerBody = new Block(b);
-  b->addStatement(outerBody);
-  //create counter variables (parser guarantees there is at least one)
+  //parser should check for this anyway, but:
+  if(iters.size() < 2)
+  {
+    INTERNAL_ERROR;
+  }
+  //create counters and iterator as variables in outer block
   for(size_t i = 0; i < iters.size() - 1; i++)
   {
-    Variable* countI = new Variable(iters[i], primitives[Prim::ULONG], outerBody);
-    counters.push_back(countI);
-    outerBody->scope->addName(countI);
+    Variable* cnt = new Variable(iters[i], primitives[Prim::ULONG], outer);
+    counters.push_back(cnt);
+    outer->scope->addName(cnt);
   }
-  //can't create iter yet since its type is not known (do that in resolveImpl())
-  iter = nullptr;
-  iterName = iters.back();
-  arr = a;
+  //create iterator
+  iter = new Variable(iters.back(), new ElemExprType(arr), outer);
+}
+
+void ForArray::resolveImpl(bool final)
+{
+  //just resolve outer, then inner
+  outer->resolve(final);
+  if(!outer->resolved)
+    return;
+  inner->resolve(final);
+  if(!inner->resolved)
+    return;
+  resolved = true;
 }
 
 Block* ForArray::getInnerBody()
