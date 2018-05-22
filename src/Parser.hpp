@@ -49,11 +49,11 @@ namespace Parser
 
   void parseScopedDecl(Scope* s, bool semicolon);
   //parse a statement, but don't add it to block
-  Statement* parseStatement(Block* b);
+  Statement* parseStatement(Block* b, bool semicolon);
   //parse a statement or declaration
   //if statement, return it but don't add to block
   //if decl, add it to block's scope
-  Statement* parseStatementOrDecl(Block* b);
+  Statement* parseStatementOrDecl(Block* b, bool semicolon);
   If* parseIf(Block* b);
   While* parseWhile(Block* b);
   //parse a variable declaration, and add the variable to scope
@@ -61,13 +61,16 @@ namespace Parser
   Assign* parseVarDecl(Scope* s, bool semicolon);
   Subroutine* parseSubroutine(Scope* s);
   ExternalSubroutine* parseExternalSubroutine(Scope* s);
-  AliasType* parseAlias(Scope* s);
+  Expression* parseExpression(Scope* s);
+  void parseModule(Scope* s);
+  void parseAlias(Scope* s);
   ForC* parseForC(Block* b);
   ForArray* parseForArray(Block* b);
+  ForRange* parseForRange(Block* b);
   Member* parseMember();
   //Parse a block (which has already been constructed)
   void parseBlock(Block* b);
-  Test* parseTest(Scope* s);
+  void parseTest(Scope* s);
   Type* parseType(Scope* s);
 }
 

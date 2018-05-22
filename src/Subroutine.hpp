@@ -46,7 +46,6 @@ typedef variant<None, For*, While*> Loop;
 //Breakable (anything that can have break statement)
 typedef variant<None, For*, While*, Switch*> Breakable;
 
-//Block: list of statements
 struct Block : public Statement
 {
   //Constructor for function/procedure body
@@ -79,6 +78,7 @@ Statement* createStatement(Block* s, Parser::StatementNT* stmt);
 struct Assign : public Statement
 {
   Assign(Block* b, Expression* lhs, Expression* rhs);
+  Assign(Block* b, Expression* lhs, int op, Expression* rhs = nullptr);
   void resolveImpl(bool final);
   Expression* lvalue;
   Expression* rvalue;
@@ -122,12 +122,10 @@ struct ForArray : public For
   void resolveImpl(bool final);
   //create an empty inner body (parser puts user's statements here)
   Block* createInnerBody();
-  //the integer (u64) counters that count from 0 to each dimension of the array
+  //the (long) counters that count from 0 to each dimension of the array
+  vector<Variable*> counters;
   Expression* arr;
   Variable* iter;
-  vector<Variable*> counters;
-  //outerBody is a special block (invisible to user) that holds the counters/iter
-  Block* outerBody;
   virtual void resolveImpl(bool final);
 };
 
@@ -142,7 +140,9 @@ struct ForRange : public Statement
 
 struct While : public Statement
 {
-  While(Block* b, Expression* condition, Block* body);
+  //body can be any statement,
+  //but internally body must be a block (for Loop/Breakable)
+  While(Block* b, Expression* condition);
   void resolveImpl(bool final);
   Expression* condition;
   Block* body;

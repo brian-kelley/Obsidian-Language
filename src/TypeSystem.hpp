@@ -262,7 +262,6 @@ struct MapType : public Type
 
 struct AliasType : public Type
 {
-  AliasType(Parser::Typedef* td, Scope* enclosingScope);
   AliasType(string alias, Type* underlying);
   string name;
   Type* actual;

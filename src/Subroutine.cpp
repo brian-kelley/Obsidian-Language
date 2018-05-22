@@ -27,28 +27,6 @@ Block::Block(Block* parent)
   statementCount = 0;
 }
 
-//Block which is a for loop body
-//The loop body has the same index as the loop itself
-Block::Block(For* f, Block* parent)
-{
-  subr = parent->subr;
-  loop = f;
-  breakable = f;
-  scope = new Scope(parent->scope, this);
-  statementCount = 0;
-}
-
-//Block which is a while loop body
-Block::Block(While* w)
-{
-  Block* parent = w->body->scope->parent->node.get<Block*>();
-  subr = parent->subr;
-  loop = w;
-  breakable = w;
-  scope = new Scope(parent->scope, this);
-  statementCount = 0;
-}
-
 Block::Block(Scope* s)
 {
   subr = nullptr;
@@ -87,6 +65,39 @@ Assign::Assign(Block* b, Expression* lhs, Expression* rhs) : Statement(b)
 {
   lvalue = lhs;
   rvalue = rhs;
+}
+
+Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
+  : Statement(b)
+{
+  //the actual rvalue used internally depends on the operation
+  lvalue = lhs;
+  switch(op)
+  {
+    case ASSIGN:
+      rvalue = rhs;
+      break;
+    case PLUSEQ:
+    case SUBEQ:
+    case MULEQ:
+    case DIVEQ:
+    case MODEQ:
+    case BOREQ:
+    case BANDEQ:
+    case BXOREQ:
+    case SHLEQ:
+    case SHREQ:
+      rvalue = new BinaryArith(lhs, op, rhs);
+      break;
+    case INC:
+      rvalue = new BinaryArith(lhs, ADD, new IntLiteral(1));
+      break;
+    case DEC:
+      rvalue = new BinaryArith(lhs, SUB, new IntLiteral(1));
+      break;
+    default:
+      errMsgLoc(this, "invalid operation for assignment");
+  }
 }
 
 void Assign::resolveImpl(bool final)
@@ -181,7 +192,7 @@ void ForArray::createIterators(vector<string>& iters)
   //create counters and iterator as variables in outer block
   for(size_t i = 0; i < iters.size() - 1; i++)
   {
-    Variable* cnt = new Variable(iters[i], primitives[Prim::ULONG], outer);
+    Variable* cnt = new Variable(iters[i], primitives[Prim::LONG], outer);
     counters.push_back(cnt);
     outer->scope->addName(cnt);
   }
@@ -191,7 +202,21 @@ void ForArray::createIterators(vector<string>& iters)
 
 void ForArray::resolveImpl(bool final)
 {
-  //just resolve outer, then inner
+  resolveExpr(arr, final);
+  if(!arr->resolved)
+    return;
+  ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
+  if(!arrType)
+  {
+    errMsgLoc(this, "can't iterate over non-array expression");
+  }
+  if(arrType->dims < counters.size())
+  {
+    errMsgLoc(this, "requested " << counters.size() <<
+        " counters but array has only " << arrType->dims << " dimensions");
+  }
+  //finally resolve outer and inner blocks
+  //resolving outer will also resolve the counters and iter
   outer->resolve(final);
   if(!outer->resolved)
     return;
@@ -201,47 +226,37 @@ void ForArray::resolveImpl(bool final)
   resolved = true;
 }
 
-Block* ForArray::getInnerBody()
+ForRange::ForRange(Block* b, string counterName, Expression* b, Expression* e)
+  : For(b), begin(b), end(e)
 {
-  Block* b = new Block(outerBody);
-  outerBody->addStatement(b);
-  b->loop = this;
-  return b;
+  //create the counter variable in outer block
+  counter = new Variable(counterName, primitives[Prim::LONG], outer);
 }
 
-void ForArray::resolveImpl(bool final)
+void ForRange::resolveImpl(bool final)
 {
-  resolveExpr(arr, final);
-  if(!arr->resolved)
+  resolveExpr(begin, final);
+  if(!begin->resolved)
     return;
-  //create the iteration variable since type of arr is known
-  ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
-  if(!arrType)
-  {
-    errMsgLoc(this, "can't iterate over non-array expression");
-  }
-  if(counters.size() > arrType->dims)
-  {
-    errMsgLoc(this, "given " << counters.size() <<
-        " loop counters but array only has " << arrType->dims << " dimensions");
-  }
-  if(!iter)
-  {
-    //find the element type
-    auto iterType = TypeSystem::getArrayType(arrType->elem, arrType->dims - counters.size());
-    iter = new Variable(outerBody->scope, iterName, iterType, false);
-    outerBody->scope->addName(iter);
-  }
-  outerBody->resolve(final);
-  if(outerBody->resolved)
-    resolved = true;
+  resolveExpr(end, final);
+  if(!end->resolved)
+    return;
+  outer->resolve(final);
+  if(!outer->resolved)
+    return;
+  inner->resolve(final);
+  if(!inner->resolved)
+    return;
+  resolved = true;
 }
 
-While::While(Block* b, Expression* cond, Block* whileBody)
+While::While(Block* b, Expression* condition)
   : Statement(b)
 {
   condition = cond;
-  body = whileBody;
+  body = new Block(b);
+  body->loop = this;
+  body->breakable = this;
 }
 
 void While::resolveImpl(bool final)
@@ -500,7 +515,7 @@ void Assertion::resolveImpl(bool final)
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body)
+Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes)
 {
   name = n;
   scope = new Scope(enclosing, this);
@@ -525,7 +540,7 @@ Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSyst
     args.push_back(v);
     scope->addName(v);
   }
-  body = bodyBlock;
+  body = new Block(this);
 }
 
 void Subroutine::resolveImpl(bool final)

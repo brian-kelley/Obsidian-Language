@@ -62,7 +62,7 @@ namespace Parser
     return globalModule;
   }
 
-  Module* parseModule(Scope* s)
+  void parseModule(Scope* s)
   {
     Node* location = lookAhead();
     expectKeyword(MODULE);
@@ -74,7 +74,7 @@ namespace Parser
     {
       parseScopedDecl(m->scope, true);
     }
-    return m;
+    s->addName(m);
   }
 
   void parseScopedDecl(Scope* s, bool semicolon)
@@ -282,9 +282,6 @@ namespace Parser
   void parseSubroutine(Scope* s)
   {
     Node* location = lookAhead();
-
-    //Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes, Block* body);
-
     bool pure;
     if(acceptKeyword(FUNC))
     {
@@ -305,10 +302,16 @@ namespace Parser
     vector<Type*> argTypes;
     while(!acceptPunct(RPAREN))
     {
-      //all arguments must be given names (for now)
-      argNames.push_back(
+      //all arguments must be given names
+      argNames.push_back(expectIdent());
+      expectPunct(COLON);
+      argTypes.push_back(parseType(s));
     }
-    return subr;
+    //Subroutine constructor constructs body
+    Subroutine* subr = new Subroutine(s, name, isStatic, pure, retType, argNames, argTypes);
+    subr->setLocation(location);
+    parseBlock(subr->body);
+    s->addName(subr);
   }
 
   Assign* parseVarDecl(Scope* s, bool semicolon)
@@ -414,14 +417,26 @@ namespace Parser
     return fa;
   }
 
-  template<>
-  Typedef* parse<Typedef>()
+  ForRange* parseForRange(Block* b)
   {
-    Typedef* td = new Typedef;
+    Node* location = lookAhead();
+    expectKeyword(FOR);
+    string counterName = expectIdent();
+    expectPunct(COLON);
+    Expression* begin = parseExpression(b->scope);
+    Expression* end = parseExpression(b->scope);
+    ForRange* fr = new ForRange(b, counterName, begin, end);
+    fr->setLocation(lookAhead());
+    auto body = parseStatement(fr->inner, true);
+    fr->inner->addStatement(body);
+    return fr;
+  }
+
+  void parseAlias(Scope* s)
+  {
     expectKeyword(TYPEDEF);
-    td->type = parse<TypeNT>();
-    td->ident = expectIdent();
-    return td;
+    Type* t = parseType(s);
+    s->addName(new AliasType(expectIdent(), t));
   }
 
   template<>
@@ -528,110 +543,10 @@ namespace Parser
     return forC;
   }
 
-  template<>
-  ForOverArray* parse<ForOverArray>()
-  {
-    ForOverArray* foa = new ForOverArray;
-    expectPunct(LBRACKET);
-    foa->tup.push_back(expectIdent());
-    while(acceptPunct(COMMA))
-    {
-      foa->tup.push_back(expectIdent());
-    }
-    expectPunct(RBRACKET);
-    expectPunct(COLON);
-    foa->expr = parse<ExpressionNT>();
-    return foa;
-  }
-
-  template<>
-  ForRange* parse<ForRange>()
-  {
-    ForRange* fr = new ForRange;
-    fr->name = expectIdent();
-    expectPunct(COLON);
-    fr->start = parse<ExpressionNT>();
-    expectPunct(COMMA);
-    fr->end = parse<ExpressionNT>();
-    return fr;
-  }
-
-  //New For syntax (3 variations):
-  //ForC:         for(<stmt>; <expr>; <stmt>) {body}
-  //ForOverArray: for [i, j, k, ..., it] : <expr> {body}
-  //ForRange:     for i : lo, hi {body}
-  //etc, size of tuple is arbitrary in parser,
-  //and checked in middle end against expr num dimensions
-
-  //Can figure out which variation with 1 token lookahead after "for":
-  //  ( ----> ForC
-  //  [ ----> ForOverArray
-  //  Ident ----> ForRange
-
-  template<>
-  For* parse<For>()
-  {
-    For* f = new For;
-    expectKeyword(FOR);
-    auto t = lookAhead();
-    if(dynamic_cast<Ident*>(t))
-    {
-      f->f = parse<ForRange>();
-    }
-    else if(Punct* p = dynamic_cast<Punct*>(t))
-    {
-      if(p->val == LBRACKET)
-        f->f = parse<ForOverArray>();
-      else if(p->val == LPAREN)
-        f->f = parse<ForC>();
-      else
-        err("invalid for loop");
-    }
-    f->body = parseBlockWrappedStatement();
-    return f;
-  }
-
-  template<>
-  While* parse<While>()
-  {
-    While* w = new While;
-    expectKeyword(WHILE);
-    expectPunct(LPAREN);
-    w->cond = parse<ExpressionNT>();
-    expectPunct(RPAREN);
-    w->body = parseBlockWrappedStatement();
-    return w;
-  }
-
   If(Block* b, Expression* condition, Statement* body);
   If(Block* b, Expression* condition, Statement* tbody, Statement* fbody);
 
-  If* parseIf(Block* b)
-  {
-    Node* location = lookAhead();
-    expectKeyword(IF);
-    expectPunct(LPAREN);
-    Expression* cond = parseExpression(b->scope);
-    expectPunct(RPAREN);
-    Statement* stmt = parseStatement(b);
-    Statement* stmt = parseStatement(b);
-    i->ifBody = parse<StatementNT>();
-    if(acceptKeyword(ELSE))
-      i->elseBody = parse<StatementNT>();
-    return i;
-  }
-
-  template<>
-  Assertion* parse<Assertion>()
-  {
-    Assertion* a = new Assertion;
-    expectKeyword(ASSERT);
-    a->expr = parse<ExpressionNT>();
-    expectPunct(SEMICOLON);
-    return a;
-  }
-
-  Test* parseTest(Scope* s)
+  void parseTest(Scope* s)
   {
     Node* location = lookAhead();
     Block* b = new Block(s);
@@ -641,28 +556,106 @@ namespace Parser
     return t;
   }
 
-  template<>
-  EnumItem* parse<EnumItem>()
+  Statement* parseStatement(Block* b, bool semicolon)
   {
-    EnumItem* ei = new EnumItem;
-    ei->name = expectIdent();
-    if(acceptOper(ASSIGN))
-      ei->value = (IntLit*) expect(INT_LITERAL);
-    else
-      ei->value = NULL;
-    return ei;
+    Token* next = lookAhead();
+    if(next->type == KEYWORD)
+    {
+      switch(((Keyword*) next)->kw)
+      {
+        case FOR:
+          {
+            Punct lparen(LPAREN);
+            Punct lbrack(LBRACKET);
+            Token* next2 = lookAhead(1);
+            if(next2->compareTo(&lparen))
+              return parseForC(b);
+            else if(next2->compareTo(&lbrack))
+              return parseForArray(b);
+            else
+              return parseForRange(b);
+          }
+        case IF:
+          return parseIf(b);
+        case WHILE:
+          return parseWhile(b);
+        case BREAK:
+          {
+            expectKeyword(BREAK);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            return new Break(b);
+          }
+        case CONTINUE:
+          {
+            expectKeyword(CONTINUE);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            return new Continue(b);
+          }
+        case RETURN:
+          {
+            expectKeyword(RETURN);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            return new Return;
+          }
+        case SWITCH:
+          return parseSwitch(b);
+        case MATCH:
+          return parseMatch(b);
+      }
+    }
+    if(next->type == IDENTIFIER)
+    {
+      //statement must be either a call or an assign
+      //in either case, parse an expression first
+      Expression* lhs = parseExpression(b);
+      if(Oper* op = (Oper*) accept(OPERATOR))
+      {
+        //op must be compatible with assignment
+        //++ and -- don't have explicit RHS, all others do
+        if(op->op == INC || op->op == DEC)
+          return new Assign(lhs, op->op);
+        else
+          return new Assign(lhs, op->op, parseExpression(b->scope));
+      }
+    }
   }
 
-  template<>
-  Enum* parse<Enum>()
+  If* parseIf(Block* b)
   {
-    Enum* e = new Enum;
-    expectKeyword(ENUM);
-    e->name = expectIdent();
-    expectPunct(LBRACE);
-    e->items = parsePlusComma<EnumItem>();
-    expectPunct(RBRACE);
-    return e;
+    Node* location = lookAhead();
+    expectKeyword(IF);
+    expectPunct(LPAREN);
+    Expression* cond = parseExpression(b->scope);
+    expectPunct(RPAREN);
+    If* i = nullptr;
+    Statement* ifBody = parseStatement(b, true);
+    if(acceptKeyword(ELSE))
+    {
+      Statment* elseBody = parseStatement(b, true);
+      i = new If(b, cond, ifBody, elseBody);
+    }
+    else
+    {
+      i = new If(b, cond, ifBody);
+    }
+    i->setLocation(location);
+    return i;
+  }
+
+  While* parseWhile(Block* b)
+  {
+    Node* location = lookAhead();
+    expectKeyword(WHILE);
+    expectPunct(LPAREN);
+    Expression* cond = parseExpression(b->scope);
+    expectPunct(RPAREN);
+    While* w = new While(b, cond);
+    w->setLocation(location);
+    w->body->addStatement(parseStatement(w->body));
+    return w;
   }
 
   void parseStatementOrDecl(Block* b, bool semicolon)
@@ -691,36 +684,44 @@ namespace Parser
         case MODULE:
         case TYPEDEF:
         case ENUM:
-          parseScopedDecl(b->scope, semicolon);
-          return nullptr;
+          {
+            parseScopedDecl(b->scope, semicolon);
+            break;
+          }
+        case RETURN:
         case FOR:
-        case WHILE:
         case IF:
+        case WHILE:
         case SWITCH:
         case MATCH:
         case PRINT:
           {
-            return parseStatement(b);
+            b->addStatement(parseStatement(b));
+            break;
           }
         default:
           INTERNAL_ERROR;
       }
     }
+    else if(next->type == PUNCTUATION)
+    {
+      b->addStatement(parseStatement(b));
+    }
     else
     {
       err("Expected statement or declaration");
     }
-    return nullptr;
   }
 
-  Block* parseBlock(Scope* s)
+  void parseBlock(Block* b)
   {
-    Block* b = new Block;
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
+      Statement* stmt = parseStatementOrDecl(b);
+      if(stmt)
+        b->addStatement(stmt);
     }
-    return b;
   }
 
   VarAssign* parseAssignGivenExpr12(Expr12* target)
@@ -868,51 +869,6 @@ namespace Parser
     es->type->params = parseStarComma<Parameter>(rparen);
     es->c = expectIdent();
     return es;
-  }
-
-  template<>
-  SubroutineTypeNT* parse<SubroutineTypeNT>()
-  {
-    SubroutineTypeNT* st = new SubroutineTypeNT;
-    if(acceptKeyword(FUNCTYPE))
-      st->isPure = true;
-    else if(acceptKeyword(PROCTYPE))
-      st->isPure = false;
-    else
-      err("expected functype or proctype");
-    st->nonterm = false;
-    st->isStatic = false;
-    if(acceptKeyword(NONTERM))
-      st->nonterm = true;
-    if(acceptKeyword(STATIC))
-      st->isStatic = true;
-    if(acceptKeyword(NONTERM))
-    {
-      if(st->nonterm)
-        err("nonterm modifier given twice");
-      st->nonterm = true;
-    }
-    st->retType = parse<TypeNT>();
-    expectPunct(LPAREN);
-    Punct rparen(RPAREN);
-    st->params = parseStarComma<Parameter>(rparen);
-    return st;
-  }
-
-  template<>
-  StructDecl* parse<StructDecl>()
-  {
-    StructDecl* sd = new StructDecl;
-    expectKeyword(STRUCT);
-    sd->name = expectIdent();
-    if(acceptPunct(COLON))
-    {
-      sd->traits = parsePlusComma<Member>();
-    }
-    expectPunct(LBRACE);
-    Punct rbrace(RBRACE);
-    sd->members = parseStar<ScopedDecl>(rbrace);
-    return sd;
   }
 
   Expression* parseExpr1()
