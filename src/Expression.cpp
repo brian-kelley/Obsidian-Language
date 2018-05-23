@@ -3,8 +3,6 @@
 #include "Scope.hpp"
 #include "Subroutine.hpp"
 
-using namespace TypeSystem;
-
 /**************
  * UnaryArith *
  **************/
@@ -14,7 +12,7 @@ UnaryArith::UnaryArith(int o, Expression* e)
 
 void UnaryArith::resolveImpl(bool final)
 {
-  expr = resolveExpr(expr, final);
+  resolveExpr(expr, final);
   if(expr->resolved)
   {
     if(op == LNOT && expr->type != primitives[Prim::BOOL])
@@ -47,8 +45,8 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : op(o), lhs(l), r
 
 void BinaryArith::resolveImpl(bool final)
 {
-  lhs = resolveExpr(lhs, final);
-  rhs = resolveExpr(rhs, final);
+  resolveExpr(lhs, final);
+  resolveExpr(rhs, final);
   if(!lhs->resolved || !rhs->resolved)
   {
     return;
@@ -56,18 +54,18 @@ void BinaryArith::resolveImpl(bool final)
   //Type check the operation
   auto ltype = lhs->type;
   auto rtype = rhs->type;
-  switch(o)
+  switch(op)
   {
     case LOR:
     case LAND:
     {
-      if(ltype != primitives[TypeNT::BOOL] ||
-         rtype != primitives[TypeNT::BOOL])
+      if(ltype != primitives[Prim::BOOL] ||
+         rtype != primitives[Prim::BOOL])
       {
         errMsgLoc(this, "operands to " << operatorTable[op] << " must be bools.");
       }
       //type of expression is always bool
-      this->type = primitives[TypeNT::BOOL];
+      this->type = primitives[Prim::BOOL];
       break;
     }
     case BOR:
@@ -162,7 +160,7 @@ void BinaryArith::resolveImpl(bool final)
       {
         errMsgLoc(this, "operands to arithmetic operators must be numbers.");
       }
-      type = TypeSystem::promote(ltype, rtype);
+      type = promote(ltype, rtype);
       if(ltype != type)
       {
         lhs = new Converted(lhs, type);
@@ -193,7 +191,7 @@ void BinaryArith::resolveImpl(bool final)
     {
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       //here, use the canConvert that takes an expression
-      type = primitives[TypeNT::BOOL];
+      type = primitives[Prim::BOOL];
       if(!ltype->canConvert(rtype) && !rtype->canConvert(ltype))
       {
         errMsgLoc(this, ltype->getName() <<
@@ -287,7 +285,8 @@ BoolLiteral::BoolLiteral(bool v)
  * CompoundLiteral *
  *******************/
 
-CompoundLiteral(vector<Expression*> mems) : members(mems) {}
+CompoundLiteral::CompoundLiteral(vector<Expression*>& mems)
+  : members(mems) {}
 
 void CompoundLiteral::resolveImpl(bool final)
 {
@@ -368,7 +367,7 @@ void Indexed::resolveImpl(bool final)
   else if(auto mt = dynamic_cast<MapType*>(group->type))
   {
     //make sure ind can be converted to the key type
-    if(!mt->key->canConvert(ind->type))
+    if(!mt->key->canConvert(index->type))
     {
       errMsgLoc(this, "used incorrect type to index map");
     }
@@ -400,6 +399,14 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 void CallExpr::resolveImpl(bool final)
 {
   resolveExpr(callable, final);
+  if(!callable->resolved)
+    return;
+  auto callableType = dynamic_cast<CallableType*>(callable->type);
+  if(!callableType)
+  {
+    errMsgLoc(this, "attempt to call non-callable expression");
+  }
+  type = callableType->returnType;
   bool allResolved = callable->resolved;
   for(size_t i = 0; i < args.size(); i++)
   {
@@ -408,31 +415,30 @@ void CallExpr::resolveImpl(bool final)
   }
   if(!allResolved)
     return;
-  type = ct->returnType;
   //make sure number of arguments matches
-  if(callable->argTypes.size() != args.size())
+  if(callableType->argTypes.size() != args.size())
   {
     errMsgLoc(this, "in call to " <<
-        (callable->ownerStruct ? "" : "static") <<
-        (callable->pure ? "function" : "procedure") <<
+        (callableType->ownerStruct ? "" : "static") <<
+        (callableType->pure ? "function" : "procedure") <<
         ", expected " <<
-        callable->argTypes.size() <<
+        callableType->argTypes.size() <<
         " arguments but " <<
         args.size() << " were provided");
   }
   for(size_t i = 0; i < args.size(); i++)
   {
     //make sure arg value can be converted to expected type
-    if(!callable->argTypes[i]->canConvert(args[i]->type))
+    if(!callableType->argTypes[i]->canConvert(args[i]->type))
     {
-      errMsg("argument " << i + 1 << " to " << (callable->ownerStruct ? "" : "static") <<
-        (callable->pure ? "function" : "procedure") << " has wrong type (expected " <<
-        callable->argTypes[i]->getName() << " but got " <<
+      errMsg("argument " << i + 1 << " to " << (callableType->ownerStruct ? "" : "static") <<
+        (callableType->pure ? "function" : "procedure") << " has wrong type (expected " <<
+        callableType->argTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
     }
-    if(callable->argTypes[i] != args[i]->type)
+    if(callableType->argTypes[i] != args[i]->type)
     {
-      args[i] = new Converted(args[i], callable->argTypes[i]);
+      args[i] = new Converted(args[i], callableType->argTypes[i]);
     }
   }
   resolved = true;
@@ -442,7 +448,7 @@ void CallExpr::resolveImpl(bool final)
  * VarExpr *
  ***********/
 
-VarExpr(Variable* v, Scope* s) : var(v), scope(s) {}
+VarExpr::VarExpr(Variable* v, Scope* s) : var(v), scope(s) {}
 VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
 void VarExpr::resolveImpl(bool final)
@@ -469,23 +475,23 @@ void VarExpr::resolveImpl(bool final)
 
 SubroutineExpr::SubroutineExpr(Subroutine* s)
 {
-  this->thisObject = nullptr;
-  this->subr = s;
-  this->exSubr = nullptr;
+  thisObject = nullptr;
+  subr = s;
+  exSubr = nullptr;
 }
 
 SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
 {
-  this->thisObject = root;
-  this->subr = s;
-  this->exSubr = nullptr;
+  thisObject = root;
+  subr = s;
+  exSubr = nullptr;
 }
 
 SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
 {
-  this->thisObject = nullptr;
-  this->subr = nullptr;
-  this->exSubr = es;
+  thisObject = nullptr;
+  subr = nullptr;
+  exSubr = es;
 }
 
 void SubroutineExpr::resolveImpl(bool final)
@@ -493,7 +499,7 @@ void SubroutineExpr::resolveImpl(bool final)
   if(subr)
     type = subr->type;
   else if(exSubr)
-    type = es->type;
+    type = exSubr->type;
   else
     INTERNAL_ERROR;
   if(!thisObject && subr && subr->type->ownerStruct)
@@ -509,7 +515,7 @@ void SubroutineExpr::resolveImpl(bool final)
   {
     errMsgLoc(this, \
         "can't call non-member subroutine " << \
-        subr ? subr->name : exSubr->name << \
+        (subr ? subr->name : exSubr->name) << \
         " on an object");
   }
 }
@@ -542,7 +548,7 @@ void StructMem::resolveImpl(bool final)
   {
     auto var = member.get<Variable*>();
     type = var->type;
-    if(!var->owner->type == base->type)
+    if(var->owner != base->type)
     {
       INTERNAL_ERROR;
     }
@@ -551,7 +557,7 @@ void StructMem::resolveImpl(bool final)
   {
     auto subr = member.get<Subroutine*>();
     type = subr->type;
-    if(!subr->type->ownerStruct->type == base->type)
+    if(subr->type->ownerStruct != base->type)
     {
       INTERNAL_ERROR;
     }
@@ -583,7 +589,7 @@ void NewArray::resolveImpl(bool final)
     }
     if(!dims[i]->type->isInteger())
     {
-      errMsgLoc(dims[i], 
+      errMsgLoc(dims[i], "array dimensions must be integers");
     }
   }
   type = getArrayType(elem, dims.size());
@@ -612,7 +618,7 @@ void ArrayLength::resolveImpl(bool final)
     //that should be handled in resolveExpr
     INTERNAL_ERROR;
   }
-  type = primitives[Parser::TypeNT::UINT];
+  type = primitives[Prim::UINT];
   resolved = true;
 }
 
@@ -659,7 +665,7 @@ Converted::Converted(Expression* val, Type* dst)
  * EnumExpr *
  ************/
 
-EnumExpr::EnumExpr(TypeSystem::EnumConstant* ec)
+EnumExpr::EnumExpr(EnumConstant* ec)
 {
   type = ec->et;
   value = ec->value;
@@ -672,7 +678,7 @@ EnumExpr::EnumExpr(TypeSystem::EnumConstant* ec)
 
 ErrorVal::ErrorVal()
 {
-  type = primitives[Parser::TypeNT::ERROR];
+  type = primitives[Prim::ERROR];
   resolved = true;
 }
 
@@ -683,19 +689,19 @@ ErrorVal::ErrorVal()
 UnresolvedExpr::UnresolvedExpr(string n, Scope* s)
 {
   base = nullptr;
-  name = new Parser::Member;
+  name = new Member;
   name->names.push_back(n);
   usage = s;
 }
 
-UnresolvedExpr::UnresolvedExpr(Parser::Member* n, Scope* s)
+UnresolvedExpr::UnresolvedExpr(Member* n, Scope* s)
 {
   base = nullptr;
   name = n;
   usage = s;
 }
 
-UnresolvedExpr::UnresolvedExpr(Expression* b, Parser::Member* n, Scope* s)
+UnresolvedExpr::UnresolvedExpr(Expression* b, Member* n, Scope* s)
 {
   base = b;
   name = n;
@@ -704,7 +710,7 @@ UnresolvedExpr::UnresolvedExpr(Expression* b, Parser::Member* n, Scope* s)
 
 void resolveExpr(Expression*& expr, bool final)
 {
-  if(expr->isResolved())
+  if(expr->resolved)
   {
     return;
   }

@@ -1,9 +1,10 @@
 #include "Parser.hpp"
-#include "Meta.hpp"
+//#include "Meta.hpp"
 #include "Scope.hpp"
-#include <stack>
-
-struct BlockScope;
+#include "TypeSystem.hpp"
+#include "Subroutine.hpp"
+#include "Expression.hpp"
+#include "Variable.hpp"
 
 //Macros to help parse common patterns
 //func should be the whole call, i.e. parseThing(s)
@@ -43,7 +44,7 @@ namespace Parser
   Module* parseProgram(vector<Token*>& toks)
   {
     pos = 0;
-    tokens = &toks;
+    tokens = toks;
     Module* globalModule = new Module("", nullptr);
     while(!accept(PastEOF::inst))
     {
@@ -100,6 +101,11 @@ namespace Parser
           break;
         case TYPEDEF:
           parseAlias(s);
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          break;
+        case ENUM:
+          parseEnum(s);
           break;
         case MODULE:
           parseModule(s);
@@ -111,22 +117,14 @@ namespace Parser
           INTERNAL_ERROR;
       }
     }
-    else if(Ident* id = dynamic_cast<Ident*>(lookAhead()))
+    else if(lookAhead()->type == IDENTIFIER)
     {
       //variable declaration
       parseVarDecl(s);
+      if(semicolon)
+        expectPunct(semicolon);
     }
     INTERNAL_ERROR;
-  }
-
-  void parseBlock(Block* b)
-  {
-    b->setLocation(lookAhead());
-    expectPunct(LBRACE);
-    while(!acceptPunct(RBRACE))
-    {
-      parseStatementOrDecl(b);
-    }
   }
 
   Type* parseType(Scope* s)
@@ -134,7 +132,7 @@ namespace Parser
     UnresolvedType* t = new UnresolvedType;
     t->scope = s;
     t->setLocation(lookAhead());
-    type->arrayDims = 0;
+    t->arrayDims = 0;
     //check for keyword
     if(Keyword* keyword = (Keyword*) accept(KEYWORD))
     {
@@ -236,7 +234,7 @@ namespace Parser
       }
       expectPunct(RPAREN);
     }
-    else if(lookAhead()->getType() == IDENTIFIER)
+    else if(lookAhead()->type == IDENTIFIER)
     {
       //a named type
       t->t = parseMember();
@@ -289,7 +287,7 @@ namespace Parser
     bool pure;
     if(acceptKeyword(FUNC))
     {
-      subr->isPure = true;
+      pure = true;
     }
     else
     {
@@ -318,7 +316,7 @@ namespace Parser
     s->addName(subr);
   }
 
-  ExternalSubroutine* parseExternalSubroutine(Scope* s)
+  void parseExternalSubroutine(Scope* s)
   {
     Node* loc = lookAhead();
     expectKeyword(EXTERN);
@@ -336,13 +334,13 @@ namespace Parser
     string& code = ((StrLit*) expect(STRING_LITERAL))->val;
     ExternalSubroutine* es = new ExternalSubroutine(s, name, retType, argTypes, argNames, code);
     es->setLocation(loc);
-    return es;
+    s->addName(es);
   }
 
-  Assign* parseVarDecl(Scope* s, bool semicolon)
+  Assign* parseVarDecl(Scope* s)
   {
     Node* loc = lookAhead();
-    Ident* id = expectIdent();
+    string name = expectIdent();
     expectPunct(COLON);
     bool isStatic = false;
     bool compose = false;
@@ -366,7 +364,7 @@ namespace Parser
     if(s->node.is<Block*>())
     {
       //local variable uses special constructor
-      var = new Variable(id->name, type, s->node.get<Block*>());
+      var = new Variable(name, type, s->node.get<Block*>());
     }
     else
     {
@@ -375,10 +373,8 @@ namespace Parser
       {
         err("static variable declared outside any struct");
       }
-      var = new Variable(s, id->name, type, init, isStatic, compose);
+      var = new Variable(s, name, type, init, isStatic, compose);
     }
-    if(semicolon)
-      expectPunct(SEMICOLON);
     var->setLocation(loc);
     //add variable to scope
     s->addName(var);
@@ -437,21 +433,21 @@ namespace Parser
       errMsgLoc(fa, "for over array requires an iterator and at least one counter");
     }
     fa->createIterators(tup);
-    auto body = parseStatement(fc->inner, true);
-    fc->inner->addStatement(body);
+    auto body = parseStatement(fa->inner, true);
+    fa->inner->addStatement(body);
     return fa;
   }
 
   ForRange* parseForRange(Block* b)
   {
-    Node* location = lookAhead();
+    Node* loc = lookAhead();
     expectKeyword(FOR);
     string counterName = expectIdent();
     expectPunct(COLON);
     Expression* begin = parseExpression(b->scope);
     Expression* end = parseExpression(b->scope);
     ForRange* fr = new ForRange(b, counterName, begin, end);
-    fr->setLocation(lookAhead());
+    fr->setLocation(loc);
     auto body = parseStatement(fr->inner, true);
     fr->inner->addStatement(body);
     return fr;
@@ -475,7 +471,7 @@ namespace Parser
     {
       if(acceptKeyword(CASE))
       {
-        caseValues.push_back(parseExpression(s));
+        caseValues.push_back(parseExpression(b->scope));
         caseIndices.push_back(block->statementCount);
         expectPunct(COLON);
       }
@@ -490,7 +486,7 @@ namespace Parser
       }
       else
       {
-        block->addStatement(parseStatement(b), true);
+        block->addStatement(parseStatement(b, true));
       }
     }
     //place implicit "default:" after all statements if not explicit
@@ -520,7 +516,7 @@ namespace Parser
       parseBlock(block);
       caseBlocks.push_back(block);
     }
-    Match* matchStmt = (b, matched, varName, caseTypes, caseBlocks);
+    Match* matchStmt = new Match(b, matched, varName, caseTypes, caseBlocks);
     matchStmt->setLocation(loc);
     return matchStmt;
   }
@@ -535,6 +531,36 @@ namespace Parser
     s->addName(aType);
   }
 
+  void parseEnum(Scope* s)
+  {
+    EnumType* e = new EnumType(s);
+    e->setLocation(lookAhead());
+    expectKeyword(ENUM);
+    expectPunct(LBRACE);
+    while(true)
+    {
+      string name = expectIdent();
+      if(acceptOper(ASSIGN))
+      {
+        bool sign = acceptOper(SUB);
+        int64_t value = ((IntLit*) expect(INT_LITERAL))->val;
+        if(sign)
+          value = -value;
+        e->addValue(name, value);
+      }
+      else
+      {
+        e->addValue(name);
+      }
+      if(!acceptPunct(COMMA))
+      {
+        expectPunct(RBRACE);
+        break;
+      }
+    }
+    s->addName(e);
+  }
+
   void parseTest(Scope* s)
   {
     Node* location = lookAhead();
@@ -542,7 +568,8 @@ namespace Parser
     parseBlock(b);
     Test* t = new Test(s, b);
     t->setLocation(location);
-    return t;
+    //test constructor adds it to a static list of all tests;
+    //it is not added to any scope
   }
 
   Statement* parseStatement(Block* b, bool semicolon)
@@ -556,7 +583,6 @@ namespace Parser
         case FOR:
           {
             Punct lparen(LPAREN);
-            Punct lbrack(LBRACKET);
             Token* next2 = lookAhead(1);
             if(next2->compareTo(&lparen))
               return parseForC(b);
@@ -629,16 +655,16 @@ namespace Parser
       //statement must be either a call or an assign
       //in either case, parse an expression first
       Node* loc = lookAhead();
-      Expression* lhs = parseExpression(b);
+      Expression* lhs = parseExpression(b->scope);
       if(Oper* op = (Oper*) accept(OPERATOR))
       {
         //op must be compatible with assignment
         //++ and -- don't have explicit RHS, all others do
         Assign* assign = nullptr;
         if(op->op == INC || op->op == DEC)
-          assign = new Assign(lhs, op->op);
+          assign = new Assign(b, lhs, op->op);
         else
-          assign = new Assign(lhs, op->op, parseExpression(b->scope));
+          assign = new Assign(b, lhs, op->op, parseExpression(b->scope));
         assign->setLocation(loc);
         return assign;
       }
@@ -654,7 +680,7 @@ namespace Parser
         return cs;
       }
     }
-    else if(next->type == PUNCT)
+    else if(next->type == PUNCTUATION)
     {
       //only legal statement here is block
       Block* block = new Block(b);
@@ -676,7 +702,7 @@ namespace Parser
     Statement* ifBody = parseStatement(b, true);
     if(acceptKeyword(ELSE))
     {
-      Statment* elseBody = parseStatement(b, true);
+      Statement* elseBody = parseStatement(b, true);
       i = new If(b, cond, ifBody, elseBody);
     }
     else
@@ -696,23 +722,25 @@ namespace Parser
     expectPunct(RPAREN);
     While* w = new While(b, cond);
     w->setLocation(location);
-    w->body->addStatement(parseStatement(w->body));
+    w->body->addStatement(parseStatement(w->body, true));
     return w;
   }
 
-  void parseStatementOrDecl(Block* b, bool semicolon)
+  Statement* parseStatementOrDecl(Block* b, bool semicolon)
   {
     Token* next = lookAhead(0);
     Token* next2 = lookAhead(1);
     Punct colon(COLON);
-    if(next->type == IDENTIFIER && next2->type->compareTo(&colon))
+    if(next->type == IDENTIFIER && next2->compareTo(&colon))
     {
       //variable declaration
-      parseVarDecl(b->scope, semicolon);
+      parseVarDecl(b->scope);
+      if(semicolon)
+        expectPunct(SEMICOLON);
     }
     else if(next->type == IDENTIFIER)
     {
-      return parseStatement(b);
+      return parseStatement(b, semicolon);
     }
     else if(next->type == KEYWORD)
     {
@@ -722,11 +750,11 @@ namespace Parser
         case STRUCT:
         case FUNC:
         case PROC:
-        case TEST:
+        case EXTERN:
         case MODULE:
         case TYPEDEF:
         case ENUM:
-        case EXTERN:
+        case TEST:
           {
             parseScopedDecl(b->scope, semicolon);
             break;
@@ -739,8 +767,7 @@ namespace Parser
         case MATCH:
         case PRINT:
           {
-            b->addStatement(parseStatement(b));
-            break;
+            return parseStatement(b, semicolon);
           }
         default:
           INTERNAL_ERROR;
@@ -748,12 +775,13 @@ namespace Parser
     }
     else if(next->type == PUNCTUATION)
     {
-      b->addStatement(parseStatement(b));
+      return parseStatement(b, semicolon);
     }
     else
     {
       err("Expected statement or declaration");
     }
+    return nullptr;
   }
 
   void parseBlock(Block* b)
@@ -762,7 +790,7 @@ namespace Parser
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
-      Statement* stmt = parseStatementOrDecl(b);
+      Statement* stmt = parseStatementOrDecl(b, true);
       if(stmt)
         b->addStatement(stmt);
     }
@@ -934,7 +962,7 @@ namespace Parser
   Token* accept(int tokType)
   {
     Token* next = lookAhead();
-    bool res = next->getType() == tokType;
+    bool res = next->type == tokType;
     if(res)
     {
       pos++;
@@ -976,7 +1004,7 @@ namespace Parser
   Token* expect(int tokType)
   {
     Token* next = lookAhead();
-    if(next->getType() == tokType)
+    if(next->type == tokType)
     {
       pos++;
     }
@@ -1014,13 +1042,13 @@ namespace Parser
   Token* lookAhead(int n)
   {
     int index = pos + n;
-    if(index >= tokens->size())
+    if(index >= tokens.size())
     {
       return &PastEOF::inst;
     }
     else
     {
-      return (*tokens)[index];
+      return tokens[index];
     }
   }
 
@@ -1042,7 +1070,7 @@ namespace Parser
   }
 }
 
-ostream& operator<<(ostream& os, const Parser::Member& mem)
+ostream& operator<<(ostream& os, const Member& mem)
 {
   for(size_t i = 0; i < mem.names.size(); i++)
   {

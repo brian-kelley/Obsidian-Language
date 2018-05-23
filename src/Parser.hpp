@@ -2,8 +2,30 @@
 #define PARSER_H
 
 #include "Common.hpp"
+#include "AST.hpp"
 #include "Token.hpp"
 #include "Scope.hpp"
+
+struct Member : public Node
+{
+  vector<string> names;
+};
+
+struct Statement;
+struct Expression;
+struct Block;
+struct Assign;
+struct ForC;
+struct ForRange;
+struct ForArray;
+struct If;
+struct While;
+struct Switch;
+struct Match;
+struct Subroutine;
+struct ExternalSubroutine;
+struct Type;
+struct StructType;
 
 namespace Parser
 {
@@ -42,11 +64,6 @@ namespace Parser
   Token* lookAhead(int n = 0);  //get the next token without advancing pos
   void err(string msg = "");
 
-  struct Member
-  {
-    vector<string> names;
-  };
-
   void parseScopedDecl(Scope* s, bool semicolon);
   //parse a statement, but don't add it to block
   Statement* parseStatement(Block* b, bool semicolon);
@@ -58,13 +75,14 @@ namespace Parser
   While* parseWhile(Block* b);
   //parse a variable declaration, and add the variable to scope
   //if s belongs to a block and the variable is initialized, return the assignment
-  Assign* parseVarDecl(Scope* s, bool semicolon);
-  Subroutine* parseSubroutine(Scope* s);
-  ExternalSubroutine* parseExternalSubroutine(Scope* s);
+  Assign* parseVarDecl(Scope* s);
   Expression* parseExpression(Scope* s, int prec = 0);
+  void parseSubroutine(Scope* s);
+  void parseExternalSubroutine(Scope* s);
   void parseModule(Scope* s);
   void parseStruct(Scope* s);
   void parseAlias(Scope* s);
+  void parseEnum(Scope* s);
   ForC* parseForC(Block* b);
   ForArray* parseForArray(Block* b);
   ForRange* parseForRange(Block* b);
@@ -78,7 +96,7 @@ namespace Parser
 }
 
 //Utils
-ostream& operator<<(ostream& os, const Parser::Member& mem);
+ostream& operator<<(ostream& os, const Member& mem);
 
 #endif
 

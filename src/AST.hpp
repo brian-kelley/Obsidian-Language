@@ -60,8 +60,6 @@ struct Node
   bool resolved;
   bool resolving;
 
-  protected:
-  virtual void resolveImpl(bool) {};
   void resolve(bool final)
   {
     if(resolved)
@@ -74,6 +72,9 @@ struct Node
     resolveImpl(final);
     resolving = false;
   }
+
+  protected:
+  virtual void resolveImpl(bool) {};
 };
 
 #endif

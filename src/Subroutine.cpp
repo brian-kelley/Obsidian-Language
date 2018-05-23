@@ -307,7 +307,7 @@ void If::resolveImpl(bool final)
 }
 
 Match::Match(Block* b, Expression* m, string varName,
-    vector<TypeSystem::Type*>& t,
+    vector<Type*>& t,
     vector<Block*>& caseBlocks)
   : Statement(b)
 {
@@ -511,7 +511,7 @@ void Assertion::resolveImpl(bool final)
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes)
+Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes)
 {
   name = n;
   scope = new Scope(enclosing, this);
@@ -560,9 +560,10 @@ void Subroutine::resolveImpl(bool final)
   resolved = true;
 }
 
-ExternalSubroutine::ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argN, string& code)
+ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vector<Type*>& argTypes, vector<string>& argN, string& code)
 {
   type = new CallableType(false, returnType, argTypes);
+  name = n;
   c = code;
   argNames = argN;
 }

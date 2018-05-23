@@ -9,15 +9,10 @@ struct Expression : public Node
 {
   Expression() : type(nullptr) {}
   virtual void resolveImpl(bool final) {}
-  TypeSystem::Type* type;
+  Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
 };
-
-//Resolve an expression in-place
-//this is needed because resolved expr may have
-//different type than unresolved
-Expression* resolveExpr(Expression*& expr, bool final);
 
 //Subclasses of Expression
 struct UnaryArith;
@@ -44,7 +39,7 @@ void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root
 
 //Assuming expr is a struct type, get the struct scope
 //Otherwise, display relevant errors
-StructScope* scopeForExpr(Expression* expr);
+Scope* scopeForExpr(Expression* expr);
 
 struct UnaryArith : public Expression
 {
@@ -129,7 +124,7 @@ struct BoolLiteral : public Expression
 //CompoundLiteral covers both array and struct literals
 struct CompoundLiteral : public Expression
 {
-  CompoundLiteral(vector<Expression*> mems);
+  CompoundLiteral(vector<Expression*>& mems);
   void resolveImpl(bool final);
   bool assignable()
   {
@@ -197,10 +192,10 @@ struct SubroutineExpr : public Expression
 struct UnresolvedExpr : public Expression
 {
   UnresolvedExpr(string name, Scope* s);
-  UnresolvedExpr(Parser::Member* name, Scope* s);
-  UnresolvedExpr(Expression* base, Parser::Member* name, Scope* s);
+  UnresolvedExpr(Member* name, Scope* s);
+  UnresolvedExpr(Expression* base, Member* name, Scope* s);
   Expression* base; //null = no base
-  Parser::Member* name;
+  Member* name;
   Scope* usage;
   bool assignable()
   {
@@ -211,9 +206,10 @@ struct UnresolvedExpr : public Expression
 struct StructMem : public Expression
 {
   StructMem(Expression* base, Variable* var);
+  StructMem(Expression* base, Subroutine* subr);
   void resolveImpl(bool final);
   Expression* base;           //base->type is always StructType
-  Variable* member;           //member must be a member of base->type
+  variant<Variable*, Subroutine*> member;
   bool assignable()
   {
     return base->assignable() && member.is<Variable*>();
@@ -248,7 +244,7 @@ struct ThisExpr : public Expression
   ThisExpr(Scope* where);
   //structType == (StructType*) type,
   //structType is only for convenience
-  TypeSystem::StructType* structType;
+  StructType* structType;
   bool assignable()
   {
     return true;
@@ -257,7 +253,7 @@ struct ThisExpr : public Expression
 
 struct Converted : public Expression
 {
-  Converted(Expression* val, TypeSystem::Type* dst);
+  Converted(Expression* val, Type* dst);
   Expression* value;
   bool assignable()
   {
@@ -267,7 +263,7 @@ struct Converted : public Expression
 
 struct EnumExpr : public Expression
 {
-  EnumExpr(TypeSystem::EnumConstant* ec);
+  EnumExpr(EnumConstant* ec);
   int64_t value;
   bool assignable()
   {

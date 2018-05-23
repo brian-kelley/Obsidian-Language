@@ -15,8 +15,6 @@ extern Scope* global;
 
 vector<Type*> primitives;
 
-namespace TypeSystem
-{
 map<string, Type*> primNames;
 vector<StructType*> structs;
 set<ArrayType*, ArrayCompare> arrays;
@@ -26,85 +24,50 @@ set<MapType*, MapCompare> maps;
 set<CallableType*, CallableCompare> callables;
 set<EnumType*> enums;
 
-//these are created in MiddleEnd
-DeferredTypeLookup* typeLookup;
-
 void createBuiltinTypes()
 {
-  using Parser::TypeNT;
-  //primitives has same size as the enum Parser::TypeNT::Prim
   primitives.resize(14);
-  primitives[TypeNT::BOOL] = new BoolType;
-  primitives[TypeNT::CHAR] = new CharType;
-  primitives[TypeNT::BYTE] = new IntegerType("byte", 1, true);
-  primitives[TypeNT::UBYTE] = new IntegerType("ubyte", 1, false);
-  primitives[TypeNT::SHORT] = new IntegerType("short", 2, true);
-  primitives[TypeNT::USHORT] = new IntegerType("ushort", 2, false);
-  primitives[TypeNT::INT] = new IntegerType("int", 4, true);
-  primitives[TypeNT::UINT] = new IntegerType("uint", 4, false);
-  primitives[TypeNT::LONG] = new IntegerType("long", 8, true);
-  primitives[TypeNT::ULONG] = new IntegerType("ulong", 8, false);
-  primitives[TypeNT::FLOAT] = new FloatType("float", 4);
-  primitives[TypeNT::DOUBLE] = new FloatType("double", 8);
-  primitives[TypeNT::VOID] = new VoidType;
-  primitives[TypeNT::ERROR] = new ErrorType;
-  primNames["bool"] = primitives[TypeNT::BOOL];
-  primNames["char"] = primitives[TypeNT::CHAR];
-  primNames["byte"] = primitives[TypeNT::BYTE];
-  primNames["ubyte"] = primitives[TypeNT::UBYTE];
-  primNames["short"] = primitives[TypeNT::SHORT];
-  primNames["ushort"] = primitives[TypeNT::USHORT];
-  primNames["int"] = primitives[TypeNT::INT];
-  primNames["uint"] = primitives[TypeNT::UINT];
-  primNames["long"] = primitives[TypeNT::LONG];
-  primNames["ulong"] = primitives[TypeNT::ULONG];
-  primNames["float"] = primitives[TypeNT::FLOAT];
-  primNames["double"] = primitives[TypeNT::DOUBLE];
-  primNames["void"] = primitives[TypeNT::VOID];
-  primNames["Error"] = primitives[TypeNT::ERROR];
+  primitives[Prim::BOOL] = new BoolType;
+  primitives[Prim::CHAR] = new CharType;
+  primitives[Prim::BYTE] = new IntegerType("byte", 1, true);
+  primitives[Prim::UBYTE] = new IntegerType("ubyte", 1, false);
+  primitives[Prim::SHORT] = new IntegerType("short", 2, true);
+  primitives[Prim::USHORT] = new IntegerType("ushort", 2, false);
+  primitives[Prim::INT] = new IntegerType("int", 4, true);
+  primitives[Prim::UINT] = new IntegerType("uint", 4, false);
+  primitives[Prim::LONG] = new IntegerType("long", 8, true);
+  primitives[Prim::ULONG] = new IntegerType("ulong", 8, false);
+  primitives[Prim::FLOAT] = new FloatType("float", 4);
+  primitives[Prim::DOUBLE] = new FloatType("double", 8);
+  primitives[Prim::VOID] = new VoidType;
+  primitives[Prim::ERROR] = new ErrorType;
+  primNames["bool"] = primitives[Prim::BOOL];
+  primNames["char"] = primitives[Prim::CHAR];
+  primNames["byte"] = primitives[Prim::BYTE];
+  primNames["ubyte"] = primitives[Prim::UBYTE];
+  primNames["short"] = primitives[Prim::SHORT];
+  primNames["ushort"] = primitives[Prim::USHORT];
+  primNames["int"] = primitives[Prim::INT];
+  primNames["uint"] = primitives[Prim::UINT];
+  primNames["long"] = primitives[Prim::LONG];
+  primNames["ulong"] = primitives[Prim::ULONG];
+  primNames["float"] = primitives[Prim::FLOAT];
+  primNames["double"] = primitives[Prim::DOUBLE];
+  primNames["void"] = primitives[Prim::VOID];
+  primNames["Error"] = primitives[Prim::ERROR];
   //string is a builtin alias for char[] (not a primitive)
   global->addName(new AliasType(
-        "string", getArrayType(primitives[TypeNT::CHAR], 1)));
-  global->addName(new AliasType("i8", primitives[TypeNT::BYTE]));
-  global->addName(new AliasType("u8", primitives[TypeNT::UBYTE]));
-  global->addName(new AliasType("i16", primitives[TypeNT::SHORT]));
-  global->addName(new AliasType("u16", primitives[TypeNT::USHORT]));
-  global->addName(new AliasType("i32", primitives[TypeNT::INT]));
-  global->addName(new AliasType("u32", primitives[TypeNT::UINT]));
-  global->addName(new AliasType("i64", primitives[TypeNT::LONG]));
-  global->addName(new AliasType("u64", primitives[TypeNT::ULONG]));
-  global->addName(new AliasType("f32", primitives[TypeNT::FLOAT]));
-  global->addName(new AliasType("f64", primitives[TypeNT::DOUBLE]));
-}
-
-string typeErrorMessage(TypeLookup& lookup)
-{
-  Oss oss;
-  if(lookup.type.is<Parser::TypeNT*>())
-  {
-    oss << "unknown type at " <<
-      *lookup.type.get<Parser::TypeNT*>();
-  }
-  else if(lookup.type.is<Parser::SubroutineTypeNT*>())
-  {
-    oss << "unknown type at " <<
-      *lookup.type.get<Parser::SubroutineTypeNT*>();
-  }
-  else
-  {
-    INTERNAL_ERROR;
-  }
-  return oss.str();
-}
-
-CallableType* lookupSubroutineType(Parser::SubroutineTypeNT* subr, Scope* scope)
-{
-  //construct a TypeNT and then call lookupType
-  Parser::TypeNT* wrapper = new Parser::TypeNT;
-  wrapper->t = subr;
-  CallableType* result = dynamic_cast<CallableType*>(lookupType(wrapper, scope));
-  delete wrapper;
-  return result;
+        "string", getArrayType(primitives[Prim::CHAR], 1)));
+  global->addName(new AliasType("i8", primitives[Prim::BYTE]));
+  global->addName(new AliasType("u8", primitives[Prim::UBYTE]));
+  global->addName(new AliasType("i16", primitives[Prim::SHORT]));
+  global->addName(new AliasType("u16", primitives[Prim::USHORT]));
+  global->addName(new AliasType("i32", primitives[Prim::INT]));
+  global->addName(new AliasType("u32", primitives[Prim::UINT]));
+  global->addName(new AliasType("i64", primitives[Prim::LONG]));
+  global->addName(new AliasType("u64", primitives[Prim::ULONG]));
+  global->addName(new AliasType("f32", primitives[Prim::FLOAT]));
+  global->addName(new AliasType("f64", primitives[Prim::DOUBLE]));
 }
 
 Type* getArrayType(Type* elem, int ndims)
@@ -277,18 +240,6 @@ Type* maybe(Type* t)
   options.push_back(t);
   options.push_back(primitives[TypeNT::ERROR]);
   return getUnionType(options);
-}
-
-Type* lookupTypeDeferred(TypeLookup& args)
-{
-  if(args.type.is<Parser::TypeNT*>())
-  {
-    return lookupType(args.type.get<Parser::TypeNT*>(), args.scope);
-  }
-  else
-  {
-    return lookupSubroutineType(args.type.get<Parser::SubroutineTypeNT*>(), args.scope);
-  }
 }
 
 Type* getIntegerType(int bytes, bool isSigned)
@@ -745,6 +696,31 @@ EnumType::EnumType(Parser::Enum* e, Scope* current)
   }
 }
 
+EnumType::EnumType(Scope* enclosingScope)
+{
+  scope = new Scope(enclosingScope, this);
+}
+
+void EnumType::addValue(string name)
+{
+  addValue(name, values.back()->value + 1);
+}
+
+void EnumType::addValue(string name, int64_t value)
+{
+  if(valueSet.find(value) != valueSet.end())
+  {
+    errMsgLoc(this, "enum value " << value << " repeated");
+  }
+  valueSet.insert(value);
+  EnumConstant* newValue = new EnumConstant;
+  newValue->et = this;
+  newValue->name = name;
+  newValue->value = value;
+  scope->addName(newValue);
+  values.push_back(newValue);
+}
+
 bool EnumType::canConvert(Type* other)
 {
   return other->isInteger();
@@ -1016,6 +992,10 @@ void resolveType(Type*& t, bool final)
   }
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
+    resolveExpr(et->expr, final);
+    if(!et->expr->resolved)
+      return;
+    finalType = et->expr->type;
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
@@ -1041,6 +1021,4 @@ void resolveType(Type*& t, bool final)
   //finally, replace unres with finalType
   t = finalType;
 }
-
-} //namespace TypeSystem
 

@@ -72,9 +72,6 @@ struct Block : public Statement
   int statementCount;
 };
 
-//Create any kind of Statement - adds to block
-Statement* createStatement(Block* s, Parser::StatementNT* stmt);
-
 struct Assign : public Statement
 {
   Assign(Block* b, Expression* lhs, Expression* rhs);
@@ -118,7 +115,7 @@ struct ForC : public For
 
 struct ForArray : public For
 {
-  ForArray(Block* b, vector<string>& iters);
+  ForArray(Block* b);
   void createIterators(vector<string>& iters);
   void resolveImpl(bool final);
   //create an empty inner body (parser puts user's statements here)
@@ -127,10 +124,9 @@ struct ForArray : public For
   vector<Variable*> counters;
   Expression* arr;
   Variable* iter;
-  virtual void resolveImpl(bool final);
 };
 
-struct ForRange : public Statement
+struct ForRange : public For
 {
   ForRange(Block* b, string counterName, Expression* begin, Expression* end);
   Variable* counter;
@@ -164,11 +160,11 @@ struct Match : public Statement
   //Create an empty match statement
   //Add the individual cases after constructing
   Match(Block* b, Expression* m, string varName,
-      vector<TypeSystem::Type*>& types,
+      vector<Type*>& types,
       vector<Block*>& blocks);
   void resolveImpl(bool final);
   Expression* matched;              //the given expression (must be a union)
-  vector<TypeSystem::Type*> types;  //each type must be an option of matched->type
+  vector<Type*> types;  //each type must be an option of matched->type
   vector<Block*> cases;             //correspond 1-1 with types
   vector<Variable*> caseVars;       //correspond 1-1 with cases
 };
@@ -232,16 +228,16 @@ struct Subroutine : public Node
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
-  Subroutine(Scope* s, string name, bool isStatic, bool pure, TypeSystem::Type* returnType, vector<string>& argNames, vector<TypeSystem::Type*>& argTypes);
+  Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes);
   void resolveImpl(bool final);
   string name;
   //the full type of this subroutine
-  TypeSystem::CallableType* type;
+  CallableType* type;
   //Local variables in subroutine scope representing arguments, in order
   vector<Variable*> args;
   //constructor sets owner to innermost struct if there is one and isStatic is false
   //otherwise NULL
-  TypeSystem::StructType* owner;
+  StructType* owner;
   Block* body;
   //scope->node is this
   Scope* scope;
@@ -249,9 +245,10 @@ struct Subroutine : public Node
 
 struct ExternalSubroutine : public Node
 {
-  ExternalSubroutine(Scope* s, string name, TypeSystem::Type* returnType, vector<TypeSystem::Type*>& argTypes, vector<string>& argNames, string& code);
+  ExternalSubroutine(Scope* s, string name, Type* returnType, vector<Type*>& argTypes, vector<string>& argNames, string& code);
+  string name;
   void resolveImpl(bool final);
-  TypeSystem::CallableType* type;
+  CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
   vector<string> argNames;

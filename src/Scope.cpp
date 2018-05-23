@@ -28,7 +28,7 @@ Scope::Scope(Scope* p, Module* m) : parent(p), node(m) {}
 Scope::Scope(Scope* p, Struct* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
-Scope::Scope(Scope* p, Enum* e) : parent(p), node(e) {}
+Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e) {}
 
 void Scope::addName(Name n)
 {
@@ -52,8 +52,49 @@ IMPL_ADD_NAME(StructType)
 IMPL_ADD_NAME(Subroutine)
 IMPL_ADD_NAME(Alias)
 IMPL_ADD_NAME(ExternalSubroutine)
-IMPL_ADD_NAME(Enum)
+IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
+
+Name(Module* m, Scope* parent)
+  : kind(MODULE), scope(parent)
+{
+  item = m;
+}
+Name(StructType* st, Scope* s)
+  : kind(STRUCT), scope(s)
+{
+  item = st;
+}
+Name(EnumType* e, Scope* s)
+  : kind(ENUM), scope(s)
+{
+  item = e;
+}
+Name(AliasType* a, Scope* s)
+  : kind(TYPEDEF), scope(s)
+{
+  item = a;
+}
+Name(Subroutine* subr, Scope* s)
+  : kind(SUBROUTINE), scope(s)
+{
+  item = subr;
+}
+Name(ExternalSubroutine* subr, Scope* s)
+  : kind(EXTERN_SUBR), scope(s)
+{
+  item = subr;
+}
+Name(Variable* var, Scope* s)
+  : kind(VARIABLE), scope(s)
+{
+  item = var;
+}
+Name(EnumConstant* ec, Scope* s)
+  : kind(ENUM_CONSTANT), scope(s)
+{
+  item = ec;
+}
 
 string Scope::getFullPath()
 {
@@ -94,7 +135,7 @@ Name Scope::findName(Parser::Member* mem)
       }
       else if(it.kind == Name::STRUCT)
       {
-        scope = ((TypeSystem::StructType*) it.item)->structScope;
+        scope = ((StructType*) it.item)->structScope;
         continue;
       }
     }

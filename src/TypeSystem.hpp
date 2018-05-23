@@ -4,7 +4,6 @@
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
-#include "DeferredLookup.hpp"
 
 /* Type system: 3 main categories of types
  *  -Primitives
@@ -24,28 +23,28 @@
 struct Scope;
 struct Expression;
 
-enum struct Prim
+namespace Prim
 {
-  BOOL,
-  CHAR,
-  BYTE,
-  UBYTE,
-  SHORT,
-  USHORT,
-  INT,
-  UINT,
-  LONG,
-  ULONG,
-  FLOAT,
-  DOUBLE,
-  VOID,
-  ERROR
-};
+  enum PrimType
+  {
+    BOOL,
+    CHAR,
+    BYTE,
+    UBYTE,
+    SHORT,
+    USHORT,
+    INT,
+    UINT,
+    LONG,
+    ULONG,
+    FLOAT,
+    DOUBLE,
+    VOID,
+    ERROR
+  };
+}
 
 extern vector<Type*> primitives;
-
-namespace TypeSystem
-{
 
 struct Type;
 //All Type subclasses:
@@ -61,7 +60,6 @@ struct FloatType;
 struct CharType;
 struct BoolType;
 struct VoidType;
-struct TType;
 struct CallableType;
 struct ErrorType;
 
@@ -121,10 +119,6 @@ extern set<UnionType*, UnionCompare> unions;
 extern set<MapType*, MapCompare> maps;
 extern set<CallableType*, CallableCompare> callables;
 extern set<EnumType*> enums;
-
-typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(TypeLookup&)> DeferredTypeLookup;
-//global type lookup to be used by some type constructors
-extern DeferredTypeLookup* typeLookup;
 
 //Type extends Node, but Node members are only used for types that
 //have unique definitions (struct, alias, enum)
@@ -268,7 +262,6 @@ struct AliasType : public Type
   AliasType(string alias, Type* underlying);
   string name;
   Type* actual;
-  Parser::Typedef* decl;
   bool canConvert(Type* other);
   bool isArray()    {return actual->isArray();}
   bool isStruct()   {return actual->isStruct();}
@@ -294,14 +287,16 @@ struct AliasType : public Type
 
 struct EnumConstant
 {
+  EnumType* et;
   string name;
   int64_t value;
-  EnumType* et;
 };
 
 struct EnumType : public Type
 {
-  EnumType(Parser::Enum* e, Scope* enclosingScope);
+  EnumType(Scope* enclosingScope);
+  void addValue(string name);
+  void addValue(string name, int64_t value);
   string name;
   vector<EnumConstant*> values;
   bool canConvert(Type* other);
@@ -309,6 +304,8 @@ struct EnumType : public Type
   bool isEnum() {return true;}
   bool isInteger() {return true;}
   bool isNumber() {return true;}
+  set<int64_t> valueSet;
+  Scope* scope;
   string getName()
   {
     return name;
@@ -403,7 +400,7 @@ struct CallableType : public Type
   //constructor for members
   CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args);
   string getName();
-  Struct* ownerStruct;  //true iff non-static and in struct scope
+  StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
   vector<Type*> argTypes;
   bool pure;            //true for functions, false for procedures
@@ -428,12 +425,12 @@ struct CallableType : public Type
   bool canConvert(Type* other);
 };
 
-struct UnresolvedType : public Type, public Node
+struct UnresolvedType : public Type
 {
   //tuple and union are both just vectors of types, so need this
   //to differentiate them in the variant
-  struct TupleList : public vector<Type*> {}
-  struct UnionList : public vector<Type*> {}
+  struct TupleList : public vector<Type*> {};
+  struct UnionList : public vector<Type*> {};
   struct Map
   {
     Map(Type* k, Type* v) : key(k), value(v) {}
@@ -449,11 +446,13 @@ struct UnresolvedType : public Type, public Node
     Type* returnType;
     vector<Type*> params;
   };
-  variant<Prim, Member*, TupleList, UnionList, Map, Callable> t;
+  variant<Prim::PrimType, Member*, TupleList, UnionList, Map, Callable> t;
   Scope* scope;
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else
   bool isResolved() {return false;}
+  bool canConvert(Type* other) {return false;}
+  virtual string getName() {return "<UNKNOWN TYPE>";}
 };
 
 //The type of an unresolved expression
@@ -479,8 +478,6 @@ struct ElemExprType : public Type
 //If t is an unresolved type, replace it with a fully resolved version
 //(if possible)
 void resolveType(Type*& t, bool final);
-
-} //namespace TypeSystem
 
 #endif
 
