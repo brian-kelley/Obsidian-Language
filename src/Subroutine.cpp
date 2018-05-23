@@ -369,14 +369,14 @@ void Match::resolveImpl(bool final)
     resolved = true;
 }
 
-Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> vals, vector<Statement*>& stmtList, int defaultPos)
+Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> vals, int defaultPos, Block* stmtBlock)
   : Statement(b)
 {
   switched = s;
   caseValues = vals;
   caseLabels = inds;
   defaultPosition = defaultPos;
-  stmts = stmtList;
+  block = stmtBlock;
 }
 
 void Switch::resolveImpl(bool final)
@@ -405,15 +405,11 @@ void Switch::resolveImpl(bool final)
       }
     }
   }
-  //resolve all the statements
-  for(auto& stmt : stmts)
-  {
-    stmt->resolve(final);
-    if(!stmt->resolved)
-      allResolved = false;
-  }
-  if(allResolved)
-    resolved = true;
+  //this resolves all statements
+  block->resolve(final);
+  if(!block->resolved)
+    return;
+  resolved = true;
 }
 
 Return::Return(Block* b, Expression* e) : Statement(b)

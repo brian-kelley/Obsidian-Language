@@ -443,6 +443,74 @@ namespace Parser
     return fr;
   }
 
+  Switch* parseSwitch(Block* b)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(SWITCH);
+    expectPunct(LPAREN);
+    Expression* switched = parseExpression(b->scope);
+    expectPunct(RPAREN);
+    expectPunct(LBRACE);
+    vector<Statement*> stmts;
+    vector<Expression*> caseValues;
+    vector<int> caseIndices;
+    int defaultPos = -1;
+    Block* block = new Block(b);
+    Keyword defaultKW(DEFAULT);
+    while(!acceptPunct(RBRACE))
+    {
+      if(acceptKeyword(CASE))
+      {
+        caseValues.push_back(parseExpression(s));
+        caseIndices.push_back(block->statementCount);
+        expectPunct(COLON);
+      }
+      else if(lookAhead()->compareTo(&defaultKW))
+      {
+        if(defaultPos >= 0)
+        {
+          err("default in switch can only be defined once");
+        }
+        accept();
+        expectPunct(COLON);
+      }
+      else
+      {
+        block->addStatement(parseStatement(b), true);
+      }
+    }
+    //place implicit "default:" after all statements if not explicit
+    if(defaultPos == -1)
+    {
+      defaultPos = block->statementCount;
+    }
+    Switch* switchStmt = new Switch(b, switched, caseIndices, caseValues, defaultPos, block);
+    switchStmt->setLocation(loc);
+    return switchStmt;
+  }
+
+  Match* parseMatch(Block* b)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(MATCH);
+    string varName = expectIdent();
+    expectPunct(COLON);
+    Expression* matched = parseExpression(b->scope);
+    expectPunct(LBRACE);
+    vector<Type*> caseTypes;
+    vector<Block*> caseBlocks;
+    while(!acceptPunct(RBRACE))
+    {
+      caseTypes.push_back(parseType(b->scope));
+      Block* block = new Block(b);
+      parseBlock(block);
+      caseBlocks.push_back(block);
+    }
+    Match* matchStmt = (b, matched, varName, caseTypes, caseBlocks);
+    matchStmt->setLocation(loc);
+    return matchStmt;
+  }
+
   void parseAlias(Scope* s)
   {
     expectKeyword(TYPEDEF);
@@ -535,6 +603,8 @@ namespace Parser
           return parseSwitch(b);
         case MATCH:
           return parseMatch(b);
+        default:
+          err("expected statement");
       }
     }
     else if(next->type == IDENTIFIER || next->compareTo(&lbrack))
@@ -781,6 +851,12 @@ namespace Parser
       else if(auto charLit = (CharLit*) accept(CHAR_LITERAL))
       {
         base = new CharLiteral(charLit);
+      }
+      else if(acceptPunct(LPAREN))
+      {
+        //any-precedence expression in parentheses
+        base = parseExpression(s);
+        expectPunct(RPAREN);
       }
       else if(acceptPunct(LBRACKET))
       {

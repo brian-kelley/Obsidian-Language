@@ -67,6 +67,8 @@ namespace Parser
   ForC* parseForC(Block* b);
   ForArray* parseForArray(Block* b);
   ForRange* parseForRange(Block* b);
+  Switch* parseSwitch(Block* b);
+  Match* parseMatch(Block* b);
   Member* parseMember();
   //Parse a block (which has already been constructed)
   void parseBlock(Block* b);

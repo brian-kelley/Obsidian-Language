@@ -178,14 +178,13 @@ struct Switch : public Statement
   //caseIndices and defaultPos are the locations of labels within stmts
   Switch(Block* b, Expression* s,
       vector<int>& caseIndices, vector<Expression*> caseValues,
-      vector<Statement*>& stmts, int defaultPos);
+      int defaultPos, Block* block);
   void resolveImpl(bool final);
   Expression* switched;
   vector<Expression*> caseValues;
   vector<int> caseLabels; //correspond 1-1 with caseValues
   int defaultPosition;
-  //list of statements - belong to block enclosing the switch
-  vector<Statement*> stmts;
+  Block* block;
 };
 
 struct Return : public Statement
