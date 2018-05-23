@@ -126,7 +126,10 @@ typedef DeferredLookup<Type, Type* (*)(TypeLookup&), TypeLookup, string (*)(Type
 //global type lookup to be used by some type constructors
 extern DeferredTypeLookup* typeLookup;
 
-struct Type
+//Type extends Node, but Node members are only used for types that
+//have unique definitions (struct, alias, enum)
+
+struct Type : public Node
 {
   virtual ~Type() {}
   virtual bool canConvert(Type* other) = 0;

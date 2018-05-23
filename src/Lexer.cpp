@@ -54,7 +54,7 @@ struct CodeStream
   }
   void addToken(Token* tok)
   {
-    tok->file = fileID;
+    tok->fileID = fileID;
     tok->line = nextTokLine;
     tok->col = nextTokCol;
     toks.push_back(tok);
@@ -70,9 +70,7 @@ struct CodeStream
   }
   void err(string msg)
   {
-    string fullMsg = string("Lexical error at line ") + to_string(prevLine) +
-      ", col " + to_string(prevCol) + ": " + msg;
-    ERR_MSG(fullMsg);
+    errMsg("Lexical error at " << prevLine << ": " << prevCol << ": " << msg);
   }
   string& src;
   vector<Token*>& toks;
@@ -307,7 +305,8 @@ vector<Token*> lex(string code, int file)
     }
     else
     {
-      ERR_MSG("unexpected character: '" << c << "'\n");
+      string badChar = string("") + c;
+      cs.err("unexpected character: '" + badChar + "'\n");
     }
   }
   //set the proper location of EOF
@@ -332,7 +331,7 @@ char getEscapedChar(char ident)
     return '\'';
   if(ident == '\"')
     return '\"';
-  ERR_MSG(string("Unknown escape sequence: \\") + ident);
+  errMsg("Unknown escape sequence: \\" << ident);
   return ' ';
 }
 

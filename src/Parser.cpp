@@ -54,17 +54,31 @@ namespace Parser
 
   void parseModule(Scope* s)
   {
-    Node* location = lookAhead();
+    Node* loc = lookAhead();
     expectKeyword(MODULE);
     string name = expectIdent();
     Module* m = new Module(name, s);
-    m->setLocation(location);
+    m->setLocation(loc);
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
       parseScopedDecl(m->scope, true);
     }
     s->addName(m);
+  }
+
+  void parseStruct(Scope* s)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(STRUCT);
+    auto structType = new StructType(expectIdent(), s);
+    structType->setLocation(loc);
+    s->addName(structType);
+    expectPunct(LBRACE);
+    while(!acceptPunct(RBRACE))
+    {
+      parseScopedDecl(structType->scope, true);
+    }
   }
 
   void parseScopedDecl(Scope* s, bool semicolon)
@@ -513,9 +527,12 @@ namespace Parser
 
   void parseAlias(Scope* s)
   {
+    Node* loc = lookAhead();
     expectKeyword(TYPEDEF);
     Type* t = parseType(s);
-    s->addName(new AliasType(expectIdent(), t));
+    AliasType* aType = new AliasType(expectIdent(), t);
+    aType->setLocation(loc);
+    s->addName(aType);
   }
 
   void parseTest(Scope* s)

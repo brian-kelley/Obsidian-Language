@@ -63,6 +63,7 @@ namespace Parser
   ExternalSubroutine* parseExternalSubroutine(Scope* s);
   Expression* parseExpression(Scope* s, int prec = 0);
   void parseModule(Scope* s);
+  void parseStruct(Scope* s);
   void parseAlias(Scope* s);
   ForC* parseForC(Block* b);
   ForArray* parseForArray(Block* b);

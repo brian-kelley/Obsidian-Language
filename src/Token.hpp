@@ -17,7 +17,7 @@ void initTokens();
 void setOperatorPrec();
 
 //return index in Keyword enum, or -1
-int isKeyword(string str);
+int getKeyword(string str);
 
 enum
 {

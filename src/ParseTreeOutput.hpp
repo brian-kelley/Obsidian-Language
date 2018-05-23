@@ -1,11 +1,13 @@
 #ifndef PARSE_TREE_OUTPUT_H
 #define PARSE_TREE_OUTPUT_H
 
-#include "Parser.hpp"
+#include "Expression.hpp"
+#include "Subroutine.hpp"
+#include "TypeSystem.hpp"
 #include "Token.hpp"
 #include <iostream>
 
-void outputParseTree(Parser::Module* tree, string filename);
+void outputParseTree(Module* tree, string filename);
 
 #endif
 

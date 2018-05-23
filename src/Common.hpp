@@ -56,7 +56,7 @@ bool runCommand(string command, bool silenced = false);
 
 #define errMsg(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
 
-#define errMsgLoc(node, msg) {ostringstream oss_; oss << "Error in " << sourceFiles[node->fileID] << ", " << node->line << ":" << node->col << '\n' << msg; errAndQuit(oss_.str());}
+#define errMsgLoc(node, msg) {ostringstream oss_; oss_ << "Error in " << sourceFiles[node->fileID] << ", " << node->line << ":" << node->col << '\n' << msg; errAndQuit(oss_.str());}
 
 #define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; exit(1);}
 

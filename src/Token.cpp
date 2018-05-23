@@ -47,7 +47,6 @@ void initTokens()
   SET_KEY("default", DEFAULT)
   SET_KEY("break", BREAK)
   SET_KEY("continue", CONTINUE)
-  SET_KEY("union", UNION)
   SET_KEY("auto", AUTO)
   SET_KEY("module", MODULE)
   SET_KEY("enum", ENUM)
@@ -167,7 +166,7 @@ void setOperatorPrec()
   operatorPrec[MOD] = 11;
 }
 
-int isKeyword(string str)
+int getKeyword(string str)
 {
   auto it = keywordMap.find(str);
   if(it == keywordMap.end())
@@ -426,10 +425,10 @@ Keyword::Keyword()
 Keyword::Keyword(string text)
 {
   type = KEYWORD;
-  int val = isKeyword(text);
+  int val = getKeyword(text);
   if(val == -1)
   {
-    ERR_MSG("Expected a keyword.");
+    INTERNAL_ERROR;
   }
   this->kw = val;
 }

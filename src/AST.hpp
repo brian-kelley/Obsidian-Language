@@ -22,8 +22,6 @@ struct IncludedFile
 
 extern vector<IncludedFile> includes;
 
-struct Token;
-
 struct Node
 {
   Node()
@@ -31,13 +29,6 @@ struct Node
     fileID = 0;
     line = 0;
     col = 0;
-    resolved = false;
-  }
-  Node(Token* t)
-  {
-    fileID = 0;
-    line = t->line;
-    col = t->col;
     resolved = false;
   }
   //Do full context-sensitive semantic checking
@@ -61,8 +52,6 @@ struct Node
     line = other->line;
     col = other->col;
   }
-  //Convert Node back into tokens (used by emit statements)
-  virtual vector<Token*> unparse() = 0;
   //All nodes know their position in code (for error messages)
   int fileID; //index in sourceFiles
   int line;
@@ -78,7 +67,9 @@ struct Node
     if(resolved)
       return;
     if(resolving)
+    {
       errMsgLoc(this, "Circular definition in program");
+    }
     resolving = true;
     resolveImpl(final);
     resolving = false;
