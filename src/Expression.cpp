@@ -224,6 +224,7 @@ void BinaryArith::resolveImpl(bool final)
 IntLiteral::IntLiteral(IntLit* ast) : value(ast->val)
 {
   setType();
+  setLocation(ast);
   resolved = true;
 }
 
@@ -238,44 +239,47 @@ void IntLiteral::setType()
   //use i32 if value fits, otherwise i64
   if(value > 0x7FFFFFFF)
   {
-    type = primitives[Parser::TypeNT::LONG];
+    type = primitives[Prim::LONG];
   }
   else
   {
-    type = primitives[Parser::TypeNT::INT];
+    type = primitives[Prim::INT];
   }
 }
 
 FloatLiteral::FloatLiteral(FloatLit* a) : value(a->val)
 {
-  type = primitives[Parser::TypeNT::DOUBLE];
+  type = primitives[Prim::DOUBLE];
+  setLocation(a);
   resolved = true;
 }
 
 FloatLiteral::FloatLiteral(double val) : value(val)
 {
-  type = primitives[Parser::TypeNT::DOUBLE];
+  type = primitives[Prim::DOUBLE];
   resolved = true;
 }
 
 StringLiteral::StringLiteral(StrLit* a)
 {
   value = a->val;
-  type = getArrayType(primitives[Parser::TypeNT::CHAR], 1);
+  setLocation(a);
+  type = getArrayType(primitives[Prim::CHAR], 1);
   resolved = true;
 }
 
-CharLiteral::CharLiteral(CharLit* a)
+CharLiteral::CharLiteral(CharLit* ast)
 {
-  value = a->val;
-  type = primitives[Parser::TypeNT::CHAR];
+  value = ast->val;
+  setLocation(ast);
+  type = primitives[Prim::CHAR];
   resolved = true;
 }
 
-BoolLiteral::BoolLiteral(bool val);
+BoolLiteral::BoolLiteral(bool v)
 {
-  value = val;
-  type = primitives[Parser::TypeNT::BOOL];
+  value = v;
+  type = primitives[Prim::BOOL];
   resolved = true;
 }
 
@@ -559,41 +563,30 @@ void StructMem::resolveImpl(bool final)
  * NewArray *
  ************/
 
-NewArray::NewArray(Scope* s, Parser::NewArrayNT* ast)
+NewArray::NewArray(Type* elemType, vector<Expression*> dimensions)
 {
-  auto elemType = lookupType(ast->elemType, s);
-  this->type = TypeSystem::getArrayType(elemType, ast->dimensions.size());
-  for(auto dim : ast->dimensions)
-  {
-    dims.push_back(getExpression(s, dim));
-  }
-  //make sure all dimensions are integers
-  for(auto dim : dims)
-  {
-    if(!dim->type->isInteger())
-    {
-      errMsgLoc(this, "array dimensions must be integers");
-    }
-  }
+  elem = elemType;
+  dims = dimensions;
 }
 
 void NewArray::resolveImpl(bool final)
 {
-  Type* elemType = elem;
-  resolveType(elemType, final);
-  bool allResolved = elemType->isResolved();
+  resolveType(elem, final);
+  if(!elem->resolved)
+    return;
   for(size_t i = 0; i < dims.size(); i++)
   {
     resolveExpr(dims[i], final);
     if(!dims[i]->resolved)
     {
-      allResolved = false;
-      break;
+      return;
+    }
+    if(!dims[i]->type->isInteger())
+    {
+      errMsgLoc(dims[i], 
     }
   }
-  if(!allResolved)
-    return;
-  type = getArrayType(elemType, dims.size());
+  type = getArrayType(elem, dims.size());
   resolved = true;
 }
 
@@ -885,6 +878,8 @@ void resolveExpr(Expression*& expr, bool final)
     }
     base->resolve(final);
   }
+  //save lexical location of original parsed expression
+  base->setLocation(expr);
   expr = base;
 }
 

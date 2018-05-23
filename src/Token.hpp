@@ -7,12 +7,14 @@
 extern vector<string> keywordTable;
 extern map<string, int> keywordMap;
 extern vector<string> operatorTable;
+extern vector<int> operatorPrec;
 extern map<string, int> operatorMap;
 extern vector<char> punctTable;
 extern map<char, int> punctMap;
 extern vector<string> tokTypeTable;
 
 void initTokens();
+void setOperatorPrec();
 
 //return index in Keyword enum, or -1
 int isKeyword(string str);

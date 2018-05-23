@@ -88,7 +88,8 @@ struct CallStmt : public Statement
 {
   CallStmt(Block* b, CallExpr* e);
   void resolveImpl(bool final);
-  //code generator just needs to "evaluate" this expression and discard the result
+  //code generator evaluates eval
+  //and discards returned value, if any
   CallExpr* eval;
 };
 

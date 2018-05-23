@@ -117,7 +117,7 @@ struct CharLiteral : public Expression
 
 struct BoolLiteral : public Expression
 {
-  BoolLiteral(Parser::BoolLit* ast);
+  BoolLiteral(bool v);
   bool value;
   bool assignable()
   {
@@ -222,8 +222,8 @@ struct StructMem : public Expression
 
 struct NewArray : public Expression
 {
-  NewArray(UnresolvedType* elemType, vector<Expression*> dims);
-  UnresolvedType* elem;
+  NewArray(Type* elemType, vector<Expression*> dims);
+  Type* elem;
   vector<Expression*> dims;
   void resolveImpl(bool final);
   bool assignable()

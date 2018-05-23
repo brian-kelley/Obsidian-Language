@@ -61,7 +61,7 @@ namespace Parser
   Assign* parseVarDecl(Scope* s, bool semicolon);
   Subroutine* parseSubroutine(Scope* s);
   ExternalSubroutine* parseExternalSubroutine(Scope* s);
-  Expression* parseExpression(Scope* s);
+  Expression* parseExpression(Scope* s, int prec = 0);
   void parseModule(Scope* s);
   void parseAlias(Scope* s);
   ForC* parseForC(Block* b);
@@ -76,7 +76,6 @@ namespace Parser
 
 //Utils
 ostream& operator<<(ostream& os, const Parser::Member& mem);
-ostream& operator<<(ostream& os, const Parser::ParseNode& pn);
 
 #endif
 

@@ -8,13 +8,13 @@ struct BlockScope;
 //Macros to help parse common patterns
 //func should be the whole call, i.e. parseThing(s)
 //end should be a token
-#define PARSE_STAR(list, type, func, end) \
+#define PARSE_STAR(list, func, end) \
   while(!accept(end)) \
   { \
     list.push_back(func); \
   }
 
-#define PARSE_STAR_COMMA(list, type, func, end) \
+#define PARSE_STAR_COMMA(list, func, end) \
   if(!accept(end)) \
   { \
     while(true) \
@@ -26,7 +26,7 @@ struct BlockScope;
     } \
   }
 
-#define PARSE_PLUS_COMMA(list, type, func, end) \
+#define PARSE_PLUS_COMMA(list, func, end) \
   while(true) \
   { \
     list.push_back(func); \
@@ -39,16 +39,6 @@ namespace Parser
 {
   size_t pos;
   vector<Token*> tokens;
-
-  std::stack<Scope*> scopeStack;
-
-  template<typename NT>
-  NT* parse()
-  {
-    cout << "FATAL ERROR: non-implemented parse called, for type " << typeid(NT).name() << "\n";
-    INTERNAL_ERROR;
-    return NULL;
-  }
 
   Module* parseProgram(vector<Token*>& toks)
   {
@@ -314,6 +304,27 @@ namespace Parser
     s->addName(subr);
   }
 
+  ExternalSubroutine* parseExternalSubroutine(Scope* s)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(EXTERN);
+    Type* retType = parseType(s);
+    string name = expectIdent();
+    expectPunct(LPAREN);
+    vector<string> argNames;
+    vector<Type*> argTypes;
+    while(!acceptPunct(RPAREN))
+    {
+      argNames.push_back(expectIdent());
+      expectPunct(COLON);
+      argTypes.push_back(parseType(s));
+    }
+    string& code = ((StrLit*) expect(STRING_LITERAL))->val;
+    ExternalSubroutine* es = new ExternalSubroutine(s, name, retType, argTypes, argNames, code);
+    es->setLocation(loc);
+    return es;
+  }
+
   Assign* parseVarDecl(Scope* s, bool semicolon)
   {
     Node* loc = lookAhead();
@@ -439,113 +450,6 @@ namespace Parser
     s->addName(new AliasType(expectIdent(), t));
   }
 
-  template<>
-  Return* parse<Return>()
-  {
-    Return* r = new Return;
-    expectKeyword(RETURN);
-    r->ex = NULL;
-    if(!acceptPunct(SEMICOLON))
-      r->ex = parse<ExpressionNT>();
-    return r;
-  }
-
-  template<>
-  Switch* parse<Switch>()
-  {
-    Switch* s = new Switch;
-    s->block = new Block;
-    auto& stmts = s->block->statements;
-    expectKeyword(SWITCH);
-    expectPunct(LPAREN);
-    s->value = parse<ExpressionNT>();
-    expectPunct(RPAREN);
-    expectPunct(LBRACE);
-    s->defaultPosition = -1;
-    while(!acceptPunct(RBRACE))
-    {
-      if(acceptKeyword(CASE))
-      {
-        s->labels.emplace_back(stmts.size(), parse<ExpressionNT>());
-        expectPunct(COLON);
-      }
-      else if(acceptKeyword(DEFAULT))
-      {
-        if(s->defaultPosition != -1)
-        {
-          err("default label provided more than once in switch statement");
-        }
-        s->defaultPosition = stmts.size();
-        expectPunct(COLON);
-      }
-      else
-      {
-        stmts.push_back(parse<StatementNT>());
-        if(stmts.back()->s.is<ScopedDecl*>())
-        {
-          err("declaration directly inside switch statement (fix: enclose it in a block)");
-        }
-      }
-    }
-    if(s->defaultPosition == -1)
-    {
-      //no explicit default, so implicitly put it after all statements
-      s->defaultPosition = stmts.size();
-    }
-    return s;
-  }
-
-  template<>
-  Match* parse<Match>()
-  {
-    Match* m = new Match;
-    expectKeyword(MATCH);
-    m->varName = expectIdent();
-    expectPunct(COLON);
-    m->value = parse<ExpressionNT>();
-    expectPunct(LBRACE);
-    //parse cases until either default or rbrace is found
-    while(!acceptPunct(RBRACE))
-    {
-      expectKeyword(CASE);
-      TypeNT* t = parse<TypeNT>();
-      expectPunct(COLON);
-      m->cases.emplace_back(t, parse<Block>());
-    }
-    return m;
-  }
-
-  template<>
-  ForC* parse<ForC>()
-  {
-    //try to parse C style for loop
-    ForC* forC = new ForC;
-    expectPunct(LPAREN);
-    //all 3 parts of the loop are optional
-    forC->decl = nullptr;
-    forC->condition = nullptr;
-    forC->incr = nullptr;
-    if(!acceptPunct(SEMICOLON))
-    {
-      //statement includes the semicolon
-      forC->decl = parse<StatementNT>();
-    }
-    if(!acceptPunct(SEMICOLON))
-    {
-      forC->condition = parse<ExpressionNT>();
-      expectPunct(SEMICOLON);
-    }
-    if(!acceptPunct(RPAREN))
-    {
-      forC->incr = parseStatementWithoutSemicolon();
-      expectPunct(RPAREN);
-    }
-    return forC;
-  }
-
-  If(Block* b, Expression* condition, Statement* body);
-  If(Block* b, Expression* condition, Statement* tbody, Statement* fbody);
-
   void parseTest(Scope* s)
   {
     Node* location = lookAhead();
@@ -559,6 +463,7 @@ namespace Parser
   Statement* parseStatement(Block* b, bool semicolon)
   {
     Token* next = lookAhead();
+    Punct lbrack(LBRACKET);
     if(next->type == KEYWORD)
     {
       switch(((Keyword*) next)->kw)
@@ -581,24 +486,50 @@ namespace Parser
           return parseWhile(b);
         case BREAK:
           {
+            Node* loc = lookAhead();
+            if(!semicolon)
+            {
+              err("can't use break statement here");
+            }
             expectKeyword(BREAK);
-            if(semicolon)
-              expectPunct(SEMICOLON);
-            return new Break(b);
+            expectPunct(SEMICOLON);
+            Break* brk = new Break(b);
+            brk->setLocation(loc);
+            return brk;
           }
         case CONTINUE:
           {
+            Node* loc = lookAhead();
             expectKeyword(CONTINUE);
-            if(semicolon)
-              expectPunct(SEMICOLON);
-            return new Continue(b);
+            if(!semicolon)
+            {
+              err("can't use continue statement here");
+            }
+            expectPunct(SEMICOLON);
+            Continue* cont = new Continue(b);
+            cont->setLocation(loc);
+            return cont;
           }
         case RETURN:
           {
+            Node* loc = lookAhead();
+            if(!semicolon)
+            {
+              err("can't use return statement here");
+            }
             expectKeyword(RETURN);
-            if(semicolon)
+            Return* ret = nullptr;
+            if(!acceptPunct(SEMICOLON))
+            {
+              ret = new Return(b, parseExpression(b->scope));
               expectPunct(SEMICOLON);
-            return new Return;
+            }
+            else
+            {
+              ret = new Return(b);
+            }
+            ret->setLocation(loc);
+            return ret;
           }
         case SWITCH:
           return parseSwitch(b);
@@ -606,21 +537,45 @@ namespace Parser
           return parseMatch(b);
       }
     }
-    if(next->type == IDENTIFIER)
+    else if(next->type == IDENTIFIER || next->compareTo(&lbrack))
     {
       //statement must be either a call or an assign
       //in either case, parse an expression first
+      Node* loc = lookAhead();
       Expression* lhs = parseExpression(b);
       if(Oper* op = (Oper*) accept(OPERATOR))
       {
         //op must be compatible with assignment
         //++ and -- don't have explicit RHS, all others do
+        Assign* assign = nullptr;
         if(op->op == INC || op->op == DEC)
-          return new Assign(lhs, op->op);
+          assign = new Assign(lhs, op->op);
         else
-          return new Assign(lhs, op->op, parseExpression(b->scope));
+          assign = new Assign(lhs, op->op, parseExpression(b->scope));
+        assign->setLocation(loc);
+        return assign;
+      }
+      else
+      {
+        CallExpr* ce = dynamic_cast<CallExpr*>(lhs);
+        if(!ce)
+        {
+          errMsgLoc(lhs, "this expression can't be used as statement");
+        }
+        CallStmt* cs = new CallStmt(b, ce);
+        cs->setLocation(loc);
+        return cs;
       }
     }
+    else if(next->type == PUNCT)
+    {
+      //only legal statement here is block
+      Block* block = new Block(b);
+      parseBlock(block);
+      return block;
+    }
+    err("invalid statement");
+    return nullptr;
   }
 
   If* parseIf(Block* b)
@@ -684,6 +639,7 @@ namespace Parser
         case MODULE:
         case TYPEDEF:
         case ENUM:
+        case EXTERN:
           {
             parseScopedDecl(b->scope, semicolon);
             break;
@@ -715,6 +671,7 @@ namespace Parser
 
   void parseBlock(Block* b)
   {
+    b->setLocation(lookAhead());
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
@@ -724,454 +681,148 @@ namespace Parser
     }
   }
 
-  VarAssign* parseAssignGivenExpr12(Expr12* target)
+  Expression* parseExpression(Scope* s, int prec)
   {
-    VarAssign* va = new VarAssign;
-    va->target = target;
-    ExpressionNT* rhs = nullptr;
-    int otype = ((Oper*) expect(OPERATOR))->op;
-    //unary assign operators don't have rhs
-    if(otype != INC && otype != DEC)
-    {
-      rhs = parse<ExpressionNT>();
-    }
-    if(otype != ASSIGN &&
-       otype != INC && otype != DEC &&
-       otype != PLUSEQ && otype != SUBEQ && otype != MULEQ &&
-       otype != DIVEQ && otype != MODEQ && otype != BOREQ &&
-       otype != BANDEQ && otype != BXOREQ)
-    {
-      err("invalid operator for variable assignment/update: " + operatorTable[otype]);
-    }
-    switch(otype)
-    {
-      case ASSIGN:
-      {
-        va->rhs = rhs;
-        return va;
-      }
-      case INC:
-      case DEC:
-      {
-        Expr12* oneLit = new Expr12;
-        oneLit->e = new IntLit(1);
-        //addition and subtraction encoded in Expr10
-        Expr9* sum = new Expr9(target);
-        Expr9RHS* oneRHS = new Expr9RHS;
-        oneRHS->rhs = new Expr10(oneLit);
-        if(otype == INC)
-          oneRHS->op = PLUS;
-        else
-          oneRHS->op = SUB;
-        sum->tail.push_back(oneRHS);
-        va->rhs = new ExpressionNT(sum);
-        return va;
-      }
-      case PLUSEQ:
-      case SUBEQ:
-      {
-        Expr9* ex = new Expr9(target);
-        Expr9RHS* r = new Expr9RHS;
-        if(otype == PLUSEQ)
-          r->op = PLUS;
-        else
-          r->op = SUB;
-        r->rhs = new Expr10(new Expr12(rhs));
-        ex->tail.push_back(r);
-        va->target = target;
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      case MULEQ:
-      case DIVEQ:
-      case MODEQ:
-      {
-        Expr10* ex = new Expr10(target);
-        Expr10RHS* r = new Expr10RHS;
-        if(otype == MULEQ)
-          r->op = MUL;
-        else if(otype == DIVEQ)
-          r->op = DIV;
-        else
-          r->op = MOD;
-        r->rhs = new Expr11(new Expr12(rhs));
-        ex->tail.push_back(r);
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      case BOREQ:
-      {
-        Expr3* ex = new Expr3(target);
-        Expr3RHS* r = new Expr3RHS;
-        r->rhs = new Expr4(new Expr12(rhs));
-        ex->tail.push_back(r);
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      case BANDEQ:
-      {
-        Expr5* ex = new Expr5(target);
-        Expr5RHS* r = new Expr5RHS;
-        r->rhs = new Expr6(new Expr12(rhs));
-        ex->tail.push_back(r);
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      case BXOREQ:
-      {
-        Expr4* ex = new Expr4(target);
-        Expr4RHS* r = new Expr4RHS;
-        r->rhs = new Expr5(new Expr12(rhs));
-        ex->tail.push_back(r);
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      case SHLEQ:
-      case SHREQ:
-      {
-        Expr8* ex = new Expr8(target);
-        Expr8RHS* r = new Expr8RHS;
-        r->rhs = new Expr9(new Expr12(rhs));
-        if(otype == SHLEQ)
-          r->op = SHL;
-        else
-          r->op = SHR;
-        ex->tail.push_back(r);
-        va->rhs = new ExpressionNT(ex);
-        return va;
-      }
-      default: INTERNAL_ERROR;
-    }
-    return va;
-  }
-
-  template<>
-  ExternSubroutineNT* parse<ExternSubroutineNT>()
-  {
-    ExternSubroutineNT* es = new ExternSubroutineNT;
-    es->type = new SubroutineTypeNT;
-    expectKeyword(EXTERN);
-    if(acceptKeyword(FUNC))
-      es->type->isPure = true;
-    else if(acceptKeyword(PROC))
-      es->type->isPure = false;
-    else
-      err("expected functype or proctype");
-    es->type->nonterm = false;
-    //all C functions are static, no matter where they are declared
-    es->type->isStatic = false;
-    //but nonterm is allowed
-    if(acceptKeyword(NONTERM))
-      es->type->nonterm = true;
-    es->type->retType = parse<TypeNT>();
-    expectPunct(LPAREN);
+    Node* location = lookAhead();
     Punct rparen(RPAREN);
-    es->type->params = parseStarComma<Parameter>(rparen);
-    es->c = expectIdent();
-    return es;
-  }
-
-  Expression* parseExpr1()
-  {
-    Expression* root = parseExpr2();
-    while(true)
+    Punct rbrack(RBRACKET);
+    //All expressions are prec >= 0
+    //Binary expressions are prec 1-11
+    //Unary expressions are prec 12
+    //Others are prec 13
+    if(prec == 0)
     {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || nextOp->op != LOR)
-        break;
-      accept();
-      root = new BinaryArith(root, LOR, parseExpr2());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr2()
-  {
-    Expression* root = parseExpr3();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || nextOp->op != LAND)
-        break;
-      accept();
-      root = new BinaryArith(root, LAND, parseExpr3());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr3()
-  {
-    Expression* root = parseExpr4();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || nextOp->op != BOR)
-        break;
-      accept();
-      root = new BinaryArith(root, BOR, parseExpr4());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr4()
-  {
-    Expression* root = parseExpr5();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || nextOp->op != BXOR)
-        break;
-      accept();
-      root = new BinaryArith(root, BXOR, parseExpr5());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr5()
-  {
-    Expression* root = parseExpr6();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || nextOp->op != BAND)
-        break;
-      accept();
-      root = new BinaryArith(root, BAND, parseExpr6());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr6()
-  {
-    Expression* root = parseExpr7();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || (nextOp->op != CMPEQ && nextOp->op != CMPNEQ))
-        break;
-      accept();
-      root = new BinaryArith(root, nextOp->op, parseExpr7());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr7()
-  {
-    Expression* root = parseExpr8();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || (nextOp->op != CMPL && nextOp->op != CMPLE
-            && nextOp->op != CMPG && nextOp->op != CMPGE))
-        break;
-      accept();
-      root = new BinaryArith(root, nextOp->op, parseExpr8());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr8()
-  {
-    Expression* root = parseExpr9();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || (nextOp->op != SHL && nextOp->op != SHR))
-        break;
-      accept();
-      root = new BinaryArith(root, nextOp->op, parseExpr9());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr9()
-  {
-    Expression* root = parseExpr10();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp || (nextOp->op != PLUS && nextOp->op != SUB))
-        break;
-      accept();
-      root = new BinaryArith(root, nextOp->op, parseExpr10());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr10()
-  {
-    Expression* root = parseExpr11();
-    while(true)
-    {
-      Oper* nextOp = dynamic_cast<Oper*>(lookAhead());
-      if(!nextOp ||
-          (nextOp->op != MUL && nextOp->op != DIV && nextOp->op != MOD))
-        break;
-      accept();
-      root = new BinaryArith(root, nextOp->op, parseExpr11());
-    }
-    root->tryResolve();
-    return root;
-  }
-
-  Expression* parseExpr11()
-  {
-    if(Oper* oper = (Oper*) accept(OPERATOR))
-    {
-      if(oper->op != LNOT && oper->op != BNOT && oper->op != SUB)
+      if(acceptKeyword(ARRAY))
       {
-        err("expected one of: ! ~ -");
-      }
-      Expression* ue = new UnaryArith(oper->op, parseExpr11());
-      ue->tryResolve();
-      return ue;
-    }
-    return parseExpr12();
-  }
-
-  Expression* parseExpr12()
-  {
-    Expression* root = nullptr;
-    Token* next = lookAhead();
-    switch(next->type)
-    {
-      case PUNCTUATION:
-      {
-        Punct* punct = (Punct*) next;
-        if(punct->val == LPAREN)
+        Type* elem = parseType(s);
+        vector<Expression*> dims;
+        while(acceptPunct(LBRACKET))
         {
-          accept();
-          //expression in parentheses
-          root = parseExpr1();
-          expectPunct(RPAREN);
+          dims.push_back(parseExpression(s));
+          expectPunct(RBRACKET);
         }
-        else if(punct->val == LBRACKET)
-        {
-          //struct lit
-          root = parseStructLit();
-        }
-        else
-        {
-          //nothing else valid
-          err(string("invalid punctuation in expression: ") + punctTable[punct->val]);
-        }
-        break;
-      }
-      case KEYWORD:
-      {
-        Keyword* kw = (Keyword*) expect(KEYWORD);
-        if(kw->kw == TRUE)
-          root = new BoolLiteral(true);
-        else if(kw->kw == FALSE)
-          root = new BoolLiteral(false);
-        else if(kw->kw == ERROR_VALUE)
-          root = new ErrorVal;
-        else if(kw->kw == THIS)
-          root = new ThisExpr;
-        else if(kw->kw == ARRAY)
-          root = parse<NewArray>();
-        else
-          err("invalid keyword in expression");
-        break;
-      }
-      case INT_LITERAL:
-        root = new (IntLit*) expect(INT_LITERAL);
-        break;
-      case FLOAT_LITERAL:
-        e12->e = (FloatLit*) expect(FLOAT_LITERAL);
-        break;
-      case CHAR_LITERAL:
-        e12->e = (CharLit*) expect(CHAR_LITERAL);
-        break;
-      case STRING_LITERAL:
-        e12->e = (StrLit*) expect(STRING_LITERAL);
-        break;
-      case IDENTIFIER:
-        root = new UnresolvedExpr(parseMember());
-        break;
-      default:
-        err("unexpected token \"" + next->getStr() + "\" (type " + next->getDesc() + ") in expression");
-    }
-    parseExpr12Tail(e12);
-    return e12;
-  }
-
-  void parseExpr12Tail(Expr12* head)
-  {
-    while(true)
-    {
-      if(acceptPunct(LBRACKET))
-      {
-        //"[ Expr ]"
-        head->tail.push_back(new Expr12RHS);
-        head->tail.back()->e = parse<ExpressionNT>();
-        expectPunct(RBRACKET);
-      }
-      else if(acceptPunct(DOT))
-      {
-        //". Ident"
-        head->tail.push_back(new Expr12RHS);
-        head->tail.back()->e = ((Ident*) expect(IDENTIFIER))->name;
-      }
-      else if(acceptPunct(LPAREN))
-      {
-        //"( Args )" - aka a CallOp
-        unget();
-        head->tail.push_back(new Expr12RHS);
-        head->tail.back()->e = parse<CallOp>();
+        NewArray* na = new NewArray(elem, dims);
+        na->setLocation(location);
+        return na;
       }
       else
-        break;
+      {
+        return parseExpression(s, 1);
+      }
     }
-  }
-
-  Expr12* parseExpr12GivenMember(Member* mem)
-  {
-    //first, consume the member by using a chain of "member" operators
-    Expr12* e12 = new Expr12;
-    e12->e = mem;
-    parseExpr12Tail(e12);
-    return e12;
-  }
-
-  template<>
-  CallOp* parse<CallOp>()
-  {
-    CallOp* co = new CallOp;
-    expectPunct(LPAREN);
-    Punct term(RPAREN);
-    co->args = parseStarComma<ExpressionNT>(term);
-    return co;
-  }
-
-  template<>
-  NewArrayNT* parse<NewArrayNT>()
-  {
-    NewArrayNT* na = new NewArrayNT;
-    expectKeyword(ARRAY);
-    na->elemType = parse<TypeNT>();
-    //check that elem type isn't itself an array type
-    if(na->elemType->arrayDims > 0)
+    else if(prec >= 1 && prec <= 11)
     {
-      err("can't create an array of arrays (all dimensions must be specified)");
+      Expression* lhs = parseExpression(s, prec + 1);
+      while(true)
+      {
+        Token* next = lookAhead();
+        if(next->type != OPERATOR)
+          break;
+        Oper* op = (Oper*) next;
+        if(operatorPrec[op->op] != prec)
+          break;
+        Expression* rhs = parseExpression(s, prec + 1);
+        lhs = new BinaryArith(lhs, op->op, rhs);
+        lhs->setLocation(op);
+      }
+      return lhs;
     }
-    int dims = 0;
-    while(acceptPunct(LBRACKET))
+    else if(prec == 12)
     {
-      na->dimensions.push_back(parse<ExpressionNT>());
-      expectPunct(RBRACKET);
-      dims++;
+      //unary expressions
+      while(lookAhead()->type == OPERATOR)
+      {
+        int op = ((Oper*) lookAhead())->op;
+        if(op == SUB || op == LNOT || op == BNOT)
+        {
+          UnaryArith* ua = new UnaryArith(op, parseExpression(s, prec));
+          ua->setLocation(location);
+          return ua;
+        }
+      }
+      return parseExpression(s, prec + 1);
     }
-    return na;
+    else
+    {
+      //highest precedence expressions
+      Expression* base = nullptr;
+      if(lookAhead()->type == IDENTIFIER)
+      {
+        base = new UnresolvedExpr(parseMember(), s); 
+      }
+      else if(acceptKeyword(THIS))
+      {
+        base = new ThisExpr(s);
+      }
+      else if(acceptKeyword(TRUE))
+      {
+        base = new BoolLiteral(true);
+      }
+      else if(acceptKeyword(FALSE))
+      {
+        base = new BoolLiteral(false);
+      }
+      else if(acceptKeyword(ERROR_VALUE))
+      {
+        base = new ErrorVal;
+      }
+      else if(auto intLit = (IntLit*) accept(INT_LITERAL))
+      {
+        base = new IntLiteral(intLit);
+      }
+      else if(auto floatLit = (FloatLit*) accept(FLOAT_LITERAL))
+      {
+        base = new FloatLiteral(floatLit);
+      }
+      else if(auto strLit = (StrLit*) accept(STRING_LITERAL))
+      {
+        base = new StringLiteral(strLit);
+      }
+      else if(auto charLit = (CharLit*) accept(CHAR_LITERAL))
+      {
+        base = new CharLiteral(charLit);
+      }
+      else if(acceptPunct(LBRACKET))
+      {
+        vector<Expression*> exprs;
+        PARSE_PLUS_COMMA(exprs, parseExpression(s), rbrack);
+        //allow a single element in CompoundLiteral syntax,
+        //but then the expression doesn't need to be a CompoundLiteral
+        if(exprs.size() == 1)
+          base = exprs[0];
+        else
+          base = new CompoundLiteral(exprs);
+      }
+      base->setLocation(location);
+      //now that a base expression has been parsed, parse suffixes left->right
+      while(true)
+      {
+        if(acceptPunct(LPAREN))
+        {
+          //call operator
+          vector<Expression*> args;
+          PARSE_STAR_COMMA(args, parseExpression(s), rparen);
+          base = new CallExpr(base, args);
+        }
+        else if(acceptPunct(LBRACKET))
+        {
+          Expression* index = parseExpression(s);
+          expectPunct(RBRACKET);
+          base = new Indexed(base, index);
+        }
+        else if(acceptPunct(DOT))
+        {
+          base = new UnresolvedExpr(base, parseMember(), s);
+        }
+        else
+        {
+          break;
+        }
+        base->setLocation(location);
+      }
+      return base;
+    }
+    return nullptr;
   }
 
   void accept()
@@ -1308,12 +959,6 @@ ostream& operator<<(ostream& os, const Parser::Member& mem)
       os << '.';
     }
   }
-  return os;
-}
-
-ostream& operator<<(ostream& os, const Parser::ParseNode& pn)
-{
-  os << pn.line << ":" << pn.col;
   return os;
 }
 

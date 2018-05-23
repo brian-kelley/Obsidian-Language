@@ -5,6 +5,7 @@ PastEOF PastEOF::inst;
 map<string, int> keywordMap;
 vector<string> keywordTable;
 map<string, int> operatorMap;
+vector<int> operatorPrec;
 vector<string> operatorTable;
 map<char, int> punctMap;
 vector<char> punctTable;
@@ -116,6 +117,8 @@ void initTokens()
   {
     operatorTable[it.second] = it.first;
   }
+  operatorPrec.resize(operatorMap.size());
+  setOperatorPrec();
   punctMap[';'] = SEMICOLON;
   punctMap[':'] = COLON;
   punctMap['('] = LPAREN;
@@ -134,6 +137,34 @@ void initTokens()
   {
     punctTable[it.second] = it.first;
   }
+}
+
+void setOperatorPrec()
+{
+  for(size_t i = 0; i < operatorPrec.size(); i++)
+  {
+    operatorPrec[i] = 0;
+  }
+  //note: lower value means lower precedence
+  //only binary operators are given precedence
+  operatorPrec[LOR] = 1;
+  operatorPrec[LAND] = 2;
+  operatorPrec[BOR] = 3;
+  operatorPrec[BXOR] = 4;
+  operatorPrec[BAND] = 5;
+  operatorPrec[CMPEQ] = 6;
+  operatorPrec[CMPNEQ] = 6;
+  operatorPrec[CMPL] = 7;
+  operatorPrec[CMPLE] = 7;
+  operatorPrec[CMPG] = 8;
+  operatorPrec[CMPGE] = 8;
+  operatorPrec[SHL] = 9;
+  operatorPrec[SHR] = 9;
+  operatorPrec[PLUS] = 10;
+  operatorPrec[SUB] = 10;
+  operatorPrec[MUL] = 11;
+  operatorPrec[DIV] = 11;
+  operatorPrec[MOD] = 11;
 }
 
 int isKeyword(string str)
