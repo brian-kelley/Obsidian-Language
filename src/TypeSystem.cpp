@@ -3,13 +3,9 @@
 #include "Expression.hpp"
 #include "Subroutine.hpp"
 
-using namespace Parser;
-
 /***********************/
 /* Type and subclasses */
 /***********************/
-
-struct ModuleScope;
 
 extern Scope* global;
 
@@ -238,27 +234,26 @@ Type* maybe(Type* t)
 {
   vector<Type*> options;
   options.push_back(t);
-  options.push_back(primitives[TypeNT::ERROR]);
+  options.push_back(primitives[Prim::ERROR]);
   return getUnionType(options);
 }
 
 Type* getIntegerType(int bytes, bool isSigned)
 {
-  using Parser::TypeNT;
   switch(bytes)
   {
     case 1:
-      if(isSigned)  return primitives[TypeNT::BYTE];
-      else          return primitives[TypeNT::UBYTE];
+      if(isSigned)  return primitives[Prim::BYTE];
+      else          return primitives[Prim::UBYTE];
     case 2:
-      if(isSigned)  return primitives[TypeNT::SHORT];
-      else          return primitives[TypeNT::USHORT];
+      if(isSigned)  return primitives[Prim::SHORT];
+      else          return primitives[Prim::USHORT];
     case 4:
-      if(isSigned)  return primitives[TypeNT::INT];
-      else          return primitives[TypeNT::UINT];
+      if(isSigned)  return primitives[Prim::INT];
+      else          return primitives[Prim::UINT];
     case 8:
-      if(isSigned)  return primitives[TypeNT::LONG];
-      else          return primitives[TypeNT::ULONG];
+      if(isSigned)  return primitives[Prim::LONG];
+      else          return primitives[Prim::ULONG];
     default: INTERNAL_ERROR;
   }
   return NULL;
@@ -268,19 +263,23 @@ Type* getIntegerType(int bytes, bool isSigned)
 /* Struct Type */
 /***************/
 
-StructType::StructType(string name, Scope* enclosingScope)
+StructType::StructType(string n, Scope* enclosingScope)
 {
   structs.push_back(this);
-  this->name = name;
+  this->name = n;
   scope = new Scope(enclosingScope, this);
 }
 
-void resolveImpl(bool final)
+void StructType::resolveImpl(bool final)
 {
   //attempt to resolve all member variables
   bool allResolved = true;
   for(Variable* mem : members)
   {
+    //resolve members requires resolving member types,
+    //and calling resolve() on this while already in a resolve
+    //call triggers a "circular dependency" error, preventing
+    //self-ownership
     mem->resolve(final);
     if(!mem->resolved)
       allResolved = false;
@@ -304,10 +303,36 @@ void resolveImpl(bool final)
       //add everything in memStruct's interface to this interface
       for(auto& ifaceKV : memStruct->interface)
       {
-        string ifaceName = ifaceKV.first;
-        IfaceMember& ifaceMem = ifaceKV.second;
-        //construct a new IfaceMember with the correct
+        interface[ifaceKV.first] = ifaceKV.second;
       }
+    }
+  }
+  //then add all the direct methods of this
+  //need to search all submodules for subroutines and callable members
+  for(auto& scopeName : scope->names)
+  {
+    switch(scopeName.second.kind)
+    {
+      case Name::SUBROUTINE:
+        {
+          Subroutine* subr = (Subroutine*) scopeName.second.item;
+          if(subr->type->ownerStruct == this)
+          {
+            interface[subr->name] = IfaceMember(nullptr, subr);
+          }
+          break;
+        }
+      case Name::VARIABLE:
+        {
+          Variable* var = (Variable*) scopeName.second.item;
+          auto ct = dynamic_cast<CallableType*>(var->type);
+          if(ct && ct->ownerStruct == this)
+          {
+            interface[var->name] = IfaceMember(nullptr, var);
+          }
+          break;
+        }
+      default:;
     }
   }
   resolved = true;
@@ -344,73 +369,6 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
-//called once per struct after the scope/type/variable pass of middle end
-void StructType::check()
-{
-  if(checked)
-    return;
-  //check for membership cycles
-  if(contains(this))
-  {
-    ERR_MSG("struct " << name << " has itself as a member");
-  }
-  //then make sure that all members of struct type have been checked
-  //(having checked members is necessary to analyze traits and composition)
-  for(auto mem : members)
-  {
-    if(auto st = dynamic_cast<StructType*>(mem->type))
-    {
-      if(!st->checked)
-        st->check();
-    }
-  }
-  //now build the "interface": all direct subroutine members of this and composed members
-  //overriding priority: direct members > 1st composed > 2nd composed > ...
-  //for subroutines which are available through composition, need to know which member it belongs to
-  for(auto& decl : structScope->names)
-  {
-    Name n = decl.second;
-    if(n.kind == Name::SUBROUTINE)
-    {
-      //have a subroutine, add to interface
-      interface[decl.first] = IfaceMember(nullptr, (Subroutine*) n.item);
-    }
-  }
-  for(size_t i = 0; i < members.size(); i++)
-  {
-    if(composed[i])
-    {
-      StructType* memberStruct = dynamic_cast<StructType*>(members[i]->type);
-      if(memberStruct)
-      {
-        //for each member subr of memberStruct, if its name isn't already in interface, add it
-        StructScope* memScope = memberStruct->structScope;
-        for(auto& decl : memScope->names)
-        {
-          Name n = decl.second;
-          if(n.kind == Name::SUBROUTINE && interface.find(decl.first) == interface.end())
-          {
-            interface[decl.first] = IfaceMember(members[i], (Subroutine*) n.item);
-          }
-        }
-      }
-    }
-  }
-  checked = true;
-}
-
-bool StructType::contains(Type* t)
-{
-  for(auto mem : members)
-  {
-    if(mem->type == t || mem->type->contains(t))
-    {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**************/
 /* Union Type */
 /**************/
@@ -419,6 +377,25 @@ UnionType::UnionType(vector<Type*> types)
 {
   options = types;
   sort(options.begin(), options.end());
+}
+
+void UnionType::resolveImpl(bool final)
+{
+  //union type is allowed to have itself as a member,
+  //so for the purposes of resolution need to assume this
+  //can be resolved
+  resolved = true;
+  for(Type*& mem : options)
+  {
+    resolveType(mem, final);
+    if(!mem->resolved)
+    {
+      resolved = false;
+      return;
+    }
+  }
+  //if all member resolutions succeed, this union is now
+  //permanently resolved
 }
 
 bool UnionType::canConvert(Type* other)
@@ -458,13 +435,19 @@ bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs)
 
 ArrayType::ArrayType(Type* elemType, int ndims)
 {
-  assert(elemType);
-  assert(ndims > 0);
+  INTERNAL_ASSERT(elemType)
+  INTERNAL_ASSERT(ndims > 0)
   this->dims = ndims;
   this->elem = elemType;
   //If 1-dimensional, subtype is just elem
   //Otherwise is array with one fewer dimension
   subtype = (ndims == 1) ? elem : getArrayType(elemType, dims - 1);
+}
+
+void ArrayType::resolveImpl(bool final)
+{
+  resolveType(elem, final);
+  resolved = elem->resolved;
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -497,24 +480,6 @@ bool ArrayType::canConvert(Type* other)
   return false;
 }
 
-bool ArrayType::contains(Type* t)
-{
-  if(t == elem)
-    return true;
-  ArrayType* at = dynamic_cast<ArrayType*>(t);
-  if(at && at->elem == elem && dims > at->dims)
-    return true;
-  return false;
-}
-
-void ArrayType::check()
-{
-  if(contains(this))
-  {
-    ERR_MSG("array type (" << dims << " dims of " << elem->getName() << ") contains itself");
-  }
-}
-
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
 {
   if(lhs->elem < rhs->elem)
@@ -530,7 +495,18 @@ bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
 
 TupleType::TupleType(vector<Type*> mems)
 {
-  this->members = mems;
+  members = mems;
+}
+
+void TupleType::resolveImpl(bool final)
+{
+  for(Type*& mem : members)
+  {
+    resolveType(mem, final);
+    if(!mem->resolved)
+      return;
+  }
+  resolved = true;
 }
 
 bool TupleType::canConvert(Type* other)
@@ -563,24 +539,6 @@ bool TupleType::canConvert(Type* other)
   return members.size() == 1 && members[0]->canConvert(other);
 }
 
-bool TupleType::contains(Type* t)
-{
-  for(auto mem : members)
-  {
-    if(mem->contains(t))
-      return true;
-  }
-  return false;
-}
-
-void TupleType::check()
-{
-  if(contains(this))
-  {
-    ERR_MSG("tuple contains itself (directly or indirectly)");
-  }
-}
-
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 {
   return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
@@ -590,6 +548,17 @@ bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 /************/
 /* Map Type */
 /************/
+
+MapType::MapType(Type* k, Type* v) : key(k), value(v) {}
+
+void MapType::resolveImpl(bool final)
+{
+  resolveType(key, final);
+  if(!key->resolved)
+    return;
+  resolveType(value, final);
+  resolved = value->resolved;
+}
 
 bool MapType::canConvert(Type* other)
 {
@@ -614,19 +583,6 @@ bool MapType::canConvert(Type* other)
   return false;
 }
 
-bool MapType::contains(Type* t)
-{
-  return key->contains(t) || value->contains(t);
-}
-
-void MapType::check()
-{
-  if(contains(this))
-  {
-    ERR_MSG("map's key or value type contains the map itself");
-  }
-}
-
 bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
 {
   return (lhs->key < rhs->key) || (lhs->key == rhs->key && lhs->value < rhs->value);
@@ -636,19 +592,16 @@ bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
 /* Alias Type */
 /**************/
 
-AliasType::AliasType(Typedef* td, Scope* scope)
-{
-  name = td->ident;
-  decl = td;
-  TypeLookup args = TypeLookup(td->type, scope);
-  typeLookup->lookup(args, actual);
-}
-
 AliasType::AliasType(string alias, Type* underlying)
 {
   name = alias;
   actual = underlying;
-  decl = NULL;
+}
+
+void AliasType::resolveImpl(bool final)
+{
+  resolveType(actual, final);
+  resolved = actual->resolved;
 }
 
 bool AliasType::canConvert(Type* other)
@@ -656,57 +609,22 @@ bool AliasType::canConvert(Type* other)
   return actual->canConvert(other);
 }
 
-bool AliasType::contains(Type* t)
-{
-  return actual->contains(t);
-}
-
 /*************/
 /* Enum Type */
 /*************/
 
-EnumType::EnumType(Parser::Enum* e, Scope* current)
-{
-  enums.insert(this);
-  name = e->name;
-  set<int64_t> used;
-  int64_t autoVal = 0;
-  for(auto item : e->items)
-  {
-    EnumConstant* ec = new EnumConstant;
-    ec->et = this;
-    ec->name = item->name;
-    if(item->value)
-    {
-      ec->value = item->value->val;
-    }
-    else
-    {
-      ec->value = autoVal;
-    }
-    autoVal = ec->value + 1;
-    if(used.find(ec->value) != used.end())
-    {
-      ERR_MSG("in enum " << name << ", key " <<
-          ec->name << " has repeated value");
-    }
-    used.insert(ec->value);
-    current->addName(ec);
-    values.push_back(ec);
-  }
-}
-
 EnumType::EnumType(Scope* enclosingScope)
 {
   scope = new Scope(enclosingScope, this);
+  resolved = true;
 }
 
-void EnumType::addValue(string name)
+void EnumType::addValue(string valueName)
 {
-  addValue(name, values.back()->value + 1);
+  addValue(valueName, values.back()->value + 1);
 }
 
-void EnumType::addValue(string name, int64_t value)
+void EnumType::addValue(string valueName, int64_t value)
 {
   if(valueSet.find(value) != valueSet.end())
   {
@@ -715,7 +633,7 @@ void EnumType::addValue(string name, int64_t value)
   valueSet.insert(value);
   EnumConstant* newValue = new EnumConstant;
   newValue->et = this;
-  newValue->name = name;
+  newValue->name = valueName;
   newValue->value = value;
   scope->addName(newValue);
   values.push_back(newValue);
@@ -732,9 +650,11 @@ bool EnumType::canConvert(Type* other)
 
 IntegerType::IntegerType(string typeName, int sz, bool sign)
 {
-  this->name = typeName;
-  this->size = sz;
-  this->isSigned = sign;
+  name = typeName;
+  size = sz;
+  isSigned = sign;
+  resolved = true;
+
 }
 
 bool IntegerType::canConvert(Type* other)
@@ -748,8 +668,9 @@ bool IntegerType::canConvert(Type* other)
 
 FloatType::FloatType(string typeName, int sz)
 {
-  this->name = typeName;
-  this->size = sz;
+  name = typeName;
+  size = sz;
+  resolved = true;
 }
 
 bool FloatType::canConvert(Type* other)
@@ -802,6 +723,29 @@ CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector
   returnType = retType;
   argTypes = args;
   ownerStruct = owner;
+}
+
+void CallableType::resolveImpl(bool final)
+{
+  //CallableType is allowed to have itself as a return or argument type,
+  //so temporarily pretend it is resolved to avoid circular dependency error
+  resolved = true;
+  resolveType(returnType, final);
+  if(!returnType->resolved)
+  {
+    resolved = false;
+    return;
+  }
+  for(Type*& arg : argTypes)
+  {
+    resolveType(arg, final);
+    if(!arg->resolved)
+    {
+      resolved = false;
+      return;
+    }
+  }
+  //just leave resolved = true
 }
 
 string CallableType::getName()
@@ -875,6 +819,15 @@ void ExprType::resolve(bool)
 {
   //should never get here,
   //ExprType must be replaced by another type in resolveType()
+  INTERNAL_ERROR;
+}
+
+ElemExprType::ElemExprType(Expression* a) : arr(a) {}
+
+void ElemExprType::resolve(bool)
+{
+  //should never get here,
+  //ElemExprType must be replaced by another type in resolveType()
   INTERNAL_ERROR;
 }
 

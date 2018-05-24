@@ -63,7 +63,7 @@ struct Scope
   Scope(Scope* parent, Subroutine* s);
   Scope(Scope* parent, Block* b);
   Scope(Scope* parent, EnumType* e);
-  virtual string getLocalName() = 0;
+  string getLocalName();
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   Name findName(Member* mem);

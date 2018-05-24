@@ -20,6 +20,38 @@
 *   type system structs   *
 **************************/
 
+struct Type : public Node
+{
+  virtual ~Type() {}
+  virtual bool canConvert(Type* other) = 0;
+  //get the type's name
+  virtual string getName() = 0;
+  //for types, resolve is only used to detect circular membership
+  //i.e. a struct cannot contain itself (must have fixed, finite size)
+  //so resolveImpl is only implemented for types where self-membership is
+  //not allowed
+  virtual void resolveImpl(bool) {}
+  virtual bool isArray()    {return false;}
+  virtual bool isStruct()   {return false;}
+  virtual bool isUnion()    {return false;}
+  virtual bool isMap()      {return false;}
+  virtual bool isTuple()    {return false;}
+  virtual bool isEnum()     {return false;}
+  virtual bool isCallable() {return false;}
+  virtual bool isProc()     {return false;}
+  virtual bool isFunc()     {return false;}
+  virtual bool isInteger()  {return false;}
+  virtual bool isNumber()   {return false;}
+  virtual bool isFloat()    {return false;}
+  virtual bool isChar()     {return false;}
+  virtual bool isBool()     {return false;}
+  virtual bool isVoid()     {return false;}
+  virtual bool isPrimitive(){return false;}
+  virtual bool isAlias()    {return false;}
+  virtual bool isBounded()  {return false;}
+  virtual bool isResolved() {return true;}
+};
+
 struct Scope;
 struct Expression;
 
@@ -120,38 +152,6 @@ extern set<MapType*, MapCompare> maps;
 extern set<CallableType*, CallableCompare> callables;
 extern set<EnumType*> enums;
 
-//Type extends Node, but Node members are only used for types that
-//have unique definitions (struct, alias, enum)
-
-struct Type : public Node
-{
-  virtual ~Type() {}
-  virtual bool canConvert(Type* other) = 0;
-  //get the type's name
-  virtual string getName() = 0;
-  //whether this "contains" t, for finding circular memberships
-  virtual bool contains(Type* t) {return false;}
-  virtual bool isArray()    {return false;}
-  virtual bool isStruct()   {return false;}
-  virtual bool isUnion()    {return false;}
-  virtual bool isMap()      {return false;}
-  virtual bool isTuple()    {return false;}
-  virtual bool isEnum()     {return false;}
-  virtual bool isCallable() {return false;}
-  virtual bool isProc()     {return false;}
-  virtual bool isFunc()     {return false;}
-  virtual bool isInteger()  {return false;}
-  virtual bool isNumber()   {return false;}
-  virtual bool isFloat()    {return false;}
-  virtual bool isChar()     {return false;}
-  virtual bool isBool()     {return false;}
-  virtual bool isVoid()     {return false;}
-  virtual bool isPrimitive(){return false;}
-  virtual bool isAlias()    {return false;}
-  virtual bool isBounded()  {return false;}
-  virtual bool isResolved() {return true;}
-};
-
 struct StructType : public Type
 {
   //Constructor just creates an empty struct (no members)
@@ -167,13 +167,16 @@ struct StructType : public Type
   {
     return name;
   }
-  bool contains(Type* t);
   struct IfaceMember
   {
-    IfaceMember() : member(nullptr), subr(nullptr) {}
-    IfaceMember(Variable* m, Subroutine* s) : member(m), subr(s) {}
+    IfaceMember() : member(nullptr)
+    {
+      callable = (Subroutine*) nullptr;
+    }
+    IfaceMember(Variable* m, Subroutine* s) : member(m), callable(s) {}
+    IfaceMember(Variable* m, Variable* v) : member(m), callable(v) {}
     Variable* member; //the composed member, or NULL for this
-    Subroutine* subr;
+    variant<Subroutine*, Variable*> callable;
   };
   map<string, IfaceMember> interface;
   void resolveImpl(bool final);
@@ -182,6 +185,7 @@ struct StructType : public Type
 struct UnionType : public Type
 {
   UnionType(vector<Type*> types);
+  void resolveImpl(bool);
   vector<Type*> options;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
@@ -197,6 +201,7 @@ struct ArrayType : public Type
   Type* subtype;
   int dims;
   bool canConvert(Type* other);
+  void resolveImpl(bool final);
   bool isArray() {return true;}
   string getName()
   {
@@ -207,7 +212,6 @@ struct ArrayType : public Type
     }
     return name;
   }
-  bool contains(Type* t);
 };
 
 struct TupleType : public Type
@@ -217,6 +221,7 @@ struct TupleType : public Type
   ~TupleType() {}
   vector<Type*> members;
   bool canConvert(Type* other);
+  void resolveImpl(bool final);
   bool isTuple() {return true;}
   string getName()
   {
@@ -232,13 +237,11 @@ struct TupleType : public Type
     name += ")";
     return name;
   }
-  bool contains(Type* t);
-  void check();
 };
 
 struct MapType : public Type
 {
-  MapType(Type* k, Type* v) : key(k), value(v) {}
+  MapType(Type* k, Type* v);
   Type* key;
   Type* value;
   bool isMap() {return true;}
@@ -252,14 +255,14 @@ struct MapType : public Type
     return name;
   }
   bool canConvert(Type* other);
-  bool contains(Type* t);
-  void check();
+  void resolveImpl(bool final);
 };
 
 
 struct AliasType : public Type
 {
   AliasType(string alias, Type* underlying);
+  void resolveImpl(bool final);
   string name;
   Type* actual;
   bool canConvert(Type* other);
@@ -282,7 +285,6 @@ struct AliasType : public Type
   {
     return name;
   }
-  bool contains(Type* t);
 };
 
 struct EnumConstant
@@ -347,6 +349,10 @@ struct FloatType : public Type
 
 struct CharType : public Type
 {
+  CharType()
+  {
+    resolved = true;
+  }
   bool canConvert(Type* other);
   bool isChar() {return true;}
   bool isInteger() {return true;}
@@ -360,6 +366,10 @@ struct CharType : public Type
 
 struct BoolType : public Type
 {
+  BoolType()
+  {
+    resolved = true;
+  }
   bool canConvert(Type* other);
   bool isBool() {return true;}
   bool isPrimitive() {return true;}
@@ -371,6 +381,10 @@ struct BoolType : public Type
 
 struct VoidType : public Type
 {
+  VoidType()
+  {
+    resolved = true;
+  }
   bool canConvert(Type* other);
   bool isVoid() {return true;}
   bool isPrimitive() {return true;}
@@ -382,6 +396,10 @@ struct VoidType : public Type
 
 struct ErrorType : public Type
 {
+  ErrorType()
+  {
+    resolved = true;
+  }
   bool canConvert(Type* other)
   {
     return other == this;
@@ -399,6 +417,7 @@ struct CallableType : public Type
   CallableType(bool isPure, Type* returnType, vector<Type*>& args);
   //constructor for members
   CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args);
+  virtual void resolveImpl(bool);
   string getName();
   StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
@@ -460,7 +479,7 @@ struct UnresolvedType : public Type
 struct ExprType : public Type
 {
   ExprType(Expression* e);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* expr;
   bool isResolved() {return false;}
 };
@@ -470,7 +489,7 @@ struct ExprType : public Type
 struct ElemExprType : public Type
 {
   ElemExprType(Expression* arr);
-  void resolve(bool final);
+  void resolveImpl(bool final);
   Expression* arr;
   bool isResolved() {return false;}
 };

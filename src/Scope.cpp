@@ -96,6 +96,28 @@ Name(EnumConstant* ec, Scope* s)
   item = ec;
 }
 
+string Scope::getLocalName()
+{
+  if(node.is<Module*>())
+    return node.get<Module*>()->name;
+  if(node.is<StructType*>())
+    return node.get<StructType*>()->name;
+  if(node.is<Subroutine*>())
+    return node.get<Subroutine*>()->name;
+  if(node.is<Block*>())
+  {
+    Oss oss;
+    //just show the raw Block pointer, not useful
+    //but this shouldn't be shown to user anyway
+    oss << "<Block " << node.get<Block*>() << '>';
+    return oss.get();
+  }
+  if(node.is<EnumType*>())
+    return node.get<EnumType*>()->name;
+  INTERNAL_ERROR;
+  return "";
+}
+
 string Scope::getFullPath()
 {
   if(parent)

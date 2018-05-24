@@ -61,6 +61,7 @@ bool runCommand(string command, bool silenced = false);
 #define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; exit(1);}
 
 #define INTERNAL_ERROR IE_IMPL(__FILE__, __LINE__)
+#define INTERNAL_ASSERT(cond) {if(!(cond)) {INTERNAL_ERROR}}
 //Debug macros:
 //DEBUG_DO does something only when DEBUG is defined
 //TIMEIT(name, stmt) does stmt, but times it and prints the time if DEBUG
