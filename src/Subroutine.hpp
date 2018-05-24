@@ -13,6 +13,8 @@
 
 struct Statement : public Node
 {
+  //ctor for statements that don't belong to any block (e.g. subroutine bodies)
+  Statement() : block(nullptr) {}
   //normal ctor: automatically set index within parent block
   Statement(Block* b) : block(b) {}
   Block* block;
@@ -251,6 +253,7 @@ struct ExternalSubroutine : public Node
   CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
+  Scope* scope;
   vector<string> argNames;
 };
 

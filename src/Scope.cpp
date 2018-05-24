@@ -10,7 +10,7 @@ Scope* global;
 bool Name::inScope(Scope* s)
 {
   //see if scope is same as, or child of, s
-  for(Scope* iter = scope; iter = iter->parent; iter++)
+  for(Scope* iter = scope; iter; iter = iter->parent)
   {
     if(iter == s)
     {
@@ -25,7 +25,7 @@ bool Name::inScope(Scope* s)
 *******************************/
 
 Scope::Scope(Scope* p, Module* m) : parent(p), node(m) {}
-Scope::Scope(Scope* p, Struct* s) : parent(p), node(s) {}
+Scope::Scope(Scope* p, StructType* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
 Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
 Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e) {}
@@ -35,7 +35,7 @@ void Scope::addName(Name n)
   Name prev = findName(n.name);
   if(prev.item)
   {
-    errMsgLoc("name " << n.name << " redefined (previous declaration on line " << prev.node->line << ", col " << prev.node->col << ")");
+    errMsgLoc(n.item, "name " << n.name << " redefined (previous declaration at " << prev.item->printLocation());
   }
   names[n.name] = n;
 }
@@ -43,55 +43,55 @@ void Scope::addName(Name n)
 #define IMPL_ADD_NAME(type) \
 void Scope::addName(type* item) \
 { \
-  addName(Name(item, item->scope)); \
+  addName(Name(item, this)); \
 }
 
 IMPL_ADD_NAME(Variable)
 IMPL_ADD_NAME(Module)
 IMPL_ADD_NAME(StructType)
 IMPL_ADD_NAME(Subroutine)
-IMPL_ADD_NAME(Alias)
 IMPL_ADD_NAME(ExternalSubroutine)
+IMPL_ADD_NAME(AliasType)
 IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
 
-Name(Module* m, Scope* parent)
-  : kind(MODULE), scope(parent)
+Name::Name(Module* m, Scope* parent)
+  : kind(MODULE), name(m->name), scope(parent)
 {
   item = m;
 }
-Name(StructType* st, Scope* s)
-  : kind(STRUCT), scope(s)
+Name::Name(StructType* st, Scope* s)
+  : kind(STRUCT), name(st->name), scope(s)
 {
   item = st;
 }
-Name(EnumType* e, Scope* s)
-  : kind(ENUM), scope(s)
+Name::Name(EnumType* e, Scope* s)
+  : kind(ENUM), name(e->name), scope(s)
 {
   item = e;
 }
-Name(AliasType* a, Scope* s)
-  : kind(TYPEDEF), scope(s)
+Name::Name(AliasType* a, Scope* s)
+  : kind(TYPEDEF), name(a->name), scope(s)
 {
   item = a;
 }
-Name(Subroutine* subr, Scope* s)
-  : kind(SUBROUTINE), scope(s)
+Name::Name(Subroutine* subr, Scope* s)
+  : kind(SUBROUTINE), name(subr->name), scope(s)
 {
   item = subr;
 }
-Name(ExternalSubroutine* subr, Scope* s)
-  : kind(EXTERN_SUBR), scope(s)
+Name::Name(ExternalSubroutine* subr, Scope* s)
+  : kind(EXTERN_SUBR), name(subr->name), scope(s)
 {
   item = subr;
 }
-Name(Variable* var, Scope* s)
-  : kind(VARIABLE), scope(s)
+Name::Name(Variable* var, Scope* s)
+  : kind(VARIABLE), name(var->name), scope(s)
 {
   item = var;
 }
-Name(EnumConstant* ec, Scope* s)
-  : kind(ENUM_CONSTANT), scope(s)
+Name::Name(EnumConstant* ec, Scope* s)
+  : kind(ENUM_CONSTANT), name(ec->name), scope(s)
 {
   item = ec;
 }
@@ -110,7 +110,7 @@ string Scope::getLocalName()
     //just show the raw Block pointer, not useful
     //but this shouldn't be shown to user anyway
     oss << "<Block " << node.get<Block*>() << '>';
-    return oss.get();
+    return oss.str();
   }
   if(node.is<EnumType*>())
     return node.get<EnumType*>()->name;
@@ -134,7 +134,7 @@ Name Scope::lookup(string name)
   return it->second;
 }
 
-Name Scope::findName(Parser::Member* mem)
+Name Scope::findName(Member* mem)
 {
   //scope is the scope that actually contains name mem->tail
   Scope* scope = this;
@@ -157,7 +157,7 @@ Name Scope::findName(Parser::Member* mem)
       }
       else if(it.kind == Name::STRUCT)
       {
-        scope = ((StructType*) it.item)->structScope;
+        scope = ((StructType*) it.item)->scope;
         continue;
       }
     }
@@ -176,7 +176,7 @@ Name Scope::findName(Parser::Member* mem)
 
 Name Scope::findName(string name)
 {
-  Parser::Member m;
+  Member m;
   m.names.push_back(name);
   return findName(&m);
 }
@@ -187,9 +187,9 @@ StructType* Scope::getStructContext()
   //reaching a static subroutine or global scope
   for(Scope* iter = this; iter; iter = iter->parent)
   {
-    if(iter->node.is<Struct*>())
+    if(iter->node.is<StructType*>())
     {
-      return iter->node.get<Struct*>();
+      return iter->node.get<StructType*>();
     }
     if(iter->node.is<Subroutine*>())
     {
@@ -214,9 +214,9 @@ StructType* Scope::getMemberContext()
   //reaching a static subroutine or global scope
   for(Scope* iter = this; iter; iter = iter->parent)
   {
-    if(iter->node.is<Struct*>())
+    if(iter->node.is<StructType*>())
     {
-      return iter->node.get<Struct*>();
+      return iter->node.get<StructType*>();
     }
     else if(!iter->node.is<Module*>())
     {
@@ -259,7 +259,7 @@ bool Scope::contains(Scope* other)
   return false;
 }
 
-Module(string n, Scope* s)
+Module::Module(string n, Scope* s)
 {
   name = n;
   scope = new Scope(s, this);

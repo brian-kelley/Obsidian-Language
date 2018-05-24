@@ -526,7 +526,7 @@ namespace Parser
     Node* loc = lookAhead();
     expectKeyword(TYPEDEF);
     Type* t = parseType(s);
-    AliasType* aType = new AliasType(expectIdent(), t);
+    AliasType* aType = new AliasType(expectIdent(), t, s);
     aType->setLocation(loc);
     s->addName(aType);
   }

@@ -261,10 +261,11 @@ struct MapType : public Type
 
 struct AliasType : public Type
 {
-  AliasType(string alias, Type* underlying);
+  AliasType(string alias, Type* underlying, Scope* scope);
   void resolveImpl(bool final);
   string name;
   Type* actual;
+  Scope* scope;
   bool canConvert(Type* other);
   bool isArray()    {return actual->isArray();}
   bool isStruct()   {return actual->isStruct();}
@@ -287,7 +288,7 @@ struct AliasType : public Type
   }
 };
 
-struct EnumConstant
+struct EnumConstant : public Node
 {
   EnumType* et;
   string name;
@@ -482,6 +483,8 @@ struct ExprType : public Type
   void resolveImpl(bool final);
   Expression* expr;
   bool isResolved() {return false;}
+  bool canConvert(Type* other) {return false;}
+  string getName() {return "<unresolved expression type>";};
 };
 
 //Used by for-over-array to create an iteration variable at parse time
@@ -492,6 +495,8 @@ struct ElemExprType : public Type
   void resolveImpl(bool final);
   Expression* arr;
   bool isResolved() {return false;}
+  bool canConvert(Type* other) {return false;}
+  string getName() {return "<unresolved array expr element type>";};
 };
 
 //If t is an unresolved type, replace it with a fully resolved version

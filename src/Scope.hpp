@@ -39,7 +39,7 @@ struct Name
     VARIABLE,
     ENUM_CONSTANT
   };
-  Name() : item(nullptr), kind(NONE), scope(nullptr) {}
+  Name() : item(nullptr), kind(NONE), name(""), scope(nullptr) {}
   Name(Module* m, Scope* parent);
   Name(StructType* st, Scope* s);
   Name(EnumType* e, Scope* s);
@@ -51,6 +51,7 @@ struct Name
   Node* item;
   //All named declaration types
   Kind kind;
+  string name;
   Scope* scope;
   bool inScope(Scope* s);
 };

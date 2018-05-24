@@ -1,18 +1,16 @@
 #include "Subroutine.hpp"
 #include "Variable.hpp"
 
-using namespace TypeSystem;
-
 extern bool programHasMain;
-extern ModuleScope* global;
+extern Scope* global;
 
 vector<Test*> Test::tests;
 
 //Block which is body of subroutine
 Block::Block(Subroutine* s)
 {
-  breakable = None;
-  loop = None;
+  breakable = None();
+  loop = None();
   subr = s;
   scope = new Scope(s->scope, this);
   statementCount = 0;
@@ -90,7 +88,7 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
       rvalue = new BinaryArith(lhs, op, rhs);
       break;
     case INC:
-      rvalue = new BinaryArith(lhs, ADD, new IntLiteral(1));
+      rvalue = new BinaryArith(lhs, PLUS, new IntLiteral(1));
       break;
     case DEC:
       rvalue = new BinaryArith(lhs, SUB, new IntLiteral(1));
@@ -124,7 +122,7 @@ void Assign::resolveImpl(bool final)
   resolved = true;
 }
 
-CallStmt(Block* b, CallExpr* e) : Statement(b)
+CallStmt::CallStmt(Block* b, CallExpr* e) : Statement(b)
 {
   eval = e;
 }
@@ -226,8 +224,8 @@ void ForArray::resolveImpl(bool final)
   resolved = true;
 }
 
-ForRange::ForRange(Block* b, string counterName, Expression* b, Expression* e)
-  : For(b), begin(b), end(e)
+ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expression* endExpr)
+  : For(b), begin(beginExpr), end(endExpr)
 {
   //create the counter variable in outer block
   counter = new Variable(counterName, primitives[Prim::LONG], outer);
@@ -250,7 +248,7 @@ void ForRange::resolveImpl(bool final)
   resolved = true;
 }
 
-While::While(Block* b, Expression* condition)
+While::While(Block* b, Expression* cond)
   : Statement(b)
 {
   condition = cond;
@@ -274,11 +272,11 @@ void While::resolveImpl(bool final)
   resolved = true;
 }
 
-If::If(Block* b, Expression* cond, Statement* b)
+If::If(Block* b, Expression* cond, Statement* bodyStmt)
   : Statement(b)
 {
   condition = cond;
-  body = b;
+  body = bodyStmt;
 }
 
 If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
@@ -313,10 +311,10 @@ Match::Match(Block* b, Expression* m, string varName,
 {
   matched = m;
   types = t;
-  blocks = caseBlocks;
+  cases = caseBlocks;
   //create blocks to enclose each case block, and
   //add the value variables to each
-  if(types.size() != blocks.size())
+  if(types.size() != cases.size())
   {
     INTERNAL_ERROR;
   }
@@ -324,14 +322,8 @@ Match::Match(Block* b, Expression* m, string varName,
   caseVars.resize(n);
   for(int i = 0; i < n; i++)
   {
-    Block* outerBlock = new Block(b);
-    outerBlock->setLocation(blocks[i]);
-    caseVars[i] = new Variable(varName, types[i], outerBlock);
-    outerBlock->scope->addName(caseVars[i]);
-    outerBlock->stmts.push_back(outerBlock);
-    Block* innerBlock = blocks[i];
-    innerBlock->scope->node = outerBlock;
-    blocks[i] = outerBlock;
+    caseVars[i] = new Variable(varName, types[i], cases[i]);
+    cases[i]->scope->addName(caseVars[i]);
   }
 }
 
@@ -359,7 +351,7 @@ void Match::resolveImpl(bool final)
     }
   }
   bool allResolved = true;
-  for(auto b : blocks)
+  for(auto b : cases)
   {
     b->resolve(final);
     if(!b->resolved)
@@ -382,7 +374,7 @@ Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> v
 void Switch::resolveImpl(bool final)
 {
   resolveExpr(switched, final);
-  if(!switched->resolve)
+  if(!switched->resolved)
     return;
   //resolve case values and make sure they can convert to 
   bool allResolved = true;
@@ -417,7 +409,7 @@ Return::Return(Block* b, Expression* e) : Statement(b)
   value = e;
 }
 
-Return(Block* b) : Statement(b)
+Return::Return(Block* b) : Statement(b)
 {
   value = nullptr;
 }
@@ -431,7 +423,7 @@ void Return::resolveImpl(bool final)
       return;
   }
   //make sure value can be converted to enclosing subroutine's return type
-  auto subrRetType = block->subr->type->retType;
+  auto subrRetType = block->subr->type->returnType;
   if(subrRetType == primitives[Prim::VOID])
   {
     if(value)
@@ -506,12 +498,12 @@ void Assertion::resolveImpl(bool final)
   }
   if(asserted->type != primitives[Prim::BOOL])
   {
-    errMsgLoc("asserted value has non-bool type " << asserted->type->getName());
+    errMsgLoc(this, "asserted value has non-bool type " << asserted->type->getName());
   }
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes)
+Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes)
 {
   name = n;
   scope = new Scope(enclosing, this);
@@ -532,7 +524,7 @@ Subroutine::Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* re
   }
   for(size_t i = 0; i < argNames.size(); i++)
   {
-    Variable* v = new Variable(scope, argNames[i], argTypes[i], true);
+    Variable* v = new Variable(scope, argNames[i], argTypes[i], nullptr, true);
     args.push_back(v);
     scope->addName(v);
   }
@@ -562,9 +554,12 @@ void Subroutine::resolveImpl(bool final)
 
 ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vector<Type*>& argTypes, vector<string>& argN, string& code)
 {
+  //all ExternalSubroutines are procedures, since it is assumed that
+  //all C functions may have side effects
   type = new CallableType(false, returnType, argTypes);
   name = n;
   c = code;
+  scope = s;
   argNames = argN;
 }
 

@@ -53,17 +53,17 @@ void createBuiltinTypes()
   primNames["Error"] = primitives[Prim::ERROR];
   //string is a builtin alias for char[] (not a primitive)
   global->addName(new AliasType(
-        "string", getArrayType(primitives[Prim::CHAR], 1)));
-  global->addName(new AliasType("i8", primitives[Prim::BYTE]));
-  global->addName(new AliasType("u8", primitives[Prim::UBYTE]));
-  global->addName(new AliasType("i16", primitives[Prim::SHORT]));
-  global->addName(new AliasType("u16", primitives[Prim::USHORT]));
-  global->addName(new AliasType("i32", primitives[Prim::INT]));
-  global->addName(new AliasType("u32", primitives[Prim::UINT]));
-  global->addName(new AliasType("i64", primitives[Prim::LONG]));
-  global->addName(new AliasType("u64", primitives[Prim::ULONG]));
-  global->addName(new AliasType("f32", primitives[Prim::FLOAT]));
-  global->addName(new AliasType("f64", primitives[Prim::DOUBLE]));
+        "string", getArrayType(primitives[Prim::CHAR], 1), global));
+  global->addName(new AliasType("i8", primitives[Prim::BYTE], global));
+  global->addName(new AliasType("u8", primitives[Prim::UBYTE], global));
+  global->addName(new AliasType("i16", primitives[Prim::SHORT], global));
+  global->addName(new AliasType("u16", primitives[Prim::USHORT], global));
+  global->addName(new AliasType("i32", primitives[Prim::INT], global));
+  global->addName(new AliasType("u32", primitives[Prim::UINT], global));
+  global->addName(new AliasType("i64", primitives[Prim::LONG], global));
+  global->addName(new AliasType("u64", primitives[Prim::ULONG], global));
+  global->addName(new AliasType("f32", primitives[Prim::FLOAT], global));
+  global->addName(new AliasType("f64", primitives[Prim::DOUBLE], global));
 }
 
 Type* getArrayType(Type* elem, int ndims)
@@ -592,10 +592,11 @@ bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
 /* Alias Type */
 /**************/
 
-AliasType::AliasType(string alias, Type* underlying)
+AliasType::AliasType(string alias, Type* underlying, Scope* s)
 {
   name = alias;
   actual = underlying;
+  scope = s;
 }
 
 void AliasType::resolveImpl(bool final)
@@ -615,6 +616,7 @@ bool AliasType::canConvert(Type* other)
 
 EnumType::EnumType(Scope* enclosingScope)
 {
+  //"scope" encloses the enum constants
   scope = new Scope(enclosingScope, this);
   resolved = true;
 }
@@ -632,6 +634,7 @@ void EnumType::addValue(string valueName, int64_t value)
   }
   valueSet.insert(value);
   EnumConstant* newValue = new EnumConstant;
+  newValue->setLocation(this);
   newValue->et = this;
   newValue->name = valueName;
   newValue->value = value;
@@ -709,7 +712,7 @@ bool VoidType::canConvert(Type* t)
 /* Callable Type */
 /*****************/
 
-CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args);
+CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args)
 {
   pure = isPure;
   returnType = retType;
@@ -815,7 +818,7 @@ ExprType::ExprType(Expression* e)
   expr = e;
 }
 
-void ExprType::resolve(bool)
+void ExprType::resolveImpl(bool)
 {
   //should never get here,
   //ExprType must be replaced by another type in resolveType()
@@ -824,7 +827,7 @@ void ExprType::resolve(bool)
 
 ElemExprType::ElemExprType(Expression* a) : arr(a) {}
 
-void ElemExprType::resolve(bool)
+void ElemExprType::resolveImpl(bool)
 {
   //should never get here,
   //ElemExprType must be replaced by another type in resolveType()
@@ -841,89 +844,91 @@ void resolveType(Type*& t, bool final)
   Type* finalType = nullptr;
   if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
   {
-    if(unres->t.is<Prim>())
+    if(unres->t.is<Prim::PrimType>())
     {
-      finalType = primitives[unres->t.get<Prim>()];
+      finalType = primitives[unres->t.get<Prim::PrimType>()];
     }
     else if(unres->t.is<Member*>())
     {
-      Name found = unres->scope->findName(unres->t.get<Member*>());
+      auto mem = unres->t.get<Member*>();
+      Name found = unres->scope->findName(mem);
       //name wasn't found
       //if this is the last chance to resolve type, is an error
       if(!found.item && final)
       {
-        errMsgLoc(unres, "unknown type " << *unres->data.m);
+        errMsgLoc(unres, "unknown type " << *mem);
       }
       switch(found.kind)
       {
         case Name::STRUCT:
-          finalType = (Struct*) found.item;
+          finalType = (StructType*) found.item;
           break;
         case Name::ENUM:
-          finalType = (Enum*) found.item;
+          finalType = (EnumType*) found.item;
           break;
-        case Name::ALIAS:
-          finalType = ((Alias*) found.item)->actual;
+        case Name::TYPEDEF:
+          finalType = ((AliasType*) found.item)->actual;
           break;
         default:
-          errMsgLoc(unres, "name " << *unres->data.m << " does not refer to a type");
+          errMsgLoc(unres, "name " << mem << " does not refer to a type");
       }
     }
     else if(unres->t.is<UnresolvedType::TupleList>())
     {
+      auto& tupList = unres->t.get<UnresolvedType::TupleList>();
       //resolve member types individually
       bool allResolved = true;
-      for(Type*& mem : unres->data.t)
+      for(Type*& mem : tupList)
       {
-        resolveType(mem, err);
+        resolveType(mem, final);
         if(!mem->isResolved())
           allResolved = false;
       }
       if(allResolved)
       {
-        finalType = getTupleType(unres->data.t);
+        finalType = getTupleType(tupList);
       }
     }
     else if(unres->t.is<UnresolvedType::UnionList>())
     {
+      auto& unionList = unres->t.get<UnresolvedType::UnionList>();
       //resolve member types individually
       bool allResolved = true;
-      for(Type*& option : unres->data.u)
+      for(Type*& option : unionList)
       {
-        resolveType(option, err);
+        resolveType(option, final);
         if(!t->isResolved())
           allResolved = false;
       }
       if(allResolved)
       {
-        finalType = getUnionType(unres->data.u);
+        finalType = getUnionType(unionList);
       }
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {
-      Type*& key = unres->data.mt.key;
-      Type*& value = unres->data.mt.value;
-      resolveType(key, err);
-      resolveType(value, err);
-      if(key->isResolved() && value->isResolved())
+      auto& kv = unres->t.get<UnresolvedType::Map>();
+      resolveType(kv.key, final);
+      resolveType(kv.value, final);
+      if(kv.key->isResolved() && kv.value->isResolved())
       {
-        finalType = getMapType(key, value);
+        finalType = getMapType(kv.key, kv.value);
       }
     }
     else if(unres->t.is<UnresolvedType::Callable>())
     {
       //walk up scope tree to see if in a non-static context
-      Struct* ownerStruct = unres->scope->getStructContext();
-      Callable& ct = unres->t.get<UnresolvedType::Callable>();
+      auto ownerStruct = unres->scope->getStructContext();
+      auto& ct = unres->t.get<UnresolvedType::Callable>();
       bool allResolved = true;
-      resolveType(ct.returnType, err);
+      resolveType(ct.returnType, final);
       if(!ct.returnType->isResolved())
       {
         allResolved = false;
       }
       for(auto& param : ct.params)
       {
-        resolveType(param, err);
+        resolveType(param, final);
         if(!param->isResolved())
         {
           allResolved = false;
@@ -932,7 +937,7 @@ void resolveType(Type*& t, bool final)
       if(allResolved)
       {
         finalType = getSubroutineType(ownerStruct, ct.pure,
-            ct.retType, ct.params);
+            ct.returnType, ct.params);
       }
     }
     if(!finalType)
