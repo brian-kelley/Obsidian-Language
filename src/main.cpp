@@ -5,8 +5,7 @@
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "AST.hpp"
-#include "ParseTreeOutput.hpp"
-#include "MiddleEnd.hpp"
+//#include "ParseTreeOutput.hpp"
 #include "BuiltIn.hpp"
 
 void init()
@@ -29,17 +28,15 @@ int main(int argc, const char** argv)
   string code = getBuiltins() + loadFile(op.input);
   DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
-  vector<Token*> toks;
   sourceFiles.push_back(op.input);
   //empty "includes" is for root file (no other file is including it)
   includes.emplace_back();
-  TIMEIT("Lexing", toks = lex(code, 0););
+  TIMEIT("Lexing", Parser::tokens = lex(code, 0););
   //Parse the global/root module
-  Parser::Module* parseTree;
-  Parser p(toks);
-  TIMEIT("Parsing", parseTree = Parser::parseProgram(toks););
-  DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
-  TIMEIT("Semantic analysis", MiddleEnd::load(parseTree););
+  Module* program;
+  TIMEIT("Parsing", program = Parser::parseProgram(););
+  //DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
+  TIMEIT("Semantic analysis", program->finalResolve(););
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

@@ -1,15 +1,12 @@
 #include "C_Backend.hpp"
 #include <utility>
 
-using namespace TypeSystem;
 using std::pair;
 
 map<Type*, string> types;
 map<Type*, bool> typesImplemented;
 map<Subroutine*, string> subrs;
 map<Variable*, string> vars;
-//the variables that are stored as pointers
-set<Variable*> pointerVars;
 
 //The sets of types where util functions have been implemented
 set<Type*> initImpl;
@@ -119,7 +116,7 @@ namespace C
     }
     if(!compileSuccess)
     {
-      ERR_MSG("C compiler encountered error.");
+      errMsg("C compiler encountered error.");
     }
   }
 
@@ -260,21 +257,21 @@ namespace C
 
   void genTypeDecls()
   {
-    types[TypeSystem::primNames["void"]] = "char";
-    types[TypeSystem::primNames["Error"]] = "char";
-    types[TypeSystem::primNames["bool"]] = "bool";
-    types[TypeSystem::primNames["char"]] = "char";
-    types[TypeSystem::primNames["byte"]] = "int8_t";
-    types[TypeSystem::primNames["ubyte"]] = "uint8_t";
-    types[TypeSystem::primNames["short"]] = "int16_t";
-    types[TypeSystem::primNames["ushort"]] = "uint16_t";
-    types[TypeSystem::primNames["int"]] = "int32_t";
-    types[TypeSystem::primNames["uint"]] = "uint32_t";
-    types[TypeSystem::primNames["long"]] = "int64_t";
-    types[TypeSystem::primNames["ulong"]] = "uint64_t";
-    types[TypeSystem::primNames["float"]] = "float";
-    types[TypeSystem::primNames["double"]] = "double";
-    for(auto prim : TypeSystem::primitives)
+    types[primitives[Prim::VOID]] = "char";
+    types[primitives[Prim::ERROR]] = "char";
+    types[primitives[Prim::BOOL]] = "bool";
+    types[primitives[Prim::CHAR]] = "char";
+    types[primitives[Prim::BYTE]] = "int8_t";
+    types[primitives[Prim::UBYTE]] = "uint8_t";
+    types[primitives[Prim::SHORT]] = "int16_t";
+    types[primitives[Prim::USHORT]] = "uint16_t";
+    types[primitives[Prim::INT]] = "int32_t";
+    types[primitives[Prim::UINT]] = "uint32_t";
+    types[primitives[Prim::LONG]] = "int64_t";
+    types[primitives[Prim::ULONG]] = "uint64_t";
+    types[primitives[Prim::FLOAT]] = "float";
+    types[primitives[Prim::DOUBLE]] = "double";
+    for(auto prim : primitives)
     {
       typesImplemented[prim] = true;
     }
@@ -420,10 +417,10 @@ namespace C
     }
   }
 
-  bool genCoreBuiltins()
+  void genCoreBuiltins()
   {
-    Type* byteType = primitives[Parser::TypeNT::UBYTE];
-    Type* charType = primitives[Parser::TypeNT::CHAR];
+    Type* byteType = primitives[Prim::UBYTE];
+    Type* charType = primitives[Prim::CHAR];
     Type* stringType = getArrayType(charType, 1);
     Type* byteArray = getArrayType(byteType, 1);
     //  proc ubyte[] readFile(char[] filename)
@@ -463,9 +460,10 @@ namespace C
       "}\n"
       "return data;\n"
       "}\n\n";
-    utilFuncDefs << "void writeFile(" << types[byteArray] << "* data, " <<
+    utilFuncDefs << "void writeFile(" <<
+      types[byteArray] << "* data, " <<
       types[stringType] << "* filename)\n{\n"
-      "char* fname = malloc(
+      "char* fname = malloc(1);\n"
       "}\n";
     utilFuncDefs << types[stringType] << " readLine();\n";
     utilFuncDefs << types[stringType] << " readToken();\n";
@@ -480,7 +478,7 @@ namespace C
   bool typeNeedsDealloc(Type* t)
   {
     auto it = needsDealloc.find(t);
-    if(it != needsDealloc.find())
+    if(it != needsDealloc.end())
     {
       return it->second;
     }
@@ -489,7 +487,7 @@ namespace C
     {
       rv = false;
     }
-    else if(auto st = dynamic_cast<StructType*(t))
+    else if(auto st = dynamic_cast<StructType*>(t))
     {
       for(auto mem : st->members)
       {
@@ -500,7 +498,7 @@ namespace C
         }
       }
     }
-    else if(auto tt = dynamic_cast<TupleType*(t))
+    else if(auto tt = dynamic_cast<TupleType*>(t))
     {
       for(auto mem : tt->members)
       {
@@ -523,6 +521,11 @@ namespace C
     return rv;
   }
 
+  bool isPOD(Type* t)
+  {
+    return t->isPrimitive() || t->isEnum();
+  }
+
   void genGlobals()
   {
     //open the global scope (must be the root)
@@ -530,11 +533,10 @@ namespace C
     {
       INTERNAL_ERROR;
     }
-    pushScope();
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {
-        if(dynamic_cast<BlockScope*>(s) || dynamic_cast<SubroutineScope*>(s))
+        if(s->node.is<Block*>() || s->node.is<Subroutine*>())
         {
           //don't do local variables now
           return;
@@ -546,8 +548,8 @@ namespace C
             continue;
           }
           Variable* v = (Variable*) n.second.item;
-          //don't do struct members either
-          if(v->isMember)
+          //struct members have no corresponding variable decl in C
+          if(v->owner)
           {
             continue;
           }
@@ -601,12 +603,7 @@ namespace C
             vars[arg] = argName;
             funcDecls << types[arg->type];
             addScopedVar(arg->type, argName);
-            if(!arg->type->isPrimitive())
-            {
-              pointerVars.insert(arg);
-              funcDecls << '*';
-            }
-            funcDecls << ' ' << argName;
+            funcDecls << "* " << argName;
           }
           funcDecls << ");\n";
         }
@@ -681,7 +678,7 @@ namespace C
       funcDefs << ")\n{\n";
     }
     //generate local variables
-    generateLocalVariables(funcDefs, m->body->scope);
+    generateLocalVariables(funcDefs, m->body);
     //generate all statements like normal (one at a time)
     for(auto stmt : m->body->stmts)
     {
@@ -689,7 +686,7 @@ namespace C
     }
     //if main was declared void, add "return 0" to avoid warning
     //(because C return type is always int)
-    if(m->type->returnType == primitives[Parser::TypeNT::VOID])
+    if(m->type->returnType == primitives[Prim::VOID])
     {
       funcDefs << "return 0;\n";
     }
@@ -701,19 +698,7 @@ namespace C
     //first, handle special cases where expr is C lvalue
     if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
     {
-      if(pointerVars.find(var) == pointerVars.end())
-      {
-        return vars[var->var];
-      }
-      else
-      {
-        return "(*" + vars[var->var] + ')';
-      }
-    }
-    else if(TempVar* tv = dynamic_cast<TempVar*>(expr))
-    {
-      //in C code, this is just the temporary variable's name
-      return tv->ident;
+      return "(*" + vars[var->var] + ')';
     }
     else if(dynamic_cast<ThisExpr*>(expr))
     {
@@ -741,28 +726,28 @@ namespace C
           binary->op == CMPG || binary->op == CMPGE)
       {
         calc << "bool " << ident << " = ";
-        generateComparison(calc, binary->op, lhs, rhs);
+        generateComparison(calc, binary->op, binary->lhs->type, lhs, rhs);
       }
       else if(binary->op == PLUS &&
           binary->lhs->type->isArray() && binary->rhs->type->isArray())
       {
         //array concat
         calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getConcatFunc((ArrayType*) binary->lhs->type)
+        calc << getConcatFunc((ArrayType*) binary->lhs->type);
         calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->lhs->type->isArray())
       {
         //array append
         calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getAppendFunc((ArrayType*) binary->lhs->type)
+        calc << getAppendFunc((ArrayType*) binary->lhs->type);
         calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->rhs->type->isArray())
       {
         //array prepend
         calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getPrependFunc((ArrayType*) binary->rhs->type)
+        calc << getPrependFunc((ArrayType*) binary->rhs->type);
         calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
       }
       else
@@ -788,7 +773,7 @@ namespace C
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //allocate and populate char[] struct from string literal
-      ArrayType* stringType = (ArrayType*) TypeSystem::getArrayType(primNames["char"], 1);
+      ArrayType* stringType = (ArrayType*) getArrayType(primitives[Prim::CHAR], 1);
       string& t = types[stringType];
       calc << t << ' ' << ident << " = " << getAllocFunc(stringType) << '(' << stringLit->value.length() << ");\n";
       calc << "strcpy(" << ident << "->data, \"";
@@ -838,7 +823,7 @@ namespace C
         int valueTag = -1;
         for(size_t i = 0; i < ut->options.size(); i++)
         {
-          if(ut->options[i] == primitives[Parser::TypeNT::ERROR])
+          if(ut->options[i] == primitives[Prim::ERROR])
             errTag = i;
           else if(ut->options[i] == mt->value)
             valueTag = i;
@@ -914,7 +899,7 @@ namespace C
               i++;
               if(i == cCode.length() - 1)
               {
-                ERR_MSG("$ is last character in external C code snippet");
+                errMsgLoc(subrExpr->exSubr, "$ is last character in external C code snippet");
               }
               char next = cCode[i];
               if(next == 'r')
@@ -931,9 +916,9 @@ namespace C
                   argNum += cCode[i] - '0';
                   i++;
                 }
-                if(argNum < 0 || argNum >= subrType->args.size())
+                if(argNum < 0 || argNum >= subrType->argTypes.size())
                 {
-                  ERR_MSG("in C snippet, argument index "
+                  errMsgLoc(subrExpr->exSubr, "in C snippet, argument index "
                       << argNum << " out of bounds.\n");
                 }
                 calc << args[argNum];
@@ -959,12 +944,13 @@ namespace C
         //is a method call iff callable is a StructMem
         if(auto sm = dynamic_cast<StructMem*>(call->callable))
         {
+          auto st = (StructType*) sm->base->type;
           //evaluate base only once (it is used twice)
           string base = generateExpression(c, sm->base);
           calc << '(' << base << ".mem";
           for(size_t i = 0; i < st->members.size(); i++)
           {
-            if(st->members[i] == sm->member)
+            if(st->members[i] == sm->member.get<Variable*>())
             {
               calc << i;
               break;
@@ -1036,7 +1022,7 @@ namespace C
       StructType* st = (StructType*) sm->base->type;
       for(size_t i = 0; i < st->members.size(); i++)
       {
-        if(sm->member == st->members[i])
+        if(sm->member.get<Variable*>() == st->members[i])
         {
           memIndex = i;
           break;
@@ -1090,8 +1076,9 @@ namespace C
     return ident;
   }
 
-  void generateComparison(ostream& c, Oper op, Type* t, string lhs, string rhs)
+  void generateComparison(ostream& c, int op, Type* t, string lhs, string rhs)
   {
+    string name = getIdentifier();
     c << "bool " << name << " = ";
     if(op == CMPEQ || op == CMPNEQ)
     {
@@ -1119,7 +1106,7 @@ namespace C
   {
     c << "{\n";
     //introduce local variables
-    generateLocalVariables(c, b->scope);
+    generateLocalVariables(c, b);
     for(auto blockStmt : b->stmts)
     {
       generateStatement(c, b, blockStmt);
@@ -1149,12 +1136,13 @@ namespace C
       popScope(c);
       c << '}';
     }
+    /*
     else if(For* f = dynamic_cast<For*>(stmt))
     {
       //open a C block for loop scope's vars
       c << "{\n";
       pushScope();
-      generateLocalVariables(c, f->loopBlock->scope);
+      generateLocalVariables(c, f->loopBlock);
       if(f->init)
       {
         generateStatement(c, b, f->init);
@@ -1193,6 +1181,7 @@ namespace C
       popScope();
       c << "}\n";
     }
+    */
     else if(While* w = dynamic_cast<While*>(stmt))
     {
       string topLabel = getIdentifier();
@@ -1201,7 +1190,7 @@ namespace C
       string cond = generateExpression(c, w->condition);
       c << "if(!" << cond << ")\n";
       c << "goto " << Context::whileBreakLabels[w] << ";\n";
-      generateBlock(c, w->loopBlock);
+      generateBlock(c, w->body);
       c << "goto " << topLabel << ";\n";
     }
     else if(If* ii = dynamic_cast<If*>(stmt))
@@ -1210,29 +1199,22 @@ namespace C
       c << "if(" << cond << ")\n{\n";
       generateStatement(c, b, ii->body);
       c << "}\n";
-    }
-    else if(IfElse* ie = dynamic_cast<IfElse*>(stmt))
-    {
-      string cond = generateExpression(c, ii->condition);
-      c << "if(" << cond << ")\n{\n";
-      generateStatement(c, b, ie->trueBody);
-      c << "}\n";
-      c << "else\n{\n";
-      generateStatement(c, b, ie->falseBody);
-      c << "}\n";
+      if(ii->elseBody)
+      {
+        c << "else\n{\n";
+        generateStatement(c, b, ii->elseBody);
+        c << "}\n";
+      }
     }
     else if(Return* r = dynamic_cast<Return*>(stmt))
     {
+      c << "return";
       if(r->value)
       {
-        c << "return ";
+        c << ' ';
         generateExpression(c, r->value);
-        c << ";\n";
       }
-      else
-      {
-        c << "return;\n";
-      }
+      c << ";\n";
     }
     else if(Break* brk = dynamic_cast<Break*>(stmt))
     {
@@ -1240,7 +1222,7 @@ namespace C
       if(brk->breakable.is<While*>())
       {
         //generate the break label if it doesn't already exist
-        auto it = Context::whielBreakLabels.find(brk->breakable.get<While*>());
+        auto it = Context::whileBreakLabels.find(brk->breakable.get<While*>());
         if(it == Context::whileBreakLabels.end())
         {
           string breakLabel = getIdentifier();
@@ -1303,6 +1285,7 @@ namespace C
       c << "exit(1);\n";
       c << "}\n";
     }
+    /*
     else if(Switch* sw = dynamic_cast<Switch*>(stmt))
     {
       //C can't compare compound data structures, so
@@ -1396,6 +1379,7 @@ namespace C
       }
       c << "}\n";
     }
+    */
     else
     {
       INTERNAL_ERROR;
@@ -1531,9 +1515,9 @@ namespace C
     }
   }
 
-  void generateLocalVariables(ostream& c, BlockScope* bs)
+  void generateLocalVariables(ostream& c, Block* b)
   {
-    for(auto& n : bs->names)
+    for(auto& n : b->scope->names)
     {
       if(n.second.kind != Name::VARIABLE)
       {
@@ -1810,7 +1794,7 @@ namespace C
       {
         def << ", " << args[i];
       }
-      def << ");\n":
+      def << ");\n";
     }
     else
     {
@@ -2078,7 +2062,7 @@ namespace C
     //conversion from one primitive to another is same semantics as C
     if(in->isPrimitive() && out->isPrimitive())
     {
-      if(out == TypeSystem::primitives[Parser::TypeNT::BOOL])
+      if(out == primitives[Prim::BOOL])
       {
         //like C, out is true if and only if in is nonzero
         def << "*dst = *src != 0;\n";
@@ -2561,7 +2545,7 @@ namespace C
     return func;
   }
 
-  string getAppendFunc(TypeSystem::ArrayType* at)
+  string getAppendFunc(ArrayType* at)
   {
     string& typeName = types[at];
     string func = "append_" + typeName + '_';
@@ -2592,7 +2576,7 @@ namespace C
     return func;
   }
 
-  string getPrependFunc(TypeSystem::ArrayType* at)
+  string getPrependFunc(ArrayType* at)
   {
     string& typeName = types[at];
     string func = "prepend_" + typeName + '_';
@@ -2719,7 +2703,7 @@ namespace C
     return func;
   }
 
-  string getHashFunc(TypeSystem::Type* t)
+  string getHashFunc(Type* t)
   {
     string& typeName = types[t];
     string func = "hash_" + typeName + '_';

@@ -18,7 +18,7 @@ struct Statement : public Node
   //normal ctor: automatically set index within parent block
   Statement(Block* b) : block(b) {}
   Block* block;
-  virtual void resolveImpl(bool final);
+  virtual void resolveImpl(bool final) {}
   virtual ~Statement() {}
   int statementIndex;
 };

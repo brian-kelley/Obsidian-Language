@@ -24,11 +24,26 @@ bool Name::inScope(Scope* s)
 *   Scope & subclasses impl    *
 *******************************/
 
-Scope::Scope(Scope* p, Module* m) : parent(p), node(m) {}
-Scope::Scope(Scope* p, StructType* s) : parent(p), node(s) {}
-Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s) {}
-Scope::Scope(Scope* p, Block* b) : parent(p), node(b) {}
-Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e) {}
+Scope::Scope(Scope* p, Module* m) : parent(p), node(m)
+{
+  if(p) p->children.push_back(this);
+}
+Scope::Scope(Scope* p, StructType* s) : parent(p), node(s)
+{
+  if(p) p->children.push_back(this);
+}
+Scope::Scope(Scope* p, Subroutine* s) : parent(p), node(s)
+{
+  if(p) p->children.push_back(this);
+}
+Scope::Scope(Scope* p, Block* b) : parent(p), node(b)
+{
+  if(p) p->children.push_back(this);
+}
+Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e)
+{
+  if(p) p->children.push_back(this);
+}
 
 void Scope::addName(Name n)
 {

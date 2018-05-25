@@ -2,7 +2,10 @@
 #define C_GEN_H
 
 #include "Common.hpp"
-#include "MiddleEnd.hpp"
+#include "TypeSystem.hpp"
+#include "Subroutine.hpp"
+#include "Expression.hpp"
+#include "Variable.hpp"
 
 namespace C
 {
@@ -28,7 +31,7 @@ namespace C
   //  func double? stod(char[] str)
   //  func char[] printHex(ulong num)
   //  func char[] printBin(ulong num)
-  bool genCoreBuiltins();
+  void genCoreBuiltins();
   //forward-declare all compound types (and arrays),
   //then actually define them as C structs
   void genTypeDecls();
@@ -45,50 +48,51 @@ namespace C
   void generateStatement(ostream& c, Block* b, Statement* stmt);
   void generateBlock(ostream& c, Block* b);
   string generateExpression(ostream& c, Block* b, Expression* expr);
-  void generateComparison(ostream& c, Oper op, string lhs, string rhs);
+  void generateComparison(ostream& c, int op, Type* t, string lhs, string rhs);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  void generateLocalVariables(ostream& c, BlockScope* b);
+  void generateLocalVariables(ostream& c, Block* b);
   //utility functions
   //generate a nicely formatted "section" header in C comment
   void generateSectionHeader(ostream& c, string name);
   //lazily generate and return name of C function
   //(also generates all other necessary util funcs)
-  string getInitFunc(TypeSystem::Type* t);
-  string getCopyFunc(TypeSystem::Type* t);
+  string getInitFunc(Type* t);
+  string getCopyFunc(Type* t);
   //alloc functions take N integers and produce N-dimensional rectangular array
-  string getAllocFunc(TypeSystem::ArrayType* t);
-  string getDeallocFunc(TypeSystem::Type* t);
-  string getPrintFunc(TypeSystem::Type* t);
+  string getAllocFunc(ArrayType* t);
+  string getDeallocFunc(Type* t);
+  string getPrintFunc(Type* t);
   //convert and deep-copy input from one type to another
   //precondition: out->canConvert(in)
-  string getConvertFunc(TypeSystem::Type* out, TypeSystem::Type* in);
+  string getConvertFunc(Type* out, Type* in);
   //compare two inputs for equality
-  string getEqualsFunc(TypeSystem::Type* t);
+  string getEqualsFunc(Type* t);
   //test first < second
-  string getLessFunc(TypeSystem::Type* t);
+  string getLessFunc(Type* t);
   //given two arrays, return a new concatenated array
-  string getConcatFunc(TypeSystem::ArrayType* at);
-  string getAppendFunc(TypeSystem::ArrayType* at);
-  string getPrependFunc(TypeSystem::ArrayType* at);
+  string getConcatFunc(ArrayType* at);
+  string getAppendFunc(ArrayType* at);
+  string getPrependFunc(ArrayType* at);
   //generate "void sort_T_(T** data, size_type n)"
-  string getSortFunc(TypeSystem::Type* t);
+  string getSortFunc(Type* t);
   //given an array and an index, "safely" access the element
   //program terminates if out of bounds
-  string getAccessFunc(TypeSystem::ArrayType* at);
-  string getAssignFunc(TypeSystem::ArrayType* at);
-  string getHashFunc(TypeSystem::Type* t);
-  string getHashInsert(TypeSystem::Type* t);
+  string getAccessFunc(ArrayType* at);
+  string getAssignFunc(ArrayType* at);
+  string getHashFunc(Type* t);
+  string getHashInsert(Type* t);
 
-  //(memoized)
-  //whether type needs explicit free (i.e. does it own heap memory)
-  bool typeNeedsDealloc(TypeSystem::Type* t);
+  //true if type owns heap memory
+  bool typeNeedsDealloc(Type* t);
+  //true if type is stack-allocated and passed by value
+  bool isPOD(Type* t);
 
   //System for keeping track of and freeing objects in C scopes
   struct CVar
   {
     CVar() : type(nullptr), name("") {}
-    CVar(TypeSystem::Type* t, string n) : type(t), name(n) {}
-    TypeSystem::Type* type;
+    CVar(Type* t, string n) : type(t), name(n) {}
+    Type* type;
     string name;
   };
   struct CScope
@@ -99,8 +103,8 @@ namespace C
   //create a new, empty scope
   void pushScope();
   //add a local variable to topmost scope
-  void addScopedVar(TypeSystem::Type* t, string name);
-  //generate free calls for all vars in top scope and then delete it
+  void addScopedVar(Type* t, string name);
+  //free all heap variables in top scope and then pop
   void popScope(ostream& c);
 }
 

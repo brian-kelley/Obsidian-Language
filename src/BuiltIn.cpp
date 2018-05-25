@@ -145,6 +145,6 @@ const char* getBuiltins()
     "convert$typer_Error(&$r, NULL);\n\""
     //close
     "extern proc void? close(string pathname, uint flags)\n"
-    "\"$r = open($0->data, $1);\";\n"
+    "\"$r = open($0->data, $1);\";\n";
 }
 

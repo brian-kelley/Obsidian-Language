@@ -82,6 +82,7 @@ struct Scope
   void addName(EnumType* e);
   void addName(EnumConstant* e);
   map<string, Name> names;
+  vector<Scope*> children;
   //if in static context, this returns NULL
   //otherwise, returns the Struct that "this" would refer to
   StructType* getStructContext();

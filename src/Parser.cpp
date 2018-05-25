@@ -41,10 +41,9 @@ namespace Parser
   size_t pos;
   vector<Token*> tokens;
 
-  Module* parseProgram(vector<Token*>& toks)
+  Module* parseProgram()
   {
     pos = 0;
-    tokens = toks;
     Module* globalModule = new Module("", nullptr);
     while(!accept(PastEOF::inst))
     {
