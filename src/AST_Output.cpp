@@ -1,6 +1,9 @@
-#include "ParseTreeOutput.hpp"
+#include "AST_Output.hpp"
 
-using namespace Parser;
+#include "Subroutine.hpp"
+#include "Expression.hpp"
+#include "TypeSystem.hpp"
+#include "Variable.hpp"
 
 //The stream for writing dotfile (GraphViz) output
 FILE* dot = NULL;
@@ -14,7 +17,7 @@ int nextNode()
 template<typename T>
 int emit(T* n)
 {
-  cout << "ParseTreeOutput didn't implement emit<" << typeid(T).name() << ">\n";
+  cout << "AST_Output didn't implement emit<" << typeid(T).name() << ">\n";
   INTERNAL_ERROR;
   return 0;
 }
@@ -25,7 +28,7 @@ void outputParseTree(Parser::Module* tree, string filename)
 {
 #ifdef DEBUG
   dot = fopen(filename.c_str(), "w");
-  fputs("digraph ParseTree {\n", dot);
+  fputs("digraph AST {\n", dot);
   emit<Module>(tree);
   fputs("}\n", dot);
   fclose(dot);

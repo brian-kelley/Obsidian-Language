@@ -1,17 +1,21 @@
 ---------------------
       TODO:
 ---------------------
--Finish merging AST with parse tree
-  -try to resolve each node right after parsing it
-    -unless it's a call (or contains a call) because
-      all overloads might not be available yet
-  -resolve the whole program (global module) after parsing
-  -backend shouldn't have to change very much
--Add logic for inserting tokens in stream at current position
-  -token stream should be vector<vector<Token*>>
-  -after fully consuming an inner vector, erase it
-  -should only affect lookAhead() and eat() - eat should be a trivial accept()
-    -the real accept/expect functions can be implemented in terms of these
+-Make backend work
+  -Don't try to avoid data structure copies (do that later but still in un-optimized build)
+  -All statements, all data structures
+  -Initialization of globals and struct members
+  -Tests
+  -Test compiler thoroughly: correct operation and no leaks
+-Implement #include (a special built-in metaprocedure)
+
+-Build data dependency graph (for now, only within subroutines)
+  -for each basic block, find the inputs
+-Constant propagation and compile-time evaluation of expressions
+  -finish and use the interpreter
+-Build CFG of each subroutine
+  -Liveness analysis
+
 -Add keyword include
   -check that is inside static module
   -read file (if that fails, give informative message)
@@ -22,7 +26,6 @@
   -include should be idempotent (doing it again with same file is no-op)
     -don't even need to read the file after first time, just find path in table
 -Implement external functions in backend
--Allow shadowing
 -Implement overloading
   -Name::SUBROUTINE needs to be changed to refer to all subrs with same name
   -can't overload on return type alone
@@ -122,41 +125,6 @@
         return serialize(v).len;
     }
   }
-
-  //this can reduce code size from exponential to linear for
-  //templates with multiple arguments (i.e. trilinos),
-  //with small constant time overhead per call
-  //(costs the union setup and an indirect jump, which is same as virtual call)
-
-  //always do this when optimizing for code size (i.e. debug builds)
-  //do this in cold code in release builds
-
-  -Parser works through a single, linear token stream
-  -If at any point the parser looks ahead to '#', parse/execute meta-statement
-  -In this context, statements can be declarations or actions
-
--Front end: text stream -> token stream -> parse tree
--Middle end: parse tree -> fully typed and semantically checked intermediate representation
--Meta-interpreter: IR -> more program source and parse tree nodes to be inserted
-  -emitted parse nodes will be written out as text
--Run different (pre-backend) compiler stages as a pipeline instead of distinct steps as is done now
-  -Allow for inserting program text at the start of stream without actually modifying original code string (performance)
-  -this means that meta-stuff requires all types/subroutines to be declared before use (no good way around this?)
-    -can't just leave it as deferred, because emitting code can arbitrarily affect compilation later in the source
-    -if name lookup fails in the course of interpreting, immediate error
-
--Interoperation with arbitrary c libraries: function description is a C string that is inlined at every call site in Onyx source
-  -this string provides the body of a C function
--C variadic funcs are not supported
-
--Backend: emitting control flow statements (break, continue, return) should free locals in scopes that close
-  -normally, closing a block will call popScope() exactly once
--break from loop needs to pop from innermost block up to and including the loop block
-  -break from switch only pops blocks that are inside the switch
-  -continue in loop pops innermost block up to but not including the loop block
-  -return pops from innermost block up to and including the innermost subroutine
-  -this special control flow instructions don't actually call popScope() at all, because technically those scopes
-  are still open (even if the real block pop code is unreachable)
 
 -----------------------------------
    After core language compiler:

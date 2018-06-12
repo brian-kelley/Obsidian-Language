@@ -449,8 +449,16 @@ struct UnresolvedType : public Type
 {
   //tuple and union are both just vectors of types, so need this
   //to differentiate them in the variant
-  struct TupleList : public vector<Type*> {};
-  struct UnionList : public vector<Type*> {};
+  struct Tuple
+  {
+    Tuple(vector<Type*>& m) : members(m) {}
+    vector<Type*> members;
+  };
+  struct Union
+  {
+    Union(vector<Type*>& m) : members(m) {}
+    vector<Type*> members;
+  };
   struct Map
   {
     Map(Type* k, Type* v) : key(k), value(v) {}
@@ -466,7 +474,7 @@ struct UnresolvedType : public Type
     Type* returnType;
     vector<Type*> params;
   };
-  variant<Prim::PrimType, Member*, TupleList, UnionList, Map, Callable> t;
+  variant<Prim::PrimType, Member*, Tuple, Union, Map, Callable> t;
   Scope* scope;
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else

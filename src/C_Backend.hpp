@@ -7,6 +7,15 @@
 #include "Expression.hpp"
 #include "Variable.hpp"
 
+/* C backend memory management:
+ *
+ *  -global variables are global C variables (statically allocated)
+ *  -local variables are all allocated on stack
+ *  -array, map and union storage are on heap
+ *  -primitives/enums passed by value; everything else by pointer
+ *
+ */
+
 namespace C
 {
   //Generate C source file to outputStem.c, then run C compiler, and if !keep delete the source file
@@ -41,8 +50,9 @@ namespace C
   void genSubroutines();
   void genMain(Subroutine* m);
 
-  //Generate a unique C identifier (also won't collide with any existing C name)
+  //Generate a unique integer to be used as C identifier
   string getIdentifier();
+
   //given lambda f that takes a Scope*, run f on all scopes (depth-first)
   template<typename F> void walkScopeTree(F f);
   void generateStatement(ostream& c, Block* b, Statement* stmt);
@@ -51,9 +61,11 @@ namespace C
   void generateComparison(ostream& c, int op, Type* t, string lhs, string rhs);
   void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
   void generateLocalVariables(ostream& c, Block* b);
-  //utility functions
-  //generate a nicely formatted "section" header in C comment
+
+  //generate a nicely formatted "section" header in a comment
   void generateSectionHeader(ostream& c, string name);
+
+  //utility functions
   //lazily generate and return name of C function
   //(also generates all other necessary util funcs)
   string getInitFunc(Type* t);
@@ -86,26 +98,14 @@ namespace C
   bool typeNeedsDealloc(Type* t);
   //true if type is stack-allocated and passed by value
   bool isPOD(Type* t);
+  //true if type needs "->" to access members instead of "."
+  bool isPointer(Expression* expr);
 
-  //System for keeping track of and freeing objects in C scopes
-  struct CVar
-  {
-    CVar() : type(nullptr), name("") {}
-    CVar(Type* t, string n) : type(t), name(n) {}
-    Type* type;
-    string name;
-  };
-  struct CScope
-  {
-    vector<CVar> vars;
-  };
-  extern vector<CScope> cscopes;
-  //create a new, empty scope
-  void pushScope();
-  //add a local variable to topmost scope
-  void addScopedVar(Type* t, string name);
-  //free all heap variables in top scope and then pop
-  void popScope(ostream& c);
+  //Generate free calls for all variables inside of current,
+  //and all its parent scopes up to and including s.
+  //Call before generating return, end of block, etc.
+  //This is like automatic generation of C++ destructors
+  void freeWithinScope(ostream& c, Scope* s, Scope* current);
 }
 
 #endif

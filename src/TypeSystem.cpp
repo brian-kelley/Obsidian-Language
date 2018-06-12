@@ -7,7 +7,7 @@
 /* Type and subclasses */
 /***********************/
 
-extern Scope* global;
+extern Module* global;
 
 vector<Type*> primitives;
 
@@ -52,18 +52,19 @@ void createBuiltinTypes()
   primNames["void"] = primitives[Prim::VOID];
   primNames["Error"] = primitives[Prim::ERROR];
   //string is a builtin alias for char[] (not a primitive)
-  global->addName(new AliasType(
-        "string", getArrayType(primitives[Prim::CHAR], 1), global));
-  global->addName(new AliasType("i8", primitives[Prim::BYTE], global));
-  global->addName(new AliasType("u8", primitives[Prim::UBYTE], global));
-  global->addName(new AliasType("i16", primitives[Prim::SHORT], global));
-  global->addName(new AliasType("u16", primitives[Prim::USHORT], global));
-  global->addName(new AliasType("i32", primitives[Prim::INT], global));
-  global->addName(new AliasType("u32", primitives[Prim::UINT], global));
-  global->addName(new AliasType("i64", primitives[Prim::LONG], global));
-  global->addName(new AliasType("u64", primitives[Prim::ULONG], global));
-  global->addName(new AliasType("f32", primitives[Prim::FLOAT], global));
-  global->addName(new AliasType("f64", primitives[Prim::DOUBLE], global));
+  Scope* glob = global->scope;
+  glob->addName(new AliasType(
+        "string", getArrayType(primitives[Prim::CHAR], 1), glob));
+  glob->addName(new AliasType("i8", primitives[Prim::BYTE], glob));
+  glob->addName(new AliasType("u8", primitives[Prim::UBYTE], glob));
+  glob->addName(new AliasType("i16", primitives[Prim::SHORT], glob));
+  glob->addName(new AliasType("u16", primitives[Prim::USHORT], glob));
+  glob->addName(new AliasType("i32", primitives[Prim::INT], glob));
+  glob->addName(new AliasType("u32", primitives[Prim::UINT], glob));
+  glob->addName(new AliasType("i64", primitives[Prim::LONG], glob));
+  glob->addName(new AliasType("u64", primitives[Prim::ULONG], glob));
+  glob->addName(new AliasType("f32", primitives[Prim::FLOAT], glob));
+  glob->addName(new AliasType("f64", primitives[Prim::DOUBLE], glob));
 }
 
 Type* getArrayType(Type* elem, int ndims)
@@ -873,12 +874,12 @@ void resolveType(Type*& t, bool final)
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
       }
     }
-    else if(unres->t.is<UnresolvedType::TupleList>())
+    else if(unres->t.is<UnresolvedType::Tuple>())
     {
-      auto& tupList = unres->t.get<UnresolvedType::TupleList>();
+      auto& tupList = unres->t.get<UnresolvedType::Tuple>();
       //resolve member types individually
       bool allResolved = true;
-      for(Type*& mem : tupList)
+      for(Type*& mem : tupList.members)
       {
         resolveType(mem, final);
         if(!mem->isResolved())
@@ -886,15 +887,15 @@ void resolveType(Type*& t, bool final)
       }
       if(allResolved)
       {
-        finalType = getTupleType(tupList);
+        finalType = getTupleType(tupList.members);
       }
     }
-    else if(unres->t.is<UnresolvedType::UnionList>())
+    else if(unres->t.is<UnresolvedType::Union>())
     {
-      auto& unionList = unres->t.get<UnresolvedType::UnionList>();
+      auto& unionList = unres->t.get<UnresolvedType::Union>();
       //resolve member types individually
       bool allResolved = true;
-      for(Type*& option : unionList)
+      for(Type*& option : unionList.members)
       {
         resolveType(option, final);
         if(!t->isResolved())
@@ -902,7 +903,7 @@ void resolveType(Type*& t, bool final)
       }
       if(allResolved)
       {
-        finalType = getUnionType(unionList);
+        finalType = getUnionType(unionList.members);
       }
     }
     else if(unres->t.is<UnresolvedType::Map>())

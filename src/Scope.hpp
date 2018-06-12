@@ -24,6 +24,8 @@ struct Module : public Node
   Scope* scope;
 };
 
+extern Module* global;
+
 // Unified name lookup system
 struct Name
 {
@@ -103,8 +105,6 @@ struct Scope
   //using this variant instead of having these types inherit Scope
   variant<Module*, StructType*, Subroutine*, Block*, EnumType*> node;
 };
-
-extern Scope* global;
 
 #endif
 

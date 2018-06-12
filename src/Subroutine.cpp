@@ -1,8 +1,8 @@
 #include "Subroutine.hpp"
 #include "Variable.hpp"
 
-extern bool programHasMain;
-extern Scope* global;
+bool programHasMain = false;
+extern Module* global;
 
 vector<Test*> Test::tests;
 
@@ -544,11 +544,35 @@ void Subroutine::resolveImpl(bool final)
     {
       return;
     }
+    argsModified.push_back(false);
   }
   //resolve the body
   body->resolve(final);
   if(!body->resolved)
     return;
+  if(name == "main")
+  {
+    if(scope->parent != global->scope)
+    {
+      errMsgLoc(this, "main must be in global scope");
+    }
+    if(type->pure)
+    {
+      errMsgLoc(this, "main must be a procedure, not a function");
+    }
+    if(type->returnType != primitives[Prim::VOID] &&
+        type->returnType != primitives[Prim::INT])
+    {
+      errMsgLoc(this, "main() must return void or int");
+    }
+    if(type->argTypes.size() > 1 ||
+        (type->argTypes.size() == 1 &&
+         type->argTypes[0] != getArrayType(primitives[Prim::CHAR], 2)))
+    {
+      errMsgLoc(this, "main() must take either no arguments or string[]");
+    }
+    programHasMain = true;
+  }
   resolved = true;
 }
 

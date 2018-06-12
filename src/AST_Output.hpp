@@ -7,7 +7,7 @@
 #include "Token.hpp"
 #include <iostream>
 
-void outputParseTree(Module* tree, string filename);
+void outputAST(Module* tree, string filename);
 
 #endif
 

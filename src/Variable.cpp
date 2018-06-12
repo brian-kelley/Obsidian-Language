@@ -46,3 +46,8 @@ void Variable::resolve(bool final)
   resolved = true;
 }
 
+bool Variable::isParameter()
+{
+  return scope->node.is<Subroutine*>();
+}
+

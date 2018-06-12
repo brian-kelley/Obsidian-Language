@@ -5,13 +5,26 @@
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "AST.hpp"
-//#include "ParseTreeOutput.hpp"
+#include "AST_Output.hpp"
 #include "BuiltIn.hpp"
+
+Module* global = nullptr;
 
 void init()
 {
   //all namespace initialization
   initTokens();
+  global = new Module("", nullptr);
+  createBuiltinTypes();
+}
+
+void semanticCheck(Module* program)
+{
+  program->finalResolve();
+  if(!programHasMain)
+  {
+    errMsg("Program requires main procedure to be defined");
+  }
 }
 
 int main(int argc, const char** argv)
@@ -25,18 +38,26 @@ int main(int argc, const char** argv)
     return EXIT_FAILURE;
   }
   //all program code: prepend builtin code to source file
-  string code = getBuiltins() + loadFile(op.input);
+  //string code = getBuiltins() + loadFile(op.input);
+  string code = loadFile(op.input);
   DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
   sourceFiles.push_back(op.input);
   //empty "includes" is for root file (no other file is including it)
   includes.emplace_back();
   TIMEIT("Lexing", Parser::tokens = lex(code, 0););
+  /*
+  //print tokens
+  cout << "Tokens:\n";
+  for(auto& tok : Parser::tokens)
+  {
+    cout << tok->getStr() << '\n';
+  }
+  */
   //Parse the global/root module
-  Module* program;
-  TIMEIT("Parsing", program = Parser::parseProgram(););
+  TIMEIT("Parsing", Parser::parseProgram(););
   //DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
-  TIMEIT("Semantic analysis", program->finalResolve(););
+  TIMEIT("Semantic analysis", global->finalResolve(););
   TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

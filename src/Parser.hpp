@@ -42,7 +42,7 @@ namespace Parser
   */
 
   //Parse a program from token string (only parsing function called from main)
-  Module* parseProgram();
+  void parseProgram();
 
   //Token stream & utilities
   extern size_t pos;                //token iterator

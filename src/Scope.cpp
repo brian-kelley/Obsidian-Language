@@ -3,10 +3,6 @@
 #include "Variable.hpp"
 #include "Subroutine.hpp"
 
-using namespace TypeSystem;
-
-Scope* global;
-
 bool Name::inScope(Scope* s)
 {
   //see if scope is same as, or child of, s

@@ -20,6 +20,7 @@ struct Variable : public Node
   Variable(Scope* s, string name, Type* t, Expression* init, bool isStatic, bool compose = false);
   //ctor for local variables
   Variable(string name, Type* t, Block* b);
+  bool isParameter();
   //this resolve() just resolves type
   void resolve(bool final);
   string name;

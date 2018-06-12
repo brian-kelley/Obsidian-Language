@@ -11,6 +11,8 @@
 // Subroutine: middle-end structures for program behavior and control flow //
 /***************************************************************************/
 
+extern bool programHasMain;
+
 struct Statement : public Node
 {
   //ctor for statements that don't belong to any block (e.g. subroutine bodies)

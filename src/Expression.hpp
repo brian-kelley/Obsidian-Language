@@ -33,10 +33,6 @@ struct ThisExpr;
 struct ErrorVal;
 struct UnresolvedExpr;
 
-//process one name as part of Expr12 or Expr12RHS
-//returns true iff root is a valid expression that uses all names
-void processExpr12Name(string name, bool& isFinal, bool first, Expression*& root, Scope*& scope);
-
 //Assuming expr is a struct type, get the struct scope
 //Otherwise, display relevant errors
 Scope* scopeForExpr(Expression* expr);

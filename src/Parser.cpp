@@ -6,6 +6,8 @@
 #include "Expression.hpp"
 #include "Variable.hpp"
 
+extern Module* global;
+
 //Macros to help parse common patterns
 //func should be the whole call, i.e. parseThing(s)
 //end should be a token
@@ -41,15 +43,13 @@ namespace Parser
   size_t pos;
   vector<Token*> tokens;
 
-  Module* parseProgram()
+  void parseProgram()
   {
     pos = 0;
-    Module* globalModule = new Module("", nullptr);
     while(!accept(PastEOF::inst))
     {
-      parseScopedDecl(globalModule->scope, true);
+      parseScopedDecl(global->scope, true);
     }
-    return globalModule;
   }
 
   void parseModule(Scope* s)
@@ -83,6 +83,7 @@ namespace Parser
 
   void parseScopedDecl(Scope* s, bool semicolon)
   {
+    cout << "Parsing scoped decl, next: " << lookAhead()->getStr() << '\n';
     Punct colon(COLON);
     if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
@@ -91,27 +92,27 @@ namespace Parser
         case FUNC:
         case PROC:
           parseSubroutine(s);
-          break;
+          return;
         case EXTERN:
           parseExternalSubroutine(s);
-          break;
+          return;
         case STRUCT:
           parseStruct(s);
-          break;
+          return;
         case TYPEDEF:
           parseAlias(s);
           if(semicolon)
             expectPunct(SEMICOLON);
-          break;
+          return;
         case ENUM:
           parseEnum(s);
-          break;
+          return;
         case MODULE:
           parseModule(s);
-          break;
+          return;
         case TEST:
           parseTest(s);
-          break;
+          return;
         default:
           INTERNAL_ERROR;
       }
@@ -122,6 +123,7 @@ namespace Parser
       parseVarDecl(s);
       if(semicolon)
         expectPunct(semicolon);
+      return;
     }
     INTERNAL_ERROR;
   }
@@ -201,14 +203,14 @@ namespace Parser
       if(acceptPunct(COMMA))
       {
         //tuple
-        UnresolvedType::TupleList types;
+        vector<Type*> types;
         types.push_back(first);
         do
         {
           types.push_back(parseType(s));
         }
         while(acceptPunct(COMMA));
-        t->t = types;
+        t->t = UnresolvedType::Tuple(types);
       }
       else if(acceptPunct(COLON))
       {
@@ -218,14 +220,14 @@ namespace Parser
       else if(acceptOper(BOR))
       {
         //union
-        UnresolvedType::UnionList types;
+        vector<Type*> types;
         types.push_back(first);
         do
         {
           types.push_back(parseType(s));
         }
         while(acceptOper(BOR));
-        t->t = types;
+        t->t = UnresolvedType::Union(types);
       }
       else
       {
@@ -257,12 +259,12 @@ namespace Parser
       }
       else if(acceptPunct(QUESTION))
       {
-        UnresolvedType::UnionList optionalTypes;
+        vector<Type*> optionalTypes;
         optionalTypes.push_back(t);
         optionalTypes.push_back(primitives[Prim::ERROR]);
         t = new UnresolvedType;
         t->scope = s;
-        t->t = optionalTypes;
+        t->t = UnresolvedType::Union(optionalTypes);
       }
     }
     return t;
@@ -352,11 +354,24 @@ namespace Parser
     {
       compose = true;
     }
-    Type* type = parseType(s);
+    Type* type = nullptr;
+    bool isAuto = false;
+    if(acceptKeyword(AUTO))
+      isAuto = true;
+    else
+      type = parseType(s);
     Expression* init = nullptr;
     if(acceptOper(ASSIGN))
     {
       init = parseExpression(s);
+    }
+    if(!init && isAuto)
+    {
+      errMsgLoc(loc, "auto-typed variable requires initialization");
+    }
+    if(isAuto)
+    {
+      type = new ExprType(init);
     }
     //create the variable and add to scope
     Variable* var;
@@ -571,10 +586,73 @@ namespace Parser
     //it is not added to any scope
   }
 
+  Statement* parseStatementOrDecl(Block* b, bool semicolon)
+  {
+    cout << "Parsing stmt/decl\n";
+    cout << "Next token: " << lookAhead()->getStr() << '\n';
+    Token* next = lookAhead(0);
+    Token* next2 = lookAhead(1);
+    Punct colon(COLON);
+    if(next->type == IDENTIFIER && next2->compareTo(&colon))
+    {
+      //variable declaration
+      parseVarDecl(b->scope);
+      if(semicolon)
+        expectPunct(SEMICOLON);
+    }
+    else if(next->type == IDENTIFIER)
+    {
+      return parseStatement(b, semicolon);
+    }
+    else if(next->type == KEYWORD)
+    {
+      int kw = ((Keyword*) next)->kw;
+      switch(kw)
+      {
+        case STRUCT:
+        case FUNC:
+        case PROC:
+        case EXTERN:
+        case MODULE:
+        case TYPEDEF:
+        case ENUM:
+        case TEST:
+          {
+            parseScopedDecl(b->scope, semicolon);
+            return nullptr;
+          }
+        case RETURN:
+        case FOR:
+        case IF:
+        case WHILE:
+        case SWITCH:
+        case MATCH:
+        case PRINT:
+          {
+            return parseStatement(b, semicolon);
+          }
+        default:
+          INTERNAL_ERROR;
+      }
+    }
+    else if(next->type == PUNCTUATION)
+    {
+      return parseStatement(b, semicolon);
+    }
+    else
+    {
+      err("Expected statement or declaration");
+    }
+    return nullptr;
+  }
+
   Statement* parseStatement(Block* b, bool semicolon)
   {
+    cout << "Parsing stmt, next: " << lookAhead()->getStr() << '\n';
     Token* next = lookAhead();
     Punct lbrack(LBRACKET);
+    Punct rparen(RPAREN);
+    Node* loc = lookAhead();
     if(next->type == KEYWORD)
     {
       switch(((Keyword*) next)->kw)
@@ -596,12 +674,11 @@ namespace Parser
           return parseWhile(b);
         case BREAK:
           {
-            Node* loc = lookAhead();
             if(!semicolon)
             {
               err("can't use break statement here");
             }
-            expectKeyword(BREAK);
+            accept();
             expectPunct(SEMICOLON);
             Break* brk = new Break(b);
             brk->setLocation(loc);
@@ -609,8 +686,7 @@ namespace Parser
           }
         case CONTINUE:
           {
-            Node* loc = lookAhead();
-            expectKeyword(CONTINUE);
+            accept();
             if(!semicolon)
             {
               err("can't use continue statement here");
@@ -622,12 +698,11 @@ namespace Parser
           }
         case RETURN:
           {
-            Node* loc = lookAhead();
             if(!semicolon)
             {
               err("can't use return statement here");
             }
-            expectKeyword(RETURN);
+            accept();
             Return* ret = nullptr;
             if(!acceptPunct(SEMICOLON))
             {
@@ -641,6 +716,18 @@ namespace Parser
             ret->setLocation(loc);
             return ret;
           }
+        case PRINT:
+          {
+            accept();
+            expectPunct(LPAREN);
+            vector<Expression*> exprs;
+            PARSE_PLUS_COMMA(exprs, parseExpression(b->scope), rparen);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            Print* printStmt = new Print(b, exprs);
+            printStmt->setLocation(loc);
+            return printStmt;
+          }
         case SWITCH:
           return parseSwitch(b);
         case MATCH:
@@ -653,7 +740,6 @@ namespace Parser
     {
       //statement must be either a call or an assign
       //in either case, parse an expression first
-      Node* loc = lookAhead();
       Expression* lhs = parseExpression(b->scope);
       if(Oper* op = (Oper*) accept(OPERATOR))
       {
@@ -723,64 +809,6 @@ namespace Parser
     w->setLocation(location);
     w->body->addStatement(parseStatement(w->body, true));
     return w;
-  }
-
-  Statement* parseStatementOrDecl(Block* b, bool semicolon)
-  {
-    Token* next = lookAhead(0);
-    Token* next2 = lookAhead(1);
-    Punct colon(COLON);
-    if(next->type == IDENTIFIER && next2->compareTo(&colon))
-    {
-      //variable declaration
-      parseVarDecl(b->scope);
-      if(semicolon)
-        expectPunct(SEMICOLON);
-    }
-    else if(next->type == IDENTIFIER)
-    {
-      return parseStatement(b, semicolon);
-    }
-    else if(next->type == KEYWORD)
-    {
-      int kw = ((Keyword*) next)->kw;
-      switch(kw)
-      {
-        case STRUCT:
-        case FUNC:
-        case PROC:
-        case EXTERN:
-        case MODULE:
-        case TYPEDEF:
-        case ENUM:
-        case TEST:
-          {
-            parseScopedDecl(b->scope, semicolon);
-            break;
-          }
-        case RETURN:
-        case FOR:
-        case IF:
-        case WHILE:
-        case SWITCH:
-        case MATCH:
-        case PRINT:
-          {
-            return parseStatement(b, semicolon);
-          }
-        default:
-          INTERNAL_ERROR;
-      }
-    }
-    else if(next->type == PUNCTUATION)
-    {
-      return parseStatement(b, semicolon);
-    }
-    else
-    {
-      err("Expected statement or declaration");
-    }
-    return nullptr;
   }
 
   void parseBlock(Block* b)
