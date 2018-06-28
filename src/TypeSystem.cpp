@@ -370,6 +370,16 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
+bool StructType::contains(Type* other)
+{
+  for(auto mem : members)
+  {
+    if(mem.contains(other))
+      return true;
+  }
+  return false;
+}
+
 /**************/
 /* Union Type */
 /**************/
@@ -395,8 +405,11 @@ void UnionType::resolveImpl(bool final)
       return;
     }
   }
-  //if all member resolutions succeed, this union is now
-  //permanently resolved
+}
+
+bool UnionType::contains(Type* other)
+{
+
 }
 
 bool UnionType::canConvert(Type* other)

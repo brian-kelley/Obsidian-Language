@@ -544,7 +544,6 @@ void Subroutine::resolveImpl(bool final)
     {
       return;
     }
-    argsModified.push_back(false);
   }
   //resolve the body
   body->resolve(final);

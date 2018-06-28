@@ -443,10 +443,6 @@ namespace C
   void genGlobals()
   {
     //there should be exactly one C scope on the stack now
-    if(cscopes.size() != 1)
-    {
-      INTERNAL_ERROR;
-    }
     int numGlobals = 0;
     walkScopeTree([&] (Scope* s) -> void
       {

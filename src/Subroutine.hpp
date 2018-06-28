@@ -13,16 +13,24 @@
 
 extern bool programHasMain;
 
+struct BasicBlock;
+
 struct Statement : public Node
 {
   //ctor for statements that don't belong to any block (e.g. subroutine bodies)
-  Statement() : block(nullptr) {}
+  Statement() : block(nullptr), bb(nullptr) {}
   //normal ctor: automatically set index within parent block
-  Statement(Block* b) : block(b) {}
+  Statement(Block* b) : block(b), bb(nullptr) {}
   Block* block;
   virtual void resolveImpl(bool final) {}
   virtual ~Statement() {}
   int statementIndex;
+  BasicBlock* bb;
+  //is the statement a single operation with no control flow?
+  virtual bool simple()
+  {
+    return false;
+  }
 };
 
 //Statement types
@@ -30,9 +38,11 @@ struct Block;
 struct Assign;
 struct CallStmt;
 struct For;
+struct ForC;
+struct ForRange;
+struct ForArray;
 struct While;
 struct If;
-struct IfElse;
 struct Return;
 struct Break;
 struct Continue;
@@ -83,6 +93,10 @@ struct Assign : public Statement
   void resolveImpl(bool final);
   Expression* lvalue;
   Expression* rvalue;
+  bool simple()
+  {
+    return true;
+  }
 };
 
 struct CallStmt : public Statement
@@ -92,14 +106,20 @@ struct CallStmt : public Statement
   //code generator evaluates eval
   //and discards returned value, if any
   CallExpr* eval;
+  bool simple()
+  {
+    return true;
+  }
 };
 
 struct For : public Statement
 {
   For(Block* b);
-  //Outer contains counters and nitialization/increment statements
+  //Outer (exists just for the scope) contains
+  //counters and intialization/increment statements
   Block* outer;
   //Inner block is actually executed each iteration
+  //(contains user statements)
   //Loop/Breakable of inner are this loop
   Block* inner;
   virtual void resolveImpl(bool final) = 0;
@@ -218,6 +238,10 @@ struct Print : public Statement
   Print(Block* b, vector<Expression*>& exprs);
   void resolveImpl(bool final);
   vector<Expression*> exprs;
+  bool simple()
+  {
+    return true;
+  }
 };
 
 struct Assertion : public Statement
@@ -225,6 +249,10 @@ struct Assertion : public Statement
   Assertion(Block* b, Expression* a);
   void resolveImpl(bool final);
   Expression* asserted;
+  bool simple()
+  {
+    return true;
+  }
 };
 
 struct Subroutine : public Node
