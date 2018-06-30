@@ -47,27 +47,59 @@ namespace IR
     }
     else if(While* w = dynamic_cast<While*>(s))
     {
+      Label* top = new Label;
+      Label* bottom = new Label;
+      Label* savedBreak = breakLabel;
+      stmts.push_back(top);
+      stmts.push_back(new CondJump(w->condition, bottom));
+      addStatement(w->body);
+      stmts.push_back(new Jump(top));
+      stmts.push_back(bottom);
     }
     else if(If* i = dynamic_cast<If*>(s))
     {
+      if(i->elseBody)
+      {
+        Label* ifEnd = new Label;
+        Label* elseEnd = new Label;
+        stmts.push_back(new CondJump(i->condition, ifEnd));
+        addStatement(i->body);
+        stmts.push_back(new Jump(elseEnd));
+        stmts.push_back(ifEnd);
+        addStatement(i->elseBody);
+        stmts.push_back(elseEnd);
+      }
+      else
+      {
+        Label* ifEnd = new Label;
+        stmts.push_back(new CondJump(i->condition, ifEnd));
+        addStatement(i->body);
+        stmts.push_back(ifEnd);
+      }
     }
     else if(Return* r = dynamic_cast<Return*>(s))
     {
+      stmts.push_back(new ReturnIR(r->value));
     }
     else if(Break* brk = dynamic_cast<Break*>(s))
     {
+      stmts.push_back(new Jump(breakLabel));
     }
     else if(Continue* c = dynamic_cast<Continue*>(s))
     {
+      stmts.push_back(new Jump(continueLabel));
     }
     else if(Print* p = dynamic_cast<Print*>(s))
     {
+      stmts.push_back(new PrintIR(p->exprs));
     }
-    else if(Assertion* ass = dynamic_cast<Assertion*>(s))
+    else if(Assertion* a = dynamic_cast<Assertion*>(s))
     {
+      stmts.push_back(new AssertionIR(a->asserted));
     }
     else if(Switch* sw = dynamic_cast<Switch*>(s))
     {
+      INTERNAL_ERROR("Switch isn't supported yet.");
     }
     else if(Match* ma = dynamic_cast<Match*>(s))
     {

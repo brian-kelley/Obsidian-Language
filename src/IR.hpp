@@ -73,8 +73,10 @@ namespace IR
     }
   };
   struct Label : public StatementIR {};
-  struct SubrEnd : public StatementIR
+  struct ReturnIR : public StatementIR
   {
+    Return() : expr(nullptr) {}
+    Return(Expression* val) : expr(val) {}
     Expression* expr;
     vector<Expression*> getInput()
     {
