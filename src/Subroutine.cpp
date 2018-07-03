@@ -533,6 +533,11 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 
 void Subroutine::resolveImpl(bool final)
 {
+  if(type->returnType == primitives[Prim::VOID] &&
+      !dynamic_cast<Return*>(body->stmts.back()))
+  {
+    stmts.push_back(new Return(body));
+  }
   type->resolve(final);
   if(!type->resolved)
     return;
@@ -553,11 +558,11 @@ void Subroutine::resolveImpl(bool final)
   {
     if(scope->parent != global->scope)
     {
-      errMsgLoc(this, "main must be in global scope");
+      errMsgLoc(this, "main() must be in global scope");
     }
     if(type->pure)
     {
-      errMsgLoc(this, "main must be a procedure, not a function");
+      errMsgLoc(this, "main() must be a procedure, not a function");
     }
     if(type->returnType != primitives[Prim::VOID] &&
         type->returnType != primitives[Prim::INT])

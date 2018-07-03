@@ -5,6 +5,8 @@
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
 
+//TODO: use nice dotfile interface for this
+
 //The stream for writing dotfile (GraphViz) output
 FILE* dot = NULL;
 

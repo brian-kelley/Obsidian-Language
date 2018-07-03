@@ -3,30 +3,19 @@
 #include "Scope.hpp"
 #include "Subroutine.hpp"
 
-CFG::CFG(Subroutine* s)
+CFG::CFG(SubroutineIR* s)
 {
-  //first, just partition all the statements
-  //into basic blocks
-  //(don't add edges yet)
-  Block* b = s->body;
-}
-
-void CFG::BasicBlock::addStatement(Statement* s)
-{
-}
-
-void CFG::BasicBlock::link(BasicBlock* next)
-{
-}
-
-void CFG::buildBasicBlocks(Statement* s)
-{
-  if(Block* b = dynamic_cast<Block*>(s))
+  subr = s;
+  //basic block boundaries:
+  //-at label
+  //-after jump
+  //-after return
+  size_t bbStart = 0;
+  for(size_t i = 0; i < s->stmts.size(); i++)
   {
+    if(dynamic_cast<Label*>(s->stmts[i]))
+    {
+    }
   }
-}
-
-void CFG::linkBasicBlocks(Statement* s);
-{
 }
 

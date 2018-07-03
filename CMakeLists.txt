@@ -19,6 +19,9 @@ add_executable (onyx
   src/Subroutine.cpp
   src/Scope.cpp
   src/Subroutine.cpp
+  src/IR.cpp
+  src/IRDebug.cpp
+  src/Dotfile.cpp
   src/Builtin.cpp
   src/C_Backend.cpp
   src/main.cpp

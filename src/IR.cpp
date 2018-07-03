@@ -1,16 +1,99 @@
 #include "IR.cpp"
 #include "Subroutine.hpp"
+#include "Scope.hpp"
+#include <algorithm>
+
+extern Module* global;
 
 namespace IR
 {
+  map<Subroutine*, SubroutineIR*> ir;
+
+  //walk the AST and build independent IR for each subroutine
+  void buildIR()
+  {
+    stack<Scope*> searchStack;
+    searchStack.push(global);
+    while(!searchStack.empty())
+    {
+      Scope* scope = searchStack.top();
+      searchStack.pop();
+      for(auto& name : scope->names)
+      {
+        if(name.kind == Name::SUBROUTINE)
+        {
+          Subroutine* subr = (Subroutine*) name.item;
+          ir[subr] = new SubroutineIR(subr);
+        }
+      }
+      for(auto child : scope->children)
+      {
+        searchStack.push_back(child);
+      }
+    }
+  }
+
   //addStatement() will save, modify and restore these as needed
   static Label* breakLabel = nullptr;
   static Label* continueLabel = nullptr;
 
-  SubroutineIR::SubroutineIR(Subroutine* subr)
+  SubroutineIR::SubroutineIR(Subroutine* s)
   {
+    subr = s;
     //create the IR instructions for the whole body
     addStatement(subr->body);
+    //create basic blocks: count non-label statements and detect boundaries
+    //BBs start at jump targets (labels/after cond jump), after return, after jump
+    //several of these cases overlap naturally
+    vector<size_t> boundaries;
+    boundaries.push_back(0);
+    for(size_t i = 0; i < stmts.size(); i++)
+    {
+      if(dynamic_cast<Label*>(stmts[i]) ||
+         (i != 0 && dynamic_cast<CondJump*>(stmts[i])) ||
+         (i != 0 && dynamic_cast<ReturnIR*>(stmts[i])) ||
+         (i != 0 && dynamic_cast<Jump*>(stmts[i])) ||
+         (i == stmts.size() - 1))
+      {
+        boundaries.push_back(i);
+      }
+    }
+    boundaries.push_back(stmts.size());
+    //remove duplicates from boundaries (don't want 0-stmt blocks)
+    std::erase(std::unique(boudaries.begin(), boundaries.end()),
+        boundaries.end());
+    //construct BBs (no edges yet, but remember first stmt in each)
+    map<Label*, BasicBlock*> leaders;
+    for(size_t i = 0; i < boundaries.size() - 1; i++)
+    {
+      blocks.push_back(new BasicBlock(boundaries[i], boundaries[i + 1]));
+      leaders[stmts[boundaries[i]]] = blocks.back();
+    }
+    //Add edges to complete the CFG.
+    //Easy since all possible jump targets
+    //are leaders, and all flow stmts are ends of BBs.
+    for(size_t i = 0; i < blocks.size(); i++)
+    {
+      auto last = stmts.back();
+      if(auto cj = dynamic_cast<CondJump*>(last))
+      {
+        blocks[i]->link(blocks[i + 1]);
+        blocks[i]->link(leaders[cj->taken]);
+      }
+      else if(auto j = dynamic_cast<Jump*>(last))
+      {
+        blocks[i]->link(leaders[j->dst]);
+      }
+      else if(!dynamic_cast<ReturnIR*>(last))
+      {
+        if(i == blocks.size() - 1)
+        {
+          errMsgLoc(subr, "no return at end of non-void subroutine");
+        }
+        //fall-through to next block
+        blocks[i]->link(blocks[i + 1]);
+      }
+    }
   }
 
   void SubroutineIR::addStatement(Statement* s)
@@ -233,6 +316,17 @@ namespace IR
       stmts.push_back(new Jump(topLabels[i]));
       stmts.push_back(bottomLabels[i]);
     }
+  }
+
+  void SubroutineIR::print()
+  {
+    cout << "subroutine " << subr->name << '\n';
+    for(auto stmt : stmts)
+    {
+      if(!dynamic_cast<Label*>(stmt))
+        cout << "  " << stmt->intLabel << ": " << stmt->print();
+    }
+    cout << '\n';
   }
 }
 
