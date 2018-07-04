@@ -370,16 +370,6 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
-bool StructType::contains(Type* other)
-{
-  for(auto mem : members)
-  {
-    if(mem.contains(other))
-      return true;
-  }
-  return false;
-}
-
 /**************/
 /* Union Type */
 /**************/
@@ -405,15 +395,71 @@ void UnionType::resolveImpl(bool final)
       return;
     }
   }
+  setDefault();
 }
 
-bool UnionType::contains(Type* other)
+void UnionType::setDefault()
 {
-
+  for(size_t i = 0; i < options.size(); i++)
+  {
+    //find all the types reachable from this option,
+    //then see if this is reachable
+    set<Type*> visited;
+    stack<Type*> search;
+    search.insert(options[i]);
+    bool reachable = false;
+    while(!search.empty())
+    {
+      Type* process = search.top();
+      if(process == this)
+      {
+        reachable = true;
+        break;
+      }
+      process.pop();
+      visited.insert(process);
+      if(auto ut = dynamic_cast<UnionType*>(process))
+      {
+        for(auto op : ut->options)
+        {
+          if(visited.find(op) == visited.end())
+          {
+            search.insert(op);
+          }
+        }
+      }
+      else if(auto st = dynamic_cast<StructType*>(process))
+      {
+        for(auto mem : st->members)
+        {
+          if(visited.find(mem->type) == visited.end())
+          {
+            search.insert(mem->type);
+          }
+        }
+      }
+      else if(auto at = dynamic_cast<ArrayType*>(process))
+      {
+        if(visited.find(at->elem) == visited.end())
+        {
+          search.insert(at->elem);
+        }
+      }
+    }
+    if(!reachable)
+    {
+      //OK to use option i as default
+      defaultType = i;
+      return;
+    }
+  }
+  errMsg("all members of union type " << getName() << " contain the union");
 }
 
 bool UnionType::canConvert(Type* other)
 {
+  //Assignment to a Union will use the first exact
+  //type match, then any successful conversion
   for(auto op : options)
   {
     if(op->canConvert(other))

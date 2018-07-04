@@ -49,11 +49,6 @@ struct Type : public Node
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
   virtual bool isResolved() {return true;}
-  //contains() is specialized for all compound types
-  virtual bool contains(Type* other, set<UnionType*>& visited)
-  {
-    return false;
-  }
 };
 
 struct Scope;
@@ -184,7 +179,6 @@ struct StructType : public Type
   };
   map<string, IfaceMember> interface;
   void resolveImpl(bool final);
-  bool contains(Type* other, set<UnionType*>& visited);
 };
 
 struct UnionType : public Type
@@ -194,13 +188,10 @@ struct UnionType : public Type
   vector<Type*> options;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
+  void setDefault();
   string getName();
   //the default type (the first type that doesn't cause infinite recursion)
-  Type* defaultType;
-  bool contains(Type* other, set<UnionType*>& visited);
-  private:
-  //points to the last UnionType whose contains() call visited this
-  UnionType* searchVisit;
+  int defaultType;
 };
 
 struct ArrayType : public Type
@@ -211,7 +202,6 @@ struct ArrayType : public Type
   //Type of element of this array type (can be (dims-1) dimensional array, or same as elem)
   Type* subtype;
   int dims;
-  bool contains(Type* other, set<UnionType*>& visited);
   bool canConvert(Type* other);
   void resolveImpl(bool final);
   bool isArray() {return true;}
