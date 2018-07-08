@@ -62,7 +62,7 @@ int main(int argc, const char** argv)
   TIMEIT("Semantic analysis", global->finalResolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
   TIMEIT("IR/CFG construction", IR::buildIR();)
-  DEBUG_DO(IRDebug::dumpIR("ir");)
+  DEBUG_DO(IRDebug::dumpIR("ir.dot");)
   //TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

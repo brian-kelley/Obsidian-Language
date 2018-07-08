@@ -120,8 +120,7 @@ int emitStatement(Statement* s)
   else if(ForRange* fr = dynamic_cast<ForRange*>(s))
   {
     root = out.createNode("For loop (range)");
-    int outerBlock = out.createNode("Outer block");
-    out.createEdge(outerBlock, emitStatement(fr->outer));
+    out.createEdge(root, emitStatement(fr->outer));
     out.createEdge(root, emitExpression(fr->begin));
     out.createEdge(root, emitExpression(fr->end));
     out.createEdge(root, emitStatement(fr->inner));
@@ -237,7 +236,7 @@ int emitExpression(Expression* e)
   }
   else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
   {
-    root = out.createNode("'" + generateChar(cl->value) + "'");
+    root = out.createNode("'" + generateCharDotfile(cl->value) + "'");
   }
   else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(e))
   {

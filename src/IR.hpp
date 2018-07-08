@@ -233,5 +233,7 @@ namespace IR
   };
 }
 
+ostream& operator<<(ostream& os, IR::StatementIR& stmt);
+
 #endif
 

@@ -127,7 +127,6 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 
 void Assign::resolveImpl(bool final)
 {
-  cout << "Resolving assign.\n";
   resolveExpr(lvalue, final);
   resolveExpr(rvalue, final);
   if(!lvalue->resolved || !rvalue->resolved)
@@ -225,6 +224,7 @@ void ForArray::createIterators(vector<string>& iters)
   }
   //create iterator
   iter = new Variable(iters.back(), new ElemExprType(arr), outer);
+  outer->scope->addName(iter);
 }
 
 void ForArray::resolveImpl(bool final)
@@ -258,6 +258,7 @@ ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expressi
 {
   //create the counter variable in outer block
   counter = new Variable(counterName, primitives[Prim::LONG], outer);
+  outer->scope->addName(counter);
 }
 
 void ForRange::resolveImpl(bool final)
@@ -460,7 +461,7 @@ void Return::resolveImpl(bool final)
       errMsgLoc(this, "returned a value from void subroutine");
     }
   }
-  if(!subrRetType->canConvert(value->type))
+  else if(!subrRetType->canConvert(value->type))
   {
     errMsgLoc(this, "returned value of type " << value->type->getName() << " incompatible with subroutine return type " << subrRetType->getName());
   }
@@ -562,11 +563,6 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 
 void Subroutine::resolveImpl(bool final)
 {
-  if(type->returnType == primitives[Prim::VOID] &&
-      !dynamic_cast<Return*>(body->stmts.back()))
-  {
-    body->stmts.push_back(new Return(body));
-  }
   type->resolve(final);
   if(!type->resolved)
     return;
@@ -578,6 +574,11 @@ void Subroutine::resolveImpl(bool final)
     {
       return;
     }
+  }
+  if(type->returnType == primitives[Prim::VOID] &&
+      !dynamic_cast<Return*>(body->stmts.back()))
+  {
+    body->stmts.push_back(new Return(body));
   }
   //resolve the body
   body->resolve(final);

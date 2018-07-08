@@ -460,6 +460,7 @@ namespace Parser
     string counterName = expectIdent();
     expectPunct(COLON);
     Expression* begin = parseExpression(b->scope);
+    expectPunct(COMMA);
     Expression* end = parseExpression(b->scope);
     ForRange* fr = new ForRange(b, counterName, begin, end);
     fr->setLocation(loc);

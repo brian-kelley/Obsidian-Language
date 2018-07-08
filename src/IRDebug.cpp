@@ -16,7 +16,7 @@ void IRDebug::dumpIR(string filename)
   {
     SubroutineIR* subr = subrPair.second;
     Oss nameOss;
-    nameOss << subrPair.first->name << " (" << counter++ << ")";
+    nameOss << subrPair.first->name << "_" << counter++ << "__";
     Dotfile dotGraph(nameOss.str());
     map<BasicBlock*, int> nodes;
     for(auto bb : subr->blocks)
@@ -24,7 +24,7 @@ void IRDebug::dumpIR(string filename)
       Oss bbStream;
       for(int stmt = bb->start; stmt < bb->end; stmt++)
       {
-        bbStream << subr->stmts[stmt];
+        bbStream << *(subr->stmts[stmt]) << "\\n";
       }
       nodes[bb] = dotGraph.createNode(bbStream.str());
     }

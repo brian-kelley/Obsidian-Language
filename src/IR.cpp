@@ -50,10 +50,9 @@ namespace IR
     for(size_t i = 0; i < stmts.size(); i++)
     {
       if(dynamic_cast<Label*>(stmts[i]) ||
-         (i != 0 && dynamic_cast<CondJump*>(stmts[i])) ||
-         (i != 0 && dynamic_cast<ReturnIR*>(stmts[i])) ||
-         (i != 0 && dynamic_cast<Jump*>(stmts[i])) ||
-         (i == stmts.size() - 1))
+         (i > 0 && dynamic_cast<CondJump*>(stmts[i - 1])) ||
+         (i > 0 && dynamic_cast<ReturnIR*>(stmts[i - 1])) ||
+         (i > 0 && dynamic_cast<Jump*>(stmts[i - 1])))
       {
         boundaries.push_back(i);
       }
@@ -68,6 +67,7 @@ namespace IR
       blocks.push_back(new BasicBlock(boundaries[i], boundaries[i + 1]));
       leaders[stmts[boundaries[i]]] = blocks.back();
     }
+    cout << "Have " << blocks.size() << " basic blocks.\n";
     //Add edges to complete the CFG.
     //Easy since all possible jump targets
     //are leaders, and all flow stmts are ends of BBs.
@@ -87,9 +87,10 @@ namespace IR
       {
         if(i == blocks.size() - 1)
         {
-          errMsgLoc(subr, "no return at end of non-void subroutine");
+          //errMsgLoc(subr, "no return at end of non-void subroutine");
+          cout << "No return at end of subr?\n";
         }
-        //fall-through to next block
+        //all others fall-through to next block
         blocks[i]->link(blocks[i + 1]);
       }
     }
@@ -97,7 +98,7 @@ namespace IR
 
   void SubroutineIR::addStatement(Statement* s)
   {
-    //empty statements allowed in some places
+    //empty statements allowed in some places (they produce no IR)
     if(!s)
       return;
     if(Block* b = dynamic_cast<Block*>(s))
@@ -191,8 +192,11 @@ namespace IR
       cout << "Match isn't supported yet.\n";
       INTERNAL_ERROR;
     }
-    cout << "Need to implement a statement type in IR: " << typeid(s).name() << '\n';
-    INTERNAL_ERROR;
+    else
+    {
+      cout << "Need to implement a statement type in IR: " << typeid(s).name() << '\n';
+      INTERNAL_ERROR;
+    }
   }
 
   void SubroutineIR::addForC(ForC* fc)
@@ -332,5 +336,49 @@ namespace IR
     }
     cout << '\n';
   }
+}
+
+ostream& operator<<(ostream& os, IR::StatementIR& s)
+{
+  using namespace IR;
+  auto stmt = &s;
+  //TODO: print expressions expressively
+  if(dynamic_cast<AssignIR*>(stmt))
+  {
+    os << "Assign\n";
+  }
+  else if(dynamic_cast<CallIR*>(stmt))
+  {
+    os << "Call\n";
+  }
+  else if(dynamic_cast<Jump*>(stmt))
+  {
+    os << "Jump\n";
+  }
+  else if(dynamic_cast<CondJump*>(stmt))
+  {
+    os << "CondJump\n";
+  }
+  else if(dynamic_cast<Label*>(stmt))
+  {
+    os << "Label\n";
+  }
+  else if(dynamic_cast<ReturnIR*>(stmt))
+  {
+    os << "Return\n";
+  }
+  else if(dynamic_cast<PrintIR*>(stmt))
+  {
+    os << "Print\n";
+  }
+  else if(dynamic_cast<AssertionIR*>(stmt))
+  {
+    os << "Assert\n";
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
+  return os;
 }
 
