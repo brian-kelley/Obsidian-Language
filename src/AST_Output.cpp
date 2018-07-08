@@ -4,882 +4,388 @@
 #include "Expression.hpp"
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
-
-//TODO: use nice dotfile interface for this
+#include "Scope.hpp"
+#include "Dotfile.hpp"
 
 //The stream for writing dotfile (GraphViz) output
-FILE* dot = NULL;
+static Dotfile out("AST");
 
-int nodeIndex = 0;
-int nextNode()
+void outputAST(Module* tree, string filename)
 {
-  return nodeIndex++;
+  out.clear();
+  AstOut::emitModule(tree);
+  out.write(filename);
 }
 
-template<typename T>
-int emit(T* n)
+namespace AstOut
 {
-  cout << "AST_Output didn't implement emit<" << typeid(T).name() << ">\n";
-  INTERNAL_ERROR;
-  return 0;
-}
 
-template<> int emit<Module>(Module* n);
-
-void outputParseTree(Parser::Module* tree, string filename)
-{
-#ifdef DEBUG
-  dot = fopen(filename.c_str(), "w");
-  fputs("digraph AST {\n", dot);
-  emit<Module>(tree);
-  fputs("}\n", dot);
-  fclose(dot);
-#endif
-}
-
-#ifdef DEBUG
-//Create a new node with given label
-//label can be anything, as long as special chars are escaped
-static int node(string label)
-{
-  int n = nextNode();
-  Oss oss;
-  for(size_t i = 0; i < label.length(); i++)
-  {
-    switch(label[i])
-    {
-      case '\n':
-        oss << "\\n"; break;
-      case '\t':
-        oss << "\\t"; break;
-      case '\r':
-        oss << "\\r"; break;
-      case '\0':
-        oss << "\\0"; break;
-      default:
-        oss << label[i];
-    }
-  }
-  fprintf(dot, "N%i [label=\"%s\"];\n", n, oss.str().c_str());
-  return n;
-}
-
-//Create an edge from n1 to n2
-static void link(int n1, int n2)
-{
-  fprintf(dot, "N%i -> N%i;\n", n1, n2);
-}
-
-template<> int emit<ScopedDecl>(ScopedDecl* n);
-template<> int emit<TypeNT>(TypeNT* n);
-template<> int emit<StatementNT>(StatementNT* n);
-template<> int emit<Typedef>(Typedef* n);
-template<> int emit<Return>(Return* n);
-template<> int emit<Switch>(Switch* n);
-template<> int emit<Match>(Match* m);
-template<> int emit<ForC>(ForC* n);
-template<> int emit<ForOverArray>(ForOverArray* n);
-template<> int emit<ForRange>(ForRange* n);
-template<> int emit<For>(For* n);
-template<> int emit<While>(While* n);
-template<> int emit<If>(If* n);
-template<> int emit<Assertion>(Assertion* n);
-template<> int emit<TestDecl>(TestDecl* n);
-template<> int emit<EnumItem>(EnumItem* n);
-template<> int emit<Enum>(Enum* n);
-template<> int emit<Block>(Block* n);
-template<> int emit<VarDecl>(VarDecl* n);
-template<> int emit<VarAssign>(VarAssign* n);
-template<> int emit<PrintNT>(PrintNT* n);
-template<> int emit<CallOp>(CallOp* n);
-template<> int emit<Parameter>(Parameter* n);
-template<> int emit<SubroutineNT>(SubroutineNT* n);
-template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n);
-template<> int emit<StructDecl>(StructDecl* n);
-template<> int emit<StructLit>(StructLit* n);
-template<> int emit<BoolLit>(BoolLit* n);
-template<> int emit<Member>(Member* n);
-template<> int emit<TupleTypeNT>(TupleTypeNT* n);
-template<> int emit<UnionTypeNT>(UnionTypeNT* n);
-template<> int emit<MapTypeNT>(MapTypeNT* n);
-template<> int emit<Expr1>(Expr1* n);
-template<> int emit<Expr2>(Expr2* n);
-template<> int emit<Expr3>(Expr3* n);
-template<> int emit<Expr4>(Expr4* n);
-template<> int emit<Expr5>(Expr5* n);
-template<> int emit<Expr6>(Expr6* n);
-template<> int emit<Expr7>(Expr7* n);
-template<> int emit<Expr8>(Expr8* n);
-template<> int emit<Expr9>(Expr9* n);
-template<> int emit<Expr10>(Expr10* n);
-template<> int emit<Expr11>(Expr11* n);
-template<> int emit<Expr12>(Expr12* n);
-template<> int emit<NewArrayNT>(NewArrayNT* n);
-
-template<> int emit<Module>(Module* n)
+int emitModule(Module* m)
 {
   int id = 0;
-  if(n->name == "")
+  if(m->name == "")
   {
-    id = node("Program");
+    id = out.createNode("Program root");
   }
   else
   {
-    id = node("Module: " + n->name);
+    id = out.createNode("Module: " + m->name);
   }
-  for(auto decl : n->decls)
+  for(auto decl : m->scope->names)
   {
-    link(id, emit(decl));
+    out.createEdge(id, emitName(&decl.second));
   }
   return id;
 }
 
-template<> int emit<ScopedDecl>(ScopedDecl* n)
+int emitName(Name* n)
 {
-  if(n->decl.is<Module*>())
-    return emit(n->decl.get<Module*>());
-  else if(n->decl.is<VarDecl*>())
-    return emit(n->decl.get<VarDecl*>());
-  else if(n->decl.is<StructDecl*>())
-    return emit(n->decl.get<StructDecl*>());
-  else if(n->decl.is<Enum*>())
-    return emit(n->decl.get<Enum*>());
-  else if(n->decl.is<Typedef*>())
-    return emit(n->decl.get<Typedef*>());
-  else if(n->decl.is<SubroutineNT*>())
-    return emit(n->decl.get<SubroutineNT*>());
-  else if(n->decl.is<TestDecl*>())
-    return emit(n->decl.get<TestDecl*>());
+  switch(n->kind)
+  {
+    case Name::MODULE:
+      return emitModule((Module*) n->item);
+    case Name::STRUCT:
+      return emitStruct((StructType*) n->item);
+    case Name::TYPEDEF:
+      return emitAlias((AliasType*) n->item);
+    case Name::SUBROUTINE:
+      return emitSubroutine((Subroutine*) n->item);
+    case Name::EXTERN_SUBR:
+      return emitExternSubroutine((ExternalSubroutine*) n->item);
+    case Name::VARIABLE:
+      return emitVariable((Variable*) n->item);
+    case Name::ENUM:
+      return emitEnum((EnumType*) n->item);
+    default:
+      INTERNAL_ERROR;
+  }
   return 0;
 }
 
-template<> int emit<TypeNT>(TypeNT* n)
+int emitType(Type* t)
 {
-  int base;
-  if(n->t.is<TypeNT::Prim>())
+  return out.createNode(t->getName());
+}
+
+int emitStatement(Statement* s)
+{
+  int root = 0;
+  if(Block* b = dynamic_cast<Block*>(s))
   {
-    switch(n->t.get<TypeNT::Prim>())
+    root = out.createNode("Block");
+    if(b->scope->names.size())
     {
-      case TypeNT::BOOL:
-        base = node("primitive type: bool"); break;
-      case TypeNT::CHAR:
-        base = node("primitive type: char"); break;
-      case TypeNT::BYTE:
-        base = node("primitive type: byte"); break;
-      case TypeNT::UBYTE:
-        base = node("primitive type: ubyte"); break;
-      case TypeNT::SHORT:
-        base = node("primitive type: short"); break;
-      case TypeNT::USHORT:
-        base = node("primitive type: ushort"); break;
-      case TypeNT::INT:
-        base = node("primitive type: int"); break;
-      case TypeNT::UINT:
-        base = node("primitive type: uint"); break;
-      case TypeNT::LONG:
-        base = node("primitive type: long"); break;
-      case TypeNT::ULONG:
-        base = node("primitive type: ulong"); break;
-      case TypeNT::FLOAT:
-        base = node("primitive type: float"); break;
-      case TypeNT::DOUBLE:
-        base = node("primitive type: double"); break;
-      case TypeNT::VOID:
-        base = node("primitive type: void"); break;
-      default:;
+      int decls = out.createNode("Decls");
+      for(auto& n : b->scope->names)
+      {
+        out.createEdge(decls, emitName(&n.second));
+      }
+      out.createEdge(root, decls);
+    }
+    if(b->stmts.size())
+    {
+      int stmts = out.createNode("Statements");
+      for(auto stmt : b->stmts)
+      {
+        out.createEdge(stmts, emitStatement(stmt));
+      }
+      out.createEdge(root, stmts);
     }
   }
-  else if(n->t.is<Member*>())
+  else if(Assign* a = dynamic_cast<Assign*>(s))
   {
-    base = emit(n->t.get<Member*>());
+    root = out.createNode("Assign");
+    out.createEdge(root, emitExpression(a->lvalue));
+    out.createEdge(root, emitExpression(a->rvalue));
   }
-  else if(n->t.is<TupleTypeNT*>())
+  else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
   {
-    base = emit(n->t.get<TupleTypeNT*>());
+    root = emitExpression(cs->eval);
   }
-  else if(n->t.is<UnionTypeNT*>())
+  else if(ForC* fc = dynamic_cast<ForC*>(s))
   {
-    base = emit(n->t.get<UnionTypeNT*>());
+    root = out.createNode("For loop (C-style)");
+    int outerBlock = out.createNode("Outer block");
+    out.createEdge(outerBlock, emitStatement(fc->outer));
+    if(fc->init)
+    {
+      out.createEdge(root, emitStatement(fc->init));
+    }
+    else
+    {
+      out.createEdge(root, out.createNode("(no init)"));
+    }
+    out.createEdge(root, emitStatement(fc->inner));
   }
-  else if(n->t.is<MapTypeNT*>())
+  else if(ForRange* fr = dynamic_cast<ForRange*>(s))
   {
-    base = emit(n->t.get<MapTypeNT*>());
+    root = out.createNode("For loop (range)");
+    int outerBlock = out.createNode("Outer block");
+    out.createEdge(outerBlock, emitStatement(fr->outer));
+    out.createEdge(root, emitExpression(fr->begin));
+    out.createEdge(root, emitExpression(fr->end));
+    out.createEdge(root, emitStatement(fr->inner));
   }
-  else if(n->t.is<SubroutineTypeNT*>())
+  else if(ForArray* fa = dynamic_cast<ForArray*>(s))
   {
-    base = emit(n->t.get<SubroutineTypeNT*>());
+    root = out.createNode("For loop (array)");
+    int outerBlock = out.createNode("Outer block");
+    out.createEdge(root, outerBlock);
+    out.createEdge(outerBlock, emitStatement(fa->outer));
+    out.createEdge(root, emitExpression(fa->arr));
+    out.createEdge(root, emitStatement(fa->inner));
   }
-  if(n->arrayDims)
+  else if(While* w = dynamic_cast<While*>(s))
   {
-    int arrayNode = node("Array type, " + to_string(n->arrayDims) + " dims");
-    link(arrayNode, base);
-    return arrayNode;
+    root = out.createNode("While loop");
+    out.createEdge(root, emitExpression(w->condition));
+    out.createEdge(root, emitStatement(w->body));
+  }
+  else if(If* ifs = dynamic_cast<If*>(s))
+  {
+    root = out.createNode("If statement");
+    out.createEdge(root, emitExpression(ifs->condition));
+    out.createEdge(root, emitStatement(ifs->body));
+    if(ifs->elseBody)
+      out.createEdge(root, emitStatement(ifs->elseBody));
+    else
+      out.createEdge(root, out.createNode("(no else body)"));
+  }
+  else if(Return* ret = dynamic_cast<Return*>(s))
+  {
+    root = out.createNode("Return");
+    if(ret->value)
+      out.createEdge(root, emitExpression(ret->value));
+  }
+  else if(dynamic_cast<Break*>(s))
+  {
+    root = out.createNode("Break statement");
+  }
+  else if(dynamic_cast<Continue*>(s))
+  {
+    root = out.createNode("Continue statement");
+  }
+  else if(Print* p = dynamic_cast<Print*>(s))
+  {
+    root = out.createNode("Print statement");
+    for(auto e : p->exprs)
+    {
+      out.createEdge(root, emitExpression(e));
+    }
+  }
+  else if(Assertion* as = dynamic_cast<Assertion*>(s))
+  {
+    root = out.createNode("Assertion");
+    out.createEdge(root, emitExpression(as->asserted));
+  }
+  else if(Switch* sw = dynamic_cast<Switch*>(s))
+  {
+    root = out.createNode("Switch");
+    out.createEdge(root, emitExpression(sw->switched));
+    cout << "TODO\n";
+    INTERNAL_ERROR;
+  }
+  else if(Match* mat = dynamic_cast<Match*>(s))
+  {
+    mat = nullptr;
+    cout << "TODO\n";
+    INTERNAL_ERROR;
   }
   else
   {
-    return base;
+    cout << "Haven't implemented output for a statement type\n";
+    INTERNAL_ERROR;
   }
+  return root;
 }
 
-template<> int emit<StatementNT>(StatementNT* n)
+int emitExpression(Expression* e)
 {
-  if(n->s.is<ScopedDecl*>())
+  int root = 0;
+  if(UnaryArith* ua = dynamic_cast<UnaryArith*>(e))
   {
-    return emit(n->s.get<ScopedDecl*>());
+    root = out.createNode(operatorTable[ua->op]);
+    out.createEdge(root, emitExpression(ua->expr));
   }
-  else if(n->s.is<VarAssign*>())
+  else if(BinaryArith* ba = dynamic_cast<BinaryArith*>(e))
   {
-    return emit(n->s.get<VarAssign*>());
+    root = out.createNode(operatorTable[ba->op]);
+    out.createEdge(root, emitExpression(ba->lhs));
+    out.createEdge(root, emitExpression(ba->rhs));
   }
-  else if(n->s.is<PrintNT*>())
+  else if(IntLiteral* il = dynamic_cast<IntLiteral*>(e))
   {
-    return emit(n->s.get<PrintNT*>());
+    root = out.createNode(to_string(il->value));
   }
-  else if(n->s.is<Expr12*>())
+  else if(FloatLiteral* fl = dynamic_cast<FloatLiteral*>(e))
   {
-    return emit(n->s.get<Expr12*>());
+    char buf[32];
+    sprintf(buf, "%#f", fl->value);
+    root = out.createNode(buf);
   }
-  else if(n->s.is<Block*>())
+  else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
   {
-    return emit(n->s.get<Block*>());
+    cout << "Outputting string, verbatim: \"" << sl->value << "\"\n";
+    //print string with all characters fully escaped
+    Oss oss;
+    oss << "\\\"";
+    for(size_t i = 0; i < sl->value.length(); i++)
+    {
+      oss << generateCharDotfile(sl->value[i]);
+    }
+    oss << "\\\"";
+    root = out.createNode(oss.str());
   }
-  else if(n->s.is<ScopedDecl*>())
+  else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
   {
-    return emit(n->s.get<ScopedDecl*>());
+    root = out.createNode("'" + generateChar(cl->value) + "'");
   }
-  else if(n->s.is<Return*>())
+  else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(e))
   {
-    return emit(n->s.get<Return*>());
+    if(bl->value)
+      root = out.createNode("true");
+    else
+      root = out.createNode("false");
   }
-  else if(n->s.is<Continue*>())
+  else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
   {
-    return node("Continue");
+    root = out.createNode("compound literal");
+    for(auto expr : compLit->members)
+    {
+      out.createEdge(root, emitExpression(expr));
+    }
   }
-  else if(n->s.is<Break*>())
+  else if(Indexed* in = dynamic_cast<Indexed*>(e))
   {
-    return node("Break");
+    root = out.createNode("Index");
+    out.createEdge(root, emitExpression(in->group));
+    out.createEdge(root, emitExpression(in->index));
   }
-  else if(n->s.is<Switch*>())
+  else if(CallExpr* call = dynamic_cast<CallExpr*>(e))
   {
-    return emit(n->s.get<Switch*>());
+    root = out.createNode("Call");
+    out.createEdge(root, emitExpression(call->callable));
+    int args;
+    if(call->args.size())
+    {
+      args = out.createNode("Args");
+      for(auto arg : call->args)
+      {
+        out.createEdge(args, emitExpression(arg));
+      }
+    }
+    else
+    {
+      args = out.createNode("(no args)");
+    }
+    out.createEdge(root, args);
   }
-  else if(n->s.is<Match*>())
+  else if(VarExpr* ve = dynamic_cast<VarExpr*>(e))
   {
-    return emit(n->s.get<Match*>());
+    root = out.createNode("Variable " + ve->var->name);
   }
-  else if(n->s.is<For*>())
+  else if(NewArray* na = dynamic_cast<NewArray*>(e))
   {
-    return emit(n->s.get<For*>());
+    root = out.createNode("Array allocation");
+    out.createEdge(root, emitType(na->elem));
+    for(auto dim : na->dims)
+    {
+      out.createEdge(root, emitExpression(dim));
+    }
   }
-  else if(n->s.is<While*>())
+  else if(Converted* c = dynamic_cast<Converted*>(e))
   {
-    return emit(n->s.get<While*>());
+    root = out.createNode("Conversion");
+    out.createEdge(root, emitExpression(c->value));
+    out.createEdge(root, emitType(c->type));
   }
-  else if(n->s.is<If*>())
+  else if(ArrayLength* al = dynamic_cast<ArrayLength*>(e))
   {
-    return emit(n->s.get<If*>());
+    root = out.createNode("Array length");
+    out.createEdge(root, emitExpression(al->array));
   }
-  else if(n->s.is<Assertion*>())
+  else if(dynamic_cast<ThisExpr*>(e))
   {
-    return emit(n->s.get<Assertion*>());
+    root = out.createNode("this");
   }
-  else if(n->s.is<EmptyStatement*>())
+  else if(dynamic_cast<ErrorVal*>(e))
   {
-    return node("empty statement");
+    root = out.createNode("error");
+  }
+  else if(dynamic_cast<UnresolvedExpr*>(e))
+  {
+    //resolved AST can't contain any UnresolvedExprs
+    INTERNAL_ERROR;
   }
   else
   {
     INTERNAL_ERROR;
   }
-  return 0;
-}
-
-template<> int emit<Typedef>(Typedef* n)
-{
-  int root = node("Typedef");
-  link(root, emit(n->type));
-  link(root, node(n->ident));
   return root;
 }
 
-template<> int emit<Return>(Return* n)
+int emitStruct(StructType* s)
 {
-  int root = node("Return");
-  if(n->ex)
+  int root = out.createNode("Struct " + s->name);
+  //A struct is just a collection of decls, like a module
+  for(auto decl : s->scope->names)
   {
-    int ex = emit(n->ex);
-    link(root, ex);
+    out.createEdge(root, emitName(&decl.second));
   }
   return root;
 }
 
-template<> int emit<Switch>(Switch* sw)
+int emitAlias(AliasType* a)
 {
-  int root = node("Switch");
-  //first, add the switched expression
-  link(root, emit(sw->value));
-  //emit block of statements
-  link(root, emit(sw->block));
-  //emit labels
-  for(auto& l : sw->labels)
+  return out.createNode("Alias " + a->name + " = " + a->actual->getName());
+}
+
+int emitSubroutine(Subroutine* s)
+{
+  int root = out.createNode("Subroutine " + s->name);
+  int args = out.createNode("Args");
+  out.createEdge(root, args);
+  for(auto arg : s->args)
   {
-    int label = node("Label " + to_string(l.position));
-    link(root, label);
-    link(label, emit(l.value));
+    out.createEdge(root, emitVariable(arg));
   }
-  link(root, node("default: " + to_string(sw->defaultPosition)));
+  out.createEdge(root, emitStatement(s->body));
   return root;
 }
 
-template<> int emit<Match>(Match* m)
+int emitExternSubroutine(ExternalSubroutine* s)
 {
-  int root = node("Match " + m->varName);
-  link(root, emit(m->value));
-  for(auto& c : m->cases)
+  int root = out.createNode("External subroutine " + s->name);
+  int args = out.createNode("Args");
+  out.createEdge(root, args);
+  for(size_t i = 0; i < s->type->argTypes.size(); i++)
   {
-    int caseNode = emit(c.type);
-    link(root, caseNode);
-    link(caseNode, emit(c.block));
+    out.createEdge(args, out.createNode(s->type->argTypes[i]->getName() + ' ' + s->argNames[i]));
   }
+  out.createEdge(root, out.createNode(s->c));
   return root;
 }
 
-template<> int emit<ForC>(ForC* fc)
+int emitVariable(Variable* v)
 {
-  int root = node("For loop (C style)");
-  if(fc->decl)
-    link(root, emit(fc->decl));
+  int root = out.createNode("Variable " + v->name);
+  out.createEdge(root, out.createNode(v->name));
+  if(v->initial)
+    out.createEdge(root, emitExpression(v->initial));
   else
-    link(root, node("no init"));
-  if(fc->condition)
-    link(root, emit(fc->condition));
-  else
-    link(root, node("no condition"));
-  if(fc->incr)
-    link(root, emit(fc->incr));
-  else
-    link(root, node("no increment"));
+    out.createEdge(root, out.createNode("(default initialized)"));
   return root;
 }
 
-template<> int emit<ForOverArray>(ForOverArray* foa)
+int emitEnum(EnumType* e)
 {
-  int root = node("For loop over array");
-  //build a linked list of the tuple names
-  int iter = root;
-  for(auto& name : foa->tup)
+  int root = out.createNode("Enum " + e->name);
+  for(auto ec : e->values)
   {
-    int next = node(name);
-    link(iter, next);
-    iter = next;
-  }
-  link(root, emit(foa->expr));
-  return root;
-}
-
-template<> int emit<ForRange>(ForRange* fr)
-{
-  int root = node("For loop over range");
-  link(root, node(fr->name));
-  link(root, emit(fr->start));
-  link(root, emit(fr->end));
-  return root;
-}
-
-template<> int emit<For>(For* f)
-{
-  int root = 0;
-  if(f->f.is<ForC*>())
-  {
-    root = emit(f->f.get<ForC*>());
-  }
-  else if(f->f.is<ForOverArray*>())
-  {
-    root = emit(f->f.get<ForOverArray*>());
-  }
-  else if(f->f.is<ForRange*>())
-  {
-    root = emit(f->f.get<ForRange*>());
-  }
-  link(root, emit(f->body));
-  return root;
-}
-
-template<> int emit<While>(While* w)
-{
-  int root = node("While loop");
-  link(root, emit(w->cond));
-  link(root, emit(w->body));
-  return root;
-}
-
-template<> int emit<If>(If* i)
-{
-  int root = node("If");
-  int cond = emit(i->cond);
-  link(root, cond);
-  link(root, emit(i->ifBody));
-  if(i->elseBody)
-  {
-    int els = node("Else");
-    link(root, els);
-    link(els, emit(i->elseBody));
+    out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->value)));
   }
   return root;
 }
 
-template<> int emit<Assertion>(Assertion* n)
-{
-  int root = node("Assertion");
-  link(root, emit(n->expr));
-  return root;
-}
-
-template<> int emit<TestDecl>(TestDecl* n)
-{
-  int root = node("Test Statement");
-  link(root, emit(n->block));
-  return root;
-}
-
-template<> int emit<EnumItem>(EnumItem* n)
-{
-  if(n->value)
-    return node(n->name + ": " + to_string(n->value->val));
-  else
-    return node(n->name + ": auto");
-}
-
-template<> int emit<Enum>(Enum* n)
-{
-  int root = node("Enum " + n->name);
-  for(auto item : n->items)
-    link(root, emit(item));
-  return root;
-}
-
-template<> int emit<Block>(Block* n)
-{
-  int root = node("Block");
-  for(auto stmt : n->statements)
-  {
-    int s = emit(stmt);
-    link(root, s);
-  }
-  return root;
-}
-
-template<> int emit<VarDecl>(VarDecl* n)
-{
-  int root = 0;
-  if(n->isStatic)
-    root = node("Variable " + n->name + " (static)");
-  else
-    root = node("Variable " + n->name);
-  if(n->type)
-    link(root, emit(n->type));
-  else
-    link(root, node("auto type"));
-  if(n->val)
-    link(root, emit(n->val));
-  return root;
-}
-
-template<> int emit<VarAssign>(VarAssign* n)
-{
-  int root = node("Assignment");
-  int lhs = emit(n->target);
-  int rhs = emit(n->rhs);
-  link(root, lhs);
-  link(root, rhs);
-  return root;
-}
-
-template<> int emit<PrintNT>(PrintNT* n)
-{
-  int root = node("Print");
-  for(auto expr : n->exprs)
-  {
-    int e = emit(expr);
-    link(root, e);
-  }
-  return root;
-}
-
-template<> int emit<CallOp>(CallOp* n)
-{
-  int root = node("Call operation");
-  for(auto arg : n->args)
-  {
-    link(root, emit(arg));
-  }
-  return root;
-}
-
-template<> int emit<Parameter>(Parameter* n)
-{
-  int root = node("Parameter");
-  link(root, emit(n->type));
-  if(n->name.size())
-    link(root, node(n->name));
-  return root;
-}
-
-template<> int emit<SubroutineNT>(SubroutineNT* n)
-{
-  Oss rootName;
-  if(n->isPure)
-  {
-    rootName << "Function";
-  }
-  else
-  {
-    rootName << "Procedure";
-    if(n->nonterm)
-    {
-      rootName << " (nonterm)";
-    }
-  }
-  if(n->isStatic)
-    rootName << " (static)";
-  rootName << ' ' << n->name;
-  int root = node(rootName.str());
-  int retType = node("Return type");
-  link(root, retType);
-  link(retType, emit(n->retType));
-  if(n->params.size() == 0)
-  {
-    link(root, node("No parameters"));
-  }
-  for(auto param : n->params)
-  {
-    link(root, emit(param));
-  }
-  if(n->body)
-  {
-    link(root, emit(n->body));
-  }
-  return root;
-}
-
-template<> int emit<SubroutineTypeNT>(SubroutineTypeNT* n)
-{
-  Oss rootName;
-  if(n->isPure)
-  {
-    rootName << "Function";
-  }
-  else
-  {
-    rootName << "Procedure";
-    if(n->nonterm)
-    {
-      rootName << " (nonterm)";
-    }
-  }
-  if(n->isStatic)
-    rootName << " (static)";
-  int root = node(rootName.str());
-  int retType = node("Return type");
-  link(root, retType);
-  link(retType, emit(n->retType));
-  if(n->params.size() == 0)
-  {
-    link(root, node("No parameters"));
-  }
-  for(auto param : n->params)
-  {
-    link(root, emit(param));
-  }
-  return root;
-}
-
-template<> int emit<StructDecl>(StructDecl* n)
-{
-  int root = node("Struct " + n->name);
-  for(auto mem : n->members)
-  {
-    link(root, emit(mem));
-  }
-  return root;
-}
-
-template<> int emit<StructLit>(StructLit* n)
-{
-  int root = node("Compound literal");
-  for(auto expr : n->vals)
-    link(root, emit(expr));
-  return root;
-}
-
-template<> int emit<BoolLit>(BoolLit* n)
-{
-  if(n->val)
-    return node("Bool literal: true");
-  else
-    return node("Bool literal: false");
-}
-
-template<> int emit<Member>(Member* mem)
-{
-  Oss oss;
-  for(size_t i = 0; i < mem->names.size(); i++)
-  {
-    oss << mem->names[i];
-    if(i != 0)
-    {
-      oss << '.';
-    }
-  }
-  return node(oss.str());
-}
-
-template<> int emit<TupleTypeNT>(TupleTypeNT* n)
-{
-  int root = node("Tuple type");
-  for(auto mem : n->members)
-    link(root, emit(mem));
-  return root;
-}
-
-template<> int emit<UnionTypeNT>(UnionTypeNT* n)
-{
-  int root = node("Union type");
-  for(auto t : n->types)
-    link(root, emit(t));
-  return root;
-}
-
-template<> int emit<MapTypeNT>(MapTypeNT* n)
-{
-  int root = node("Map type");
-  link(root, emit(n->keyType));
-  link(root, emit(n->valueType));
-  return root;
-}
-
-template<> int emit<Expr1>(Expr1* n)
-{
-  if(n->e.is<NewArrayNT*>())
-    return emit(n->e.get<NewArrayNT*>());
-  int base = emit(n->e.get<Expr2*>());
-  for(auto rhs : n->tail)
-  {
-    int newBase = node("||");
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr2>(Expr2* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node("&&");
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr3>(Expr3* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node("|");
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr4>(Expr4* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node("^");
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr5>(Expr5* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node("&");
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr6>(Expr6* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node(operatorTable[rhs->op]);
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr7>(Expr7* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node(operatorTable[rhs->op]);
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr8>(Expr8* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node(operatorTable[rhs->op]);
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr9>(Expr9* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node(operatorTable[rhs->op]);
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr10>(Expr10* n)
-{
-  int base = emit(n->head);
-  for(auto rhs : n->tail)
-  {
-    int newBase = node(operatorTable[rhs->op]);
-    link(newBase, base);
-    link(newBase, emit(rhs->rhs));
-    base = newBase;
-  }
-  return base;
-}
-
-template<> int emit<Expr11>(Expr11* n)
-{
-  if(n->e.is<Expr11::UnaryExpr>())
-  {
-    auto ue = n->e.get<Expr11::UnaryExpr>();
-    int root = node(operatorTable[ue.op]);
-    link(root, emit(ue.rhs));
-    return root;
-  }
-  return emit(n->e.get<Expr12*>());
-}
-
-template<> int emit<Expr12>(Expr12* n)
-{
-  int root = 0;
-  if(n->e.is<IntLit*>())
-  {
-    root = node("Integer literal " + to_string(n->e.get<IntLit*>()->val));
-  }
-  else if(n->e.is<CharLit*>())
-  {
-    char c = n->e.get<CharLit*>()->val;
-    if(isgraph(c))
-      root = node(string("Char literal '") + c + "'");
-    else
-    {
-      char buf[16];
-      sprintf(buf, "%#02hhx", c);
-      root = node(string("Char literal ") + buf);
-    }
-  }
-  else if(n->e.is<StrLit*>())
-  {
-    root = node(string("String literal \\\"") + n->e.get<StrLit*>()->val + "\\\"");
-  }
-  else if(n->e.is<FloatLit*>())
-  {
-    root = node(string("Float literal \"") + to_string(n->e.get<FloatLit*>()->val));
-  }
-  else if(n->e.is<BoolLit*>())
-  {
-    root = emit(n->e.get<BoolLit*>());
-  }
-  else if(n->e.is<ExpressionNT*>())
-  {
-    root = emit(n->e.get<ExpressionNT*>());
-  }
-  else if(n->e.is<StructLit*>())
-  {
-    root = emit(n->e.get<StructLit*>());
-  }
-  else if(n->e.is<Member*>())
-  {
-    root = emit(n->e.get<Member*>());
-  }
-  //apply all operands, left to right
-  for(auto rhs : n->tail)
-  {
-    if(rhs->e.is<string>())
-    {
-      int newRoot = node("Member " + rhs->e.get<string>());
-      link(root, newRoot);
-      root = newRoot;
-    }
-    else if(rhs->e.is<CallOp*>())
-    {
-      int newRoot = node("Call");
-      link(newRoot, root);
-      link(newRoot, emit(rhs->e.get<CallOp*>()));
-      root = newRoot;
-    }
-    else if(rhs->e.is<ExpressionNT*>())
-    {
-      int newRoot = node("Array index");
-      link(newRoot, root);
-      link(newRoot, emit(rhs->e.get<ExpressionNT*>()));
-      root = newRoot;
-    }
-  }
-  return root;
-}
-
-template<> int emit<NewArrayNT>(NewArrayNT* n)
-{
-  int root = node("New array");
-  link(root, emit(n->elemType));
-  for(auto dim : n->dimensions)
-    link(root, emit(dim));
-  return root;
-}
-
-#endif //DEBUG
+} //namespace AstOut
 

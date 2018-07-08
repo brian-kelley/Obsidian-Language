@@ -536,7 +536,7 @@ void Subroutine::resolveImpl(bool final)
   if(type->returnType == primitives[Prim::VOID] &&
       !dynamic_cast<Return*>(body->stmts.back()))
   {
-    stmts.push_back(new Return(body));
+    body->stmts.push_back(new Return(body));
   }
   type->resolve(final);
   if(!type->resolved)

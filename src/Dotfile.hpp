@@ -49,7 +49,7 @@ struct Dotfile
     {
       os << "N" << e.first << " -> N" << e.second << ";\n";
     }
-    fputs("}\n", dot);
+    os << "}\n";
   }
 
   void clear()

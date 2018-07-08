@@ -6,6 +6,8 @@
 #include "Parser.hpp"
 #include "AST.hpp"
 #include "AST_Output.hpp"
+#include "IR.hpp"
+#include "IRDebug.hpp"
 #include "BuiltIn.hpp"
 
 Module* global = nullptr;
@@ -56,9 +58,12 @@ int main(int argc, const char** argv)
   */
   //Parse the global/root module
   TIMEIT("Parsing", Parser::parseProgram(););
-  //DEBUG_DO(outputParseTree(parseTree, "parse.dot"););
+  //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->finalResolve(););
-  TIMEIT("C generate & compile", C::generate(op.outputStem, true););
+  DEBUG_DO(outputAST(global, "AST.dot");)
+  TIMEIT("IR/CFG construction", IR::buildIR();)
+  DEBUG_DO(IRDebug::dumpIR("ir");)
+  //TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";

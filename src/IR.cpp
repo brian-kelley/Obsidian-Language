@@ -1,5 +1,5 @@
-#include "IR.cpp"
-#include "Subroutine.hpp"
+#include "IR.hpp"
+#include "Expression.hpp"
 #include "Scope.hpp"
 #include <algorithm>
 
@@ -13,22 +13,22 @@ namespace IR
   void buildIR()
   {
     stack<Scope*> searchStack;
-    searchStack.push(global);
+    searchStack.push(global->scope);
     while(!searchStack.empty())
     {
       Scope* scope = searchStack.top();
       searchStack.pop();
       for(auto& name : scope->names)
       {
-        if(name.kind == Name::SUBROUTINE)
+        if(name.second.kind == Name::SUBROUTINE)
         {
-          Subroutine* subr = (Subroutine*) name.item;
+          Subroutine* subr = (Subroutine*) name.second.item;
           ir[subr] = new SubroutineIR(subr);
         }
       }
       for(auto child : scope->children)
       {
-        searchStack.push_back(child);
+        searchStack.push(child);
       }
     }
   }
@@ -60,10 +60,9 @@ namespace IR
     }
     boundaries.push_back(stmts.size());
     //remove duplicates from boundaries (don't want 0-stmt blocks)
-    std::erase(std::unique(boudaries.begin(), boundaries.end()),
-        boundaries.end());
+    boundaries.erase(std::unique(boundaries.begin(), boundaries.end()), boundaries.end());
     //construct BBs (no edges yet, but remember first stmt in each)
-    map<Label*, BasicBlock*> leaders;
+    map<StatementIR*, BasicBlock*> leaders;
     for(size_t i = 0; i < boundaries.size() - 1; i++)
     {
       blocks.push_back(new BasicBlock(boundaries[i], boundaries[i + 1]));
@@ -114,7 +113,7 @@ namespace IR
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
     {
-      stmts.push_back(new CallIR(cs->eval));
+      stmts.push_back(new CallIR(cs));
     }
     else if(ForC* fc = dynamic_cast<ForC*>(s))
     {
@@ -132,12 +131,14 @@ namespace IR
     {
       Label* top = new Label;
       Label* bottom = new Label;
-      Label* savedBreak = breakLabel;
+      auto savedBreak = breakLabel;
+      breakLabel = bottom;
       stmts.push_back(top);
       stmts.push_back(new CondJump(w->condition, bottom));
       addStatement(w->body);
       stmts.push_back(new Jump(top));
       stmts.push_back(bottom);
+      breakLabel = savedBreak;
     }
     else if(If* i = dynamic_cast<If*>(s))
     {
@@ -164,31 +165,34 @@ namespace IR
     {
       stmts.push_back(new ReturnIR(r->value));
     }
-    else if(Break* brk = dynamic_cast<Break*>(s))
+    else if(dynamic_cast<Break*>(s))
     {
       stmts.push_back(new Jump(breakLabel));
     }
-    else if(Continue* c = dynamic_cast<Continue*>(s))
+    else if(dynamic_cast<Continue*>(s))
     {
       stmts.push_back(new Jump(continueLabel));
     }
     else if(Print* p = dynamic_cast<Print*>(s))
     {
-      stmts.push_back(new PrintIR(p->exprs));
+      stmts.push_back(new PrintIR(p));
     }
-    else if(Assertion* a = dynamic_cast<Assertion*>(s))
+    else if(Assertion* assertion = dynamic_cast<Assertion*>(s))
     {
-      stmts.push_back(new AssertionIR(a->asserted));
+      stmts.push_back(new AssertionIR(assertion));
     }
-    else if(Switch* sw = dynamic_cast<Switch*>(s))
+    else if(/*Switch* sw =*/ dynamic_cast<Switch*>(s))
     {
-      INTERNAL_ERROR("Switch isn't supported yet.");
+      cout << "Switch isn't supported yet.\n";
+      INTERNAL_ERROR;
     }
-    else if(Match* ma = dynamic_cast<Match*>(s))
+    else if(/*Match* ma =*/ dynamic_cast<Match*>(s))
     {
-      INTERNAL_ERROR("Match isn't supported yet.");
+      cout << "Match isn't supported yet.\n";
+      INTERNAL_ERROR;
     }
-    INTERNAL_ERROR("Need to implement a statement type in IR.\n");
+    cout << "Need to implement a statement type in IR: " << typeid(s).name() << '\n';
+    INTERNAL_ERROR;
   }
 
   void SubroutineIR::addForC(ForC* fc)
@@ -204,7 +208,7 @@ namespace IR
     stmts.push_back(top);
     //here the condition is evaluated
     //false: jump to bottom, otherwise continue
-    stmts.push_back(new CondJump(fc->cond, bottom));
+    stmts.push_back(new CondJump(fc->condition, bottom));
     addStatement(fc->inner);
     stmts.push_back(mid);
     addStatement(fc->increment);
@@ -236,7 +240,7 @@ namespace IR
     stmts.push_back(new CondJump(cond, bottom));
     addStatement(fr->inner);
     stmts.push_back(mid);
-    addStatement(new AssignIR(counterExpr, counterP1));
+    stmts.push_back(new AssignIR(counterExpr, counterP1));
     stmts.push_back(new Jump(top));
     stmts.push_back(bottom);
     //restore previous break/continue labels
@@ -263,15 +267,15 @@ namespace IR
     //subarrays: previous subarray indexed with loop counter
     //array[i] is the array traversed in loop of depth i
     vector<Expression*> subArrays(n, nullptr);
-    Expression* zeroLong = new Converted(new IntLiteral(0), primitives[Prim::LONG]);
+    Expression* zeroLong = new Converted(new IntLiteral(0ull), primitives[Prim::LONG]);
     zeroLong->finalResolve();
-    Expression* oneLong = new Converted(new IntLiteral(1), primitives[Prim::LONG]);
+    Expression* oneLong = new Converted(new IntLiteral(1ull), primitives[Prim::LONG]);
     oneLong->finalResolve();
     subArrays[0] = fa->arr;
     for(int i = 1; i < n; i++)
     {
-      subArray[i] = new Indexed(subArray[i - 1], new VarExpr(fa->counters[i]));
-      subArray[i]->finalResolve();
+      subArrays[i] = new Indexed(subArrays[i - 1], new VarExpr(fa->counters[i]));
+      subArrays[i]->finalResolve();
     }
     vector<Expression*> dims(n, nullptr);
     for(int i = 0; i < n; i++)
@@ -283,10 +287,10 @@ namespace IR
     {
       //initialize loop i counter with 0
       //convert "int 0" to counter type if needed
-      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i])), zeroLong);
+      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i]), zeroLong));
       stmts.push_back(topLabels[i]);
       //compare against array dim: if false, break from loop i
-      Expression* cond = new BinaryArith(fa->counters[i], CMPL, dims[i]);
+      Expression* cond = new BinaryArith(new VarExpr(fa->counters[i]), CMPL, dims[i]);
       cond->finalResolve();
       stmts.push_back(new CondJump(cond, bottomLabels[i]));
     }
@@ -312,7 +316,7 @@ namespace IR
       stmts.push_back(midLabels[i]);
       Expression* counterIncremented = new BinaryArith(iterVar, PLUS, oneLong);
       counterIncremented->finalResolve();
-      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i], counterIncremented)));
+      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i]), counterIncremented));
       stmts.push_back(new Jump(topLabels[i]));
       stmts.push_back(bottomLabels[i]);
     }

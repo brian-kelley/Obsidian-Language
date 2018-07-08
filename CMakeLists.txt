@@ -20,11 +20,12 @@ add_executable (onyx
   src/Scope.cpp
   src/Subroutine.cpp
   src/IR.cpp
-  src/IRDebug.cpp
   src/Dotfile.cpp
   src/Builtin.cpp
-  src/C_Backend.cpp
   src/main.cpp
   src/Options.cpp
+  src/AST_Output.cpp
+  src/IRDebug.cpp
 )
 
+#src/C_Backend.cpp

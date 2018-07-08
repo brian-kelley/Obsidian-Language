@@ -76,3 +76,33 @@ string generateChar(char ch)
   }
 }
 
+string generateCharDotfile(char ch)
+{
+  switch(ch)
+  {
+    case 0:
+      return "\\\\0";
+    case '\n':
+      return "\\\\n";
+    case '\t':
+      return "\\\\t";
+    case '\r':
+      return "\\\\r";
+    case '\"':
+      return "\\\\\"";
+    case '\'':
+      return "\\\\'";
+    default:
+    {
+      if(isgraph(ch) || ch == ' ')
+      {
+        return string(1, ch);
+      }
+      //fall back to 8-bit hex literal
+      char buf[8];
+      sprintf(buf, "\\\\x%02hhx", ch);
+      return buf;
+    }
+  }
+}
+

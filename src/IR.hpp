@@ -1,6 +1,9 @@
 #ifndef IR_H
 #define IR_H
 
+#include "Common.hpp"
+#include "Subroutine.hpp"
+
 /* Lower-level IR
  *
  * Use for building control-flow graphs,
@@ -17,6 +20,18 @@ struct Expression;
 
 namespace IR
 {
+  struct StatementIR;
+  struct AssignIR;
+  struct CallIR;
+  struct Jump;
+  struct CondJump;
+  struct Label;
+  struct ReturnIR;
+  struct PrintIR;
+  struct AssertionIR;
+  struct BasicBlock;
+  struct SubroutineIR;
+
   extern map<Subroutine*, SubroutineIR*> ir;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();
@@ -58,6 +73,7 @@ namespace IR
       return oss.str();
     }
   };
+
   struct CallIR : public StatementIR
   {
     CallIR(CallStmt* cs) : eval(cs->eval) {}
@@ -82,7 +98,7 @@ namespace IR
     }
   };
 
-  struct Jump
+  struct Jump : public StatementIR
   {
     Jump(Label* l) : dst(l) {}
     Label* dst;
@@ -95,7 +111,7 @@ namespace IR
     }
   };
 
-  struct CondJump
+  struct CondJump : public StatementIR
   {
     CondJump(Expression* c, Label* dst) : cond(c), taken(dst) {}
     //the boolean condition
@@ -127,13 +143,13 @@ namespace IR
 
   struct ReturnIR : public StatementIR
   {
-    Return() : expr(nullptr) {}
-    Return(Expression* val) : expr(val) {}
+    ReturnIR() : expr(nullptr) {}
+    ReturnIR(Expression* val) : expr(val) {}
     Expression* expr;
     vector<Expression*> getInput()
     {
       if(expr)
-        return vector<Expression*>(1, cond);
+        return vector<Expression*>(1, expr);
       else
         return vector<Expression*>();
     }
@@ -147,6 +163,7 @@ namespace IR
 
   struct PrintIR : public StatementIR
   {
+    PrintIR(Print* p) : exprs(p->exprs) {}
     vector<Expression*> exprs;
     vector<Expression*> getInput()
     {
@@ -169,6 +186,7 @@ namespace IR
 
   struct AssertionIR : public StatementIR
   {
+    AssertionIR(Assertion* a) : asserted(a->asserted) {}
     Expression* asserted;
     vector<Expression*> getInput()
     {

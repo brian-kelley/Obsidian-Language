@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <stack>
 #include <string>
 #include <cstdio>
 #include <cstdlib>
@@ -23,6 +24,8 @@ using std::string;
 using std::vector;
 using std::map;
 using std::set;
+using std::stack;
+using std::pair;
 using std::ostream;
 using std::ofstream;
 using std::ostringstream;
@@ -86,6 +89,8 @@ bool runCommand(string command, bool silenced = false);
 //generate a character for use in C code (i.e. "a" or "\n" or "\x4A")
 //doesn't add any quotes
 string generateChar(char ch);
+//generate a character for use in dotfile, which processes one level of escapes
+string generateCharDotfile(char ch);
 
 template<typename T>
 vector<T> operator+(const vector<T>& lhs, const vector<T>& rhs)

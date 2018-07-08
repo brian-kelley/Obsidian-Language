@@ -406,7 +406,7 @@ void UnionType::setDefault()
     //then see if this is reachable
     set<Type*> visited;
     stack<Type*> search;
-    search.insert(options[i]);
+    search.push(options[i]);
     bool reachable = false;
     while(!search.empty())
     {
@@ -416,7 +416,7 @@ void UnionType::setDefault()
         reachable = true;
         break;
       }
-      process.pop();
+      search.pop();
       visited.insert(process);
       if(auto ut = dynamic_cast<UnionType*>(process))
       {
@@ -424,7 +424,7 @@ void UnionType::setDefault()
         {
           if(visited.find(op) == visited.end())
           {
-            search.insert(op);
+            search.push(op);
           }
         }
       }
@@ -434,7 +434,7 @@ void UnionType::setDefault()
         {
           if(visited.find(mem->type) == visited.end())
           {
-            search.insert(mem->type);
+            search.push(mem->type);
           }
         }
       }
@@ -442,7 +442,7 @@ void UnionType::setDefault()
       {
         if(visited.find(at->elem) == visited.end())
         {
-          search.insert(at->elem);
+          search.push(at->elem);
         }
       }
     }

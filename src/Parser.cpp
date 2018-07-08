@@ -83,7 +83,6 @@ namespace Parser
 
   void parseScopedDecl(Scope* s, bool semicolon)
   {
-    cout << "Parsing scoped decl, next: " << lookAhead()->getStr() << '\n';
     Punct colon(COLON);
     if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
@@ -588,8 +587,6 @@ namespace Parser
 
   Statement* parseStatementOrDecl(Block* b, bool semicolon)
   {
-    cout << "Parsing stmt/decl\n";
-    cout << "Next token: " << lookAhead()->getStr() << '\n';
     Token* next = lookAhead(0);
     Token* next2 = lookAhead(1);
     Punct colon(COLON);
@@ -648,7 +645,6 @@ namespace Parser
 
   Statement* parseStatement(Block* b, bool semicolon)
   {
-    cout << "Parsing stmt, next: " << lookAhead()->getStr() << '\n';
     Token* next = lookAhead();
     Punct lbrack(LBRACKET);
     Punct rparen(RPAREN);
