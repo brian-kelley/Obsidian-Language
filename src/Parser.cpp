@@ -362,6 +362,7 @@ namespace Parser
     Expression* init = nullptr;
     if(acceptOper(ASSIGN))
     {
+      cout << "Have an initialized expression.\n";
       init = parseExpression(s);
     }
     if(!init && isAuto)
@@ -374,7 +375,8 @@ namespace Parser
     }
     //create the variable and add to scope
     Variable* var;
-    if(s->node.is<Block*>())
+    bool local = s->node.is<Block*>();
+    if(local)
     {
       //local variable uses special constructor
       var = new Variable(name, type, s->node.get<Block*>());
@@ -593,9 +595,10 @@ namespace Parser
     if(next->type == IDENTIFIER && next2->compareTo(&colon))
     {
       //variable declaration
-      parseVarDecl(b->scope);
+      auto stmt = parseVarDecl(b->scope);
       if(semicolon)
         expectPunct(SEMICOLON);
+      return stmt;
     }
     else if(next->type == IDENTIFIER)
     {

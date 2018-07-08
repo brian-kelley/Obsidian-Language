@@ -1008,7 +1008,6 @@ void resolveType(Type*& t, bool final)
       return;
     }
     //if arrayDims is 0, this is a no-op
-    cout << "Resolving a type, which is a " << unres->arrayDims << "-dim array of " << finalType->getName() << '\n';
     finalType = getArrayType(finalType, unres->arrayDims);
     finalType->finalResolve();
   }
@@ -1042,10 +1041,5 @@ void resolveType(Type*& t, bool final)
   }
   //finally, replace unres with finalType
   t = finalType;
-  cout << "Final type: " << t->getName() << '\n';
-  if(t->resolved)
-    cout << "  (which is resolved)\n";
-  else
-    cout << "  (which is NOT resolved)\n";
 }
 

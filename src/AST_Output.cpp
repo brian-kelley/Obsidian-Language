@@ -225,7 +225,6 @@ int emitExpression(Expression* e)
   }
   else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
   {
-    cout << "Outputting string, verbatim: \"" << sl->value << "\"\n";
     //print string with all characters fully escaped
     Oss oss;
     oss << "\\\"";

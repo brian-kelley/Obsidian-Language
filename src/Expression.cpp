@@ -45,7 +45,6 @@ BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : op(o), lhs(l), r
 
 void BinaryArith::resolveImpl(bool final)
 {
-  cout << "Resolving binary arith with operator " << operatorTable[op] << '\n';
   resolveExpr(lhs, final);
   resolveExpr(rhs, final);
   if(!lhs->resolved || !rhs->resolved)
@@ -55,7 +54,6 @@ void BinaryArith::resolveImpl(bool final)
   //Type check the operation
   auto ltype = lhs->type;
   auto rtype = rhs->type;
-  cout << "REsolving binary arith with lhs type " << lhs->type->getName() << " and rhs type " << rhs->type->getName() << '\n';
   switch(op)
   {
     case LOR:
@@ -215,7 +213,6 @@ void BinaryArith::resolveImpl(bool final)
     default: INTERNAL_ERROR;
   }
   resolved = true;
-  cout << "Successfully resolved BinaryArith with type " << type->getName() << '\n';
 }
 
 /**********************
@@ -266,6 +263,7 @@ StringLiteral::StringLiteral(StrLit* a)
   value = a->val;
   setLocation(a);
   type = getArrayType(primitives[Prim::CHAR], 1);
+  type->finalResolve();
   resolved = true;
 }
 
@@ -456,11 +454,9 @@ VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
 void VarExpr::resolveImpl(bool final)
 {
-  cout << "Resolving variable for VarExpr.\n";
   var->resolveImpl(final);
   if(!var->resolved)
     return;
-  cout << "  Resolution succeeded.\n";
   type = var->type;
   if(scope)
   {
@@ -733,7 +729,6 @@ void resolveExpr(Expression*& expr, bool final)
   //the struct scope if base is a struct, otherwise just usage
   size_t nameIter = 0;
   vector<string>& names = unres->name->names;
-  cout << "Searching for expression name \"" << *(unres->name) << "\"\n";
   //first, get a base expression
   if(!base)
   {
@@ -809,7 +804,6 @@ void resolveExpr(Expression*& expr, bool final)
             }
             else
             {
-              cout << "Found variable with name " << var->name << ", creating VarExpr.\n";
               //static variable can be accessed anywhere
               base = new VarExpr(var);
             }
@@ -824,7 +818,6 @@ void resolveExpr(Expression*& expr, bool final)
       nameIter++;
     }
   }
-  cout << "Resolving base expression.\n";
   base->resolve(final);
   //base must be resolved (need its type) to continue
   if(!base->resolved)
