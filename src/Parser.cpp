@@ -625,6 +625,7 @@ namespace Parser
         case SWITCH:
         case MATCH:
         case PRINT:
+        case ASSERT:
           {
             return parseStatement(b, semicolon);
           }
@@ -724,6 +725,16 @@ namespace Parser
             printStmt->setLocation(loc);
             return printStmt;
           }
+        case ASSERT:
+          {
+            accept();
+            expectPunct(LPAREN);
+            Assertion* as = new Assertion(b, parseExpression(b->scope));
+            expectPunct(RPAREN);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            return as;
+          }
         case SWITCH:
           return parseSwitch(b);
         case MATCH:
@@ -746,6 +757,8 @@ namespace Parser
           assign = new Assign(b, lhs, op->op);
         else
           assign = new Assign(b, lhs, op->op, parseExpression(b->scope));
+        if(semicolon)
+          expectPunct(SEMICOLON);
         assign->setLocation(loc);
         return assign;
       }
@@ -757,6 +770,8 @@ namespace Parser
           errMsgLoc(lhs, "this expression can't be used as statement");
         }
         CallStmt* cs = new CallStmt(b, ce);
+        if(semicolon)
+          expectPunct(SEMICOLON);
         cs->setLocation(loc);
         return cs;
       }
@@ -859,6 +874,7 @@ namespace Parser
         Oper* op = (Oper*) next;
         if(operatorPrec[op->op] != prec)
           break;
+        accept();
         Expression* rhs = parseExpression(s, prec + 1);
         lhs = new BinaryArith(lhs, op->op, rhs);
         lhs->setLocation(op);
@@ -873,9 +889,14 @@ namespace Parser
         int op = ((Oper*) lookAhead())->op;
         if(op == SUB || op == LNOT || op == BNOT)
         {
+          accept();
           UnaryArith* ua = new UnaryArith(op, parseExpression(s, prec));
           ua->setLocation(location);
           return ua;
+        }
+        else
+        {
+          break;
         }
       }
       return parseExpression(s, prec + 1);
@@ -936,6 +957,10 @@ namespace Parser
           base = exprs[0];
         else
           base = new CompoundLiteral(exprs);
+      }
+      else
+      {
+        err("Expected expression");
       }
       base->setLocation(location);
       //now that a base expression has been parsed, parse suffixes left->right

@@ -22,7 +22,7 @@ struct Variable : public Node
   Variable(string name, Type* t, Block* b);
   bool isParameter();
   //this resolve() just resolves type
-  void resolve(bool final);
+  void resolveImpl(bool final);
   string name;
   Type* type;
   //the struct where this is a member, or NULL if static/local

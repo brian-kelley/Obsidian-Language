@@ -66,6 +66,17 @@ IMPL_ADD_NAME(AliasType)
 IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
 
+bool Scope::resolveAll(bool final)
+{
+  for(auto& name : names)
+  {
+    name.second.item->resolveImpl(final);
+    if(!name.second.item->resolved)
+      return false;
+  }
+  return true;
+}
+
 Name::Name(Module* m, Scope* parent)
   : kind(MODULE), name(m->name), scope(parent)
 {
@@ -274,5 +285,10 @@ Module::Module(string n, Scope* s)
 {
   name = n;
   scope = new Scope(s, this);
+}
+
+void Module::resolveImpl(bool final)
+{
+  resolved = scope->resolveAll(final);
 }
 

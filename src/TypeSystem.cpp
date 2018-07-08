@@ -308,6 +308,8 @@ void StructType::resolveImpl(bool final)
       }
     }
   }
+  if(!scope->resolveAll(final))
+    return;
   //then add all the direct methods of this
   //need to search all submodules for subroutines and callable members
   for(auto& scopeName : scope->names)
@@ -1006,7 +1008,9 @@ void resolveType(Type*& t, bool final)
       return;
     }
     //if arrayDims is 0, this is a no-op
+    cout << "Resolving a type, which is a " << unres->arrayDims << "-dim array of " << finalType->getName() << '\n';
     finalType = getArrayType(finalType, unres->arrayDims);
+    finalType->finalResolve();
   }
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
@@ -1038,5 +1042,10 @@ void resolveType(Type*& t, bool final)
   }
   //finally, replace unres with finalType
   t = finalType;
+  cout << "Final type: " << t->getName() << '\n';
+  if(t->resolved)
+    cout << "  (which is resolved)\n";
+  else
+    cout << "  (which is NOT resolved)\n";
 }
 

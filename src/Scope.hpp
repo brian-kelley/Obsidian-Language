@@ -19,6 +19,7 @@ struct Module : public Node
 {
   //name is "" for global scope
   Module(string n, Scope* s);
+  void resolveImpl(bool final);
   string name;
   //scope->node == this
   Scope* scope;
@@ -83,6 +84,7 @@ struct Scope
   void addName(ExternalSubroutine* s);
   void addName(EnumType* e);
   void addName(EnumConstant* e);
+  bool resolveAll(bool final);
   map<string, Name> names;
   vector<Scope*> children;
   //if in static context, this returns NULL

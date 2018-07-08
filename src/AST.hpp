@@ -73,7 +73,6 @@ struct Node
     resolving = false;
   }
 
-  protected:
   virtual void resolveImpl(bool) {};
 };
 

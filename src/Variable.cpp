@@ -30,11 +30,14 @@ Variable::Variable(string n, Type* t, Block* b)
   blockPos = b->statementCount;
 }
 
-void Variable::resolve(bool final)
+void Variable::resolveImpl(bool final)
 {
+  cout << "Resolving variable " << name << '\n';
+  cout << "Resolving type " << type->getName() << '\n';
   resolveType(type, final);
   if(!type->resolved)
     return;
+  cout << "Success\n";
   if(initial)
   {
     resolveExpr(initial, final);

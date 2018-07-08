@@ -85,8 +85,35 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
     case BXOREQ:
     case SHLEQ:
     case SHREQ:
-      rvalue = new BinaryArith(lhs, op, rhs);
-      break;
+      {
+        int nonAssignOp = -1;
+        switch(op)
+        {
+          case PLUSEQ:
+            nonAssignOp = PLUS; break;
+          case SUBEQ:
+            nonAssignOp = SUB; break;
+          case MULEQ:
+            nonAssignOp = MUL; break;
+          case DIVEQ:
+            nonAssignOp = DIV; break;
+          case MODEQ:
+            nonAssignOp = MOD; break;
+          case BOREQ:
+            nonAssignOp = BOR; break;
+          case BANDEQ:
+            nonAssignOp = BAND; break;
+          case BXOREQ:
+            nonAssignOp = BXOR; break;
+          case SHLEQ:
+            nonAssignOp = SHL; break;
+          case SHREQ:
+            nonAssignOp = SHR; break;
+          default:;
+        }
+        rvalue = new BinaryArith(lhs, nonAssignOp, rhs);
+        break;
+      }
     case INC:
       rvalue = new BinaryArith(lhs, PLUS, new IntLiteral(1));
       break;
@@ -100,10 +127,12 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 
 void Assign::resolveImpl(bool final)
 {
+  cout << "Resolving assign.\n";
   resolveExpr(lvalue, final);
   resolveExpr(rvalue, final);
   if(!lvalue->resolved || !rvalue->resolved)
   {
+    cout << "  Either lhs or rhs failed to resolve, should get semantic error.\n";
     return;
   }
   if(!lvalue->assignable())
