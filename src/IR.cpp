@@ -68,12 +68,17 @@ namespace IR
       leaders[stmts[boundaries[i]]] = blocks.back();
     }
     cout << "Have " << blocks.size() << " basic blocks.\n";
+    cout << "Leaders: \n";
+    for(auto ldr : leaders)
+    {
+      cout << *(ldr.first) << " for block " << ldr.second->start << ":" << ldr.second->end << '\n';
+    }
     //Add edges to complete the CFG.
     //Easy since all possible jump targets
     //are leaders, and all flow stmts are ends of BBs.
     for(size_t i = 0; i < blocks.size(); i++)
     {
-      auto last = stmts.back();
+      auto last = stmts[blocks[i]->end - 1];
       if(auto cj = dynamic_cast<CondJump*>(last))
       {
         blocks[i]->link(blocks[i + 1]);
