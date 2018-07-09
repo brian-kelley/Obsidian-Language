@@ -22,9 +22,10 @@ void IRDebug::dumpIR(string filename)
     for(auto bb : subr->blocks)
     {
       Oss bbStream;
+      bbStream << "// Basic Block " << bb->start << ":" << bb->end << "\\n";
       for(int stmt = bb->start; stmt < bb->end; stmt++)
       {
-        bbStream << *(subr->stmts[stmt]) << "\\n";
+        bbStream << subr->stmts[stmt] << "\\n";
       }
       nodes[bb] = dotGraph.createNode(bbStream.str());
     }

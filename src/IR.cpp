@@ -42,6 +42,8 @@ namespace IR
     subr = s;
     //create the IR instructions for the whole body
     addStatement(subr->body);
+    for(size_t i = 0; i < stmts.size(); i++)
+      stmts[i]->intLabel = i;
     //create basic blocks: count non-label statements and detect boundaries
     //BBs start at jump targets (labels/after cond jump), after return, after jump
     //several of these cases overlap naturally
@@ -67,12 +69,6 @@ namespace IR
       blocks.push_back(new BasicBlock(boundaries[i], boundaries[i + 1]));
       leaders[stmts[boundaries[i]]] = blocks.back();
     }
-    cout << "Have " << blocks.size() << " basic blocks.\n";
-    cout << "Leaders: \n";
-    for(auto ldr : leaders)
-    {
-      cout << *(ldr.first) << " for block " << ldr.second->start << ":" << ldr.second->end << '\n';
-    }
     //Add edges to complete the CFG.
     //Easy since all possible jump targets
     //are leaders, and all flow stmts are ends of BBs.
@@ -90,11 +86,6 @@ namespace IR
       }
       else if(!dynamic_cast<ReturnIR*>(last))
       {
-        if(i == blocks.size() - 1)
-        {
-          //errMsgLoc(subr, "no return at end of non-void subroutine");
-          cout << "No return at end of subr?\n";
-        }
         //all others fall-through to next block
         blocks[i]->link(blocks[i + 1]);
       }
@@ -330,55 +321,59 @@ namespace IR
       stmts.push_back(bottomLabels[i]);
     }
   }
-
-  void SubroutineIR::print()
-  {
-    cout << "subroutine " << subr->name << '\n';
-    for(auto stmt : stmts)
-    {
-      if(!dynamic_cast<Label*>(stmt))
-        cout << "  " << stmt->intLabel << ": " << stmt->print();
-    }
-    cout << '\n';
-  }
 }
 
-ostream& operator<<(ostream& os, IR::StatementIR& s)
+ostream& operator<<(ostream& os, IR::StatementIR* stmt)
 {
   using namespace IR;
-  auto stmt = &s;
   //TODO: print expressions expressively
-  if(dynamic_cast<AssignIR*>(stmt))
+  if(auto ai = dynamic_cast<AssignIR*>(stmt))
   {
-    os << "Assign\n";
+    os << ai->dst << " = " << ai->src;
   }
-  else if(dynamic_cast<CallIR*>(stmt))
+  else if(auto call = dynamic_cast<CallIR*>(stmt))
   {
-    os << "Call\n";
+    os << call->eval->callable << '(';
+    for(size_t i = 0; i < call->eval->args.size(); i++)
+    {
+      os << call->eval->args[i];
+      if(i != call->eval->args.size() - 1)
+        os << ", ";
+    }
+    os << ')';
   }
-  else if(dynamic_cast<Jump*>(stmt))
+  else if(auto j = dynamic_cast<Jump*>(stmt))
   {
-    os << "Jump\n";
+    os << "Goto " << j->dst->intLabel;
   }
-  else if(dynamic_cast<CondJump*>(stmt))
+  else if(auto cj = dynamic_cast<CondJump*>(stmt))
   {
-    os << "CondJump\n";
+    os << "If " << cj->cond << " goto " << cj->taken->intLabel << " else " << stmt->intLabel + 1;
   }
-  else if(dynamic_cast<Label*>(stmt))
+  else if(auto label = dynamic_cast<Label*>(stmt))
   {
-    os << "Label\n";
+    os << "Label " << label->intLabel;
   }
-  else if(dynamic_cast<ReturnIR*>(stmt))
+  else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
   {
-    os << "Return\n";
+    os << "Return";
+    if(ret->expr)
+      os << ' ' << ret->expr;
   }
-  else if(dynamic_cast<PrintIR*>(stmt))
+  else if(auto p = dynamic_cast<PrintIR*>(stmt))
   {
-    os << "Print\n";
+    os << "Print(";
+    for(size_t i = 0; i < p->exprs.size(); i++)
+    {
+      os << p->exprs[i];
+      if(i != p->exprs.size() - 1)
+        os << ", ";
+    }
+    os << ')';
   }
-  else if(dynamic_cast<AssertionIR*>(stmt))
+  else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
   {
-    os << "Assert\n";
+    os << "Assert " << assertion->asserted;
   }
   else
   {

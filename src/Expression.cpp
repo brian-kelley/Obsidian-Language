@@ -893,3 +893,95 @@ void resolveExpr(Expression*& expr, bool final)
   expr = base;
 }
 
+ostream& operator<<(ostream& os, Expression* e)
+{
+  INTERNAL_ASSERT(e->resolved);
+  if(UnaryArith* ua = dynamic_cast<UnaryArith*>(e))
+  {
+    os << operatorTable[ua->op] << '(' << ua->expr << ')';
+  }
+  else if(BinaryArith* ba = dynamic_cast<BinaryArith*>(e))
+  {
+    os << '(' << ba->lhs << ' ' << operatorTable[ba->op] << ' ' << ba->rhs << ')';
+  }
+  else if(IntLiteral* il = dynamic_cast<IntLiteral*>(e))
+  {
+    os << il->value;
+  }
+  else if(FloatLiteral* fl = dynamic_cast<FloatLiteral*>(e))
+  {
+    os << fl->value;
+  }
+  else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
+  {
+    for(size_t i = 0; i < sl->value.size(); i++)
+    {
+      os << generateCharDotfile(sl->value[i]);
+    }
+  }
+  else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
+  {
+    os << cl->value;
+  }
+  else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(e))
+  {
+    os << (bl->value ? "true" : "false");
+  }
+  else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
+  {
+    os << '[';
+    for(size_t i = 0; i < compLit->members.size(); i++)
+    {
+      os << compLit->members[i];
+      if(i != compLit->members.size() - 1)
+        os << ", ";
+    }
+    os << ']';
+  }
+  else if(Indexed* in = dynamic_cast<Indexed*>(e))
+  {
+    os << in->group << '[' << in->index << ']';
+  }
+  else if(CallExpr* call = dynamic_cast<CallExpr*>(e))
+  {
+    os << call->callable << '(';
+    for(size_t i = 0; i < call->args.size(); i++)
+    {
+      os << call->args[i];
+      if(i != call->args.size() - 1)
+        os << ", ";
+    }
+    os << ')';
+  }
+  else if(VarExpr* ve = dynamic_cast<VarExpr*>(e))
+  {
+    os << ve->var->name;
+  }
+  else if(NewArray* na = dynamic_cast<NewArray*>(e))
+  {
+    os << "array " << na->elem->getName();
+    for(auto dim : na->dims)
+    {
+      os << '[' << dim << ']';
+    }
+  }
+  else if(Converted* c = dynamic_cast<Converted*>(e))
+  {
+    os << '(' << c->type->getName();
+    os << ") (" << c->value << ')';
+  }
+  else if(ArrayLength* al = dynamic_cast<ArrayLength*>(e))
+  {
+    os << '(' << al->array << ").len";
+  }
+  else if(dynamic_cast<ThisExpr*>(e))
+  {
+    os << "this";
+  }
+  else if(dynamic_cast<ErrorVal*>(e))
+  {
+    os << "error";
+  }
+  return os;
+}
+

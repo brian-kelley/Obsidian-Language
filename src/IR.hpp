@@ -47,7 +47,6 @@ namespace IR
     {
       return vector<Expression*>();
     }
-    virtual string print() = 0;
     virtual ~StatementIR(){}
     //integer position in subroutine
     int intLabel;
@@ -66,12 +65,6 @@ namespace IR
     {
       return vector<Expression*>(1, dst);
     }
-    string print()
-    {
-      Oss oss;
-      oss << dst << " <= " << src;
-      return oss.str();
-    }
   };
 
   struct CallIR : public StatementIR
@@ -83,32 +76,12 @@ namespace IR
     {
       return vector<Expression*>(1, eval);
     }
-    string print()
-    {
-      Oss oss;
-      oss << "call " << eval->callable << " (";
-      for(size_t i = 0; i < eval->args.size(); i++)
-      {
-        if(i > 0)
-          oss << ", ";
-        oss << eval->args[i];
-      }
-      oss << ')';
-      return oss.str();
-    }
   };
 
   struct Jump : public StatementIR
   {
     Jump(Label* l) : dst(l) {}
     Label* dst;
-    int intDst;
-    string print()
-    {
-      Oss oss;
-      oss << "jump " << intDst;
-      return oss.str();
-    }
   };
 
   struct CondJump : public StatementIR
@@ -118,28 +91,13 @@ namespace IR
     //false = jump taken, true = not taken (fall through)
     Expression* cond;
     Label* taken;
-    int intTaken;
     vector<Expression*> getInput()
     {
       return vector<Expression*>(1, cond);
     }
-    string print()
-    {
-      Oss oss;
-      oss << "jump " << intTaken << " if not " << cond;
-      return oss.str();
-    }
   };
 
-  struct Label : public StatementIR
-  {
-    string print()
-    {
-      Oss oss;
-      oss << intLabel << ':';
-      return oss.str();
-    }
-  };
+  struct Label : public StatementIR {};
 
   struct ReturnIR : public StatementIR
   {
@@ -153,12 +111,6 @@ namespace IR
       else
         return vector<Expression*>();
     }
-    string print()
-    {
-      Oss oss;
-      oss << "return " << expr;
-      return oss.str();
-    }
   };
 
   struct PrintIR : public StatementIR
@@ -169,19 +121,6 @@ namespace IR
     {
       return exprs;
     }
-    string print()
-    {
-      Oss oss;
-      oss << "print(";
-      for(size_t i = 0; i < exprs.size(); i++)
-      {
-        if(i > 0)
-          oss << ", ";
-        oss << exprs[i];
-      }
-      oss << ')';
-      return oss.str();
-    }
   };
 
   struct AssertionIR : public StatementIR
@@ -191,12 +130,6 @@ namespace IR
     vector<Expression*> getInput()
     {
       return vector<Expression*>(1, asserted);
-    }
-    string print()
-    {
-      Oss oss;
-      oss << "assert(" << asserted << ')';
-      return oss.str();
     }
   };
 
@@ -220,9 +153,6 @@ namespace IR
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
-    //print out the name and IR of this subroutine
-    //TODO: print expressions in a human-readable way
-    void print();
     Subroutine* subr;
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
@@ -233,7 +163,7 @@ namespace IR
   };
 }
 
-ostream& operator<<(ostream& os, IR::StatementIR& stmt);
+ostream& operator<<(ostream& os, IR::StatementIR* stmt);
 
 #endif
 

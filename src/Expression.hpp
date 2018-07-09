@@ -278,5 +278,8 @@ struct ErrorVal : public Expression
 
 void resolveExpr(Expression*& expr, bool final);
 
+//expr must be resolved
+ostream& operator<<(ostream& os, Expression* expr);
+
 #endif
 
