@@ -37,6 +37,11 @@ void UnaryArith::resolveImpl(bool final)
   }
 }
 
+set<Variable*> UnaryArith::getReads()
+{
+  return expr->getReads();
+}
+
 /***************
  * BinaryArith *
  ***************/
@@ -215,6 +220,14 @@ void BinaryArith::resolveImpl(bool final)
   resolved = true;
 }
 
+set<Variable*> BinaryArith::getReads()
+{
+  auto reads = lhs->getReads();
+  auto rhsReads = rhs->getReads();
+  reads.insert(rhsReads.begin(), rhsReads.end());
+  return reads;
+}
+
 /**********************
  * Primitive Literals *
  **********************/
@@ -318,6 +331,28 @@ void CompoundLiteral::resolveImpl(bool final)
   resolved = true;
 }
 
+set<Variable*> CompoundLiteral::getReads()
+{
+  set<Variable*> reads;
+  for(auto mem : members)
+  {
+    auto memReads = mem->getReads();
+    reads.insert(memReads.begin(), memReads.end());
+  }
+  return reads;
+}
+
+set<Variable*> CompoundLiteral::getWrites()
+{
+  set<Variable*> writes;
+  for(auto mem : members)
+  {
+    auto memWrites = mem->getWrites();
+    writes.insert(memWrites.begin(), memWrites.end());
+  }
+  return writes;
+}
+
 /***********
  * Indexed *
  ***********/
@@ -380,6 +415,19 @@ void Indexed::resolveImpl(bool final)
     errMsgLoc(this, "expression can't be subscripted (is not an array, tuple or map)");
   }
   resolved = true;
+}
+
+set<Variable*> Indexed::getReads()
+{
+  auto reads = group->getReads();
+  auto indexReads = index->getReads();
+  reads.insert(indexReads.begin(), indexReads.end());
+  return reads;
+}
+
+set<Variable*> Indexed::getWrites()
+{
+  return group->getWrites();
 }
 
 /************
@@ -445,6 +493,17 @@ void CallExpr::resolveImpl(bool final)
   resolved = true;
 }
 
+set<Variable*> CallExpr::getReads()
+{
+  auto reads = callable->getReads();
+  for(auto arg : args)
+  {
+    auto argReads = arg->getReads();
+    reads.insert(argReads.begin(), argReads.end());
+  }
+  return reads;
+}
+
 /***********
  * VarExpr *
  ***********/
@@ -471,6 +530,20 @@ void VarExpr::resolveImpl(bool final)
     }
   }
   resolved = true;
+}
+
+set<Variable*> VarExpr::getReads()
+{
+  set<Variable*> reads;
+  reads.insert(var);
+  return reads;
+}
+
+set<Variable*> VarExpr::getWrites()
+{
+  set<Variable*> writes;
+  writes.insert(var);
+  return writes;
 }
 
 /******************
@@ -569,6 +642,16 @@ void StructMem::resolveImpl(bool final)
   resolved = true;
 }
 
+set<Variable*> StructMem::getReads()
+{
+  return base->getReads();
+}
+
+set<Variable*> StructMem::getWrites()
+{
+  return base->getWrites();
+}
+
 /************
  * NewArray *
  ************/
@@ -626,6 +709,11 @@ void ArrayLength::resolveImpl(bool final)
   resolved = true;
 }
 
+set<Variable*> ArrayLength::getReads()
+{
+  return array->getReads();
+}
+
 /************
  * ThisExpr *
  ************/
@@ -663,6 +751,11 @@ Converted::Converted(Expression* val, Type* dst)
     errMsgLoc(this, "can't implicitly convert from " << \
         val->type->getName() << " to " << type->getName());
   }
+}
+
+set<Variable*> Converted::getReads()
+{
+  return value->getReads();
 }
 
 /************
@@ -914,10 +1007,12 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
   {
+    os << generateCharDotfile('"');
     for(size_t i = 0; i < sl->value.size(); i++)
     {
       os << generateCharDotfile(sl->value[i]);
     }
+    os << generateCharDotfile('"');
   }
   else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
   {

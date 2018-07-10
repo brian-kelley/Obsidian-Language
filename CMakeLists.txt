@@ -20,6 +20,7 @@ add_executable (onyx
   src/Scope.cpp
   src/Subroutine.cpp
   src/IR.cpp
+  src/Dataflow.cpp
   src/Dotfile.cpp
   src/Builtin.cpp
   src/main.cpp

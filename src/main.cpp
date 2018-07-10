@@ -7,6 +7,7 @@
 #include "AST.hpp"
 #include "AST_Output.hpp"
 #include "IR.hpp"
+#include "Dataflow.hpp"
 #include "IRDebug.hpp"
 #include "BuiltIn.hpp"
 
@@ -63,6 +64,7 @@ int main(int argc, const char** argv)
   DEBUG_DO(outputAST(global, "AST.dot");)
   TIMEIT("IR/CFG construction", IR::buildIR();)
   DEBUG_DO(IRDebug::dumpIR("ir.dot");)
+  Liveness::buildAllLivesets();
   //TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

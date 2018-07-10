@@ -9,6 +9,17 @@ struct Expression : public Node
 {
   Expression() : type(nullptr) {}
   virtual void resolveImpl(bool final) {}
+  //Find set of read (input) or write (output) variables
+  virtual set<Variable*> getReads()
+  {
+    return set<Variable*>();
+  }
+  //getWrites assume this is the LHS
+  //so it's not implemented for RHS-only exprs
+  virtual set<Variable*> getWrites()
+  {
+    return set<Variable*>();
+  }
   Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
@@ -47,6 +58,7 @@ struct UnaryArith : public Expression
     return false;
   }
   void resolveImpl(bool final);
+  set<Variable*> getReads();
 };
 
 struct BinaryArith : public Expression
@@ -60,6 +72,7 @@ struct BinaryArith : public Expression
     return false;
   }
   void resolveImpl(bool final);
+  set<Variable*> getReads();
 };
 
 struct IntLiteral : public Expression
@@ -128,6 +141,8 @@ struct CompoundLiteral : public Expression
   }
   vector<Expression*> members;
   bool lvalue;
+  set<Variable*> getReads();
+  set<Variable*> getWrites();
 };
 
 struct Indexed : public Expression
@@ -140,6 +155,8 @@ struct Indexed : public Expression
   {
     return group->assignable();
   }
+  set<Variable*> getReads();
+  set<Variable*> getWrites();
 };
 
 struct CallExpr : public Expression
@@ -152,6 +169,7 @@ struct CallExpr : public Expression
   {
     return false;
   }
+  set<Variable*> getReads();
 };
 
 struct VarExpr : public Expression
@@ -166,6 +184,8 @@ struct VarExpr : public Expression
     //all variables are lvalues
     return true;
   }
+  set<Variable*> getReads();
+  set<Variable*> getWrites();
 };
 
 //Expression to represent constant callable
@@ -210,6 +230,8 @@ struct StructMem : public Expression
   {
     return base->assignable() && member.is<Variable*>();
   }
+  set<Variable*> getReads();
+  set<Variable*> getWrites();
 };
 
 struct NewArray : public Expression
@@ -233,13 +255,13 @@ struct ArrayLength : public Expression
   {
     return false;
   }
+  set<Variable*> getReads();
 };
 
 struct ThisExpr : public Expression
 {
   ThisExpr(Scope* where);
-  //structType == (StructType*) type,
-  //structType is only for convenience
+  //structType is equal to type
   StructType* structType;
   bool assignable()
   {
@@ -255,6 +277,7 @@ struct Converted : public Expression
   {
     return value->assignable();
   }
+  set<Variable*> getReads();
 };
 
 struct EnumExpr : public Expression

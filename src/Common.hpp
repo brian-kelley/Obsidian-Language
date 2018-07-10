@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <queue>
 #include <string>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,7 @@ using std::vector;
 using std::map;
 using std::set;
 using std::stack;
+using std::queue;
 using std::pair;
 using std::ostream;
 using std::ofstream;

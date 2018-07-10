@@ -362,7 +362,6 @@ namespace Parser
     Expression* init = nullptr;
     if(acceptOper(ASSIGN))
     {
-      cout << "Have an initialized expression.\n";
       init = parseExpression(s);
     }
     if(!init && isAuto)
