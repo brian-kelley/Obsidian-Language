@@ -35,12 +35,11 @@ namespace Liveness
 
   void LiveSet::intersectVars(IR::BasicBlock* bb, set<Variable*> vars)
   {
+    set<Variable*> intersect;
     auto& thisSet = live[bb];
-    for(auto var : vars)
-    {
-      if(thisSet.find(var) == thisSet.end())
-        thisSet.erase(var);
-    }
+    std::set_intersection(thisSet.begin(), thisSet.end(),
+        vars.begin(), vars.end(), std::inserter(intersect, intersect.begin()));
+    live[bb] = intersect;
   }
 
   void buildAllLivesets()
@@ -59,17 +58,29 @@ namespace Liveness
         //then visit predecessors again after processing
         for(auto bb : subr->blocks)
         {
-          current->live[bb] = subr->getReads(bb);
+          //care about definitions (writes) in forward direction,
+          //and usage (reads) in backward
+          if(forwardDir)
+            current->live[bb] = subr->getWrites(bb);
+          else
+            current->live[bb] = subr->getReads(bb);
+
         }
-        for(int i = subr->blocks.size() - 1; i >= 0; i--)
+        if(forwardDir)
         {
-          toProcess.push(subr->blocks[i]);
+          for(int i = 0; i < subr->blocks.size(); i++)
+            toProcess.push(subr->blocks[i]);
+        }
+        else
+        {
+          for(int i = subr->blocks.size() - 1; i >= 0; i--)
+            toProcess.push(subr->blocks[i]);
         }
         while(!toProcess.empty())
         {
           BasicBlock* process = toProcess.front();
           toProcess.pop();
-          size_t oldSize = current->live.size();
+          size_t oldSize = current->live[process].size();
           //here "incoming" means predecessor in order of current dataflow direction
           vector<BasicBlock*>* incoming = forwardDir ? &process->in : &process->out;
           vector<BasicBlock*>* outgoing = forwardDir ? &process->out : &process->in;
@@ -77,9 +88,9 @@ namespace Liveness
           {
             current->insertVars(process, current->live[predecessor]);
           }
-          if(current->live.size() != oldSize)
+          if(current->live[process].size() != oldSize)
           {
-            //made an update, so need to visit all predecessors again
+            //made an update, so need to visit all successors again
             for(auto successor : *outgoing)
             {
               toProcess.push(successor);

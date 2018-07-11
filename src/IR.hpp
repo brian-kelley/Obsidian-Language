@@ -154,6 +154,7 @@ namespace IR
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
     set<Variable*> getReads(BasicBlock* bb);
+    set<Variable*> getWrites(BasicBlock* bb);
     Subroutine* subr;
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
