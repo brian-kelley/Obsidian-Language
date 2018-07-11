@@ -6,14 +6,14 @@
 #include "Subroutine.hpp"
 #include "Expression.hpp"
 #include "Variable.hpp"
+#include "IR.hpp"
 
 /* C backend memory management:
  *
- *  -global variables are global C variables (statically allocated)
- *  -local variables are all allocated on stack
- *  -array, map and union storage are on heap
+ *  -global variables are statically allocated
+ *  -local variables are stack allocated
+ *  -array, map and union storage are heap allocated
  *  -primitives/enums passed by value; everything else by pointer
- *
  */
 
 namespace C
@@ -53,17 +53,10 @@ namespace C
   //Generate a unique integer to be used as C identifier
   string getIdentifier();
 
-  //given lambda f that takes a Scope*, run f on all scopes (depth-first)
-  template<typename F> void walkScopeTree(F f);
-  void generateStatement(ostream& c, Block* b, Statement* stmt);
-  void generateBlock(ostream& c, Block* b);
-  string generateExpression(ostream& c, Block* b, Expression* expr);
-  void generateComparison(ostream& c, int op, Type* t, string lhs, string rhs);
-  void generateAssignment(ostream& c, Block* b, Expression* lhs, Expression* rhs);
-  void generateLocalVariables(ostream& c, Block* b);
-
   //generate a nicely formatted "section" header in a comment
   void generateSectionHeader(ostream& c, string name);
+
+  void emitStatement(ostream& c, IR::StatementIR* stmt);
 
   //utility functions
   //lazily generate and return name of C function
