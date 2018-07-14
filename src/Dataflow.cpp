@@ -110,12 +110,9 @@ namespace Liveness
       }
       for(auto arg : s.first->args)
       {
-        if(allModified.find(arg) == allModified.end())
-          argsModified.push_back(false);
-        else
-          argsModified.push_back(true);
+        liveSets[subr]->argsModified.push_back(
+            allModified.find(arg) != allModified.end());
       }
-      subr->getWrites(bb);
     }
   }
 }

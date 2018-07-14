@@ -39,15 +39,22 @@ namespace IR
   //
   //All values are given unique IDs
   //
-  //Expressions can quicky be tested for symbolic equivalence
-  
-  struct Value
-  {
-  };
+  //Expressions can quicky be tested for symbolic equivalence for CSE
+  //
+  //Need a multi-pass approach to create minimal set of values in subroutine
+  //
+  //  1. Create an initial set of values, using them as arguments to IR instructions
+  //    1a. Variables before and after any assignment to them are different Values
+  //  2. For each BB with multiple incoming CFG edges, add the necessary phi nodes
+  //    2a. phi nodes don't need corresponding Assign instructions, just keep a separate table of them
+  //    2b. this creates valid (but not optimal, yet) SSA
+  //  3. Until no more updates can be done:
+  //    3a. Test if all joined values in a phi node are actually equivalent
+  //        (can safely delete those nodes, and replace their usage by any of the incoming versions)
+  //    3b. Find constant subexpressions (and evaluate them, except when it would
+  //        create a constant bigger than an arbitrary cutoff, like 256 bytes)
 
-  struct 
-
-  extern map<Subroutine*, SubroutineIR*> ir;
+  extern map<Subroutine*, SkubroutineIR*> ir;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();
 
