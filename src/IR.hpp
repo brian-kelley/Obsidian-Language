@@ -32,6 +32,21 @@ namespace IR
   struct BasicBlock;
   struct SubroutineIR;
 
+  //IR value types (expressions)
+  //
+  //Associative arithmetic operators on > 2 operands
+  //are combined into one "operation"
+  //
+  //All values are given unique IDs
+  //
+  //Expressions can quicky be tested for symbolic equivalence
+  
+  struct Value
+  {
+  };
+
+  struct 
+
   extern map<Subroutine*, SubroutineIR*> ir;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();

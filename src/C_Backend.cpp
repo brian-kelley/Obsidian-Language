@@ -1,6 +1,7 @@
 #include "C_Backend.hpp"
 #include <utility>
 
+using namespace IR;
 using std::pair;
 
 map<Type*, string> types;
@@ -24,6 +25,21 @@ set<ArrayType*> appendImpl;
 set<Type*> sortImpl;
 set<ArrayType*> accessImpl;
 set<ArrayType*> assignImpl;
+
+struct Temporary
+{
+  Temporary(Type* t, string name) : type(t), cname(name) {}
+  //emit any code necessary to deallocate memory owned by this
+  void emitFree(ostream& c)
+  {
+    if(typeNeedsDealloc(type))
+    {
+      c << getDeallocFunc(type) << '(' << cname << ");";
+    }
+  }
+  Type* type;
+  string cname;
+};
 
 int identCount = 0;
 ofstream c;
@@ -512,8 +528,10 @@ namespace C
             //primitives passed by value, all others passed by ptr
             vars[arg] = argName;
             funcDecls << types[arg->type];
-            //addScopedVar(arg->type, argName);
-            funcDecls << "* " << argName;
+            if(isPOD(arg->type))
+              funcDecls << ' ' << argName;
+            else
+              funcDecls << "* " << argName;
           }
           funcDecls << ");\n";
         }
@@ -545,16 +563,18 @@ namespace C
             string argName = getIdentifier();
             vars[arg] = argName;
             funcDefs << types[arg->type];
-            if(!arg->type->isPrimitive())
-            {
-              funcDefs << '*';
-            }
-            funcDefs << ' ' << argName;
+            if(arg->type->isPOD())
+              funcDefs << ' ' << argName;
+            else
+              funcDefs << "* " << argName;
           }
-          funcDefs << ")\n";
-          //any returns in this block will pop 2 scopes: the block and the subr
-          generateBlock(funcDefs, sub->body);
-          funcDefs << '\n';
+          funcDefs << ")\n{\n";
+          //generate all statements in the body, in sequence
+          for(auto stmt : ir[sub])
+          {
+            emitStatement(funcDefs, stmt);
+          }
+          funcDefs << "}\n\n";
         }
       });
     genMain((Subroutine*) global->scope->names["main"].item);
@@ -602,28 +622,35 @@ namespace C
 
   string generateExpression(ostream& c, Expression* expr)
   {
-    //first, handle special cases where expr is C lvalue
+    //first, handle special cases where expr is already a simple C lvalue
     if(VarExpr* var = dynamic_cast<VarExpr*>(expr))
     {
       return vars[var->var];
     }
     else if(dynamic_cast<ThisExpr*>(expr))
     {
-      return "(*this)";
+      return "this";
     }
-    Oss calc;
+    //maintain a list of temporaries, so memory can be freed ASAP
+    vector<Temporary> temporaries;
     string ident = getIdentifier();
+    //declare the output value (uninitialized)
+    c << types[expr->type] << ' ' << ident << ";\n";
+    //open a scope so stack allocations will go out of scope when not needed
+    c << "{ // Evaluating " << expr << '\n';
     //Expressions in C mostly depend on the subclass of expr
     if(UnaryArith* unary = dynamic_cast<UnaryArith*>(expr))
     {
       string operand = generateExpression(c, unary->expr);
-      calc << types[expr->type] << ' ' << ident << " = ";
-      calc << operatorTable[unary->op] << operand << ";\n";
+      temporaries.emplace_back(unary->expr->type, operand);
+      c << ident << " = " << operatorTable[unary->op] << operand << ";\n";
     }
     else if(BinaryArith* binary = dynamic_cast<BinaryArith*>(expr))
     {
       string lhs = generateExpression(c, binary->lhs);
       string rhs = generateExpression(c, binary->rhs);
+      temporaries.emplace_back(binary->lhs->type, lhs);
+      temporaries.emplace_back(binary->rhs->type, rhs);
       //fully parenthesize binary exprs so that it works
       //in case onyx has a different operator precedence than C
       //all arithmetic operators have same behavior as C
@@ -632,94 +659,98 @@ namespace C
           binary->op == CMPL || binary->op == CMPLE ||
           binary->op == CMPG || binary->op == CMPGE)
       {
-        calc << "bool " << ident << " = ";
-        generateComparison(calc, binary->op, binary->lhs->type, lhs, rhs);
+        c << ident << " = ";
+        generateComparison(c, binary->op, binary->lhs->type, lhs, rhs);
       }
       else if(binary->op == PLUS &&
           binary->lhs->type->isArray() && binary->rhs->type->isArray())
       {
         //array concat
-        calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getConcatFunc((ArrayType*) binary->lhs->type);
-        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
+        c << getConcatFunc((ArrayType*) binary->lhs->type);
+        c << "(" << ident << ", " << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->lhs->type->isArray())
       {
         //array append
-        calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getAppendFunc((ArrayType*) binary->lhs->type);
-        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
+        c << getAppendFunc((ArrayType*) binary->lhs->type);
+        c << "(" << ident << ", " << lhs << ", " << rhs << ");\n";
       }
       else if(binary->op == PLUS && binary->rhs->type->isArray())
       {
         //array prepend
-        calc << types[expr->type] << ' ' << ident << ";\n";
-        calc << getPrependFunc((ArrayType*) binary->rhs->type);
-        calc << "(&" << ident << ", &" << lhs << ", &" << rhs << ");\n";
+        c << getPrependFunc((ArrayType*) binary->rhs->type);
+        c << "(" << ident << ", " << lhs << ", " << rhs << ");\n";
       }
       else
       {
-        calc << types[expr->type] << ' ' << ident << " = ";
-        calc << lhs << ' ' << operatorTable[binary->op] << ' ' << rhs << ");\n";
+        //primitive arithmetic
+        c << ident << " = ";
+        c << lhs << ' ' << operatorTable[binary->op] << ' ' << rhs << ");\n";
       }
     }
     else if(IntLiteral* intLit = dynamic_cast<IntLiteral*>(expr))
     {
       //allocate with the proper size and then assign
-      calc << types[intLit->type] << " = " << intLit->value;
+      c << ident << " = " << intLit->value;
       if(intLit->value > INT_MAX)
       {
-        calc << "LL";
+        c << "LL";
       }
-      calc << ";\n";
+      c << ";\n";
     }
     else if(FloatLiteral* floatLit = dynamic_cast<FloatLiteral*>(expr))
     {
-      calc << types[floatLit->type] << " = " << floatLit->value << ";\n";
+      char buf[80];
+      //print enough digits to represent float exactly
+      sprintf(buf, "%#.17f", floatLit->value);
+      c << ident << " = " << buf << ";\n";
     }
     else if(StringLiteral* stringLit = dynamic_cast<StringLiteral*>(expr))
     {
       //allocate and populate char[] struct from string literal
       ArrayType* stringType = (ArrayType*) getArrayType(primitives[Prim::CHAR], 1);
-      string& t = types[stringType];
-      calc << t << ' ' << ident << " = " << getAllocFunc(stringType) << '(' << stringLit->value.length() << ");\n";
-      calc << "strcpy(" << ident << "->data, \"";
+      c << ident << " = " << getAllocFunc(stringType) << '(' << stringLit->value.length() << " + 1);\n";
+      c << "memcpy(" << ident << "->data, \"";
       //output chars one at a time, escaping as needed
       for(auto ch : stringLit->value)
       {
-        calc << generateChar(ch);
+        c << generateChar(ch);
       }
-      calc << "\");\n";
+      c << "\", " << stringLit->value.length() + 1 << ");\n";
     }
     else if(CharLiteral* charLit = dynamic_cast<CharLiteral*>(expr))
     {
-      calc << "char " << ident << " = '";
-      calc << generateChar(charLit->value);
-      calc << "';\n";
+      c << ident << " = '";
+      //generateChar produces escapes as needed
+      c << generateChar(charLit->value);
+      c << "';\n";
     }
     else if(BoolLiteral* boolLit = dynamic_cast<BoolLiteral*>(expr))
     {
-      calc << "bool " << ident << " = ";
-      calc << (boolLit->value ? "true" : "false");
-      calc << ";\n";
+      c << ident << " = ";
+      c << (boolLit->value ? "true" : "false");
+      c << ";\n";
     }
     else if(Indexed* indexed = dynamic_cast<Indexed*>(expr))
     {
       //Indexed expression must be either a tuple or array
       auto indexedType = indexed->group->type;
       string group = generateExpression(c, indexed->group);
+      temporaries.emplace_back(indexedType, group);
       if(ArrayType* at = dynamic_cast<ArrayType*>(indexedType))
       {
         string index = generateExpression(c, indexed->index);
-        calc << types[at->subtype] << ' ' << ident << " = ";
-        calc << getAccessFunc(at) << "(&" << group << ", &";
-        calc << index << ");\n";
+        temporaries.emplace_back(indexed->index->type, index);
+        c << types[at->subtype] << ' ' << ident << " = ";
+        string refOfElem = isPOD(at->type) ? "&" : "";
+        c << getAccessFunc(at) << "(" << refOfElem << ident << ", " << group << ", ";
+        c << index << ");\n";
       }
       else if(TupleType* tt = dynamic_cast<TupleType*>(indexedType))
       {
         int which = dynamic_cast<IntLiteral*>(indexed)->value;
-        calc << types[tt->members[which]] << ' ' << ident << " = ";
-        calc << group << ".mem" << which << ";\n";
+        c << types[tt->members[which]] << ' ' << ident << " = ";
+        c << group << ".mem" << which << ";\n";
       }
       else if(auto mt = dynamic_cast<MapType*>(indexedType))
       {
@@ -979,21 +1010,21 @@ namespace C
       INTERNAL_ERROR;
     }
     c << calc.str();
-    //addScopedVar(expr->type, ident);
     return ident;
   }
 
   void generateComparison(ostream& c, int op, Type* t, string lhs, string rhs)
   {
-    string name = getIdentifier();
-    c << "bool " << name << " = ";
+    //comparison functions take pointers, so want to
+    //take address of POD types, (non-POD types are already pointers)
+    string refOf = isPOD(t) ? "&" : "";
     if(op == CMPEQ || op == CMPNEQ)
     {
       if(op == CMPNEQ)
       {
         c << '!';
       }
-      c << getEqualsFunc(t) << "(&" << lhs << ", &" << rhs << ')';
+      c << getEqualsFunc(t) << "(" << refOf << lhs << ", " << refOf << rhs << ')';
     }
     else
     {
@@ -1005,26 +1036,42 @@ namespace C
       bool reverse = (op == CMPLE || op == CMPG);
       if(negate)
         c << '!';
-      c << getLessFunc(t) << "(&" << (reverse ? rhs : lhs) << ", &" << (reverse ? lhs : rhs) << ')';
+      c << getLessFunc(t) << "(" << refOf << (reverse ? rhs : lhs) << ", " << refOf << (reverse ? lhs : rhs) << ')';
     }
   }
 
-  void generateBlock(ostream& c, Block* b)
+  void emitStatement(StatementIR* stmt)
   {
-    c << "{\n";
-    //introduce local variables
-    generateLocalVariables(c, b);
-    for(auto blockStmt : b->stmts)
+    if(auto ai = dynamic_cast<AssignIR*>(stmt))
     {
-      generateStatement(c, b, blockStmt);
+      //compute RHS
     }
-    //generate the code to free variables in b's scope
-    //popScope(c);
-    c << "}\n";
-  }
-
-  void emitStatement(IR::StatementIR* stmt)
-  {
+    else if(auto call = dynamic_cast<CallIR*>(stmt))
+    {
+    }
+    else if(auto j = dynamic_cast<Jump*>(stmt))
+    {
+    }
+    else if(auto cj = dynamic_cast<CondJump*>(stmt))
+    {
+    }
+    else if(auto label = dynamic_cast<Label*>(stmt))
+    {
+    }
+    else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
+    {
+    }
+    else if(auto p = dynamic_cast<PrintIR*>(stmt))
+    {
+    }
+    else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
+    {
+    }
+    else
+    {
+      INTERNAL_ERROR;
+    }
+    return os;
   }
 
 
@@ -1176,7 +1223,6 @@ void generateLocalVariables(ostream& c, Block* b)
     }
     c << getInitFunc(local->type) << "(&" << ident << ");\n";
     vars[local] = ident;
-    //addScopedVar(local->type, ident);
   }
 }
 
@@ -1187,7 +1233,7 @@ string getIdentifier()
   return name;
 }
 
-  template<typename F>
+template<typename F>
 void walkScopeTree(F f)
 {
   vector<Scope*> visit;
@@ -2425,67 +2471,6 @@ void generateSectionHeader(ostream& c, string name)
     c << ' ';
   c << "//\n";
   c << "//////////////////////////////\n\n";
-}
-
-vector<CScope> cscopes;
-
-//create a new, empty scope
-void pushScope()
-{
-  cscopes.emplace_back();
-}
-
-//add a local variable to topmost scope
-void addScopedVar(Type* t, string name)
-{
-  if(cscopes.size() == 0)
-  {
-    INTERNAL_ERROR;
-  }
-  if(typeNeedsDealloc(t))
-  {
-    cscopes.back().vars.emplace_back(t, name);
-  }
-}
-
-//generate free calls for all vars in top scope and then delete it
-void popScope(ostream& code)
-{
-  if(cscopes.size() == 0)
-  {
-    INTERNAL_ERROR;
-  }
-  auto& popped = cscopes.back();
-  for(auto& var : popped.vars)
-  {
-    //for non-primitives, the C variable var.name is already a pointer to type
-    if(!var.type->isPrimitive())
-    {
-      code << getDeallocFunc(var.type) << '(' << var.name << ");\n";
-    }
-  }
-}
-
-void freeWithinScope(ostream& c, Scope* s, Scope* current)
-{
-  //Generate dealloc calls for all variables
-  for(Scope* iter = current; iter; iter = iter->parent)
-  {
-    for(auto& n : iter->names)
-    {
-      if(n.second.kind == Name::VARIABLE)
-      {
-        Variable* v = (Variable*) n.second.item;
-        if(typeNeedsDealloc(v->type))
-        {
-          c << getDeallocFunc(v->type) << '(' << vars[v] << ')'
-        }
-      }
-    }
-    if(iter == s)
-      return;
-  }
-  INTERNAL_ERROR;
 }
 
 }

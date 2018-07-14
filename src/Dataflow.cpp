@@ -101,16 +101,21 @@ namespace Liveness
       for(auto bb : subr->blocks)
         forward->intersectVars(bb, backward->live[bb]);
       liveSets[subr] = forward;
-      cout << "Variable liveness of subroutine " << s.first->name << ":\n";
+      //finally, compute argsModified
+      set<Variable*> allModified;
       for(auto bb : subr->blocks)
       {
-        cout << "  BB " << bb->start << ':' << bb->end << '\n';
-        for(auto l : forward->live[bb])
-        {
-          cout << "    " << l->name << '\n';
-        }
+        auto bbWrites = subr->getWrites(bb);
+        allModified.insert(allModified.begin(), allModified.end());
       }
-      cout << '\n';
+      for(auto arg : s.first->args)
+      {
+        if(allModified.find(arg) == allModified.end())
+          argsModified.push_back(false);
+        else
+          argsModified.push_back(true);
+      }
+      subr->getWrites(bb);
     }
   }
 }

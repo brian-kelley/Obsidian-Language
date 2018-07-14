@@ -93,12 +93,6 @@ namespace C
   bool isPOD(Type* t);
   //true if type needs "->" to access members instead of "."
   bool isPointer(Expression* expr);
-
-  //Generate free calls for all variables inside of current,
-  //and all its parent scopes up to and including s.
-  //Call before generating return, end of block, etc.
-  //This is like automatic generation of C++ destructors
-  void freeWithinScope(ostream& c, Scope* s, Scope* current);
 }
 
 #endif

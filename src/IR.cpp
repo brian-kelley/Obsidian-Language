@@ -356,7 +356,6 @@ namespace IR
 ostream& operator<<(ostream& os, IR::StatementIR* stmt)
 {
   using namespace IR;
-  //TODO: print expressions expressively
   if(auto ai = dynamic_cast<AssignIR*>(stmt))
   {
     os << ai->dst << " = " << ai->src;

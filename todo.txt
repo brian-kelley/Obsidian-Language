@@ -1,20 +1,24 @@
 ---------------------
       TODO:
 ---------------------
+-Finish union semantics and implementation
+  -Recursive union example (binary tree of string):
+
+  typedef ((BinaryTree, BinaryTree, string) | string) BinaryTree;
+
+  -Example is directly recursive - need a 
+
+  -use tagged C union whenever possible: integer tag (as small as possible) plus enough space to hold all option types
+  -if a union is recursive, need to use pointers to avoid infinite-sized type  
+  -don't allow 
+
 -Make backend work
-  -Don't try to avoid data structure copies (do that later but still in un-optimized build)
-  -All statements, all data structures
-  -Initialization of globals and struct members
-  -Tests
-  -Test compiler thoroughly: correct operation and no leaks
 -Implement #include (a special built-in metaprocedure)
 
 -Build data dependency graph (for now, only within subroutines)
   -for each basic block, find the inputs
 -Constant propagation and compile-time evaluation of expressions
   -finish and use the interpreter
--Build CFG of each subroutine
-  -Liveness analysis
 
 -Add keyword include
   -check that is inside static module
@@ -26,13 +30,6 @@
   -include should be idempotent (doing it again with same file is no-op)
     -don't even need to read the file after first time, just find path in table
 -Implement external functions in backend
--Implement overloading
-  -Name::SUBROUTINE needs to be changed to refer to all subrs with same name
-  -can't overload on return type alone
-  -all overloads must be in the same scope
-    -subrs with same name but diff scope shadows instead
-  -when resolving calls, choose first version with exact type match,
-    then the first one (lexically) that matches
 -Implement generic keyword (see below)
   -generic is just another kind of ScopedDecl (and Name)
 -Add punctuation for meta: @ $ @> $>
@@ -141,9 +138,8 @@ BUILT-IN MODULES (all must be fully cross-platform)
   -Input (keyboard, mouse, gamepad - portable across all machines)
     -Want to be able to poll keys/buttons efficiently like SDL,
       or set callbacks for specific events
-    -callbacks are dead simple with first-class subrs
-  -UI (like libUI)
-    -should call native Win32/Cocoa/ GTK? for native look and feel
+    -callbacks can be very simple with first-class subrs
+  -UI through Nuklear
   -Native audio wrapper
   -set(T) in global, implemented as (T : void)
   -Compression, for use with serialization: Zstd? (speed > compression)
@@ -153,5 +149,4 @@ BUILT-IN MODULES (all must be fully cross-platform)
     -Kosaraju's algo for strongly connected components
     -topological sort
     -Prim's algo for minimum spanning tree
-  -Codec: ffmpeg wrappers
 

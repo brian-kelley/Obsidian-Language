@@ -20,6 +20,9 @@ namespace Liveness
     void insertVars(IR::BasicBlock* bb, set<Variable*> vars);
     void intersectVars(IR::BasicBlock* bb, set<Variable*> vars);
     map<IR::BasicBlock*, set<Variable*>> live;
+    //part of the liveness is just whether each subroutine argument gets modified
+    //if an argument is never modified, it's never necessary to deep-copy it in the caller
+    vector<bool> argsModified;
   };
   extern map<IR::SubroutineIR*, LiveSet*> liveSets;
   void buildAllLivesets();
