@@ -12,7 +12,7 @@ bool deadCodeElim(SubroutineIR* subr)
   {
     BasicBlock* thisBlock = subr->blocks[i];
     BasicBlock* prevBlock = subr->blocks[i - 1];
-    if(thisBlock->in.size() == 1 && thisBlock->in[0] == prevBlock)
+    if(prevBlock->out.size() == 1 && thisBlock->in.size() == 1 && thisBlock->in[0] == prevBlock)
     {
       //get statements before and after BB boundary
       auto& stmtBefore = subr->stmts[prevBlock->end - 1];
