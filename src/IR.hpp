@@ -18,6 +18,8 @@
 struct Subroutine;
 struct Expression;
 
+extern Nop* nop;
+
 namespace IR
 {
   struct StatementIR;
@@ -54,7 +56,7 @@ namespace IR
   //    3b. Find constant subexpressions (and evaluate them, except when it would
   //        create a constant bigger than an arbitrary cutoff, like 256 bytes)
 
-  extern map<Subroutine*, SkubroutineIR*> ir;
+  extern map<Subroutine*, SubroutineIR*> ir;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();
 
@@ -155,6 +157,8 @@ namespace IR
     }
   };
 
+  struct Nop : public StatementIR {};
+
   struct BasicBlock
   {
     BasicBlock(int s, int e) : start(s), end(e) {}
@@ -175,6 +179,7 @@ namespace IR
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
+    void buildCFG();
     set<Variable*> getReads(BasicBlock* bb);
     set<Variable*> getWrites(BasicBlock* bb);
     Subroutine* subr;

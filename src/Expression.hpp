@@ -23,6 +23,11 @@ struct Expression : public Node
   Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
+  //whether this can be evaluated as a compile-time constant
+  virtual bool constant()
+  {
+    return false;
+  }
 };
 
 //Subclasses of Expression
@@ -59,6 +64,10 @@ struct UnaryArith : public Expression
   }
   void resolveImpl(bool final);
   set<Variable*> getReads();
+  bool constant()
+  {
+    return expr->constant();
+  }
 };
 
 struct BinaryArith : public Expression
@@ -67,12 +76,16 @@ struct BinaryArith : public Expression
   int op;
   Expression* lhs;
   Expression* rhs;
+  void resolveImpl(bool final);
+  set<Variable*> getReads();
   bool assignable()
   {
     return false;
   }
-  void resolveImpl(bool final);
-  set<Variable*> getReads();
+  bool constant()
+  {
+    return lhs->constant() && rhs->constant();
+  }
 };
 
 struct IntLiteral : public Expression
@@ -86,6 +99,10 @@ struct IntLiteral : public Expression
   }
   private:
   void setType(); //called by both constructors
+  bool constant()
+  {
+    return true;
+  }
 };
 
 struct FloatLiteral : public Expression
@@ -97,6 +114,10 @@ struct FloatLiteral : public Expression
   {
     return false;
   }
+  bool constant()
+  {
+    return true;
+  }
 };
 
 struct StringLiteral : public Expression
@@ -106,6 +127,10 @@ struct StringLiteral : public Expression
   bool assignable()
   {
     return false;
+  }
+  bool constant()
+  {
+    return true;
   }
 };
 
@@ -117,6 +142,10 @@ struct CharLiteral : public Expression
   {
     return false;
   }
+  bool constant()
+  {
+    return true;
+  }
 };
 
 struct BoolLiteral : public Expression
@@ -126,6 +155,10 @@ struct BoolLiteral : public Expression
   bool assignable()
   {
     return false;
+  }
+  bool constant()
+  {
+    return true;
   }
 };
 
@@ -143,6 +176,19 @@ struct CompoundLiteral : public Expression
   bool lvalue;
   set<Variable*> getReads();
   set<Variable*> getWrites();
+  bool constant()
+  {
+    bool c = true;
+    for(auto m : members)
+    {
+      if(!m->constant())
+      {
+        c = false;
+        break;
+      }
+    }
+    return c;
+  }
 };
 
 struct Indexed : public Expression
@@ -154,6 +200,10 @@ struct Indexed : public Expression
   bool assignable()
   {
     return group->assignable();
+  }
+  bool constant()
+  {
+    return group->constant() && index->constant();
   }
   set<Variable*> getReads();
   set<Variable*> getWrites();
@@ -169,6 +219,7 @@ struct CallExpr : public Expression
   {
     return false;
   }
+  //TODO: do evaluate calls in optimizing mode
   set<Variable*> getReads();
 };
 
@@ -200,6 +251,10 @@ struct SubroutineExpr : public Expression
   {
     return false;
   }
+  bool constant()
+  {
+    return true;
+  }
   Subroutine* subr;
   ExternalSubroutine* exSubr;
   Expression* thisObject; //null for static/extern
@@ -230,6 +285,10 @@ struct StructMem : public Expression
   {
     return base->assignable() && member.is<Variable*>();
   }
+  bool constant()
+  {
+    return base->constant();
+  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -244,6 +303,15 @@ struct NewArray : public Expression
   {
     return false;
   }
+  bool constant()
+  {
+    for(auto d : dims)
+    {
+      if(!d->constant())
+        return false;
+    }
+    return true;
+  }
 };
 
 struct ArrayLength : public Expression
@@ -254,6 +322,10 @@ struct ArrayLength : public Expression
   bool assignable()
   {
     return false;
+  }
+  bool constant()
+  {
+    return array->constant();
   }
   set<Variable*> getReads();
 };
@@ -277,6 +349,10 @@ struct Converted : public Expression
   {
     return value->assignable();
   }
+  bool constant()
+  {
+    return value->constant();
+  }
   set<Variable*> getReads();
 };
 
@@ -288,6 +364,10 @@ struct EnumExpr : public Expression
   {
     return false;
   }
+  bool constant()
+  {
+    return true;
+  }
 };
 
 struct ErrorVal : public Expression
@@ -296,6 +376,10 @@ struct ErrorVal : public Expression
   bool assignable()
   {
     return false;
+  }
+  bool constant()
+  {
+    return true;
   }
 };
 

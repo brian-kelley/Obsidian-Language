@@ -5,6 +5,8 @@
 
 extern Module* global;
 
+Nop* nop = new Nop;
+
 namespace IR
 {
   map<Subroutine*, SubroutineIR*> ir;
@@ -44,6 +46,12 @@ namespace IR
     addStatement(subr->body);
     for(size_t i = 0; i < stmts.size(); i++)
       stmts[i]->intLabel = i;
+    buildCFG();
+  }
+
+  void SubroutineIR::buildCFG()
+  {
+    blocks.clear();
     //create basic blocks: count non-label statements and detect boundaries
     //BBs start at jump targets (labels/after cond jump), after return, after jump
     //several of these cases overlap naturally
@@ -403,6 +411,10 @@ ostream& operator<<(ostream& os, IR::StatementIR* stmt)
   else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
   {
     os << "Assert " << assertion->asserted;
+  }
+  else if(dynamic_cast<Nop*>(stmt))
+  {
+    os << "No-op";
   }
   else
   {
