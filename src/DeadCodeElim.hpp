@@ -3,7 +3,7 @@
 
 #include "IR.hpp"
 
-void deadCodeElim(SubroutineIR* subr);
+bool deadCodeElim(IR::SubroutineIR* subr);
 
 #endif
 

@@ -3,7 +3,7 @@
 
 #include "IR.hpp"
 
-void jumpThreading(SubroutineIR* subr);
+bool jumpThreading(IR::SubroutineIR* subr);
 
 #endif
 

@@ -1,5 +1,7 @@
 #include "ConstantProp.hpp"
 
+using namespace IR;
+
 void constantPropagation(SubroutineIR* subrIR)
 {
   //First, go through each BB and replace general Expressions

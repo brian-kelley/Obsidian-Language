@@ -5,7 +5,7 @@
 
 extern Module* global;
 
-Nop* nop = new Nop;
+IR::Nop* nop = new IR::Nop;
 
 namespace IR
 {
@@ -52,6 +52,11 @@ namespace IR
   void SubroutineIR::buildCFG()
   {
     blocks.clear();
+    //renumber statements
+    for(size_t i = 0; i < stmts.size(); i++)
+    {
+      stmts[i]->intLabel = i;
+    }
     //create basic blocks: count non-label statements and detect boundaries
     //BBs start at jump targets (labels/after cond jump), after return, after jump
     //several of these cases overlap naturally

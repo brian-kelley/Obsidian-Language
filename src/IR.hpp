@@ -18,7 +18,6 @@
 struct Subroutine;
 struct Expression;
 
-extern Nop* nop;
 
 namespace IR
 {
@@ -191,6 +190,8 @@ namespace IR
     void addForArray(ForArray* fa);
   };
 }
+
+extern IR::Nop* nop;
 
 ostream& operator<<(ostream& os, IR::StatementIR* stmt);
 
