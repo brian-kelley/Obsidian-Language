@@ -178,6 +178,7 @@ namespace IR
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
+    //Remove no-ops and rebuild the control flow graph
     void buildCFG();
     set<Variable*> getReads(BasicBlock* bb);
     set<Variable*> getWrites(BasicBlock* bb);

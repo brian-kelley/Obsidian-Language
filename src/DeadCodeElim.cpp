@@ -7,6 +7,7 @@ bool deadCodeElim(SubroutineIR* subr)
   //if a BB's only incoming edge is the previous BB,
   //then they can be merged
   //Replace label with no-op, and jump/condjump in previous block (if any)
+  //Note that in this case, both branches of the condjump are going to thisBlock
   bool update = false;
   for(size_t i = 1; i < subr->blocks.size(); i++)
   {
@@ -29,10 +30,12 @@ bool deadCodeElim(SubroutineIR* subr)
       }
     }
   }
+  //Delete unreachable blocks by replacing stmts with NOPs
+  //This includes the leader label
   for(size_t i = 0; i < subr->blocks.size(); i++)
   {
     BasicBlock* bb = subr->blocks[i];
-    if(i > 0 && bb->out.size() == 0)
+    if(i > 0 && bb->in.size() == 0)
     {
       for(int j = bb->start; j < bb->end; j++)
       {

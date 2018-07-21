@@ -52,6 +52,11 @@ namespace IR
   void SubroutineIR::buildCFG()
   {
     blocks.clear();
+    //remove no-ops
+    auto newEnd = std::remove_if(
+        stmts.begin(), stmts.end(),
+        [](StatementIR* s) {return dynamic_cast<Nop*>(s);});
+    stmts.erase(newEnd, stmts.end());
     //renumber statements
     for(size_t i = 0; i < stmts.size(); i++)
     {

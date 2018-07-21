@@ -53,6 +53,17 @@ bool jumpThreading(SubroutineIR* subr)
         update = true;
       jump->dst = (Label*) subr->stmts[target];
     }
+    else if(auto condJump = dynamic_cast<CondJump*>(stmt))
+    {
+      int takenTaget = condJump->dst->intLabel;
+      int notTakenTaget = i + 1;
+      if(takenTaget == notTakenTarget)
+      {
+        //can safely delete the condjump with nop
+        subr->stmts[i] = nop;
+        update = true;
+      }
+    }
   }
   if(update)
   {

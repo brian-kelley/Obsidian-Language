@@ -3,7 +3,7 @@
 
 #include "IR.hpp"
 
-void constantPropagation(IR::SubroutineIR* subrIR);
+void constantPropagation(IR::SubroutineIR* subr);
 
 #endif
 
