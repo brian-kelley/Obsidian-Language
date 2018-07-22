@@ -23,7 +23,7 @@ struct Expression : public Node
   Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
-  //whether this can be evaluated as a compile-time constant
+  //whether this is a compile-time constant
   virtual bool constant()
   {
     return false;
@@ -31,14 +31,19 @@ struct Expression : public Node
 };
 
 //Subclasses of Expression
-struct UnaryArith;
-struct BinaryArith;
+//Constants/literals
 struct IntLiteral;
 struct FloatLiteral;
 struct StringLiteral;
 struct CharLiteral;
 struct BoolLiteral;
+struct TypedIntConstant;
+struct TypedFloatConstant;
+struct MapConstant;
 struct CompoundLiteral;
+//Arithmetic
+struct UnaryArith;
+struct BinaryArith;
 struct Indexed;
 struct CallExpr;
 struct VarExpr;
@@ -160,6 +165,52 @@ struct BoolLiteral : public Expression
   {
     return true;
   }
+};
+
+struct TypedIntConstant : public Expression
+{
+#define INT_CTOR(prim, ctype) \
+  TypedIntConstant(ctype val) \
+  { \
+    type = primitives[Prim::prim]; \
+    intType = (IntegerType*) type; \
+  }
+  INT_CTOR(BYTE, int8_t)
+  INT_CTOR(UBYTE, uint8_t)
+  INT_CTOR(SHORT, int16_t)
+  INT_CTOR(USHORT, uint16_t)
+  INT_CTOR(INT, int32_t)
+  INT_CTOR(UINT, uint32_t)
+  INT_CTOR(LONG, int64_t)
+  INT_CTOR(ULONG, uint64_t)
+#undef INT_CTOR
+  //only one of these actually holds the value
+  uint64_t uval;
+  int64_t sval;
+  IntegerType* intType;
+};
+
+struct TypedFloatConstant : public Expression
+{
+  TypedFloatConstant(float val)
+  {
+    type = primitives[Prim::FLOAT];
+    dp = false;
+    fval = val;
+  }
+  TypedFloatConstant(double val)
+  {
+    type = primitives[Prim::DOUBLE];
+    dp = false;
+    dval = val;
+  }
+  bool dp; //false = float, true = double
+  float fval;
+  double dval;
+};
+
+struct MapConstant : public Expre
+{
 };
 
 //it is impossible to determine the type of a CompoundLiteral by itself
