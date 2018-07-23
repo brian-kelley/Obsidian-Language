@@ -232,43 +232,28 @@ set<Variable*> BinaryArith::getReads()
  * Primitive Literals *
  **********************/
 
-IntLiteral::IntLiteral(IntLit* ast) : value(ast->val)
+IntConstant* IntConstant::convert(Type* t)
 {
-  setType();
-  setLocation(ast);
-  resolved = true;
-}
-
-IntLiteral::IntLiteral(uint64_t val) : value(val)
-{
-  setType();
-  resolved = true;
-}
-
-void IntLiteral::setType()
-{
-  //use i32 if value fits, otherwise i64
-  if(value > 0x7FFFFFFF)
+  if(auto intType = dynamic_cast<IntegerType*>(t))
   {
-    type = primitives[Prim::LONG];
+    if(intType->isSigned)
+    {
+    }
+    else
+    {
+    }
+  }
+  else if(auto enumType = dynamic_cast<EnumType*>(t))
+  {
+  }
+  else if(auto FloatType = dynamic_cast<FloatType*>(t))
+  {
   }
   else
   {
-    type = primitives[Prim::INT];
+    INTERNAL_ERROR;
+    return nullptr;
   }
-}
-
-FloatLiteral::FloatLiteral(FloatLit* a) : value(a->val)
-{
-  type = primitives[Prim::DOUBLE];
-  setLocation(a);
-  resolved = true;
-}
-
-FloatLiteral::FloatLiteral(double val) : value(val)
-{
-  type = primitives[Prim::DOUBLE];
-  resolved = true;
 }
 
 StringLiteral::StringLiteral(StrLit* a)

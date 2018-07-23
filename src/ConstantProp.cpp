@@ -202,15 +202,37 @@ Expression* valueToExpr(Value* v)
 //
 //Return true if any IR changes are made
 //Set constant to true if expr is now, or was already, a constant
-static bool foldExpression(Expression*& expr, bool& constant)
+static bool foldExpression(Expression*& expr)
 {
   bool update = false;
-  if(dynamic_cast<IntLiteral*&>(expr) ||
-      dynamic_cast<FloatLiteral*&>(expr) ||
-      dynamic_cast<StringLiteral*&>(expr) ||
-      dynamic_cast<BoolLiteral*&>(expr) ||
-      dynamic_cast<CharLiteral*&>(expr) ||
-      dynamic_cast<ErrorVal*&>(expr))
+  //first, convert IntLiterals to TypedIntConstants
+  //and FloatLiterals to TypedFloatConstants
+  if(auto conv = dynamic_cast<Converted*>(expr))
+  {
+    foldExpression(conv->value);
+    if(conv->constant())
+    {
+      //do the conversion, testing for overflow
+      if(IntegerType* intType = dynamic_cast<IntegerType*>(conv->type))
+      {
+        TypedIntConstant = intType->convertConstant(
+      }
+    }
+  }
+  else if(dynamic_cast<IntLiteral*>(expr))
+  {
+    //convert to TypedIntConstant
+
+  }
+      dynamic_cast<FloatLiteral*>(expr) ||
+      dynamic_cast<TypedIntConstant*>(expr) ||
+      dynamic_cast<TypedFloatConstant*>(expr) ||
+      dynamic_cast<StringLiteral*>(expr) ||
+      dynamic_cast<BoolLiteral*>(expr) ||
+      dynamic_cast<CharLiteral*>(expr) ||
+      dynamic_cast<MapConstant*>(expr) ||
+      dynamic_cast<MapConstant*>(expr) ||
+      dynamic_cast<ErrorVal*>(expr))
   {
     //already constant and nothing to do
     constant = true;

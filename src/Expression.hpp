@@ -32,13 +32,10 @@ struct Expression : public Node
 
 //Subclasses of Expression
 //Constants/literals
-struct IntLiteral;
-struct FloatLiteral;
-struct StringLiteral;
-struct CharLiteral;
-struct BoolLiteral;
-struct TypedIntConstant;
-struct TypedFloatConstant;
+struct IntConstant;
+struct FloatConstant;
+struct StringConstant;
+struct BoolConstant;
 struct MapConstant;
 struct CompoundLiteral;
 //Arithmetic
@@ -93,28 +90,61 @@ struct BinaryArith : public Expression
   }
 };
 
-struct IntLiteral : public Expression
+struct IntConstant : public Expression
 {
-  IntLiteral(IntLit* ast);
-  IntLiteral(uint64_t val);
-  uint64_t value;
+  IntConstant(IntLit* ast)
+  {
+    uval = ast->val;
+    type = primitives[Prim::ULONG];
+    resovled = true;
+  }
+  IntConstant(int64_t val)
+  {
+    sval = val;
+    type = primitives[Prim::LONG];
+    resovled = true;
+  }
+  IntConstant(uint64_t val)
+  {
+    uval = val;
+    type = primitives[Prim::ULONG];
+    resovled = true;
+  }
+  //Attempt to convert to int/float/enum type
+  //If this fails, print an error message
+  Expression* convert(Type* t);
+  int64_t sval;
+  uint64_t uval;
   bool assignable()
   {
     return false;
   }
   private:
-  void setType(); //called by both constructors
   bool constant()
   {
     return true;
   }
 };
 
-struct FloatLiteral : public Expression
+struct FloatConstant : public Expression
 {
-  FloatLiteral(FloatLit* ast);
-  FloatLiteral(double val);
-  double value;
+  FloatConstant(FloatLit* ast)
+  {
+    dp = ast->val;
+    type = primitives[Prim::DOUBLE];
+  }
+  FloatConstant(float val)
+  {
+    fp = ast->val;
+    type = primitives[Prim::FLOAT];
+  }
+  FloatConstant(double val)
+  {
+    dp = ast->val;
+    type = primitives[Prim::DOUBLE];
+  }
+  float fp;
+  double dp;
   bool assignable()
   {
     return false;
@@ -207,10 +237,21 @@ struct TypedFloatConstant : public Expression
   bool dp; //false = float, true = double
   float fval;
   double dval;
+  bool constant()
+  {
+    return true;
+  }
 };
 
-struct MapConstant : public Expre
+//Map constant: hold set of constant key-value pairs
+//Relies on operator== and operator< for Expressions
+struct MapConstant : public Expression
 {
+  map<Expression*, Expression*> values;
+  bool constant()
+  {
+    return true;
+  }
 };
 
 //it is impossible to determine the type of a CompoundLiteral by itself
@@ -229,16 +270,12 @@ struct CompoundLiteral : public Expression
   set<Variable*> getWrites();
   bool constant()
   {
-    bool c = true;
     for(auto m : members)
     {
       if(!m->constant())
-      {
-        c = false;
-        break;
-      }
+        return false;
     }
-    return c;
+    return true;
   }
 };
 
