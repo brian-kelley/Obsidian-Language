@@ -265,15 +265,7 @@ StringLiteral::StringLiteral(StrLit* a)
   resolved = true;
 }
 
-CharLiteral::CharLiteral(CharLit* ast)
-{
-  value = ast->val;
-  setLocation(ast);
-  type = primitives[Prim::CHAR];
-  resolved = true;
-}
-
-BoolLiteral::BoolLiteral(bool v)
+BoolConstant::BoolConstant(bool v)
 {
   value = v;
   type = primitives[Prim::BOOL];

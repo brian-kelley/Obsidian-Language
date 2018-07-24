@@ -183,9 +183,9 @@ struct CharLiteral : public Expression
   }
 };
 
-struct BoolLiteral : public Expression
+struct BoolConstant : public Expression
 {
-  BoolLiteral(bool v);
+  BoolConstant(bool v);
   bool value;
   bool assignable()
   {

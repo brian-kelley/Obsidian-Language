@@ -4,63 +4,74 @@ using namespace IR;
 
 bool deadCodeElim(SubroutineIR* subr)
 {
-  bool anyUpdate = false;
-  bool update;
-  do
+  bool update = false;
+  for(size_t i = 0; i < subr->stmts.size(); i++)
   {
-    //if a BB's only incoming edge is the previous BB,
-    //then they can be merged
-    //Replace label with no-op, and jump/condjump in previous block (if any)
-    //Note that in this case, both branches of the condjump are going to thisBlock
-    update = false;
-    for(size_t i = 1; i < subr->blocks.size(); i++)
+    if(auto condJump = dynamic_cast<CondJump*>(subr->stmts[i]))
     {
-      BasicBlock* thisBlock = subr->blocks[i];
-      BasicBlock* prevBlock = subr->blocks[i - 1];
-      if(prevBlock->out.size() == 1 && thisBlock->in.size() == 1 && thisBlock->in[0] == prevBlock)
+      if(auto boolConst = dynamic_cast<BoolConstant*>(condJump->condition))
       {
-        //get statements before and after BB boundary
-        auto& stmtBefore = subr->stmts[prevBlock->end - 1];
-        auto& stmtAfter = subr->stmts[prevBlock->end];
-        if(dynamic_cast<Jump*>(stmtBefore) || dynamic_cast<CondJump*>(stmtBefore))
+        update = true;
+        int jumpTarget = boolConst->value ? i + 1 : condJump->taken->intLabel;
+        if(boolConst->value)
         {
-          stmtBefore = nop;
-          update = true;
+          //jump always falls through
+          subr->stmts[i] = nop;
         }
-        if(dynamic_cast<Label*>(stmtAfter))
+        else
         {
-          stmtAfter = nop;
-          update = true;
+          //jump always taken
+          subr->stmts[i] = new Jump(condJump->taken);
         }
       }
-    }
-    //Delete unreachable blocks by replacing stmts with NOPs
-    //This includes the leader label
-    for(size_t i = 0; i < subr->blocks.size(); i++)
-    {
-      BasicBlock* bb = subr->blocks[i];
-      if(i > 0 && bb->in.size() == 0)
-      {
-        for(int j = bb->start; j < bb->end; j++)
-        {
-          subr->stmts[j] = nop;
-        }
-      }
-    }
-    size_t oldNumStmts = subr->stmts.size();
-    //remove no-ops from IR, and rebuild the CFG
-    auto newEnd = std::remove_if(
-        subr->stmts.begin(), subr->stmts.end(),
-        [](StatementIR* s){return dynamic_cast<Nop*>(s);});
-    subr->stmts.erase(newEnd, subr->stmts.end());
-    update = update || subr->stmts.size() != oldNumStmts;
-    anyUpdate = anyUpdate || update;
-    if(update)
-    {
-      subr->buildCFG();
     }
   }
-  while(update);
-  return anyUpdate;
+  return update;
+}
+
+bool deleteUnreachable(SubroutineIR* subr)
+{
+  size_t stmtsBefore = subr->stmts.size();
+  //do a breadth-first search of reachability from the first
+  //BB to delete all unreachable in one pass
+  enum
+  {
+    NOT_VISITED,
+    QUEUED,
+    VISITED
+  };
+  map<BasicBlock*, char> blockVisits(subr->blocks.size(), NOT_VISITED);
+  queue<BasicBlock*> visitQueue;
+  visitQueue.push(subr->blocks[0]);
+  blockVisits[subr->blocks[0]] = QUEUED;
+  for(size_t i = 1; i < subr->blocks.size(); i++)
+  {
+    blockVisits[subr->blocks[i]] = NOT_VISITED;
+  }
+  while(visitQueue.size())
+  {
+    BasicBlock* process = visitQueue.front();
+    visitQueue.pop();
+    blockVisits[process] = VISITED;
+    for(auto neighbor : process->out)
+    {
+      if(blockVisits[neighbor] == NOT_VISITED)
+        visitQueue.push(neighbor);
+    }
+  }
+  for(auto bb : subr->blocks)
+  {
+    if(blockVisits[bb] == NOT_VISITED)
+    {
+      for(int i = bb->start; i < bb->end; i++)
+      {
+        subr->stmts[i] = nop;
+      }
+    }
+  }
+  //then delete NOPs and rebuild CFG
+  subr->buildCFG();
+  //IR changed if # stmts changed
+  return stmtsBefore != subr->stmts.size();
 }
 
