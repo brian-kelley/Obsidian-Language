@@ -28,6 +28,12 @@ struct Expression : public Node
   {
     return false;
   }
+  //get the number of bytes required to store the constant
+  //(is 0 for non-constants)
+  virtual int getConstantSize()
+  {
+    return 0;
+  }
 };
 
 //Subclasses of Expression
@@ -124,6 +130,10 @@ struct IntConstant : public Expression
   {
     return true;
   }
+  int getConstantSize()
+  {
+    return ((IntegerType*) type)->size;
+  }
 };
 
 struct FloatConstant : public Expression
@@ -153,6 +163,10 @@ struct FloatConstant : public Expression
   {
     return true;
   }
+  int getConstantSize()
+  {
+    return ((FloatType*) type)->size;
+  }
 };
 
 struct StringLiteral : public Expression
@@ -166,6 +180,10 @@ struct StringLiteral : public Expression
   bool constant()
   {
     return true;
+  }
+  int getConstantSize()
+  {
+    return 16 + value.length() + 1;
   }
 };
 
@@ -195,51 +213,9 @@ struct BoolConstant : public Expression
   {
     return true;
   }
-};
-
-struct TypedIntConstant : public Expression
-{
-#define INT_CTOR(prim, ctype) \
-  TypedIntConstant(ctype val) \
-  { \
-    type = primitives[Prim::prim]; \
-    intType = (IntegerType*) type; \
-  }
-  INT_CTOR(BYTE, int8_t)
-  INT_CTOR(UBYTE, uint8_t)
-  INT_CTOR(SHORT, int16_t)
-  INT_CTOR(USHORT, uint16_t)
-  INT_CTOR(INT, int32_t)
-  INT_CTOR(UINT, uint32_t)
-  INT_CTOR(LONG, int64_t)
-  INT_CTOR(ULONG, uint64_t)
-#undef INT_CTOR
-  //only one of these actually holds the value
-  uint64_t uval;
-  int64_t sval;
-  IntegerType* intType;
-};
-
-struct TypedFloatConstant : public Expression
-{
-  TypedFloatConstant(float val)
+  int getConstantSize()
   {
-    type = primitives[Prim::FLOAT];
-    dp = false;
-    fval = val;
-  }
-  TypedFloatConstant(double val)
-  {
-    type = primitives[Prim::DOUBLE];
-    dp = false;
-    dval = val;
-  }
-  bool dp; //false = float, true = double
-  float fval;
-  double dval;
-  bool constant()
-  {
-    return true;
+    return 1;
   }
 };
 
@@ -251,6 +227,16 @@ struct MapConstant : public Expression
   bool constant()
   {
     return true;
+  }
+  int getConstantSize()
+  {
+    int total = 0;
+    for(auto& kv : values)
+    {
+      total += kv.first->getConstantSize();
+      total += kv.second->getConstantSize();
+    }
+    return total;
   }
 };
 
@@ -276,6 +262,15 @@ struct CompoundLiteral : public Expression
         return false;
     }
     return true;
+  }
+  int getConstantSize()
+  {
+    int total = 0;
+    for(auto mem : members)
+    {
+      total += mem->getConstantSize();
+    }
+    return total;
   }
 };
 

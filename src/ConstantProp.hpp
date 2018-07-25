@@ -3,6 +3,7 @@
 
 #include "IR.hpp"
 
+void determineGlobalConstants();
 //Constant folding evaluates all arithmetic on constants
 bool constantFold(IR::SubroutineIR* subr);
 //Constant propagation decides which local variables have

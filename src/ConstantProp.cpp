@@ -2,199 +2,63 @@
 
 using namespace IR;
 
-bool operator==(Value* lhs, Value* rhs);
-bool operator<(Value* lhs, Value* rhs);
-bool operator>(Value* lhs, Value* rhs)
+void determineGlobalConstants()
 {
-  return rhs < lhs;
-}
-bool operator<=(Value* lhs, Value* rhs)
-{
-  return !(lhs > rhs);
-}
-bool operator<=(Value* lhs, Value* rhs)
-{
-  return !(lhs > rhs);
-}
-
-//Unknown value represents a non-const 
-struct UnknownValue : public Value {}
-
-struct Integer : public Value
-{
-  //note: int8_t is equivalent to char
-  variant<uint8_t, int8_t,
-          uint16_t, int16_t,
-          uint32_t, int32_t,
-          uint64_t, int64_t> value;
-};
-
-struct Float : public Value
-{
-  variant<float, double> value;
-};
-
-//CompoundValue can be used for arrays, tuples and structs
-struct CompoundValue : public Value
-{
-  vector<Value*> values;
-};
-
-struct MapValue : public Value
-{
-  map<Value*, Value*> value;
-};
-
-//For comparisons, always assumy lhs/rhs have exactly the same type
-bool operator==(Value* lhs, Value* rhs)
-{
-#define COMPARE_OPTION(var, type) \
-  if(var##LHS->value.is<type>()) \
-    return var##LHS->value.get<type>() == var##RHS->value.get<type>();
-  //all undefined values are equivalent
-  if(dynamic_cast<Undef*>(lhs))
-    return true;
-  else if(auto intLHS = dynamic_cast<Integer*>(lhs))
+  for(auto& s : IR::ir)
   {
-    auto intRHS = dynamic_cast<Integer*>(rhs);
-    INTERNAL_ASSERT(intRHS);
-    //compare LHS and RHS based on the tag
-    COMPARE_OPTION(int, uint8_t)
-    COMPARE_OPTION(int, int8_t)
-    COMPARE_OPTION(int, uint16_t)
-    COMPARE_OPTION(int, int16_t)
-    COMPARE_OPTION(int, uint32_t)
-    COMPARE_OPTION(int, int32_t)
-    COMPARE_OPTION(int, uint64_t)
-    COMPARE_OPTION(int, int64_t)
-    //integers must be one of these types...
-    INTERNAL_ERROR;
+    auto subr = s.second;
+    auto writes = subr->getWrites();
+    for(auto v : writes)
+    {
+      if(v->isGlobal())
+      {
+        IR::globalConstants[v] = false;
+      }
+    }
   }
-  else if(auto floatLHS = dynamic_cast<Float*>(lhs))
+}
+
+//Convert a constant expression to another type
+//conv->value must already be folded and be constant
+static Expression* convertConstant(Converted* conv)
+{
+  if(auto intConst = dynamic_cast<IntConstant*>(conv->value))
   {
-    auto floatRHS = dynamic_cast<Float*>(rhs);
-    INTERNAL_ASSERT(floatRHS);
-    COMPARE_OPTION(float, float)
-    COMPARE_OPTION(float, double)
-    INTERNAL_ERROR;
+    //do the conversion which tests for overflow
+    return intConst->convert(conv->type);
   }
-  else if(auto compoundLHS = dynamic_cast<CompoundValue*>(lhs))
+  else if(auto floatConst = dynamic_cast<FloatConstant*>(conv->value))
   {
-    auto compoundRHS = dynamic_cast<CompoundValue*>(rhs);
-    INTERNAL_ASSERT(compoundRHS);
-    if(compoundLHS->values.size() != compoundRHS->values.size())
+    return floatConst->convert(conv->type);
+  }
+  else if(auto enumConst = dynamic_cast<EnumExpr*>(conv->value))
+  {
+    return enumConst->convert(conv->type);
+  }
+  //array/struct/tuple constants can be converted implicitly
+  //to each other (all use CompoundLiteral) but individual
+  //members (primitives) may need conversion
+  else if(auto compLit = dynamic_cast<CompoundLiteral*>(conv->value))
+  {
+    //attempt to fold all elements (can't proceed unless every
+    //one is a constant)
+    bool allConstant = true;
+    for(auto& mem : compLit->members)
+      allConstant = allConstant && foldExpression(mem);
+    if(!allConstant)
       return false;
-    for(size_t i = 0; i < compoundLHS->values.size(); i++)
+    if(auto st = dynamic_cast<StructType*>(conv->type))
     {
-      if(compoundLHS->values[i] != compoundRHS->values[i])
-        return false;
     }
-    return true;
-  }
-  else if(auto mapLHS = dynamic_cast<MapValue*>(lhs))
-  {
-    auto mapRHS = dynamic_cast<MapValue*>(rhs);
-    INTERNAL_ASSERT(mapRHS);
-    if(mapLHS->value.size() != mapRHS->value.size())
-      return false;
-    //look up each key in lhs in rhs,
-    //and then make sure value matches
-    for(auto kv : mapLHS->value)
+    else if(auto tt = dynamic_cast<TupleType*>(conv->type))
     {
-      auto iter = mapRHS->value.find(kv.first);
-      if(iter == mapRHS->value.end())
-        return false;
-      if(*iter != kv.second)
-        return false;
     }
-    return true;
-  }
-  return false;
-}
-
-bool operator<(Value* lhs, Value* rhs)
-{
-#define COMPARE_OPTION(var, type) \
-  if(var##LHS->value.is<type>()) \
-    return var##LHS->value.get<type>() < var##RHS->value.get<type>();
-  //all undefined values are equivalent, so < is always false
-  if(dynamic_cast<Undef*>(lhs))
-    return false;
-  else if(auto intLHS = dynamic_cast<Integer*>(lhs))
-  {
-    auto intRHS = dynamic_cast<Integer*>(rhs);
-    INTERNAL_ASSERT(intRHS);
-    //compare LHS and RHS based on the tag
-    COMPARE_OPTION(int, uint8_t)
-    COMPARE_OPTION(int, int8_t)
-    COMPARE_OPTION(int, uint16_t)
-    COMPARE_OPTION(int, int16_t)
-    COMPARE_OPTION(int, uint32_t)
-    COMPARE_OPTION(int, int32_t)
-    COMPARE_OPTION(int, uint64_t)
-    COMPARE_OPTION(int, int64_t)
-    //integers must be one of those types
-    INTERNAL_ERROR;
-  }
-  else if(auto floatLHS = dynamic_cast<Float*>(lhs))
-  {
-    auto floatRHS = dynamic_cast<Float*>(rhs);
-    INTERNAL_ASSERT(floatRHS);
-    COMPARE_OPTION(float, float)
-    COMPARE_OPTION(float, double)
-    INTERNAL_ERROR;
-  }
-  else if(auto compoundLHS = dynamic_cast<CompoundValue*>(lhs))
-  {
-    auto compoundRHS = dynamic_cast<CompoundValue*>(rhs);
-    INTERNAL_ASSERT(compoundRHS);
-    //do lexicographic comparison
-    size_t numCommon = std::min(
-        compoundLHS->values.size(), compoundRHS->values.size());
-    for(size_t i = 0; i < numCommon; i++)
+    else if(auto mt = dynamic_cast<MapType*>(conv->type))
     {
-      if(compoundLHS->values[i] < compoundRHS->values[i])
-        return true;
-      else if(compoundRHS->values[i] < compoundLHS->values[i])
-        return false;
+      expr = new MapConstant;
+      //convert key/value pairs to 
     }
-    //common range compared equal, so bigger list is greater.
-    return compoundLHS->values.size() < compoundRHS->values.size();
   }
-  else if(auto mapLHS = dynamic_cast<MapValue*>(lhs))
-  {
-    auto mapRHS = dynamic_cast<MapValue*>(rhs);
-    INTERNAL_ASSERT(mapRHS);
-    //to lexically compare maps, compare keys in sorted order
-    auto lhsIter = mapLHS->value.begin();
-    auto rhsIter = mapRHS->value.begin();
-    while(lhsIter != mapLHS->value.end() &&
-        rhsIter != mapRHS->value.end)
-    {
-      if(lhsIter->first < rhsIter->first)
-        return true;
-      else if(rhsIter->first < lhsIter->first)
-        return false;
-      else if(lhsIter->second < rhsIter->second)
-        return true;
-      else if(rhsIter->second < lhsIter->second)
-        return false;
-      lhsIter++;
-      rhsIter++;
-    }
-    return lhsIter == mapLHS->value.end();
-  }
-  INTERNAL_ERROR;
-  return false;
-}
-
-//Convert an expression to Value, if possible
-Value* exprToValue(Expression* e)
-{
-}
-
-Expression* valueToExpr(Value* v)
-{
 }
 
 //Try to fold an expression, bottom-up
@@ -204,35 +68,30 @@ Expression* valueToExpr(Value* v)
 //Set constant to true if expr is now, or was already, a constant
 static bool foldExpression(Expression*& expr)
 {
-  bool update = false;
-  //first, convert IntLiterals to TypedIntConstants
-  //and FloatLiterals to TypedFloatConstants
-  if(auto conv = dynamic_cast<Converted*>(expr))
-  {
-    foldExpression(conv->value);
-    if(conv->constant())
-    {
-      //do the conversion, testing for overflow
-      if(IntegerType* intType = dynamic_cast<IntegerType*>(conv->type))
-      {
-        TypedIntConstant = intType->convertConstant(
-      }
-    }
-  }
-  else if(dynamic_cast<IntLiteral*>(expr))
-  {
-    //convert to TypedIntConstant
-
-  }
-      dynamic_cast<FloatLiteral*>(expr) ||
-      dynamic_cast<TypedIntConstant*>(expr) ||
-      dynamic_cast<TypedFloatConstant*>(expr) ||
-      dynamic_cast<StringLiteral*>(expr) ||
-      dynamic_cast<BoolLiteral*>(expr) ||
-      dynamic_cast<CharLiteral*>(expr) ||
-      dynamic_cast<MapConstant*>(expr) ||
+  if(dynamic_cast<IntConstant*>(expr) ||
+      dynamic_cast<FloatConstant*>(expr) ||
+      dynamic_cast<StringConstant*>(expr) ||
+      dynamic_cast<EnumExpr*>(expr) ||
+      dynamic_cast<BoolConstant*>(expr) ||
       dynamic_cast<MapConstant*>(expr) ||
       dynamic_cast<ErrorVal*>(expr))
+  {
+    //already completely folded constant, nothing to do
+    return true;
+  }
+  else if(auto conv = dynamic_cast<Converted*>(expr))
+  {
+    foldExpression(conv->value);
+    if(conv->value->constant())
+    {
+      expr = convertConstant(conv);
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
   {
     //already constant and nothing to do
     constant = true;
@@ -255,7 +114,6 @@ static bool foldExpression(Expression*& expr)
     }
   }
   else if(
-  return update;
 }
 
 bool constantFold(IR::SubroutineIR* subr)

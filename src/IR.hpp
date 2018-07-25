@@ -56,8 +56,10 @@ namespace IR
   //        create a constant bigger than an arbitrary cutoff, like 256 bytes)
 
   extern map<Subroutine*, SubroutineIR*> ir;
+  extern map<Variable*, bool> globalConstants;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();
+  void optimizeIR();
 
   struct StatementIR
   {

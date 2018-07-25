@@ -1,5 +1,6 @@
 #include "IR.hpp"
 #include "Expression.hpp"
+#include "Variable.hpp"
 #include "Scope.hpp"
 #include <algorithm>
 
@@ -10,6 +11,7 @@ IR::Nop* nop = new IR::Nop;
 namespace IR
 {
   map<Subroutine*, SubroutineIR*> ir;
+  map<Variable*, bool> globalConstants;
 
   //walk the AST and build independent IR for each subroutine
   void buildIR()
@@ -27,11 +29,44 @@ namespace IR
           Subroutine* subr = (Subroutine*) name.second.item;
           ir[subr] = new SubroutineIR(subr);
         }
+        else if(name.second.kind == Name::VARIABLE)
+        {
+          Variable* var = (Variable*) name.second.item;
+          if(var->global)
+            globalConstants[var] = true;
+        }
       }
       for(auto child : scope->children)
       {
         searchStack.push(child);
       }
+    }
+  }
+
+  void optimizeIR()
+  {
+    //TODO: very easy to parallelize this
+    //as all subroutine are processed independently
+    //
+    //Figure out which globals are constants (for constant folding)
+    determineGlobalConstants();
+    for(auto& s : ir)
+    {
+      auto subr = s.second;
+      int updates = 1;
+      while(updates)
+      {
+        updates = 0;
+        updates += constantFold(subr);
+        updates += constantPropagation(subr);
+      }
+      updates = 1;
+      while(updates)
+      {
+        updates += jumpThreading(subr);
+        updates += deadCodeElim(subr);
+      }
+      //TODO: common subexpression elimination goes here
     }
   }
 

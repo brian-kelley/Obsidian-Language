@@ -21,11 +21,14 @@ struct Variable : public Node
   //ctor for local variables
   Variable(string name, Type* t, Block* b);
   bool isParameter();
+  bool isGlobal();
+  bool isLocal();
+  bool isMember();
   //this resolve() just resolves type
   void resolveImpl(bool final);
   string name;
   Type* type;
-  //the struct where this is a member, or NULL if static/local
+  //the struct where this is a member, or NULL if global/local/param
   StructType* owner;
   Scope* scope;
   //the initial value of this variable/member, instead of the default "0"

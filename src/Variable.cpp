@@ -51,3 +51,18 @@ bool Variable::isParameter()
   return scope->node.is<Subroutine*>();
 }
 
+bool Variable::isGlobal()
+{
+  return !isParameter() && !isLocal() && !isMember();
+}
+
+bool Variable::isLocal()
+{
+  return scope->node.is<Block*>();
+}
+
+bool Variable::isMember()
+{
+  return owner;
+}
+

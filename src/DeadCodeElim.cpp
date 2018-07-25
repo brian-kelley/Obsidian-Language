@@ -4,6 +4,7 @@ using namespace IR;
 
 bool deadCodeElim(SubroutineIR* subr)
 {
+  //replace cond jumps with constant conditions with regular jumps
   bool update = false;
   for(size_t i = 0; i < subr->stmts.size(); i++)
   {
@@ -15,22 +16,17 @@ bool deadCodeElim(SubroutineIR* subr)
         int jumpTarget = boolConst->value ? i + 1 : condJump->taken->intLabel;
         if(boolConst->value)
         {
-          //jump always falls through
+          //never taken (does nothing)
           subr->stmts[i] = nop;
         }
         else
         {
-          //jump always taken
+          //always taken (just a regular jump)
           subr->stmts[i] = new Jump(condJump->taken);
         }
       }
     }
   }
-  return update;
-}
-
-bool deleteUnreachable(SubroutineIR* subr)
-{
   size_t stmtsBefore = subr->stmts.size();
   //do a breadth-first search of reachability from the first
   //BB to delete all unreachable in one pass
@@ -72,6 +68,6 @@ bool deleteUnreachable(SubroutineIR* subr)
   //then delete NOPs and rebuild CFG
   subr->buildCFG();
   //IR changed if # stmts changed
-  return stmtsBefore != subr->stmts.size();
+  return update || stmtsBefore != subr->stmts.size();
 }
 
