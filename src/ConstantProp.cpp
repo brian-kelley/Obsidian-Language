@@ -7,12 +7,21 @@ void determineGlobalConstants()
   for(auto& s : IR::ir)
   {
     auto subr = s.second;
-    auto writes = subr->getWrites();
-    for(auto v : writes)
+    for(auto stmt : subr->stmts)
     {
-      if(v->isGlobal())
+      auto outputs = stmt->getOutput();
+      for(auto out : outputs)
       {
-        IR::globalConstants[v] = false;
+        auto writes = out->getWrites();
+        for(auto w : writes)
+        {
+          if(w->isGlobal())
+          {
+            //there is an assignment to w,
+            //so w is not a constant
+            IR::globalConstants[w] = false;
+          }
+        }
       }
     }
   }
