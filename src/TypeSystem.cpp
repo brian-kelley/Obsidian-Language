@@ -239,25 +239,25 @@ Type* maybe(Type* t)
   return getUnionType(options);
 }
 
-Type* getIntegerType(int bytes, bool isSigned)
+IntegerType* getIntegerType(int bytes, bool isSigned)
 {
   switch(bytes)
   {
     case 1:
-      if(isSigned)  return primitives[Prim::BYTE];
-      else          return primitives[Prim::UBYTE];
+      if(isSigned)  return (IntegerType*) primitives[Prim::BYTE];
+      else          return (IntegerType*) primitives[Prim::UBYTE];
     case 2:
-      if(isSigned)  return primitives[Prim::SHORT];
-      else          return primitives[Prim::USHORT];
+      if(isSigned)  return (IntegerType*) primitives[Prim::SHORT];
+      else          return (IntegerType*) primitives[Prim::USHORT];
     case 4:
-      if(isSigned)  return primitives[Prim::INT];
-      else          return primitives[Prim::UINT];
+      if(isSigned)  return (IntegerType*) primitives[Prim::INT];
+      else          return (IntegerType*) primitives[Prim::UINT];
     case 8:
-      if(isSigned)  return primitives[Prim::LONG];
-      else          return primitives[Prim::ULONG];
+      if(isSigned)  return (IntegerType*) primitives[Prim::LONG];
+      else          return (IntegerType*) primitives[Prim::ULONG];
     default: INTERNAL_ERROR;
   }
-  return NULL;
+  return nullptr;
 }
 
 /***************/
@@ -684,27 +684,136 @@ EnumType::EnumType(Scope* enclosingScope)
 
 void EnumType::resolveImpl(bool final)
 {
-  //first, decide whether to use a signed or unsigned type
-  //to represent (prefer signed)
-}
-
-void EnumType::addValue(string valueName)
-{
-  addValue(valueName, values.back()->value + 1);
-}
-
-void EnumType::addValue(string valueName, int64_t value)
-{
-  if(valueSet.find(value) != valueSet.end())
+  //Decide what integer type will represent the enum
+  //Prefer signed and then prefer smaller widths
+  bool canUseS = true;
+  bool canUseU = true;
+  for(auto ec : values)
   {
-    errMsgLoc(this, "enum value " << value << " repeated");
+    if(!ec->fitsS64)
+      canUseS = false;
+    if(!ec->fitsU64)
+      canUseU = false;
   }
-  valueSet.insert(value);
-  EnumConstant* newValue = new EnumConstant;
-  newValue->setLocation(this);
+  if(!canUseS && !canUseU)
+  {
+    errMsgLoc(this, "neither long nor ulong canrepresent all values in enum");
+  }
+  bool allFit = true;
+  //Try different integer widths until all values fit
+  for(int width = 1; width <= 8; width *= 2)
+  {
+    underlying = getIntegerType(width, canUseS);
+    if(canUseS)
+    {
+      for(auto ec : values)
+      {
+        if(ec->sval < underlying->minSignedVal() ||
+            ec->sval > underlying->maxSignedVal())
+        {
+          underlying = nullptr;
+          break;
+        }
+      }
+    }
+    else
+    {
+      for(auto ec : values)
+      {
+        if(ec->uval > underlying->maxUnsignedVal())
+        {
+          underlying = nullptr;
+          break;
+        }
+      }
+    }
+    if(underlying)
+    {
+      //found the smallest type that works, done
+      break;
+    }
+  }
+  resolved = true;
+}
+
+void EnumType::addValue(string name, Node* location)
+{
+  uint64_t uval = 0;
+  if(!values.back()->fitsU64)
+  {
+    //previously added value was negative
+    for(int64_t sval = values.back()->sval + 1; sval < 0; sval++)
+    {
+      //check if sval is already in the enum
+      bool alreadyInEnum = false;
+      for(auto existing : values)
+      {
+        if(!existing->fitsU64 && existing->sval == sval)
+        {
+          alreadyInEnum = true;
+          break;
+        }
+      }
+      if(!alreadyInEnum)
+      {
+        addNegativeValue(name, sval, location);
+        return;
+      }
+    }
+    //fall through: start trying unsigned values to insert at 0
+  }
+  else
+  {
+    uval = values.back()->uval + 1;
+  }
+  for(;; uval++)
+  {
+    bool alreadyInEnum = false;
+    for(auto existing : values)
+    {
+      if(existing->fitsU64 && existing->uval == uval)
+      {
+        alreadyInEnum = true;
+        break;
+      }
+    }
+    if(!alreadyInEnum)
+    {
+      addPositiveValue(name, uval, location);
+      return;
+    }
+  }
+}
+
+void EnumType::addPositiveValue(string name, uint64_t uval, Node* location)
+{
+  //uval must not already be in the enum
+  for(auto existing : values)
+  {
+    if(existing->fitsU64 && existing->uval == uval)
+    {
+      errMsgLoc(this, "enum value " << name << " duplicates value of " << existing->name);
+    }
+  }
+  EnumConstant* newValue = new EnumConstant(name, uval);
+  newValue->setLocation(location);
   newValue->et = this;
-  newValue->name = valueName;
-  newValue->value = value;
+  scope->addName(newValue);
+  values.push_back(newValue);
+}
+
+void EnumType::addNegativeValue(string name, int64_t sval, Node* location)
+{
+  for(auto existing : values)
+  {
+    if(!existing->fitsU64 && existing->sval == sval)
+    {
+      errMsgLoc(this, "enum value " << name << " duplicates value of " << existing->name);
+    }
+  }
+  EnumConstant* newValue = new EnumConstant(name, sval);
+  newValue->setLocation(location);
+  newValue->et = this;
   scope->addName(newValue);
   values.push_back(newValue);
 }
@@ -724,7 +833,54 @@ IntegerType::IntegerType(string typeName, int sz, bool sign)
   size = sz;
   isSigned = sign;
   resolved = true;
+}
 
+uint64_t IntegerType::maxUnsignedVal()
+{
+  INTERNAL_ASSERT(!isSigned);
+  switch(size)
+  {
+    case 1:
+      return numeric_limits<uint8_t>::max();
+    case 2:
+      return numeric_limits<uint16_t>::max();
+    case 4:
+      return numeric_limits<uint32_t>::max();
+    default:;
+  }
+  return numeric_limits<uint64_t>::max();
+}
+
+int64_t IntegerType::minSignedVal()
+{
+  INTERNAL_ASSERT(isSigned);
+  switch(size)
+  {
+    case 1:
+      return numeric_limits<int8_t>::min();
+    case 2:
+      return numeric_limits<int16_t>::min();
+    case 4:
+      return numeric_limits<int32_t>::min();
+    default:;
+  }
+  return numeric_limits<int64_t>::min();
+}
+
+int64_t IntegerType::maxSignedVal()
+{
+  INTERNAL_ASSERT(isSigned);
+  switch(size)
+  {
+    case 1:
+      return numeric_limits<int8_t>::max();
+    case 2:
+      return numeric_limits<int16_t>::max();
+    case 4:
+      return numeric_limits<int32_t>::max();
+    default:;
+  }
+  return numeric_limits<int64_t>::max();
 }
 
 bool IntegerType::canConvert(Type* other)
@@ -784,7 +940,7 @@ CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args)
   pure = isPure;
   returnType = retType;
   argTypes = args;
-  ownerStruct = NULL;
+  ownerStruct = nullptr;
 }
 
 CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector<Type*>& args)

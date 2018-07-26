@@ -121,7 +121,7 @@ struct CallableCompare
   bool operator()(const CallableType* lhs, const CallableType* rhs);
 };
 
-Type* getIntegerType(int bytes, bool isSigned);
+IntegerType* getIntegerType(int bytes, bool isSigned);
 
 //Recursive function to generate arbitrary-dimension array type
 //if elem is already an array type, will generate array with dimensions = ndims + elem->dims
@@ -293,8 +293,9 @@ struct AliasType : public Type
 struct EnumConstant : public Node
 {
   //use this constructor for all non-negative values
-  EnumConstant(uint64_t u)
+  EnumConstant(string n, uint64_t u)
   {
+    name = n;
     fitsS64 = true;
     fitsU64 = true;
     if(u > numeric_limits<int64_t>::max())
@@ -307,8 +308,9 @@ struct EnumConstant : public Node
     }
     uval = u;
   }
-  EnumConstant(int64_t s)
+  EnumConstant(string n, int64_t s)
   {
+    name = n;
     fitsS64 = true;
     fitsU64 = false;
     sval = s;
@@ -324,11 +326,15 @@ struct EnumConstant : public Node
 struct EnumType : public Type
 {
   EnumType(Scope* enclosingScope);
+  //resolving an enum decides what its underlying type should be
   void resolveImpl(bool final);
   //add a name to enum, automatically choosing numeric value
+  //as the smallest value greater than the most recently
+  //added value, which is not already in the enum
   void addValue(string name);
-  //add a name with user-provided value
-  void addValue(string name);
+  //add a name with user-provided unsigned (non-negative) value
+  void addPositiveValue(string name, uint64_t val, Node* location);
+  void addNegativeValue(string name, int64_t val, Node* location);
   string name;
   vector<EnumConstant*> values;
   bool canConvert(Type* other);
@@ -348,6 +354,9 @@ struct EnumType : public Type
 struct IntegerType : public Type
 {
   IntegerType(string name, int size, bool sign);
+  uint64_t maxUnsignedVal();
+  int64_t minSignedVal();
+  int64_t maxSignedVal();
   string name;
   //Size in bytes
   int size;
