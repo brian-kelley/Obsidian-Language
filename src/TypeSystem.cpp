@@ -736,7 +736,7 @@ void EnumType::resolveImpl(bool final)
   resolved = true;
 }
 
-void EnumType::addValue(string name, Node* location)
+void EnumType::addAutomaticValue(string name, Node* location)
 {
   uint64_t uval = 0;
   if(!values.back()->fitsU64)
@@ -762,10 +762,11 @@ void EnumType::addValue(string name, Node* location)
     }
     //fall through: start trying unsigned values to insert at 0
   }
-  else
+  else if(!values.empty())
   {
     uval = values.back()->uval + 1;
   }
+  //otherwise, start searching at uval = 0
   for(;; uval++)
   {
     bool alreadyInEnum = false;

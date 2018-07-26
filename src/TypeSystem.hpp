@@ -331,7 +331,7 @@ struct EnumType : public Type
   //add a name to enum, automatically choosing numeric value
   //as the smallest value greater than the most recently
   //added value, which is not already in the enum
-  void addValue(string name);
+  void addAutomaticValue(string name, Node* location);
   //add a name with user-provided unsigned (non-negative) value
   void addPositiveValue(string name, uint64_t val, Node* location);
   void addNegativeValue(string name, int64_t val, Node* location);

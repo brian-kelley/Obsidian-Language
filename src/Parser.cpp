@@ -5,6 +5,9 @@
 #include "Subroutine.hpp"
 #include "Expression.hpp"
 #include "Variable.hpp"
+#include <limits>
+
+using std::numeric_limits;
 
 extern Module* global;
 
@@ -554,18 +557,30 @@ namespace Parser
     expectPunct(LBRACE);
     while(true)
     {
+      Node* valueLocation = lookAhead();
       string name = expectIdent();
       if(acceptOper(ASSIGN))
       {
         bool sign = acceptOper(SUB);
-        int64_t value = ((IntLit*) expect(INT_LITERAL))->val;
+        uint64_t rawValue = ((IntLit*) expect(INT_LITERAL))->val;
         if(sign)
-          value = -value;
-        e->addValue(name, value);
+        {
+          if(rawValue > -numeric_limits<int64_t>::min())
+          {
+            errMsgLoc(valueLocation, "negative enum value can't fit in a long");
+          }
+          //otherwise, is safe to convert to int64
+          e->addNegativeValue(name, -rawValue, valueLocation);
+        }
+        else
+        {
+          e->addPositiveValue(name, rawValue, valueLocation);
+        }
       }
       else
       {
-        e->addValue(name);
+        //let the enum automatically choose value
+        e->addAutomaticValue(name, location);
       }
       if(!acceptPunct(COMMA))
       {
