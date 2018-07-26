@@ -2,6 +2,9 @@
 #include "Variable.hpp"
 #include "Scope.hpp"
 #include "Subroutine.hpp"
+#include <limits>
+
+using std::numeric_limits;
 
 /**************
  * UnaryArith *
@@ -232,16 +235,32 @@ set<Variable*> BinaryArith::getReads()
  * Primitive Literals *
  **********************/
 
-IntConstant* IntConstant::convert(Type* t)
+Expression* IntConstant::convert(Type* t)
 {
-  if(auto intType = dynamic_cast<IntegerType*>(t))
+  auto srcType = (IntegerType*) type;
+  bool isSigned = srcType->isSigned;
+  if(auto dstType = dynamic_cast<IntegerType*>(t))
   {
-    if(intType->isSigned)
+    //just give this constant the same value,
+    //then make sure the value fits
+    IntConstant* intConstant = new IntConstant;
+    intConstant->uval = uval;
+    intConstant->sval = sval;
+    intConstant->type = dstType;
+    if(!intConstant->checkValueFits())
     {
+      if(dstType->isSigned)
+      {
+        errMsgLoc(this, "value " << intConstant->sval
+            << " does not fit in " << dstType->getName());
+      }
+      else
+      {
+        errMsgLoc(this, "value " << intConstant->uval
+            << " does not fit in " << dstType->getName());
+      }
     }
-    else
-    {
-    }
+    return intConstant;
   }
   else if(auto enumType = dynamic_cast<EnumType*>(t))
   {
@@ -254,6 +273,43 @@ IntConstant* IntConstant::convert(Type* t)
     INTERNAL_ERROR;
     return nullptr;
   }
+}
+
+bool IntConstant::checkValueFits()
+{
+  auto intType = (IntegerType*) type;
+  if(intType->isSigned)
+  {
+    switch(size)
+    {
+      case 1:
+        return numeric_limits<int8_t>::min() <= sval &&
+          sval <= numeric_limits<int8_t>::max();
+      case 2:
+        return numeric_limits<int16_t>::min() <= sval &&
+          sval <= numeric_limits<int16_t>::max();
+      case 4:
+        return numeric_limits<int32_t>::min() <= sval &&
+          sval <= numeric_limits<int32_t>::max();
+      default:
+        return true;
+    }
+  }
+  else
+  {
+    switch(size)
+    {
+      case 1:
+        return uval <= numeric_limits<uint8_t>::max();
+      case 2:
+        return uval <= numeric_limits<uint16_t>::max();
+      case 4:
+        return uval <= numeric_limits<uint32_t>::max();
+      default:
+        return true;
+    }
+  }
+  return false;
 }
 
 StringLiteral::StringLiteral(StrLit* a)
@@ -1009,6 +1065,23 @@ ostream& operator<<(ostream& os, Expression* e)
         os << ", ";
     }
     os << ']';
+  }
+  else if(MapConstant* mc = dynamic_cast<MapConstant*>(e))
+  {
+    os << '[';
+    for(auto& it = mc->values.begin(); it != mc->values.end(); it++)
+    {
+      if(it != mc->values.begin())
+      {
+        os << ", ";
+      }
+      os << '{' << kv.first << ", " << kv.second << '}';
+    }
+    os << ']';
+  }
+  else if(UnionConstant* uc = dynamic_cast<UnionConstant*>(e))
+  {
+    os << uc->value->type->getName() << ' ' << uc->value;
   }
   else if(Indexed* in = dynamic_cast<Indexed*>(e))
   {

@@ -29,25 +29,26 @@ void determineGlobalConstants()
 
 //Convert a constant expression to another type
 //conv->value must already be folded and be constant
-static Expression* convertConstant(Converted* conv)
+static Expression* convertConstant(Expression* value, Type* type)
 {
-  if(auto intConst = dynamic_cast<IntConstant*>(conv->value))
+  INTERNAL_ASSERT(value->constant());
+  if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
     //do the conversion which tests for overflow
     return intConst->convert(conv->type);
   }
-  else if(auto floatConst = dynamic_cast<FloatConstant*>(conv->value))
+  else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
   {
     return floatConst->convert(conv->type);
   }
-  else if(auto enumConst = dynamic_cast<EnumExpr*>(conv->value))
+  else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
   {
     return enumConst->convert(conv->type);
   }
   //array/struct/tuple constants can be converted implicitly
   //to each other (all use CompoundLiteral) but individual
   //members (primitives) may need conversion
-  else if(auto compLit = dynamic_cast<CompoundLiteral*>(conv->value))
+  else if(auto compLit = dynamic_cast<CompoundLiteral*>(value))
   {
     //attempt to fold all elements (can't proceed unless every
     //one is a constant)
@@ -56,18 +57,50 @@ static Expression* convertConstant(Converted* conv)
       allConstant = allConstant && foldExpression(mem);
     if(!allConstant)
       return false;
-    if(auto st = dynamic_cast<StructType*>(conv->type))
+    if(auto st = dynamic_cast<StructType*>(type))
     {
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        if(compLit->members[i]->type != st->members[i]->type)
+        {
+          compLit->members[i] = convertConstant(
+              compLit->members[i], st->members[i]->type);
+        }
+        //else: don't need to convert member
+      }
     }
-    else if(auto tt = dynamic_cast<TupleType*>(conv->type))
+    else if(auto tt = dynamic_cast<TupleType*>(type))
     {
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        if(compLit->members[i]->type != tt->members[i])
+        {
+          compLit->members[i] = convertConstant(
+              compLit->members[i], tt->members[i]);
+        }
+      }
     }
-    else if(auto mt = dynamic_cast<MapType*>(conv->type))
+    else if(auto mt = dynamic_cast<MapType*>(type))
     {
-      expr = new MapConstant;
-      //convert key/value pairs to 
+      auto mc = new MapConstant;
+      //add each key/value pair to the map
+      for(size_t i = 0; i < compList->members.size(); i++)
+      {
+        auto kv = dynamic_cast<CompoundLiteral*>(compList->members[i]);
+        INTERNAL_ASSERT(kv);
+        Expression* key = kv->members[0];
+        Expression* value = kv->members[1];
+        if(key->type != mt->key)
+          key = convertConstant(key, mt->key);
+        if(value->type != mt->value)
+          value = convertConstant(value, mt->value);
+        mc->values[key] = value;
+      }
     }
   }
+  //????
+  INTERNAL_ERROR;
+  return nullptr;
 }
 
 //Try to fold an expression, bottom-up
@@ -93,7 +126,7 @@ static bool foldExpression(Expression*& expr)
     foldExpression(conv->value);
     if(conv->value->constant())
     {
-      expr = convertConstant(conv);
+      expr = convertConstant(conv->value, conv->type);
       return true;
     }
     else

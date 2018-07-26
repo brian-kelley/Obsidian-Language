@@ -44,6 +44,7 @@ struct StringConstant;
 struct BoolConstant;
 struct MapConstant;
 struct CompoundLiteral;
+struct UnionConstant;
 //Arithmetic
 struct UnaryArith;
 struct BinaryArith;
@@ -98,27 +99,37 @@ struct BinaryArith : public Expression
 
 struct IntConstant : public Expression
 {
+  IntConstant()
+  {
+    uval = 0;
+    sval = 0;
+    type = primitives[Prim::ULONG];
+    resolved = true;
+  }
   IntConstant(IntLit* ast)
   {
     uval = ast->val;
     type = primitives[Prim::ULONG];
-    resovled = true;
+    resolved = true;
   }
   IntConstant(int64_t val)
   {
     sval = val;
     type = primitives[Prim::LONG];
-    resovled = true;
+    resolved = true;
   }
   IntConstant(uint64_t val)
   {
     uval = val;
     type = primitives[Prim::ULONG];
-    resovled = true;
+    resolved = true;
   }
   //Attempt to convert to int/float/enum type
-  //If this fails, print an error message
+  //Make sure the conversion is valid and show error
+  //if this fails
   Expression* convert(Type* t);
+  //Return true if value fits in the type
+  bool checkValueFits();
   int64_t sval;
   uint64_t uval;
   bool assignable()
@@ -238,6 +249,27 @@ struct MapConstant : public Expression
     }
     return total;
   }
+};
+
+//UnionConstant only used in IR/optimization
+//expr->type exactly matches exactly one of ut's options
+//(which is guaranteed by semantic checking/implicit conversions)
+struct UnionConstant : public Expression
+{
+  UnionConstant(Expression* expr, UnionType* ut)
+  {
+    INTERNAL_ASSERT(expr->constant());
+    value = expr;
+    unionType = ut;
+    type = unionType;
+    resolved = true;
+  }
+  bool constant()
+  {
+    return true;
+  }
+  UnionType* unionType;
+  Expression* value;
 };
 
 //it is impossible to determine the type of a CompoundLiteral by itself

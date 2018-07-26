@@ -680,7 +680,12 @@ EnumType::EnumType(Scope* enclosingScope)
 {
   //"scope" encloses the enum constants
   scope = new Scope(enclosingScope, this);
-  resolved = true;
+}
+
+void EnumType::resolveImpl(bool final)
+{
+  //first, decide whether to use a signed or unsigned type
+  //to represent (prefer signed)
 }
 
 void EnumType::addValue(string valueName)

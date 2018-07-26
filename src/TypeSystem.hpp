@@ -292,16 +292,43 @@ struct AliasType : public Type
 
 struct EnumConstant : public Node
 {
+  //use this constructor for all non-negative values
+  EnumConstant(uint64_t u)
+  {
+    fitsS64 = true;
+    fitsU64 = true;
+    if(u > numeric_limits<int64_t>::max())
+    {
+      fitsS64 = false;
+    }
+    else
+    {
+      sval = u;
+    }
+    uval = u;
+  }
+  EnumConstant(int64_t s)
+  {
+    fitsS64 = true;
+    fitsU64 = false;
+    sval = s;
+  }
   EnumType* et;
   string name;
-  int64_t value;
+  uint64_t uval;
+  int64_t sval;
+  bool fitsS64;
+  bool fitsU64;
 };
 
 struct EnumType : public Type
 {
   EnumType(Scope* enclosingScope);
+  void resolveImpl(bool final);
+  //add a name to enum, automatically choosing numeric value
   void addValue(string name);
-  void addValue(string name, int64_t value);
+  //add a name with user-provided value
+  void addValue(string name);
   string name;
   vector<EnumConstant*> values;
   bool canConvert(Type* other);
@@ -309,7 +336,8 @@ struct EnumType : public Type
   bool isEnum() {return true;}
   bool isInteger() {return true;}
   bool isNumber() {return true;}
-  set<int64_t> valueSet;
+  //The type used to represent the enum in memory
+  IntegerType* underlying;
   Scope* scope;
   string getName()
   {
