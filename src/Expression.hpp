@@ -180,9 +180,12 @@ struct FloatConstant : public Expression
   }
 };
 
-struct StringLiteral : public Expression
+struct StringConstant : public Expression
 {
-  StringLiteral(StrLit* ast);
+  StringConstant(StrLit* ast)
+  {
+    value = ast->val;
+  }
   string value;
   bool assignable()
   {
@@ -474,7 +477,7 @@ struct Converted : public Expression
 struct EnumExpr : public Expression
 {
   EnumExpr(EnumConstant* ec);
-  int64_t value;
+  EnumConstant* value;
   bool assignable()
   {
     return false;

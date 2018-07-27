@@ -34,7 +34,7 @@ static Expression* convertConstant(Expression* value, Type* type)
   INTERNAL_ASSERT(value->constant());
   if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
-    //do the conversion which tests for overflow
+    //do the conversion which tests for overflow and enum membership
     return intConst->convert(conv->type);
   }
   else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
@@ -43,7 +43,18 @@ static Expression* convertConstant(Expression* value, Type* type)
   }
   else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
   {
-    return enumConst->convert(conv->type);
+    if(enumConst->value->fitsS64)
+    {
+      //make a signed temporary int constant, then convert that
+      //(this can't possible lose information)
+      IntConstant asInt(enumConst->value->sval);
+      return asInt.convert(type);
+    }
+    else
+    {
+      IntConstant asInt(enumConst->value->uval);
+      return asInt.convert(type);
+    }
   }
   //array/struct/tuple constants can be converted implicitly
   //to each other (all use CompoundLiteral) but individual
@@ -133,11 +144,6 @@ static bool foldExpression(Expression*& expr)
     {
       return false;
     }
-  }
-  {
-    //already constant and nothing to do
-    constant = true;
-    return false;
   }
   else if(auto& binArith = dynamic_cast<BinaryArith*&>(expr))
   {

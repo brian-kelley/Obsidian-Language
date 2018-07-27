@@ -249,14 +249,14 @@ Expression* IntConstant::convert(Type* t)
     intConstant->type = dstType;
     if(!intConstant->checkValueFits())
     {
-      if(dstType->isSigned)
+      if(isSigned)
       {
-        errMsgLoc(this, "value " << intConstant->sval
-            << " does not fit in " << dstType->getName());
+        errMsgLoc(this, "value " << sval <<
+            " does not fit in " << dstType->getName());
       }
       else
       {
-        errMsgLoc(this, "value " << intConstant->uval
+        errMsgLoc(this, "value " << uval
             << " does not fit in " << dstType->getName());
       }
     }
@@ -264,15 +264,53 @@ Expression* IntConstant::convert(Type* t)
   }
   else if(auto enumType = dynamic_cast<EnumType*>(t))
   {
-  }
-  else if(auto FloatType = dynamic_cast<FloatType*>(t))
-  {
-  }
-  else
-  {
-    INTERNAL_ERROR;
+    //when converting int to enum,
+    //make sure value is actually in enum
+    for(auto ec : enumType->values)
+    {
+      if(isSigned)
+      {
+        if(ec->fitsS64 && ec->sval == sval)
+          return new EnumExpr(ec);
+      }
+      else
+      {
+        if(ec->fitsU64 && ec->uval == uval)
+          return new EnumExpr(ec);
+      }
+    }
+    if(isSigned)
+    {
+      errMsgLoc(this, "value " << sval <<
+          " is not in enum " << enumType->name);
+    }
+    else
+    {
+      errMsgLoc(this, "value " << uval <<
+          " is not in enum " << enumType->name);
+    }
     return nullptr;
   }
+  else if(auto floatType = dynamic_cast<FloatType*>(t))
+  {
+    //integer -> float/double conversion always succeeds
+    if(floatType->size == 4)
+    {
+      if(isSigned)
+        return new FloatConstant((float) sval);
+      else
+        return new FloatConstant((float) uval);
+    }
+    else
+    {
+      if(isSigned)
+        return new FloatConstant((double) sval);
+      else
+        return new FloatConstant((double) uval);
+    }
+  }
+  INTERNAL_ERROR;
+  return nullptr;
 }
 
 bool IntConstant::checkValueFits()
@@ -310,15 +348,6 @@ bool IntConstant::checkValueFits()
     }
   }
   return false;
-}
-
-StringLiteral::StringLiteral(StrLit* a)
-{
-  value = a->val;
-  setLocation(a);
-  type = getArrayType(primitives[Prim::CHAR], 1);
-  type->finalResolve();
-  resolved = true;
 }
 
 BoolConstant::BoolConstant(bool v)
@@ -798,7 +827,7 @@ set<Variable*> Converted::getReads()
 EnumExpr::EnumExpr(EnumConstant* ec)
 {
   type = ec->et;
-  value = ec->value;
+  value = ec;
   resolved = true;
 }
 
