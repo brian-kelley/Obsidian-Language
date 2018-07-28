@@ -130,6 +130,7 @@ struct IntConstant : public Expression
   Expression* convert(Type* t);
   //Return true if value fits in the type
   bool checkValueFits();
+  Expression* binOp(int op, IntConstant* rhs);
   int64_t sval;
   uint64_t uval;
   bool assignable()
@@ -166,6 +167,7 @@ struct FloatConstant : public Expression
   }
   float fp;
   double dp;
+  Expression* binOp(int op, IntConstant* rhs);
   bool assignable()
   {
     return false;
@@ -218,7 +220,12 @@ struct CharLiteral : public Expression
 
 struct BoolConstant : public Expression
 {
-  BoolConstant(bool v);
+  BoolConstant(bool v)
+  {
+    value = v;
+    type = primitives[Prim::BOOL];
+    resolved = true;
+  }
   bool value;
   bool assignable()
   {

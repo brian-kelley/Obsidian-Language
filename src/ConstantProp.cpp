@@ -2,6 +2,9 @@
 
 using namespace IR;
 
+//Max number of bytes in constant expressions
+const int maxConstantSize = 512;
+
 void determineGlobalConstants()
 {
   for(auto& s : IR::ir)
@@ -114,6 +117,86 @@ static Expression* convertConstant(Expression* value, Type* type)
   return nullptr;
 }
 
+//Evaluate a numerical binary arithmetic operation.
+//Check for integer overflow and invalid operations (e.g. x / 0)
+static Expression* evalBinOp(Expression* lhs, int op, Expression* rhs)
+{
+  auto& lhs = binArith->lhs;
+  auto& rhs = binArith->rhs;
+  foldExpression(lhs);
+  foldExpression(rhs);
+  if(!lhs->constant() || !rhs->constant())
+    return nullptr;
+  //Comparison operations easy because
+  //all constant Expressions support comparison
+  if(op == CMPEQ)
+    return new BoolConstant(lhs == rhs);
+  if(op == CMPNEQ)
+    return new BoolConstant(!(lhs == rhs));
+  if(op == CMPL)
+    return new BoolConstant(lhs < rhs);
+  if(op == CMPG)
+    return new BoolConstant(rhs < lhs);
+  if(op == CMPLE)
+    return new BoolConstant(!(rhs < lhs));
+  if(op == CMPGE)
+    return new BoolConstant(!(lhs < rhs));
+  if(op == PLUS)
+  {
+    bool oversize =
+      lhs->getConstantSize() >= maxConstantSize ||
+      rhs->getConstantSize() >= maxConstantSize;
+    //handle array concat, prepend and append operations (not numeric + yet)
+    CompoundLiteral* compoundLHS = dynamic_cast<CompoundLiteral*>(lhs);
+    CompoundLiteral* compoundRHS = dynamic_cast<CompoundLiteral*>(rhs);
+    if((compoundLHS || compoundRHS) && oversize)
+    {
+      //+ on arrays always increases object size, so don't fold with oversized values
+      return nullptr;
+    }
+    if(compoundLHS && compoundRHS)
+    {
+      vector<Expression*> resultMembers(compoundLHS->members.size() + compoundRHS->members.size());
+      for(size_t i = 0; i < compoundLHS->members.size(); i++)
+        resultMembers[i] = compoundLHS->members[i];
+      for(size_t i = 0; i < compoundRHS->members.size(); i++)
+        resultMembers[i + compoundLHS->members.size()] = compoundRHS->members[i];
+      CompoundLiteral* result = new CompoundLiteral(resultMembers);
+      result->resolveImpl(true);
+      return result;
+    }
+    else if(compoundLHS)
+    {
+      //array append
+      vector<Expression*> resultMembers = compoundLHS->members;
+      resultMembers.push_back(rhs);
+      CompoundLiteral* result = new CompoundLiteral(resultMembers);
+      result->resolveImpl(true);
+      return result;
+    }
+    else if(compoundRHS)
+    {
+      //array prepend
+      vector<Expression*> resultMembers = compoundRHS->members;
+      resultMembers.insert(lhs, 0);
+      CompoundLiteral* result = new CompoundLiteral(resultMembers);
+      result->resolveImpl(true);
+      return result;
+    }
+  }
+  //all other binary ops are numerical operations between two ints or two floats
+  FloatConstant* lhsFloat = dynamic_cast<FloatConstant*>(lhs);
+  FloatConstant* rhsFloat = dynamic_cast<FloatConstant*>(rhs);
+  IntConstant* lhsInt = dynamic_cast<IntConstant*>(lhs);
+  IntConstant* rhsInt = dynamic_cast<IntConstant*>(rhs);
+  bool useFloat = lhsFloat || rhsFloat;
+  bool useInt = lhsInt || rhsInt;
+  INTERNAL_ASSERT(useFloat ^ useInt);
+  if(useFloat)
+    return lhsFloat->binOp(op, rhsFloat);
+  return lhsInt->binOp(op, rhsInt);
+}
+
 //Try to fold an expression, bottom-up
 //Can fold all constants in one pass
 //
@@ -149,23 +232,38 @@ static void foldExpression(Expression*& expr)
       return false;
     }
   }
-  else if(auto& binArith = dynamic_cast<BinaryArith*&>(expr))
+  else if(auto binArith = dynamic_cast<BinaryArith*>(expr))
   {
-    bool lhsConstant = false;
-    bool rhsConstant = false;
-    foldExpression(binArith->lhs, lhsConstant);
-    foldExpression(binArith->rhs, rhsConstant);
-    if(lhsConstant && rhsConstant)
-    {
-      constant = true;
-      return true;
-    }
-    else
-    {
-      return false;
-    }
+    //evalBinOp returns null if expr not constant or is too big to evaluate
+    Expression* result = evalBinOp(binArith->lhs, binArith->op, binArith->rhs);
+    if(result)
+      expr = result;
+    return;
   }
-  else if(
+  else if(auto unaryArith = dynamic_cast<UnaryArith*>(expr))
+  {
+    foldExpression(unaryArith->expr);
+    if(unaryArith->expr->constant())
+    {
+      if(unaryArith->op == LNOT)
+      {
+        //operand must be a bool constant
+        expr = new BoolConstant(!((BoolConstant*) unaryArith->expr)->value);
+        return;
+      }
+      else if(unaryArith->op == BNOT)
+      {
+        //operand must be an integer
+        IntConstant* input = (IntConstant*) unaryArith->expr;
+        if(((IntegerType*) input->type)->isSigned)
+          expr = new IntConstant(~(input->sval));
+        else
+          expr = new IntConstant(~(input->uval));
+        return;
+      }
+    }
+    return;
+  }
 }
 
 bool constantFold(IR::SubroutineIR* subr)

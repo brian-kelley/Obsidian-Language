@@ -350,6 +350,67 @@ bool IntConstant::checkValueFits()
   return false;
 }
 
+IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
+{
+  //most operations produce an expression of same type
+  IntConstant* result = new IntConstant(0ULL);
+  bool isSigned = ((IntegerType*) type)->isSigned;
+#define DO_OP(name, op) \
+  case name: \
+    if(isSigned) \
+      result->sval = sval op rhs->sval; \
+    else \
+      result->uval  = uval op rhs->uval; \
+    break;
+  switch(op)
+  {
+    DO_OP(PLUS, +)
+    DO_OP(SUB, -)
+    DO_OP(MUL, *)
+    case DIV:
+    case MOD:
+    {
+      //div/mod need extra logic to check for div-by-0
+      //important to avoid exception in compiler!
+      if((isSigned && rhs->sval == 0) ||
+          (!isSigned && rhs->uval == 0))
+      {
+        errMsgLoc(this, (op == DIV ? "div" : "mod") " by 0");
+      }
+      if(op == DIV)
+      {
+        if(isSigned)
+          result = new IntConstant(sval / rhs->sval);
+        else
+          result = new IntConstant(uval / rhs->uval);
+      }
+      else
+      {
+        if(isSigned)
+          result = new IntConstant(sval % rhs->sval);
+        else
+          result = new IntConstant(uval % rhs->uval);
+      }
+      break;
+    }
+    DO_OP(BOR, Int, |)
+    DO_OP(BXOR, Int, ^)
+    DO_OP(BAND, Int, &)
+    DO_OP(SHL, Int, <<)
+    DO_OP(SHR, Int, >>)
+    default:
+    INTERNAL_ERROR;
+  }
+  //set the type and then check that result actually fits
+  result->type = type;
+  if(!result->checkValueFits())
+  {
+    errMsgLoc(this, "operation overflows " << type->getName());
+  }
+  return result;
+#undef DO_OP
+}
+
 Expression* FloatConstant::convert(Type* t)
 {
   //first, just promote to double
@@ -409,11 +470,51 @@ Expression* FloatConstant::convert(Type* t)
   return nullptr;
 }
 
-BoolConstant::BoolConstant(bool v)
+FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
 {
-  value = v;
-  type = primitives[Prim::BOOL];
-  resolved = true;
+  //most operations produce an expression of same type
+  FloatConstant* result = new FloatConstant(0.0);
+  bool dp = (type == primitives[Prim::DOUBLE]);
+  switch(op)
+  {
+    case PLUS:
+      if(dp)
+        result->dp = dp + rhs->dp;
+      else
+        result->fp = fp + rhs->fp;
+      break;
+    case SUB:
+      if(dp)
+        result->dp = dp - rhs->dp;
+      else
+        result->fp = fp - rhs->fp;
+      break;
+    case MUL:
+      if(dp)
+        result->dp = dp * rhs->dp;
+      else
+        result->fp = fp * rhs->fp;
+      break;
+    case DIV:
+    {
+      //div/mod need extra logic to check for div-by-0
+      //important to avoid exception in compiler!
+      if((dp && rhs->dp == 0) || (fp && rhs->fp == 0))
+      {
+        errMsgLoc(this, "divide by 0");
+      }
+      if(dp)
+        result->dp = dp / rhs->dp;
+      else
+        result->fp = fp / rhs->fp;
+      break;
+    }
+    default:
+    INTERNAL_ERROR;
+  }
+  //set the type and then check that result actually fits
+  result->type = type;
+  return result;
 }
 
 /*******************
