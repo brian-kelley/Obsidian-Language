@@ -117,9 +117,13 @@ static Expression* convertConstant(Expression* value, Type* type)
 //Try to fold an expression, bottom-up
 //Can fold all constants in one pass
 //
+//After calling this, if expr->constant(),
+//is guaranteed to be completely folded into a simple constant,
+//or inputs were too big to fold
+//
 //Return true if any IR changes are made
 //Set constant to true if expr is now, or was already, a constant
-static bool foldExpression(Expression*& expr)
+static void foldExpression(Expression*& expr)
 {
   if(dynamic_cast<IntConstant*>(expr) ||
       dynamic_cast<FloatConstant*>(expr) ||

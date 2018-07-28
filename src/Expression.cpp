@@ -350,6 +350,65 @@ bool IntConstant::checkValueFits()
   return false;
 }
 
+Expression* FloatConstant::convert(Type* t)
+{
+  //first, just promote to double
+  double val = type == primitives[Prim::FLOAT] ? fp : dp;
+  if(auto intType = dynamic_cast<IntegerType*>(t))
+  {
+    //make sure val fits
+    if(intType->isSigned)
+    {
+      if(val < numeric_limits<int64_t>::min() ||
+          val > numeric_limits<int64_t>::max())
+      {
+        errMsgLoc(this, "floating-point value " << val <<
+            " can't be represented in any signed integer");
+      }
+      //make a long constant, then narrow it to intType
+      IntConstant asLong((int64_t) val);
+      return asLong.convert(t);
+    }
+    else
+    {
+      if(val < 0 || val > numeric_limits<uint64_t>::max())
+      {
+        errMsgLoc(this, "floating-point value " << val <<
+            " can't be represented in any unsigned integer");
+      }
+      IntConstant asLong((uint64_t) val);
+      return asLong.convert(t);
+    }
+  }
+  else if(auto floatType = dynamic_cast<FloatType*>(t))
+  {
+    if(floatType->size == 4)
+    {
+      return new FloatConstant((float) val);
+    }
+    else
+    {
+      return new FloatConstant(val);
+    }
+  }
+  else if(auto enumType = dynamic_cast<EnumType*>(t))
+  {
+    //temporarily make an integer value, then convert that to enum
+    if(val < 0)
+    {
+      IntConstant* asLong = (IntConstant*) convert(primitives[Prim::LONG]);
+      return asLong->convert(t);
+    }
+    else
+    {
+      IntConstant* asULong = (IntConstant*) convert(primitives[Prim::ULONG]);
+      return asULong->convert(t);
+    }
+  }
+  INTERNAL_ERROR;
+  return nullptr;
+}
+
 BoolConstant::BoolConstant(bool v)
 {
   value = v;

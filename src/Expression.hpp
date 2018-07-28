@@ -178,6 +178,7 @@ struct FloatConstant : public Expression
   {
     return ((FloatType*) type)->size;
   }
+  Expression* convert(Type* t);
 };
 
 struct StringConstant : public Expression
