@@ -876,9 +876,22 @@ namespace Parser
         na->setLocation(location);
         return na;
       }
+      Expression* base = parseExpression(s, 1);
+      if(acceptKeyword(IS))
+      {
+        IsExpr* ie = new IsExpr(base, parseType(s));
+        ie->setLocation(base);
+        return ie;
+      }
+      else if(acceptKeyword(AS))
+      {
+        AsExpr* ae = new AsExpr(base, parseType(s));
+        ae->setLocation(base);
+        return ae;
+      }
       else
       {
-        return parseExpression(s, 1);
+        return base;
       }
     }
     else if(prec >= 1 && prec <= 11)

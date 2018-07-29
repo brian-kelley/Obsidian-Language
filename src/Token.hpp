@@ -61,6 +61,8 @@ enum
   FALSE,
   FUNCTYPE,
   PROCTYPE,
+  IS,
+  AS,
   TEST,
   BENCHMARK,
   ASSERT,

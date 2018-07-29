@@ -48,12 +48,15 @@ struct UnionConstant;
 //Arithmetic
 struct UnaryArith;
 struct BinaryArith;
+//Data structure manipulations
 struct Indexed;
+struct NewArray;
+struct ArrayLength;
+struct AsExpr;
+struct IsExpr;
 struct CallExpr;
 struct VarExpr;
-struct NewArray;
 struct Converted;
-struct ArrayLength;
 struct ThisExpr;
 struct ErrorVal;
 struct UnresolvedExpr;
@@ -459,6 +462,32 @@ struct ArrayLength : public Expression
     return false;
   }
   set<Variable*> getReads();
+};
+
+struct IsExpr : public Expression
+{
+  IsExpr(Expression* b, Type* t);
+  void resolveImpl(bool final);
+  bool assignable()
+  {
+    return false;
+  }
+  set<Variable*> getReads();
+  Expression* base;
+  Type* option;
+}
+
+struct AsExpr : public Expression
+{
+  AsExpr(Expression* b, Type* t);
+  void resolveImpl(bool final);
+  bool assignable()
+  {
+    return false;
+  }
+  set<Variable*> getReads();
+  Expression* base;
+  Type* option;
 };
 
 struct ThisExpr : public Expression

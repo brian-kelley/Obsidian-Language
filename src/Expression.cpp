@@ -944,6 +944,14 @@ set<Variable*> ArrayLength::getReads()
   return array->getReads();
 }
 
+IsExpr::IsExpr(Expression* base, Type* option)
+{
+}
+
+void IsExp::resolveImpl(bool final)
+{
+}
+
 /************
  * ThisExpr *
  ************/
