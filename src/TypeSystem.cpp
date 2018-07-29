@@ -2,6 +2,9 @@
 #include "Variable.hpp"
 #include "Expression.hpp"
 #include "Subroutine.hpp"
+#include <algorithm>
+
+using std::sort;
 
 /***********************/
 /* Type and subclasses */
@@ -495,6 +498,11 @@ string UnionType::getName()
   return name;
 }
 
+Expression* UnionType::getDefaultValue()
+{
+  return new UnionConstant(options[0]->getDefaultValue(), this);
+}
+
 bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs)
 {
   return lexicographical_compare(lhs->options.begin(), lhs->options.end(),
@@ -550,6 +558,15 @@ bool ArrayType::canConvert(Type* other)
     return true;
   }
   return false;
+}
+
+Expression* ArrayType::getDefaultValue()
+{
+  vector<Expression*> empty;
+  CompoundLiteral* cl = new CompoundLiteral(empty);
+  cl->type = this;
+  cl->resolved = true;
+  return cl;
 }
 
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
@@ -609,6 +626,19 @@ bool TupleType::canConvert(Type* other)
     return true;
   }
   return members.size() == 1 && members[0]->canConvert(other);
+}
+
+Expression* TupleType::getDefaultValue()
+{
+  vector<Expression*> vals;
+  for(size_t i = 0; i < members.size(); i++)
+  {
+    vals.push_back(members[i]->getDefaultValue());
+  }
+  CompoundLiteral* cl = new CompoundLiteral(vals);
+  cl->resolved = true;
+  cl->type = this;
+  return cl;
 }
 
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
@@ -709,7 +739,6 @@ void EnumType::resolveImpl(bool final)
   {
     errMsgLoc(this, "neither long nor ulong canrepresent all values in enum");
   }
-  bool allFit = true;
   //Try different integer widths until all values fit
   for(int width = 1; width <= 8; width *= 2)
   {
@@ -746,7 +775,7 @@ void EnumType::resolveImpl(bool final)
   resolved = true;
 }
 
-void EnumType::addAutomaticValue(string name, Node* location)
+void EnumType::addAutomaticValue(string n, Node* location)
 {
   uint64_t uval = 0;
   if(!values.back()->fitsU64)
@@ -766,7 +795,7 @@ void EnumType::addAutomaticValue(string name, Node* location)
       }
       if(!alreadyInEnum)
       {
-        addNegativeValue(name, sval, location);
+        addNegativeValue(n, sval, location);
         return;
       }
     }
@@ -790,39 +819,39 @@ void EnumType::addAutomaticValue(string name, Node* location)
     }
     if(!alreadyInEnum)
     {
-      addPositiveValue(name, uval, location);
+      addPositiveValue(n, uval, location);
       return;
     }
   }
 }
 
-void EnumType::addPositiveValue(string name, uint64_t uval, Node* location)
+void EnumType::addPositiveValue(string n, uint64_t uval, Node* location)
 {
   //uval must not already be in the enum
   for(auto existing : values)
   {
     if(existing->fitsU64 && existing->uval == uval)
     {
-      errMsgLoc(this, "enum value " << name << " duplicates value of " << existing->name);
+      errMsgLoc(this, "enum value " << n << " duplicates value of " << existing->name);
     }
   }
-  EnumConstant* newValue = new EnumConstant(name, uval);
+  EnumConstant* newValue = new EnumConstant(n, uval);
   newValue->setLocation(location);
   newValue->et = this;
   scope->addName(newValue);
   values.push_back(newValue);
 }
 
-void EnumType::addNegativeValue(string name, int64_t sval, Node* location)
+void EnumType::addNegativeValue(string n, int64_t sval, Node* location)
 {
   for(auto existing : values)
   {
     if(!existing->fitsU64 && existing->sval == sval)
     {
-      errMsgLoc(this, "enum value " << name << " duplicates value of " << existing->name);
+      errMsgLoc(this, "enum value " << n << " duplicates value of " << existing->name);
     }
   }
-  EnumConstant* newValue = new EnumConstant(name, sval);
+  EnumConstant* newValue = new EnumConstant(n, sval);
   newValue->setLocation(location);
   newValue->et = this;
   scope->addName(newValue);

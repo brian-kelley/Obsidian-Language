@@ -316,6 +316,7 @@ Expression* IntConstant::convert(Type* t)
 bool IntConstant::checkValueFits()
 {
   auto intType = (IntegerType*) type;
+  int size = intType->size;
   if(intType->isSigned)
   {
     switch(size)
@@ -353,7 +354,7 @@ bool IntConstant::checkValueFits()
 IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
 {
   //most operations produce an expression of same type
-  IntConstant* result = new IntConstant(0ULL);
+  IntConstant* result = new IntConstant((uint64_t) 0);
   bool isSigned = ((IntegerType*) type)->isSigned;
 #define DO_OP(name, op) \
   case name: \
@@ -375,7 +376,7 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
       if((isSigned && rhs->sval == 0) ||
           (!isSigned && rhs->uval == 0))
       {
-        errMsgLoc(this, (op == DIV ? "div" : "mod") " by 0");
+        errMsgLoc(this, (op == DIV ? "div" : "mod") << " by 0");
       }
       if(op == DIV)
       {
@@ -393,11 +394,11 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
       }
       break;
     }
-    DO_OP(BOR, Int, |)
-    DO_OP(BXOR, Int, ^)
-    DO_OP(BAND, Int, &)
-    DO_OP(SHL, Int, <<)
-    DO_OP(SHR, Int, >>)
+    DO_OP(BOR, |)
+    DO_OP(BXOR, ^)
+    DO_OP(BAND, &)
+    DO_OP(SHL, <<)
+    DO_OP(SHR, >>)
     default:
     INTERNAL_ERROR;
   }
@@ -452,7 +453,7 @@ Expression* FloatConstant::convert(Type* t)
       return new FloatConstant(val);
     }
   }
-  else if(auto enumType = dynamic_cast<EnumType*>(t))
+  else if(dynamic_cast<EnumType*>(t))
   {
     //temporarily make an integer value, then convert that to enum
     if(val < 0)
@@ -474,23 +475,23 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
 {
   //most operations produce an expression of same type
   FloatConstant* result = new FloatConstant(0.0);
-  bool dp = (type == primitives[Prim::DOUBLE]);
+  bool isDouble = (type == primitives[Prim::DOUBLE]);
   switch(op)
   {
     case PLUS:
-      if(dp)
+      if(isDouble)
         result->dp = dp + rhs->dp;
       else
         result->fp = fp + rhs->fp;
       break;
     case SUB:
-      if(dp)
+      if(isDouble)
         result->dp = dp - rhs->dp;
       else
         result->fp = fp - rhs->fp;
       break;
     case MUL:
-      if(dp)
+      if(isDouble)
         result->dp = dp * rhs->dp;
       else
         result->fp = fp * rhs->fp;
@@ -499,11 +500,11 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
     {
       //div/mod need extra logic to check for div-by-0
       //important to avoid exception in compiler!
-      if((dp && rhs->dp == 0) || (fp && rhs->fp == 0))
+      if((isDouble && rhs->dp == 0) || (fp && rhs->fp == 0))
       {
         errMsgLoc(this, "divide by 0");
       }
-      if(dp)
+      if(isDouble)
         result->dp = dp / rhs->dp;
       else
         result->fp = fp / rhs->fp;
@@ -602,15 +603,22 @@ void Indexed::resolveImpl(bool final)
   {
     //group's type is a Tuple, whether group is a literal, var or call
     //make sure the index is an IntLit
-    auto intIndex = dynamic_cast<IntLiteral*>(index);
+    auto intIndex = dynamic_cast<IntConstant*>(index);
     if(intIndex)
     {
-      //int literals are always unsigned (in lexer) so always positive
-      auto val = intIndex->value;
-      if(val >= tt->members.size())
+      uint64_t idx = intIndex->uval;
+      bool outOfBounds = false;
+      if(intIndex->isSigned())
       {
-        errMsgLoc(this, "tuple subscript out of bounds");
+        if(intIndex->sval < 0)
+          outOfBounds = true;
+        else
+          idx = intIndex->sval;
       }
+      if(idx>= tt->members.size())
+        outOfBounds = true;
+      if(outOfBounds)
+        errMsgLoc(this, "tuple subscript out of bounds");
     }
     else
     {
@@ -1219,30 +1227,36 @@ ostream& operator<<(ostream& os, Expression* e)
   {
     os << '(' << ba->lhs << ' ' << operatorTable[ba->op] << ' ' << ba->rhs << ')';
   }
-  else if(IntLiteral* il = dynamic_cast<IntLiteral*>(e))
+  else if(IntConstant* ic = dynamic_cast<IntConstant*>(e))
   {
-    os << il->value;
+    if(ic->isSigned())
+      os << ic->sval;
+    else
+      os << ic->uval;
   }
-  else if(FloatLiteral* fl = dynamic_cast<FloatLiteral*>(e))
+  else if(FloatConstant* fc = dynamic_cast<FloatConstant*>(e))
   {
-    os << fl->value;
+    if(fc->isDoublePrec())
+      os << fc->dp;
+    else
+      os << fc->fp;
   }
-  else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
+  else if(StringConstant* sc = dynamic_cast<StringConstant*>(e))
   {
     os << generateCharDotfile('"');
-    for(size_t i = 0; i < sl->value.size(); i++)
+    for(size_t i = 0; i < sc->value.size(); i++)
     {
-      os << generateCharDotfile(sl->value[i]);
+      os << generateCharDotfile(sc->value[i]);
     }
     os << generateCharDotfile('"');
   }
-  else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
+  else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
   {
-    os << cl->value;
+    os << cc->value;
   }
-  else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(e))
+  else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
   {
-    os << (bl->value ? "true" : "false");
+    os << (bc->value ? "true" : "false");
   }
   else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
   {
@@ -1258,13 +1272,13 @@ ostream& operator<<(ostream& os, Expression* e)
   else if(MapConstant* mc = dynamic_cast<MapConstant*>(e))
   {
     os << '[';
-    for(auto& it = mc->values.begin(); it != mc->values.end(); it++)
+    for(auto it = mc->values.begin(); it != mc->values.end(); it++)
     {
       if(it != mc->values.begin())
       {
         os << ", ";
       }
-      os << '{' << kv.first << ", " << kv.second << '}';
+      os << '{' << it->first << ", " << it->second << '}';
     }
     os << ']';
   }

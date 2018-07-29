@@ -3,6 +3,9 @@
 #include "Variable.hpp"
 #include "Scope.hpp"
 #include "IRDebug.hpp"
+#include "ConstantProp.hpp"
+#include "DeadCodeElim.hpp"
+#include "JumpThreading.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -33,7 +36,7 @@ namespace IR
         else if(name.second.kind == Name::VARIABLE)
         {
           Variable* var = (Variable*) name.second.item;
-          if(var->global)
+          if(var->isGlobal())
             globalConstants[var] = true;
         }
       }
@@ -47,6 +50,14 @@ namespace IR
   void optimizeIR()
   {
     IRDebug::dumpIR("unoptimized.dot");
+    for(auto& s : ir)
+    {
+      constantFold(s.second);
+    }
+    IRDebug::dumpIR("constantFolded.dot");
+    return;
+    /*
+    //do a constant folding pass
     //TODO: very easy to parallelize this
     //as all subroutine are processed independently
     //
@@ -70,6 +81,7 @@ namespace IR
       }
       //TODO: common subexpression elimination goes here
     }
+    */
   }
 
   //addStatement() will save, modify and restore these as needed
@@ -309,7 +321,7 @@ namespace IR
     //generate initialization assign (don't need an AST assign)
     Expression* counterExpr = new VarExpr(fr->counter);
     counterExpr->finalResolve();
-    Expression* counterP1 = new BinaryArith(counterExpr, PLUS, new IntLiteral(1));
+    Expression* counterP1 = new BinaryArith(counterExpr, PLUS, new IntConstant((int64_t) 1));
     counterP1->finalResolve();
     Expression* cond = new BinaryArith(counterExpr, CMPL, fr->end);
     cond->finalResolve();
@@ -352,9 +364,9 @@ namespace IR
     //subarrays: previous subarray indexed with loop counter
     //array[i] is the array traversed in loop of depth i
     vector<Expression*> subArrays(n, nullptr);
-    Expression* zeroLong = new Converted(new IntLiteral(0ull), primitives[Prim::LONG]);
+    Expression* zeroLong = new IntConstant((int64_t) 0);
     zeroLong->finalResolve();
-    Expression* oneLong = new Converted(new IntLiteral(1ull), primitives[Prim::LONG]);
+    Expression* oneLong = new IntConstant((int64_t) 1);
     oneLong->finalResolve();
     subArrays[0] = fa->arr;
     for(int i = 1; i < n; i++)

@@ -1,5 +1,8 @@
 #include "Subroutine.hpp"
 #include "Variable.hpp"
+#include <algorithm>
+
+using std::find;
 
 bool programHasMain = false;
 extern Module* global;
@@ -115,10 +118,10 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
         break;
       }
     case INC:
-      rvalue = new BinaryArith(lhs, PLUS, new IntLiteral(1));
+      rvalue = new BinaryArith(lhs, PLUS, new IntConstant((int64_t) 1));
       break;
     case DEC:
-      rvalue = new BinaryArith(lhs, SUB, new IntLiteral(1));
+      rvalue = new BinaryArith(lhs, SUB, new IntConstant((int64_t) 1));
       break;
     default:
       errMsgLoc(this, "invalid operation for assignment");

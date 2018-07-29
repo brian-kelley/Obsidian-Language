@@ -4,6 +4,9 @@
 #include "Parser.hpp"
 #include "Scope.hpp"
 #include "TypeSystem.hpp"
+#include <limits>
+
+using std::numeric_limits;
 
 /* Type system: 3 main categories of types
  *  -Primitives
@@ -51,7 +54,10 @@ struct Type : public Node
   virtual bool isResolved() {return true;}
   //Get a constant expression representing the "default"
   //or uninitialized value for the type, usable for constant folding etc.
-  virtual Expression* getDefaultValue() = 0;
+  virtual Expression* getDefaultValue()
+  {
+    return nullptr;
+  }
 };
 
 struct Scope;
@@ -196,6 +202,7 @@ struct UnionType : public Type
   string getName();
   //the default type (the first type that doesn't cause infinite recursion)
   int defaultType;
+  Expression* getDefaultValue();
 };
 
 struct ArrayType : public Type
@@ -218,6 +225,7 @@ struct ArrayType : public Type
     }
     return name;
   }
+  Expression* getDefaultValue();
 };
 
 struct TupleType : public Type
@@ -243,6 +251,7 @@ struct TupleType : public Type
     name += ")";
     return name;
   }
+  Expression* getDefaultValue();
 };
 
 struct MapType : public Type

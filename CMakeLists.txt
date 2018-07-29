@@ -25,7 +25,7 @@ add_executable (onyx
   src/JumpThreading.cpp
   src/DeadCodeElim.cpp
   src/Dotfile.cpp
-  src/Builtin.cpp
+  src/BuiltIn.cpp
   src/main.cpp
   src/Options.cpp
   src/AST_Output.cpp

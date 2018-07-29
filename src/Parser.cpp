@@ -580,7 +580,7 @@ namespace Parser
       else
       {
         //let the enum automatically choose value
-        e->addAutomaticValue(name, location);
+        e->addAutomaticValue(name, valueLocation);
       }
       if(!acceptPunct(COMMA))
       {
@@ -933,11 +933,11 @@ namespace Parser
       }
       else if(acceptKeyword(TRUE))
       {
-        base = new BoolLiteral(true);
+        base = new BoolConstant(true);
       }
       else if(acceptKeyword(FALSE))
       {
-        base = new BoolLiteral(false);
+        base = new BoolConstant(false);
       }
       else if(acceptKeyword(ERROR_VALUE))
       {
@@ -945,19 +945,19 @@ namespace Parser
       }
       else if(auto intLit = (IntLit*) accept(INT_LITERAL))
       {
-        base = new IntLiteral(intLit);
+        base = new IntConstant(intLit);
       }
       else if(auto floatLit = (FloatLit*) accept(FLOAT_LITERAL))
       {
-        base = new FloatLiteral(floatLit);
+        base = new FloatConstant(floatLit);
       }
       else if(auto strLit = (StrLit*) accept(STRING_LITERAL))
       {
-        base = new StringLiteral(strLit);
+        base = new StringConstant(strLit);
       }
       else if(auto charLit = (CharLit*) accept(CHAR_LITERAL))
       {
-        base = new CharLiteral(charLit);
+        base = new CharConstant(charLit);
       }
       else if(acceptPunct(LPAREN))
       {

@@ -1,4 +1,6 @@
 #include "ConstantProp.hpp"
+#include "Variable.hpp"
+#include "Expression.hpp"
 
 using namespace IR;
 
@@ -38,11 +40,11 @@ static Expression* convertConstant(Expression* value, Type* type)
   if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
     //do the conversion which tests for overflow and enum membership
-    return intConst->convert(conv->type);
+    return intConst->convert(type);
   }
   else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
   {
-    return floatConst->convert(conv->type);
+    return floatConst->convert(type);
   }
   else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
   {
@@ -68,9 +70,12 @@ static Expression* convertConstant(Expression* value, Type* type)
     //one is a constant)
     bool allConstant = true;
     for(auto& mem : compLit->members)
-      allConstant = allConstant && foldExpression(mem);
+    {
+      foldExpression(mem);
+      allConstant = allConstant && mem->constant();
+    }
     if(!allConstant)
-      return false;
+      return compLit;
     if(auto st = dynamic_cast<StructType*>(type))
     {
       for(size_t i = 0; i < compLit->members.size(); i++)
@@ -98,17 +103,17 @@ static Expression* convertConstant(Expression* value, Type* type)
     {
       auto mc = new MapConstant;
       //add each key/value pair to the map
-      for(size_t i = 0; i < compList->members.size(); i++)
+      for(size_t i = 0; i < compLit->members.size(); i++)
       {
-        auto kv = dynamic_cast<CompoundLiteral*>(compList->members[i]);
+        auto kv = dynamic_cast<CompoundLiteral*>(compLit->members[i]);
         INTERNAL_ASSERT(kv);
         Expression* key = kv->members[0];
-        Expression* value = kv->members[1];
+        Expression* val = kv->members[1];
         if(key->type != mt->key)
           key = convertConstant(key, mt->key);
-        if(value->type != mt->value)
-          value = convertConstant(value, mt->value);
-        mc->values[key] = value;
+        if(val->type != mt->value)
+          val = convertConstant(val, mt->value);
+        mc->values[key] = val;
       }
     }
   }
@@ -119,10 +124,8 @@ static Expression* convertConstant(Expression* value, Type* type)
 
 //Evaluate a numerical binary arithmetic operation.
 //Check for integer overflow and invalid operations (e.g. x / 0)
-static Expression* evalBinOp(Expression* lhs, int op, Expression* rhs)
+static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
 {
-  auto& lhs = binArith->lhs;
-  auto& rhs = binArith->rhs;
   foldExpression(lhs);
   foldExpression(rhs);
   if(!lhs->constant() || !rhs->constant())
@@ -177,8 +180,12 @@ static Expression* evalBinOp(Expression* lhs, int op, Expression* rhs)
     else if(compoundRHS)
     {
       //array prepend
-      vector<Expression*> resultMembers = compoundRHS->members;
-      resultMembers.insert(lhs, 0);
+      vector<Expression*> resultMembers(1 + compoundRHS->members.size());
+      resultMembers[0] = lhs;
+      for(size_t i = 0; i < compoundRHS->members.size(); i++)
+      {
+        resultMembers[i + 1] = compoundRHS->members[i];
+      }
       CompoundLiteral* result = new CompoundLiteral(resultMembers);
       result->resolveImpl(true);
       return result;
@@ -204,7 +211,7 @@ static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
   {
     if(ndims == 1)
     {
-      elems.push_back(elem=->getDefaultValue());
+      elems.push_back(elem->getDefaultValue());
     }
     else
     {
@@ -226,7 +233,7 @@ static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
 //
 //Return true if any IR changes are made
 //Set constant to true if expr is now, or was already, a constant
-static void foldExpression(Expression*& expr)
+void foldExpression(Expression*& expr)
 {
   if(expr->constant())
   {
@@ -236,7 +243,7 @@ static void foldExpression(Expression*& expr)
       vector<Expression*> chars;
       for(size_t i = 0; i < str->value.size(); i++)
       {
-        chars.push_back(new CharLiteral(str->value[i]));
+        chars.push_back(new CharConstant(str->value[i]));
       }
       CompoundLiteral* cl = new CompoundLiteral(chars);
       cl->type = str->type;
@@ -247,7 +254,7 @@ static void foldExpression(Expression*& expr)
   }
   else if(auto ve = dynamic_cast<VarExpr*>(expr))
   {
-    if(ve->var->isGlobal() && globalConstants(ve->var))
+    if(ve->var->isGlobal() && globalConstants[ve->var])
     {
       //safe to replace var with its initial value
       //attempt to fold global constant's value in-place
@@ -296,20 +303,20 @@ static void foldExpression(Expression*& expr)
   else if(auto indexed = dynamic_cast<Indexed*>(expr))
   {
     Expression*& grp = indexed->group;
-    Expression*& ind = indexed->indexed;
+    Expression*& ind = indexed->index;
     foldExpression(grp);
     foldExpression(ind);
     if(grp->constant() && ind->constant())
     {
-      if(auto arrType = dynamic_cast<ArrayType*>(grp->type))
+      if(dynamic_cast<ArrayType*>(grp->type))
       {
         CompoundLiteral* arrValues = (CompoundLiteral*) grp;
         IntConstant* intIndex = (IntConstant*) ind;
-        if(ind->type->isSigned())
+        if(intIndex->isSigned())
         {
           if(intIndex->sval < 0 || intIndex->sval >= arrValues->members.size())
           {
-            errMsgLoc(this, "array index " << intIndex->sval <<
+            errMsgLoc(indexed, "array index " << intIndex->sval <<
                 " out of bounds [0, " << arrValues->members.size() - 1 << ")");
           }
           expr = arrValues->members[intIndex->sval];
@@ -319,22 +326,22 @@ static void foldExpression(Expression*& expr)
         {
           if(intIndex->uval >= arrValues->members.size())
           {
-            errMsgLoc(this, "array index " << intIndex->sval <<
+            errMsgLoc(indexed, "array index " << intIndex->sval <<
                 " out of bounds [0, " << arrValues->members.size() - 1 << ")");
           }
           expr = arrValues->members[intIndex->uval];
           return;
         }
       }
-      else if(auto mapType = dynamic_cast<MapType*>(grp->type))
+      else if(dynamic_cast<MapType*>(grp->type))
       {
         //map lookup returns (T | Error)
         auto mapValue = (MapConstant*) grp;
-        auto mapIt = mapValue->value.find(ind);
-        if(mapIt == mapValue->value.end())
+        auto mapIt = mapValue->values.find(ind);
+        if(mapIt == mapValue->values.end())
           expr = new UnionConstant(new ErrorVal, (UnionType*) indexed->type);
         else
-          expr = new UnionConstant(*mapIt, (UnionType*) indexed->type);
+          expr = new UnionConstant(mapIt->second, (UnionType*) indexed->type);
         return;
       }
       INTERNAL_ERROR;
@@ -379,10 +386,10 @@ static void foldExpression(Expression*& expr)
     foldExpression(structMem->base);
     if(structMem->base->constant() && structMem->member.is<Variable*>())
     {
-      Variable* var = structMem->member.get<Variable>();
+      Variable* var = structMem->member.get<Variable*>();
       //Need to find which member var is, to extract it from compound literal
       auto st = (StructType*) structMem->base->type;
-      for(size_t memIndex = 0; memIndex < st->members.size(); i++)
+      for(size_t memIndex = 0; memIndex < st->members.size(); memIndex++)
       {
         if(st->members[memIndex] == var)
         {
@@ -412,7 +419,7 @@ static void foldExpression(Expression*& expr)
   }
 }
 
-bool constantFold(IR::SubroutineIR* subr)
+void constantFold(IR::SubroutineIR* subr)
 {
   //every expression (including parts of an assignment LHS)
   //may be folded (i.e. myArray[5 + 3] = 8 % 3)
@@ -427,7 +434,12 @@ bool constantFold(IR::SubroutineIR* subr)
     }
     else if(auto call = dynamic_cast<CallIR*>(stmt))
     {
-      foldExpression(call->eval);
+      //foldExpression doesn't evaluate calls,
+      //so foldExpression will produce another CallExpr
+      Expression* expr = call->eval;
+      foldExpression(expr);
+      INTERNAL_ASSERT(dynamic_cast<CallExpr*>(expr));
+      call->eval = (CallExpr*) expr;
     }
     else if(auto condJump = dynamic_cast<CondJump*>(stmt))
     {
@@ -465,7 +477,7 @@ bool constantPropagation(SubroutineIR* subr)
   {
     for(int i = bb->start; i < bb->end; i++)
     {
-      Statement* stmt = subr->stmts[i];
+      StatementIR* stmt = subr->stmts[i];
     }
   }
   return update;

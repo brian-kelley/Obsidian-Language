@@ -55,8 +55,8 @@ bool jumpThreading(SubroutineIR* subr)
     }
     else if(auto condJump = dynamic_cast<CondJump*>(stmt))
     {
-      int takenTaget = condJump->dst->intLabel;
-      int notTakenTaget = i + 1;
+      int takenTaget = condJump->taken->intLabel;
+      int notTakenTarget = i + 1;
       if(takenTaget == notTakenTarget)
       {
         //can safely delete the condjump with nop

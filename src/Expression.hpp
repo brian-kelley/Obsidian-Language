@@ -130,14 +130,13 @@ struct IntConstant : public Expression
   Expression* convert(Type* t);
   //Return true if value fits in the type
   bool checkValueFits();
-  Expression* binOp(int op, IntConstant* rhs);
+  IntConstant* binOp(int op, IntConstant* rhs);
   int64_t sval;
   uint64_t uval;
   bool assignable()
   {
     return false;
   }
-  private:
   bool constant()
   {
     return true;
@@ -161,17 +160,21 @@ struct FloatConstant : public Expression
   }
   FloatConstant(float val)
   {
-    fp = ast->val;
+    fp = val;
     type = primitives[Prim::FLOAT];
   }
   FloatConstant(double val)
   {
-    dp = ast->val;
+    dp = val;
     type = primitives[Prim::DOUBLE];
+  }
+  bool isDoublePrec()
+  {
+    return getConstantSize() == 8;
   }
   float fp;
   double dp;
-  Expression* binOp(int op, IntConstant* rhs);
+  FloatConstant* binOp(int op, FloatConstant* rhs);
   bool assignable()
   {
     return false;
@@ -275,6 +278,10 @@ struct MapConstant : public Expression
     }
     return total;
   }
+  bool assignable()
+  {
+    return false;
+  }
 };
 
 //UnionConstant only used in IR/optimization
@@ -289,6 +296,10 @@ struct UnionConstant : public Expression
     unionType = ut;
     type = unionType;
     resolved = true;
+  }
+  bool assignable()
+  {
+    return false;
   }
   bool constant()
   {

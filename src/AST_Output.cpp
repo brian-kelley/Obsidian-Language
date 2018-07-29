@@ -212,35 +212,35 @@ int emitExpression(Expression* e)
     out.createEdge(root, emitExpression(ba->lhs));
     out.createEdge(root, emitExpression(ba->rhs));
   }
-  else if(IntLiteral* il = dynamic_cast<IntLiteral*>(e))
+  else if(IntConstant* ic = dynamic_cast<IntConstant*>(e))
   {
-    root = out.createNode(to_string(il->value));
+    root = out.createNode(to_string(ic->uval));
   }
-  else if(FloatLiteral* fl = dynamic_cast<FloatLiteral*>(e))
+  else if(FloatConstant* fc = dynamic_cast<FloatConstant*>(e))
   {
     char buf[32];
-    sprintf(buf, "%#f", fl->value);
+    sprintf(buf, "%#f", fc->dp);
     root = out.createNode(buf);
   }
-  else if(StringLiteral* sl = dynamic_cast<StringLiteral*>(e))
+  else if(StringConstant* sc = dynamic_cast<StringConstant*>(e))
   {
     //print string with all characters fully escaped
     Oss oss;
     oss << "\\\"";
-    for(size_t i = 0; i < sl->value.length(); i++)
+    for(size_t i = 0; i < sc->value.length(); i++)
     {
-      oss << generateCharDotfile(sl->value[i]);
+      oss << generateCharDotfile(sc->value[i]);
     }
     oss << "\\\"";
     root = out.createNode(oss.str());
   }
-  else if(CharLiteral* cl = dynamic_cast<CharLiteral*>(e))
+  else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
   {
-    root = out.createNode("'" + generateCharDotfile(cl->value) + "'");
+    root = out.createNode("'" + generateCharDotfile(cc->value) + "'");
   }
-  else if(BoolLiteral* bl = dynamic_cast<BoolLiteral*>(e))
+  else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
   {
-    if(bl->value)
+    if(bc->value)
       root = out.createNode("true");
     else
       root = out.createNode("false");
@@ -380,7 +380,10 @@ int emitEnum(EnumType* e)
   int root = out.createNode("Enum " + e->name);
   for(auto ec : e->values)
   {
-    out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->value)));
+    if(ec->fitsS64)
+      out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->sval)));
+    else
+      out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->uval)));
   }
   return root;
 }

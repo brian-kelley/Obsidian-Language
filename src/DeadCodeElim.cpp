@@ -10,10 +10,9 @@ bool deadCodeElim(SubroutineIR* subr)
   {
     if(auto condJump = dynamic_cast<CondJump*>(subr->stmts[i]))
     {
-      if(auto boolConst = dynamic_cast<BoolConstant*>(condJump->condition))
+      if(auto boolConst = dynamic_cast<BoolConstant*>(condJump->cond))
       {
         update = true;
-        int jumpTarget = boolConst->value ? i + 1 : condJump->taken->intLabel;
         if(boolConst->value)
         {
           //never taken (does nothing)
@@ -36,7 +35,11 @@ bool deadCodeElim(SubroutineIR* subr)
     QUEUED,
     VISITED
   };
-  map<BasicBlock*, char> blockVisits(subr->blocks.size(), NOT_VISITED);
+  map<BasicBlock*, char> blockVisits;
+  for(auto bb : subr->blocks)
+  {
+    blockVisits[bb] = NOT_VISITED;
+  }
   queue<BasicBlock*> visitQueue;
   visitQueue.push(subr->blocks[0]);
   blockVisits[subr->blocks[0]] = QUEUED;
