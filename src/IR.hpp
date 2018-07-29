@@ -6,13 +6,10 @@
 
 /* Lower-level IR
  *
- * Use for building control-flow graphs,
- * doing dead code elimination, and constructing SSA
- *
  * Is much higher level than 3-address code
- * (operands are high-level Onyx expressions, not just primitives)
+ * (operands are Onyx expressions, not primitive values)
  *
- * Should be fairly natural to emit as C, LLVM or x86
+ * Should be easy to do basic optimizations and natural to emit as C, LLVM or x86
  */
 
 struct Subroutine;

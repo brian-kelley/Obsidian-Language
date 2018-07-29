@@ -93,7 +93,7 @@ struct BinaryArith : public Expression
   }
   bool constant()
   {
-    return lhs->constant() && rhs->constant();
+    return false;
   }
 };
 
@@ -145,6 +145,10 @@ struct IntConstant : public Expression
   int getConstantSize()
   {
     return ((IntegerType*) type)->size;
+  }
+  bool isSigned()
+  {
+    return ((IntegerType*) type)->isSigned;
   }
 };
 
@@ -204,9 +208,20 @@ struct StringConstant : public Expression
   }
 };
 
-struct CharLiteral : public Expression
+struct CharConstant : public Expression
 {
-  CharLiteral(CharLit* ast);
+  CharConstant(CharLit* ast)
+  {
+    value = ast->val;
+    type = primitives[Prim::CHAR];
+    resolved = true;
+  }
+  CharConstant(char c)
+  {
+    value = c;
+    type = primitives[Prim::CHAR];
+    resolved = true;
+  }
   char value;
   bool assignable()
   {
@@ -311,7 +326,7 @@ struct CompoundLiteral : public Expression
     int total = 0;
     for(auto mem : members)
     {
-      total += mem->getConstantSize();
+      total += sizeof(void*) + mem->getConstantSize();
     }
     return total;
   }
@@ -326,10 +341,6 @@ struct Indexed : public Expression
   bool assignable()
   {
     return group->assignable();
-  }
-  bool constant()
-  {
-    return group->constant() && index->constant();
   }
   set<Variable*> getReads();
   set<Variable*> getWrites();
@@ -411,10 +422,6 @@ struct StructMem : public Expression
   {
     return base->assignable() && member.is<Variable*>();
   }
-  bool constant()
-  {
-    return base->constant();
-  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -429,15 +436,6 @@ struct NewArray : public Expression
   {
     return false;
   }
-  bool constant()
-  {
-    for(auto d : dims)
-    {
-      if(!d->constant())
-        return false;
-    }
-    return true;
-  }
 };
 
 struct ArrayLength : public Expression
@@ -448,10 +446,6 @@ struct ArrayLength : public Expression
   bool assignable()
   {
     return false;
-  }
-  bool constant()
-  {
-    return array->constant();
   }
   set<Variable*> getReads();
 };
@@ -477,7 +471,7 @@ struct Converted : public Expression
   }
   bool constant()
   {
-    return value->constant();
+    return false;
   }
   set<Variable*> getReads();
 };

@@ -372,6 +372,16 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
+Expression* StructType::getDefaultValue()
+{
+  vector<Expression*> vals;
+  for(size_t i = 0; i < members.size(); i++)
+  {
+    vals.push_back(members[i]->type->getDefaultValue());
+  }
+  return new CompoundLiteral(vals);
+}
+
 /**************/
 /* Union Type */
 /**************/

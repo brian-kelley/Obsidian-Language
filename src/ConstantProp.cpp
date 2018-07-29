@@ -197,6 +197,26 @@ static Expression* evalBinOp(Expression* lhs, int op, Expression* rhs)
   return lhsInt->binOp(op, rhsInt);
 }
 
+static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
+{
+  vector<Expression*> elems;
+  for(uint64_t i = 0; i < dims[0]; i++)
+  {
+    if(ndims == 1)
+    {
+      elems.push_back(elem=->getDefaultValue());
+    }
+    else
+    {
+      elems.push_back(createArray(&dims[1], ndims - 1, elem));
+    }
+  }
+  CompoundLiteral* cl = new CompoundLiteral(elems);
+  cl->type = getArrayType(elem, ndims);
+  cl->resolved = true;
+  return cl;
+}
+
 //Try to fold an expression, bottom-up
 //Can fold all constants in one pass
 //
@@ -208,29 +228,40 @@ static Expression* evalBinOp(Expression* lhs, int op, Expression* rhs)
 //Set constant to true if expr is now, or was already, a constant
 static void foldExpression(Expression*& expr)
 {
-  if(dynamic_cast<IntConstant*>(expr) ||
-      dynamic_cast<FloatConstant*>(expr) ||
-      dynamic_cast<StringConstant*>(expr) ||
-      dynamic_cast<EnumExpr*>(expr) ||
-      dynamic_cast<BoolConstant*>(expr) ||
-      dynamic_cast<MapConstant*>(expr) ||
-      dynamic_cast<ErrorVal*>(expr))
+  if(expr->constant())
   {
-    //already completely folded constant, nothing to do
-    return true;
+    //only thing to do here is convert each string constant to char arrays
+    if(auto str = dynamic_cast<StringConstant*>(expr))
+    {
+      vector<Expression*> chars;
+      for(size_t i = 0; i < str->value.size(); i++)
+      {
+        chars.push_back(new CharLiteral(str->value[i]));
+      }
+      CompoundLiteral* cl = new CompoundLiteral(chars);
+      cl->type = str->type;
+      cl->resolved = true;
+      expr = cl;
+    }
+    return;
+  }
+  else if(auto ve = dynamic_cast<VarExpr*>(expr))
+  {
+    if(ve->var->isGlobal() && globalConstants(ve->var))
+    {
+      //safe to replace var with its initial value
+      //attempt to fold global constant's value in-place
+      //that way this work doesn't have to be repeated for each use
+      foldExpression(ve->var->initial);
+      if(ve->var->initial->constant())
+        expr = ve->var->initial;
+    }
   }
   else if(auto conv = dynamic_cast<Converted*>(expr))
   {
     foldExpression(conv->value);
     if(conv->value->constant())
-    {
       expr = convertConstant(conv->value, conv->type);
-      return true;
-    }
-    else
-    {
-      return false;
-    }
   }
   else if(auto binArith = dynamic_cast<BinaryArith*>(expr))
   {
@@ -238,7 +269,6 @@ static void foldExpression(Expression*& expr)
     Expression* result = evalBinOp(binArith->lhs, binArith->op, binArith->rhs);
     if(result)
       expr = result;
-    return;
   }
   else if(auto unaryArith = dynamic_cast<UnaryArith*>(expr))
   {
@@ -255,14 +285,130 @@ static void foldExpression(Expression*& expr)
       {
         //operand must be an integer
         IntConstant* input = (IntConstant*) unaryArith->expr;
-        if(((IntegerType*) input->type)->isSigned)
+        if(input->isSigned())
           expr = new IntConstant(~(input->sval));
         else
           expr = new IntConstant(~(input->uval));
         return;
       }
     }
-    return;
+  }
+  else if(auto indexed = dynamic_cast<Indexed*>(expr))
+  {
+    Expression*& grp = indexed->group;
+    Expression*& ind = indexed->indexed;
+    foldExpression(grp);
+    foldExpression(ind);
+    if(grp->constant() && ind->constant())
+    {
+      if(auto arrType = dynamic_cast<ArrayType*>(grp->type))
+      {
+        CompoundLiteral* arrValues = (CompoundLiteral*) grp;
+        IntConstant* intIndex = (IntConstant*) ind;
+        if(ind->type->isSigned())
+        {
+          if(intIndex->sval < 0 || intIndex->sval >= arrValues->members.size())
+          {
+            errMsgLoc(this, "array index " << intIndex->sval <<
+                " out of bounds [0, " << arrValues->members.size() - 1 << ")");
+          }
+          expr = arrValues->members[intIndex->sval];
+          return;
+        }
+        else
+        {
+          if(intIndex->uval >= arrValues->members.size())
+          {
+            errMsgLoc(this, "array index " << intIndex->sval <<
+                " out of bounds [0, " << arrValues->members.size() - 1 << ")");
+          }
+          expr = arrValues->members[intIndex->uval];
+          return;
+        }
+      }
+      else if(auto mapType = dynamic_cast<MapType*>(grp->type))
+      {
+        //map lookup returns (T | Error)
+        auto mapValue = (MapConstant*) grp;
+        auto mapIt = mapValue->value.find(ind);
+        if(mapIt == mapValue->value.end())
+          expr = new UnionConstant(new ErrorVal, (UnionType*) indexed->type);
+        else
+          expr = new UnionConstant(*mapIt, (UnionType*) indexed->type);
+        return;
+      }
+      INTERNAL_ERROR;
+    }
+  }
+  else if(auto newArray = dynamic_cast<NewArray*>(expr))
+  {
+    ArrayType* arrType = (ArrayType*) expr->type;
+    //create one default instance of an element to find its size in bytes
+    auto elemSize = arrType->elem->getDefaultValue()->getConstantSize();
+    uint64_t totalElems = 1;
+    bool allConstant = true;
+    vector<uint64_t> dimVals;
+    for(auto& dim : newArray->dims)
+    {
+      foldExpression(dim);
+      if(!dim->constant())
+      {
+        allConstant = false;
+        break;
+      }
+      auto dimVal = (IntConstant*) dim;
+      if(dimVal->isSigned())
+      {
+        totalElems *= dimVal->sval;
+        dimVals.push_back(dimVal->sval);
+      }
+      else
+      {
+        totalElems *= dimVal->uval;
+        dimVals.push_back(dimVal->uval);
+      }
+    }
+    if(elemSize * totalElems <= maxConstantSize)
+    {
+      //can create the array
+      expr = createArray(dimVals.data(), newArray->dims.size(), arrType->elem);
+    }
+  }
+  else if(auto structMem = dynamic_cast<StructMem*>(expr))
+  {
+    foldExpression(structMem->base);
+    if(structMem->base->constant() && structMem->member.is<Variable*>())
+    {
+      Variable* var = structMem->member.get<Variable>();
+      //Need to find which member var is, to extract it from compound literal
+      auto st = (StructType*) structMem->base->type;
+      for(size_t memIndex = 0; memIndex < st->members.size(); i++)
+      {
+        if(st->members[memIndex] == var)
+        {
+          expr = ((CompoundLiteral*) structMem->base)->members[memIndex];
+        }
+      }
+      INTERNAL_ERROR;
+    }
+  }
+  else if(auto arrayLen = dynamic_cast<ArrayLength*>(expr))
+  {
+    foldExpression(arrayLen->array);
+    if(arrayLen->array->constant())
+    {
+      int64_t len = ((CompoundLiteral*) arrayLen->array)->members.size();
+      expr = new IntConstant(len);
+    }
+  }
+  else if(auto call = dynamic_cast<CallExpr*>(expr))
+  {
+    //can try to fold both the callable and each argument
+    foldExpression(call->callable);
+    for(auto& arg : call->args)
+    {
+      foldExpression(arg);
+    }
   }
 }
 
@@ -271,8 +417,37 @@ bool constantFold(IR::SubroutineIR* subr)
   //every expression (including parts of an assignment LHS)
   //may be folded (i.e. myArray[5 + 3] = 8 % 3)
   //
-  //recursivly attempt to fold expressions bottom-up,
-  //remembering which input expressions are constants
+  //recursivly attempt to fold all expressions (input and output) bottom-up
+  for(auto& stmt : subr->stmts)
+  {
+    if(auto assign = dynamic_cast<AssignIR*>(stmt))
+    {
+      foldExpression(assign->dst);
+      foldExpression(assign->src);
+    }
+    else if(auto call = dynamic_cast<CallIR*>(stmt))
+    {
+      foldExpression(call->eval);
+    }
+    else if(auto condJump = dynamic_cast<CondJump*>(stmt))
+    {
+      foldExpression(condJump->cond);
+    }
+    else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
+    {
+      if(ret->expr)
+        foldExpression(ret->expr);
+    }
+    else if(auto print = dynamic_cast<PrintIR*>(stmt))
+    {
+      for(auto& e : print->exprs)
+        foldExpression(e);
+    }
+    else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
+    {
+      foldExpression(assertion->asserted);
+    }
+  }
 }
 
 bool constantPropagation(SubroutineIR* subr)

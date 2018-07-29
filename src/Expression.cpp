@@ -927,7 +927,7 @@ void ArrayLength::resolveImpl(bool final)
     //that should be handled in resolveExpr
     INTERNAL_ERROR;
   }
-  type = primitives[Prim::UINT];
+  type = primitives[Prim::LONG];
   resolved = true;
 }
 

@@ -49,6 +49,9 @@ struct Type : public Node
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
   virtual bool isResolved() {return true;}
+  //Get a constant expression representing the "default"
+  //or uninitialized value for the type, usable for constant folding etc.
+  virtual Expression* getDefaultValue() = 0;
 };
 
 struct Scope;
@@ -179,6 +182,7 @@ struct StructType : public Type
   };
   map<string, IfaceMember> interface;
   void resolveImpl(bool final);
+  Expression* getDefaultValue();
 };
 
 struct UnionType : public Type

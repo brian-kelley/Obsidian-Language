@@ -2,6 +2,7 @@
 #include "Expression.hpp"
 #include "Variable.hpp"
 #include "Scope.hpp"
+#include "IRDebug.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -45,6 +46,7 @@ namespace IR
 
   void optimizeIR()
   {
+    IRDebug::dumpIR("unoptimized.dot");
     //TODO: very easy to parallelize this
     //as all subroutine are processed independently
     //
