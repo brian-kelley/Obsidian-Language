@@ -160,16 +160,19 @@ struct FloatConstant : public Expression
   {
     dp = ast->val;
     type = primitives[Prim::DOUBLE];
+    resolved = true;
   }
   FloatConstant(float val)
   {
     fp = val;
     type = primitives[Prim::FLOAT];
+    resolved = true;
   }
   FloatConstant(double val)
   {
     dp = val;
     type = primitives[Prim::DOUBLE];
+    resolved = true;
   }
   bool isDoublePrec()
   {

@@ -131,10 +131,15 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 void Assign::resolveImpl(bool final)
 {
   resolveExpr(lvalue, final);
+  if(!lvalue->resolved)
+    cout << "Assign lvalue " << lvalue << " failed to resolve\n";
   resolveExpr(rvalue, final);
+  if(!rvalue->resolved)
+    cout << "Assign rvalue " << rvalue << " failed to resolve\n";
   if(!lvalue->resolved || !rvalue->resolved)
   {
-    cout << "  Either lhs or rhs failed to resolve, should get semantic error.\n";
+    if(final)
+      cout << "  Either lhs or rhs failed to resolve, should get semantic error.\n";
     return;
   }
   if(!lvalue->assignable())
@@ -566,12 +571,9 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 
 void Subroutine::resolveImpl(bool final)
 {
-  cout << "resolving subr type.\n";
   type->resolve(final);
-  cout << "done.\n";
   if(!type->resolved)
     return;
-  cout << "resolving arg vars\n";
   for(auto arg : args)
   {
     //resolving argument variables just resolves their types
@@ -581,7 +583,6 @@ void Subroutine::resolveImpl(bool final)
       return;
     }
   }
-  cout << "Checking for void return at end\n";
   if(type->returnType == primitives[Prim::VOID] &&
       (body->stmts.size() == 0 ||
       !dynamic_cast<Return*>(body->stmts.back())))

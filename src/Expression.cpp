@@ -238,18 +238,37 @@ set<Variable*> BinaryArith::getReads()
 Expression* IntConstant::convert(Type* t)
 {
   auto srcType = (IntegerType*) type;
-  bool isSigned = srcType->isSigned;
   if(auto dstType = dynamic_cast<IntegerType*>(t))
   {
     //just give this constant the same value,
     //then make sure the value fits
     IntConstant* intConstant = new IntConstant;
-    intConstant->uval = uval;
-    intConstant->sval = sval;
+    if(isSigned() == dstType->isSigned)
+    {
+      intConstant->uval = uval;
+      intConstant->sval = sval;
+    }
+    else if(isSigned())
+    {
+      //this is signed, so make sure value isn't negative
+      if(sval < 0)
+      {
+        errMsgLoc(this, "cannot convert negative value to unsigned");
+      }
+      intConstant->uval = sval;
+    }
+    else if(dstType->isSigned)
+    {
+      if(uval > numeric_limits<int64_t>::max())
+      {
+        errMsgLoc(this, "unsigned value too big to convert to any signed type");
+      }
+      intConstant->sval = uval;
+    }
     intConstant->type = dstType;
     if(!intConstant->checkValueFits())
     {
-      if(isSigned)
+      if(isSigned())
       {
         errMsgLoc(this, "value " << sval <<
             " does not fit in " << dstType->getName());
@@ -268,7 +287,7 @@ Expression* IntConstant::convert(Type* t)
     //make sure value is actually in enum
     for(auto ec : enumType->values)
     {
-      if(isSigned)
+      if(isSigned())
       {
         if(ec->fitsS64 && ec->sval == sval)
           return new EnumExpr(ec);
@@ -279,7 +298,7 @@ Expression* IntConstant::convert(Type* t)
           return new EnumExpr(ec);
       }
     }
-    if(isSigned)
+    if(isSigned())
     {
       errMsgLoc(this, "value " << sval <<
           " is not in enum " << enumType->name);
@@ -296,14 +315,14 @@ Expression* IntConstant::convert(Type* t)
     //integer -> float/double conversion always succeeds
     if(floatType->size == 4)
     {
-      if(isSigned)
+      if(isSigned())
         return new FloatConstant((float) sval);
       else
         return new FloatConstant((float) uval);
     }
     else
     {
-      if(isSigned)
+      if(isSigned())
         return new FloatConstant((double) sval);
       else
         return new FloatConstant((double) uval);
@@ -354,11 +373,22 @@ bool IntConstant::checkValueFits()
 IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
 {
   //most operations produce an expression of same type
-  IntConstant* result = new IntConstant((uint64_t) 0);
-  bool isSigned = ((IntegerType*) type)->isSigned;
+  IntConstant* result = nullptr;
+  if(isSigned())
+  {
+    result = new IntConstant((int64_t) 0);
+    cout << "Applying op to " << sval << ", " << rhs->sval << '\n';
+  }
+  else
+  {
+    result = new IntConstant((uint64_t) 0);
+    cout << "Applying op to " << uval << ", " << rhs->uval << '\n';
+  }
+  result->type = type;
+  //set the type (later check that result actually fits)
 #define DO_OP(name, op) \
   case name: \
-    if(isSigned) \
+    if(isSigned()) \
       result->sval = sval op rhs->sval; \
     else \
       result->uval  = uval op rhs->uval; \
@@ -373,21 +403,21 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
     {
       //div/mod need extra logic to check for div-by-0
       //important to avoid exception in compiler!
-      if((isSigned && rhs->sval == 0) ||
-          (!isSigned && rhs->uval == 0))
+      if((isSigned() && rhs->sval == 0) ||
+          (!isSigned() && rhs->uval == 0))
       {
         errMsgLoc(this, (op == DIV ? "div" : "mod") << " by 0");
       }
       if(op == DIV)
       {
-        if(isSigned)
+        if(isSigned())
           result = new IntConstant(sval / rhs->sval);
         else
           result = new IntConstant(uval / rhs->uval);
       }
       else
       {
-        if(isSigned)
+        if(isSigned())
           result = new IntConstant(sval % rhs->sval);
         else
           result = new IntConstant(uval % rhs->uval);
@@ -402,12 +432,16 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
     default:
     INTERNAL_ERROR;
   }
-  //set the type and then check that result actually fits
-  result->type = type;
+  if(isSigned())
+    cout << "Result: " << result->sval << '\n';
+  else
+    cout << "Result: " << result->uval << '\n';
   if(!result->checkValueFits())
   {
     errMsgLoc(this, "operation overflows " << type->getName());
   }
+  cout << "Result vals: " << result->sval << ' ' << result->uval << '\n';
+  INTERNAL_ASSERT(this->isSigned() == result->isSigned());
   return result;
 #undef DO_OP
 }

@@ -993,7 +993,6 @@ CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector
 
 void CallableType::resolveImpl(bool final)
 {
-  cout << "Resolving callable type " << getName() << '\n';
   //CallableType is allowed to have itself as a return or argument type,
   //so temporarily pretend it is resolved to avoid circular dependency error
   resolved = true;
@@ -1100,7 +1099,6 @@ void ElemExprType::resolveImpl(bool)
 
 void resolveType(Type*& t, bool final)
 {
-  cout << "Called resolveType on a " << typeid(*t).name() << '\n';
   if(t->isResolved())
   {
     //nothing to do
@@ -1182,7 +1180,6 @@ void resolveType(Type*& t, bool final)
     }
     else if(unres->t.is<UnresolvedType::Callable>())
     {
-      cout << "Resolving a callable type.\n";
       //walk up scope tree to see if in a non-static context
       auto ownerStruct = unres->scope->getStructContext();
       auto& ct = unres->t.get<UnresolvedType::Callable>();
@@ -1240,7 +1237,6 @@ void resolveType(Type*& t, bool final)
   }
   else
   {
-    cout << "Callign resolve on non-UnresolvedType: " << t->getName() << '\n';
     t->resolve(final);
     return;
   }

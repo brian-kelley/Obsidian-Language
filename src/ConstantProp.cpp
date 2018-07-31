@@ -36,6 +36,7 @@ void determineGlobalConstants()
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)
 {
+  cout << "Converting " << value << " to " << type->getName() << '\n';
   INTERNAL_ASSERT(value->constant());
   if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
@@ -199,9 +200,14 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
   bool useFloat = lhsFloat || rhsFloat;
   bool useInt = lhsInt || rhsInt;
   INTERNAL_ASSERT(useFloat ^ useInt);
+  if(useInt)
+    cout << "Applying bin op " << op << " to integers.\n";
   if(useFloat)
     return lhsFloat->binOp(op, rhsFloat);
-  return lhsInt->binOp(op, rhsInt);
+  //return lhsInt->binOp(op, rhsInt);
+  IntConstant* ic = (IntConstant*) lhsInt->binOp(op, rhsInt);
+  cout << "Value: " << ic->uval << ' ' << ic->sval << '\n';
+  return ic;
 }
 
 static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
