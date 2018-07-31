@@ -371,12 +371,10 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
   if(isSigned())
   {
     result = new IntConstant((int64_t) 0);
-    cout << "Applying op to " << sval << ", " << rhs->sval << '\n';
   }
   else
   {
     result = new IntConstant((uint64_t) 0);
-    cout << "Applying op to " << uval << ", " << rhs->uval << '\n';
   }
   result->type = type;
   //set the type (later check that result actually fits)
@@ -426,15 +424,10 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
     default:
     INTERNAL_ERROR;
   }
-  if(isSigned())
-    cout << "Result: " << result->sval << '\n';
-  else
-    cout << "Result: " << result->uval << '\n';
   if(!result->checkValueFits())
   {
     errMsgLoc(this, "operation overflows " << type->getName());
   }
-  cout << "Result vals: " << result->sval << ' ' << result->uval << '\n';
   INTERNAL_ASSERT(this->isSigned() == result->isSigned());
   return result;
 #undef DO_OP
@@ -501,7 +494,6 @@ Expression* FloatConstant::convert(Type* t)
 
 FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
 {
-  cout << "Doing bin op " << operatorTable[op] << " between " << this << " (" << type->getName() << ") and " << rhs << " (" << rhs->type->getName() << ")\n";
   //most operations produce an expression of same type
   FloatConstant* result = new FloatConstant(0.0);
   switch(op)
@@ -543,7 +535,6 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
   }
   //set the type and then check that result actually fits
   result->type = type;
-  cout << "Result of op: " << result << " (" << result->type->getName() << '\n';
   return result;
 }
 
@@ -1331,7 +1322,7 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
   {
-    os << cc->value;
+    os << generateCharDotfile('\'') << cc->value << generateCharDotfile('\'');
   }
   else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
   {

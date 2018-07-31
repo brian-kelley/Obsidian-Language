@@ -200,6 +200,9 @@ struct StringConstant : public Expression
   StringConstant(StrLit* ast)
   {
     value = ast->val;
+    type = getArrayType(primitives[Prim::CHAR], 1);
+    resolveType(type, true);
+    resolved = true;
   }
   string value;
   bool assignable()

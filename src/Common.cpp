@@ -89,9 +89,9 @@ string generateCharDotfile(char ch)
     case '\r':
       return "\\\\r";
     case '\"':
-      return "\\\\\"";
+      return "\\\"";
     case '\'':
-      return "\\\\'";
+      return "\\'";
     default:
     {
       if(isgraph(ch) || ch == ' ')

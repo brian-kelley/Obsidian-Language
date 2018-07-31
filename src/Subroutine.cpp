@@ -131,21 +131,17 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 void Assign::resolveImpl(bool final)
 {
   resolveExpr(lvalue, final);
-  if(!lvalue->resolved)
-    cout << "Assign lvalue " << lvalue << " failed to resolve\n";
   resolveExpr(rvalue, final);
-  if(!rvalue->resolved)
-    cout << "Assign rvalue " << rvalue << " failed to resolve\n";
   if(!lvalue->resolved || !rvalue->resolved)
   {
-    if(final)
-      cout << "  Either lhs or rhs failed to resolve, should get semantic error.\n";
     return;
   }
   if(!lvalue->assignable())
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");
   }
+  cout << "Lvalue type: " << lvalue->type->getName() << '\n';
+  cout << "Rvalue type: " << rvalue->type->getName() << '\n';
   if(!rvalue->type->canConvert(lvalue->type))
   {
     errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());

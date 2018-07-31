@@ -35,14 +35,15 @@ void Variable::resolveImpl(bool final)
   resolveType(type, final);
   if(!type->resolved)
     return;
-  if(initial)
+  if(!initial)
   {
-    resolveExpr(initial, final);
-    if(!initial->resolved)
-      return;
-    if(!type->canConvert(initial->type))
-      errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
+    initial = type->getDefaultValue();
   }
+  resolveExpr(initial, final);
+  if(!initial->resolved)
+    return;
+  if(!type->canConvert(initial->type))
+    errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
   resolved = true;
 }
 
