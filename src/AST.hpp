@@ -30,6 +30,7 @@ struct Node
     line = 0;
     col = 0;
     resolved = false;
+    resolving = false;
   }
   //Do full context-sensitive semantic checking
   //Some nodes don't need to be checked, so provide empty default definition
@@ -66,6 +67,7 @@ struct Node
       return;
     if(resolving)
     {
+      INTERNAL_ERROR;
       errMsgLoc(this, "Circular definition in program");
     }
     resolving = true;

@@ -63,7 +63,8 @@ int main(int argc, const char** argv)
   TIMEIT("Semantic analysis", global->finalResolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
   TIMEIT("IR/CFG construction", IR::buildIR();)
-  DEBUG_DO(IRDebug::dumpIR("ir.dot");)
+  //DEBUG_DO(IRDebug::dumpIR("ir.dot");)
+  TIMEIT("Optimizing IR", IR::optimizeIR();)
   Liveness::buildAllLivesets();
   //TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation

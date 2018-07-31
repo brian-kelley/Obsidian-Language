@@ -33,7 +33,7 @@ struct Type : public Node
   //i.e. a struct cannot contain itself (must have fixed, finite size)
   //so resolveImpl is only implemented for types where self-membership is
   //not allowed
-  virtual void resolveImpl(bool) {}
+  virtual void resolveImpl(bool) {cout << "In non-specialized Type::resolveImpl\n";}
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}

@@ -5,7 +5,7 @@ set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang)
 project (Onyx-Lang)
 include_directories(src/variadic-variant)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -Wall -Wshadow -ferror-limit=2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -Wall -Wshadow -ferror-limit=2 -fno-limit-debug-info")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -std=c++11 -Wall -Wshadow -ferror-limit=2")
 add_executable (onyx
   src/Common.cpp

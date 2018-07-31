@@ -566,9 +566,12 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 
 void Subroutine::resolveImpl(bool final)
 {
+  cout << "resolving subr type.\n";
   type->resolve(final);
+  cout << "done.\n";
   if(!type->resolved)
     return;
+  cout << "resolving arg vars\n";
   for(auto arg : args)
   {
     //resolving argument variables just resolves their types
@@ -578,8 +581,10 @@ void Subroutine::resolveImpl(bool final)
       return;
     }
   }
+  cout << "Checking for void return at end\n";
   if(type->returnType == primitives[Prim::VOID] &&
-      !dynamic_cast<Return*>(body->stmts.back()))
+      (body->stmts.size() == 0 ||
+      !dynamic_cast<Return*>(body->stmts.back())))
   {
     body->stmts.push_back(new Return(body));
   }
