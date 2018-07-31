@@ -197,17 +197,12 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
   FloatConstant* rhsFloat = dynamic_cast<FloatConstant*>(rhs);
   IntConstant* lhsInt = dynamic_cast<IntConstant*>(lhs);
   IntConstant* rhsInt = dynamic_cast<IntConstant*>(rhs);
-  bool useFloat = lhsFloat || rhsFloat;
-  bool useInt = lhsInt || rhsInt;
+  bool useFloat = lhsFloat && rhsFloat;
+  bool useInt = lhsInt && rhsInt;
   INTERNAL_ASSERT(useFloat ^ useInt);
-  if(useInt)
-    cout << "Applying bin op " << op << " to integers.\n";
   if(useFloat)
     return lhsFloat->binOp(op, rhsFloat);
-  //return lhsInt->binOp(op, rhsInt);
-  IntConstant* ic = (IntConstant*) lhsInt->binOp(op, rhsInt);
-  cout << "Value: " << ic->uval << ' ' << ic->sval << '\n';
-  return ic;
+  return lhsInt->binOp(op, rhsInt);
 }
 
 static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
@@ -303,6 +298,50 @@ void foldExpression(Expression*& expr)
         else
           expr = new IntConstant(~(input->uval));
         return;
+      }
+      else if(unaryArith->op == SUB)
+      {
+        //unary sub can be applied to numbers only
+        if(auto ic = dynamic_cast<IntConstant*>(unaryArith->expr))
+        {
+          if(ic->isSigned())
+          {
+            //conversion is always OK, unless the value is the minimum for the type
+            //(because that value in 2s complement has no negation)
+            auto intType = (IntegerType*) ic->type;
+            if((intType->size == 1 && ic->sval == numeric_limits<int8_t>::min()) ||
+               (intType->size == 2 && ic->sval == numeric_limits<int16_t>::min()) ||
+               (intType->size == 4 && ic->sval == numeric_limits<int32_t>::min()) ||
+               (intType->size == 8 && ic->sval == numeric_limits<int64_t>::min()))
+            {
+              errMsgLoc(unaryArith, "negating value overflows signed integer");
+            }
+            //otherwise, always fine to do the conversion
+            IntConstant* neg = new IntConstant(-ic->sval);
+            neg->type = intType;
+            expr = neg;
+            return;
+          }
+          else
+          {
+            //unsigned values are always considered nonnegative,
+            //so negating one is illegal
+            errMsgLoc(unaryArith, "can't negate an unsigned value");
+          }
+        }
+        else if(auto fc = dynamic_cast<FloatConstant*>(unaryArith->expr))
+        {
+          FloatConstant* neg = new FloatConstant;
+          neg->fp = -fc->fp;
+          neg->dp = -fc->dp;
+          neg->type = fc->type;
+          expr = neg;
+          return;
+        }
+        else
+        {
+          INTERNAL_ERROR;
+        }
       }
     }
   }

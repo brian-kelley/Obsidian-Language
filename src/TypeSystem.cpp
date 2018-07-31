@@ -925,7 +925,7 @@ int64_t IntegerType::maxSignedVal()
 
 bool IntegerType::canConvert(Type* other)
 {
-  return other->isEnum() || other->isInteger();
+  return other->isNumber();
 }
 
 /**************/

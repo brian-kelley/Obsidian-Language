@@ -30,11 +30,6 @@ void UnaryArith::resolveImpl(bool final)
     {
       errMsgLoc(this, "unary - operand must be a number");
     }
-    else
-    {
-      //any other operator can't be parsed as unary
-      INTERNAL_ERROR;
-    }
     type = expr->type;
     resolved = true;
   }
@@ -237,7 +232,6 @@ set<Variable*> BinaryArith::getReads()
 
 Expression* IntConstant::convert(Type* t)
 {
-  auto srcType = (IntegerType*) type;
   if(auto dstType = dynamic_cast<IntegerType*>(t))
   {
     //just give this constant the same value,
@@ -452,7 +446,8 @@ Expression* FloatConstant::convert(Type* t)
   double val = type == primitives[Prim::FLOAT] ? fp : dp;
   if(auto intType = dynamic_cast<IntegerType*>(t))
   {
-    //make sure val fits
+    //make sure val fits in a 64-bit integer,
+    //then make a 64-bit version of value and narrow it to desired type
     if(intType->isSigned)
     {
       if(val < numeric_limits<int64_t>::min() ||
@@ -461,7 +456,6 @@ Expression* FloatConstant::convert(Type* t)
         errMsgLoc(this, "floating-point value " << val <<
             " can't be represented in any signed integer");
       }
-      //make a long constant, then narrow it to intType
       IntConstant asLong((int64_t) val);
       return asLong.convert(t);
     }
@@ -472,8 +466,8 @@ Expression* FloatConstant::convert(Type* t)
         errMsgLoc(this, "floating-point value " << val <<
             " can't be represented in any unsigned integer");
       }
-      IntConstant asLong((uint64_t) val);
-      return asLong.convert(t);
+      IntConstant asULong((uint64_t) val);
+      return asULong.convert(t);
     }
   }
   else if(auto floatType = dynamic_cast<FloatType*>(t))
@@ -507,25 +501,25 @@ Expression* FloatConstant::convert(Type* t)
 
 FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
 {
+  cout << "Doing bin op " << operatorTable[op] << " between " << this << " (" << type->getName() << ") and " << rhs << " (" << rhs->type->getName() << ")\n";
   //most operations produce an expression of same type
   FloatConstant* result = new FloatConstant(0.0);
-  bool isDouble = (type == primitives[Prim::DOUBLE]);
   switch(op)
   {
     case PLUS:
-      if(isDouble)
+      if(isDoublePrec())
         result->dp = dp + rhs->dp;
       else
         result->fp = fp + rhs->fp;
       break;
     case SUB:
-      if(isDouble)
+      if(isDoublePrec())
         result->dp = dp - rhs->dp;
       else
         result->fp = fp - rhs->fp;
       break;
     case MUL:
-      if(isDouble)
+      if(isDoublePrec())
         result->dp = dp * rhs->dp;
       else
         result->fp = fp * rhs->fp;
@@ -534,11 +528,11 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
     {
       //div/mod need extra logic to check for div-by-0
       //important to avoid exception in compiler!
-      if((isDouble && rhs->dp == 0) || (fp && rhs->fp == 0))
+      if((isDoublePrec() && rhs->dp == 0) || (!isDoublePrec() && rhs->fp == 0))
       {
         errMsgLoc(this, "divide by 0");
       }
-      if(isDouble)
+      if(isDoublePrec())
         result->dp = dp / rhs->dp;
       else
         result->fp = fp / rhs->fp;
@@ -549,6 +543,7 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
   }
   //set the type and then check that result actually fits
   result->type = type;
+  cout << "Result of op: " << result << " (" << result->type->getName() << '\n';
   return result;
 }
 

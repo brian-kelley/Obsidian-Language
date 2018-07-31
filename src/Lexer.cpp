@@ -218,7 +218,7 @@ vector<Token*> lex(string code, int file)
       //hex int literal, OR int 0 followed by ??? (if not valid hex num)
       cs.getNext();
       char* numEnd;
-      unsigned long long val = strtoull(code.c_str() + cs.iter, &numEnd, 16);
+      uint64_t val = strtoull(code.c_str() + cs.iter, &numEnd, 16);
       cs.addToken(new IntLit(val));
       while(isxdigit(cs.peek(0)))
         cs.getNext();
@@ -229,7 +229,7 @@ vector<Token*> lex(string code, int file)
       //binary int literal, OR int 0 followed by ??? (if not valid bin num)
       cs.getNext();
       char* numEnd;
-      unsigned long long val = strtoull(code.c_str() + cs.iter, &numEnd, 2);
+      uint64_t val = strtoull(code.c_str() + cs.iter, &numEnd, 2);
       cs.addToken(new IntLit(val));
       while(cs.peek(0) == '0' || cs.peek(0) == '1')
         cs.getNext();

@@ -76,10 +76,6 @@ struct UnaryArith : public Expression
   }
   void resolveImpl(bool final);
   set<Variable*> getReads();
-  bool constant()
-  {
-    return expr->constant();
-  }
 };
 
 struct BinaryArith : public Expression
@@ -91,10 +87,6 @@ struct BinaryArith : public Expression
   void resolveImpl(bool final);
   set<Variable*> getReads();
   bool assignable()
-  {
-    return false;
-  }
-  bool constant()
   {
     return false;
   }
@@ -156,6 +148,13 @@ struct IntConstant : public Expression
 
 struct FloatConstant : public Expression
 {
+  FloatConstant()
+  {
+    fp = 0;
+    dp = 0;
+    type = primitives[Prim::DOUBLE];
+    resolved = true;
+  }
   FloatConstant(FloatLit* ast)
   {
     dp = ast->val;
@@ -535,10 +534,6 @@ struct Converted : public Expression
   bool assignable()
   {
     return value->assignable();
-  }
-  bool constant()
-  {
-    return false;
   }
   set<Variable*> getReads();
 };
