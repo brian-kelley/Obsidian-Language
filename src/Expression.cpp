@@ -1322,7 +1322,7 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
   {
-    os << generateCharDotfile('\'') << cc->value << generateCharDotfile('\'');
+    os << generateCharDotfile('\'') << generateCharDotfile(cc->value) << generateCharDotfile('\'');
   }
   else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
   {
