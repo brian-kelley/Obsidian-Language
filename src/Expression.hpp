@@ -466,27 +466,51 @@ struct ArrayLength : public Expression
 
 struct IsExpr : public Expression
 {
-  IsExpr(Expression* b, Type* t);
+  IsExpr(Expression* b, Type* t)
+  {
+    base = b;
+    ut = nullptr;
+    optionIndex = -1;
+    option = t;
+    type = primitives[Prim::BOOL];
+  }
   void resolveImpl(bool final);
   bool assignable()
   {
     return false;
   }
-  set<Variable*> getReads();
+  set<Variable*> getReads()
+  {
+    return base->getReads();
+  }
   Expression* base;
+  UnionType* ut;
+  int optionIndex;
   Type* option;
-}
+};
 
 struct AsExpr : public Expression
 {
-  AsExpr(Expression* b, Type* t);
+  AsExpr(Expression* b, Type* t)
+  {
+    base = b;
+    ut = nullptr;
+    optionIndex = -1;
+    option = t;
+    type = t;
+  }
   void resolveImpl(bool final);
   bool assignable()
   {
     return false;
   }
-  set<Variable*> getReads();
+  set<Variable*> getReads()
+  {
+    return base->getReads();
+  }
   Expression* base;
+  UnionType* ut;
+  int optionIndex;
   Type* option;
 };
 

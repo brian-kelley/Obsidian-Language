@@ -944,12 +944,54 @@ set<Variable*> ArrayLength::getReads()
   return array->getReads();
 }
 
-IsExpr::IsExpr(Expression* base, Type* option)
+void IsExpr::resolveImpl(bool final)
 {
+  base->resolveImpl(final);
+  if(!base->resolved)
+    return;
+  resolveType(option, final);
+  if(!option->resolved)
+    return;
+  ut = dynamic_cast<UnionType*>(base->type);
+  if(!ut)
+  {
+    errMsgLoc(this, "is can only be used with a union type");
+  }
+  //make sure option is actually one of the types in the union
+  for(size_t i = 0; i < ut->options.size(); i++)
+  {
+    if(ut->options[i] == option)
+    {
+      optionIndex = i;
+      resolved = true;
+      return;
+    }
+  }
 }
 
-void IsExp::resolveImpl(bool final)
+void AsExpr::resolveImpl(bool final)
 {
+  base->resolveImpl(final);
+  if(!base->resolved)
+    return;
+  resolveType(option, final);
+  if(!option->resolved)
+    return;
+  ut = dynamic_cast<UnionType*>(base->type);
+  if(!ut)
+  {
+    errMsgLoc(this, "as can only be used with a union type");
+  }
+  //make sure option is actually one of the types in the union
+  for(size_t i = 0; i < ut->options.size(); i++)
+  {
+    if(ut->options[i] == option)
+    {
+      optionIndex = i;
+      resolved = true;
+      return;
+    }
+  }
 }
 
 /************
@@ -1325,6 +1367,14 @@ ostream& operator<<(ostream& os, Expression* e)
   {
     os << '(' << c->type->getName();
     os << ") (" << c->value << ')';
+  }
+  else if(IsExpr* ie = dynamic_cast<IsExpr*>(e))
+  {
+    os << '(' << ie->base << " is " << ie->option->getName() << ')';
+  }
+  else if(AsExpr* ae = dynamic_cast<AsExpr*>(e))
+  {
+    os << '(' << ae->base << " as " << ae->option->getName() << ')';
   }
   else if(ArrayLength* al = dynamic_cast<ArrayLength*>(e))
   {
