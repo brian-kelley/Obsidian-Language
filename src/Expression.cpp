@@ -324,9 +324,17 @@ Expression* IntConstant::convert(Type* t)
   }
   else if(dynamic_cast<CharType*>(t))
   {
-    auto charInt = (IntegerType*) primitives[Prim::BYTE];
-    if(sval >= charInt->minSignedVal() && sval <= charInt->maxSignedVal())
-      return new CharConstant((char) sval);
+    auto charInt = (IntegerType*) primitives[Prim::UBYTE];
+    if(isSigned())
+    {
+      if(sval >= 0 && sval <= charInt->maxUnsignedVal())
+        return new CharConstant((char) sval);
+    }
+    else
+    {
+      if(uval <= charInt->maxUnsignedVal())
+        return new CharConstant((char) uval);
+    }
     errMsgLoc(this, "integer value doesn't fit in char");
   }
   INTERNAL_ERROR;

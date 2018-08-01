@@ -42,6 +42,11 @@ static Expression* convertConstant(Expression* value, Type* type)
     //do the conversion which tests for overflow and enum membership
     return intConst->convert(type);
   }
+  else if(auto charConst = dynamic_cast<CharConstant*>(value))
+  {
+    //char is equivalent to an 8-bit unsigned for purposes of value conversion
+    return new IntConstant((uint64_t) charConst->value);
+  }
   else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
   {
     return floatConst->convert(type);
