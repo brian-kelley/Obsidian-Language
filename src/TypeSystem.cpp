@@ -923,6 +923,13 @@ int64_t IntegerType::maxSignedVal()
   return numeric_limits<int64_t>::max();
 }
 
+Expression* IntegerType::getDefaultValue()
+{
+  IntConstant* ic = new IntConstant;
+  ic->type = this;
+  return ic;
+}
+
 bool IntegerType::canConvert(Type* other)
 {
   return other->isNumber();
@@ -944,6 +951,13 @@ bool FloatType::canConvert(Type* other)
   return other->isNumber();
 }
 
+Expression* FloatType::getDefaultValue()
+{
+  FloatConstant* fc = new FloatConstant();
+  fc->type = this;
+  return fc;
+}
+
 /*************/
 /* Char Type */
 /*************/
@@ -953,6 +967,11 @@ bool CharType::canConvert(Type* other)
   return other->isInteger();
 }
 
+Expression* CharType::getDefaultValue()
+{
+  return new CharConstant('\0');
+}
+
 /*************/
 /* Bool Type */
 /*************/
@@ -960,6 +979,11 @@ bool CharType::canConvert(Type* other)
 bool BoolType::canConvert(Type* other)
 {
   return other->isBool();
+}
+
+Expression* BoolType::getDefaultValue()
+{
+  return new BoolConstant(false);
 }
 
 /*************/
@@ -1074,6 +1098,11 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
   return lexicographical_compare(
       lhs->argTypes.begin(), lhs->argTypes.end(),
       rhs->argTypes.begin(), rhs->argTypes.end());
+}
+
+Expression* ErrorType::getDefaultValue()
+{
+  return new ErrorVal;
 }
 
 ExprType::ExprType(Expression* e)

@@ -140,8 +140,6 @@ void Assign::resolveImpl(bool final)
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");
   }
-  cout << "Lvalue type: " << lvalue->type->getName() << '\n';
-  cout << "Rvalue type: " << rvalue->type->getName() << '\n';
   if(!rvalue->type->canConvert(lvalue->type))
   {
     errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());

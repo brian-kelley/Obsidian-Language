@@ -36,7 +36,6 @@ void determineGlobalConstants()
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)
 {
-  cout << "Converting " << value << " to " << type->getName() << '\n';
   INTERNAL_ASSERT(value->constant());
   if(auto intConst = dynamic_cast<IntConstant*>(value))
   {

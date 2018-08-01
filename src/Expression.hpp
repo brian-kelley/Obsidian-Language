@@ -428,6 +428,10 @@ struct UnresolvedExpr : public Expression
   {
     return false;
   }
+  void resolveImpl(bool final)
+  {
+    INTERNAL_ERROR;
+  }
 };
 
 struct StructMem : public Expression

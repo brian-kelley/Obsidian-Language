@@ -282,6 +282,18 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("Variable " + ve->var->name);
   }
+  else if(IsExpr* ie = dynamic_cast<IsExpr*>(e))
+  {
+    root = out.createNode("Is");
+    out.createEdge(root, emitExpression(ie->base));
+    out.createEdge(root, emitType(ie->option));
+  }
+  else if(AsExpr* ae = dynamic_cast<AsExpr*>(e))
+  {
+    root = out.createNode("As");
+    out.createEdge(root, emitExpression(ae->base));
+    out.createEdge(root, emitType(ae->option));
+  }
   else if(NewArray* na = dynamic_cast<NewArray*>(e))
   {
     root = out.createNode("Array allocation");
@@ -310,13 +322,11 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("error");
   }
-  else if(dynamic_cast<UnresolvedExpr*>(e))
-  {
-    //resolved AST can't contain any UnresolvedExprs
-    INTERNAL_ERROR;
-  }
   else
   {
+    cout << "Didn't implement emitExpression for type " << typeid(*e).name() << '\n';
+    //resolved AST can't contain any UnresolvedExprs
+    return 0;
     INTERNAL_ERROR;
   }
   return root;

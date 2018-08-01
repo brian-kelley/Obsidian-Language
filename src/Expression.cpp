@@ -763,10 +763,16 @@ VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
 void VarExpr::resolveImpl(bool final)
 {
-  var->resolveImpl(final);
   if(!var->resolved)
+    var->resolve(final);
+  if(!var->resolved)
+  {
     return;
+  }
   type = var->type;
+  //scope is only provided for user-written VarExprs,
+  //which need to be checked here for function correctness
+  //(can't access any variables outside func scope)
   if(scope)
   {
     //only thing to check here is that var lives within
@@ -966,7 +972,7 @@ set<Variable*> ArrayLength::getReads()
 
 void IsExpr::resolveImpl(bool final)
 {
-  base->resolveImpl(final);
+  resolveExpr(base, final);
   if(!base->resolved)
     return;
   resolveType(option, final);
@@ -991,7 +997,7 @@ void IsExpr::resolveImpl(bool final)
 
 void AsExpr::resolveImpl(bool final)
 {
-  base->resolveImpl(final);
+  resolveExpr(base, final);
   if(!base->resolved)
     return;
   resolveType(option, final);

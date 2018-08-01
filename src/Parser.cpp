@@ -171,7 +171,7 @@ namespace Parser
           t->t = Prim::ERROR; break;
         case FUNCTYPE:
           pure = true;
-          //fall through!
+          //fall through
         case PROCTYPE:
           {
             bool isStatic = acceptKeyword(STATIC);
@@ -376,7 +376,7 @@ namespace Parser
       type = new ExprType(init);
     }
     //create the variable and add to scope
-    Variable* var;
+    Variable* var = nullptr;
     bool local = s->node.is<Block*>();
     if(local)
     {
@@ -858,6 +858,12 @@ namespace Parser
     Punct rparen(RPAREN);
     Punct rbrack(RBRACKET);
     //All expressions are prec >= 0
+    //"is", "as" and "array" are prec 0
+    //  NOTE:
+    //  Array must be low prec, since otherwise
+    //  an array index operator after it would be ambiguous.
+    //  No reason to want to use operators with it anyway, so
+    //  just don't allow that in the syntax
     //Binary expressions are prec 1-11
     //Unary expressions are prec 12
     //Others are prec 13

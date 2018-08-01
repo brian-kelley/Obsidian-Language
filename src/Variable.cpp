@@ -37,11 +37,11 @@ void Variable::resolveImpl(bool final)
     return;
   if(!initial)
   {
+    //Always need an initial expression, so use the
+    //default one implicitly
     initial = type->getDefaultValue();
   }
-  resolveExpr(initial, final);
-  if(!initial->resolved)
-    return;
+  resolveExpr(initial, true);
   if(!type->canConvert(initial->type))
     errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
   resolved = true;

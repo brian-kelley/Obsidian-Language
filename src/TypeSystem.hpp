@@ -33,7 +33,7 @@ struct Type : public Node
   //i.e. a struct cannot contain itself (must have fixed, finite size)
   //so resolveImpl is only implemented for types where self-membership is
   //not allowed
-  virtual void resolveImpl(bool) {cout << "In non-specialized Type::resolveImpl\n";}
+  virtual void resolveImpl(bool) {}
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
@@ -56,6 +56,8 @@ struct Type : public Node
   //or uninitialized value for the type, usable for constant folding etc.
   virtual Expression* getDefaultValue()
   {
+    cout << "Need to implement getDefaultValue() for " << getName() << "!\n";
+    INTERNAL_ERROR;
     return nullptr;
   }
 };
@@ -382,6 +384,7 @@ struct IntegerType : public Type
   {
     return name;
   }
+  Expression* getDefaultValue();
 };
 
 struct FloatType : public Type
@@ -398,6 +401,7 @@ struct FloatType : public Type
   {
     return name;
   }
+  Expression* getDefaultValue();
 };
 
 struct CharType : public Type
@@ -415,6 +419,7 @@ struct CharType : public Type
   {
     return "char";
   }
+  Expression* getDefaultValue();
 };
 
 struct BoolType : public Type
@@ -430,6 +435,7 @@ struct BoolType : public Type
   {
     return "bool";
   }
+  Expression* getDefaultValue();
 };
 
 struct VoidType : public Type
@@ -444,6 +450,11 @@ struct VoidType : public Type
   string getName()
   {
     return "void";
+  }
+  Expression* getDefaultValue()
+  {
+    INTERNAL_ERROR;
+    return nullptr;
   }
 };
 
@@ -462,6 +473,7 @@ struct ErrorType : public Type
   {
     return "Error";
   }
+  Expression* getDefaultValue();
 };
 
 struct CallableType : public Type
@@ -495,6 +507,11 @@ struct CallableType : public Type
   //all terminating procedures can be used in place of nonterminating ones
   //argument and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
+  Expression* getDefaultValue()
+  {
+    INTERNAL_ERROR;
+    return nullptr;
+  }
 };
 
 struct UnresolvedType : public Type
