@@ -30,9 +30,9 @@ Variable::Variable(string n, Type* t, Block* b)
   blockPos = b->statementCount;
 }
 
-void Variable::resolveImpl(bool final)
+void Variable::resolveImpl()
 {
-  resolveType(type, final);
+  resolveType(type);
   if(!type->resolved)
     return;
   if(!initial)
@@ -41,7 +41,7 @@ void Variable::resolveImpl(bool final)
     //default one implicitly
     initial = type->getDefaultValue();
   }
-  resolveExpr(initial, true);
+  resolveExpr(initial);
   if(!type->canConvert(initial->type))
     errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
   resolved = true;

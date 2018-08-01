@@ -23,7 +23,7 @@ void init()
 
 void semanticCheck(Module* program)
 {
-  program->finalResolve();
+  program->resolve();
   if(!programHasMain)
   {
     errMsg("Program requires main procedure to be defined");
@@ -60,7 +60,7 @@ int main(int argc, const char** argv)
   //Parse the global/root module
   TIMEIT("Parsing", Parser::parseProgram(););
   //DEBUG_DO(outputAST(global, "parse.dot"););
-  TIMEIT("Semantic analysis", global->finalResolve(););
+  TIMEIT("Semantic analysis", global->resolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
   TIMEIT("IR/CFG construction", IR::buildIR();)
   //DEBUG_DO(IRDebug::dumpIR("ir.dot");)

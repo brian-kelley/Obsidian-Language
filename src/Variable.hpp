@@ -25,7 +25,7 @@ struct Variable : public Node
   bool isLocal();
   bool isMember();
   //this resolve() just resolves type
-  void resolveImpl(bool final);
+  void resolveImpl();
   string name;
   Type* type;
   //the struct where this is a member, or NULL if global/local/param

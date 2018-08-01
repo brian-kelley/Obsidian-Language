@@ -33,7 +33,7 @@ struct Type : public Node
   //i.e. a struct cannot contain itself (must have fixed, finite size)
   //so resolveImpl is only implemented for types where self-membership is
   //not allowed
-  virtual void resolveImpl(bool) {}
+  virtual void resolveImpl() {}
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
@@ -189,14 +189,14 @@ struct StructType : public Type
     variant<Subroutine*, Variable*> callable;
   };
   map<string, IfaceMember> interface;
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* getDefaultValue();
 };
 
 struct UnionType : public Type
 {
   UnionType(vector<Type*> types);
-  void resolveImpl(bool);
+  void resolveImpl();
   vector<Type*> options;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
@@ -216,7 +216,7 @@ struct ArrayType : public Type
   Type* subtype;
   int dims;
   bool canConvert(Type* other);
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool isArray() {return true;}
   string getName()
   {
@@ -237,7 +237,7 @@ struct TupleType : public Type
   ~TupleType() {}
   vector<Type*> members;
   bool canConvert(Type* other);
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool isTuple() {return true;}
   string getName()
   {
@@ -272,14 +272,14 @@ struct MapType : public Type
     return name;
   }
   bool canConvert(Type* other);
-  void resolveImpl(bool final);
+  void resolveImpl();
 };
 
 
 struct AliasType : public Type
 {
   AliasType(string alias, Type* underlying, Scope* scope);
-  void resolveImpl(bool final);
+  void resolveImpl();
   string name;
   Type* actual;
   Scope* scope;
@@ -342,7 +342,7 @@ struct EnumType : public Type
 {
   EnumType(Scope* enclosingScope);
   //resolving an enum decides what its underlying type should be
-  void resolveImpl(bool final);
+  void resolveImpl();
   //add a name to enum, automatically choosing numeric value
   //as the smallest value greater than the most recently
   //added value, which is not already in the enum
@@ -482,7 +482,7 @@ struct CallableType : public Type
   CallableType(bool isPure, Type* returnType, vector<Type*>& args);
   //constructor for members
   CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args);
-  virtual void resolveImpl(bool);
+  virtual void resolveImpl();
   string getName();
   StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
@@ -557,7 +557,7 @@ struct UnresolvedType : public Type
 struct ExprType : public Type
 {
   ExprType(Expression* e);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* expr;
   bool isResolved() {return false;}
   bool canConvert(Type* other) {return false;}
@@ -569,7 +569,7 @@ struct ExprType : public Type
 struct ElemExprType : public Type
 {
   ElemExprType(Expression* arr);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* arr;
   bool isResolved() {return false;}
   bool canConvert(Type* other) {return false;}
@@ -578,7 +578,7 @@ struct ElemExprType : public Type
 
 //If t is an unresolved type, replace it with a fully resolved version
 //(if possible)
-void resolveType(Type*& t, bool final);
+void resolveType(Type*& t);
 
 #endif
 

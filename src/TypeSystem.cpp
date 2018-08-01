@@ -274,7 +274,7 @@ StructType::StructType(string n, Scope* enclosingScope)
   scope = new Scope(enclosingScope, this);
 }
 
-void StructType::resolveImpl(bool final)
+void StructType::resolveImpl()
 {
   //attempt to resolve all member variables
   bool allResolved = true;
@@ -284,7 +284,7 @@ void StructType::resolveImpl(bool final)
     //and calling resolve() on this while already in a resolve
     //call triggers a "circular dependency" error, preventing
     //self-ownership
-    mem->resolve(final);
+    mem->resolve();
     if(!mem->resolved)
       allResolved = false;
   }
@@ -311,7 +311,7 @@ void StructType::resolveImpl(bool final)
       }
     }
   }
-  if(!scope->resolveAll(final))
+  if(!scope->resolveAll())
     return;
   //then add all the direct methods of this
   //need to search all submodules for subroutines and callable members
@@ -395,7 +395,7 @@ UnionType::UnionType(vector<Type*> types)
   sort(options.begin(), options.end());
 }
 
-void UnionType::resolveImpl(bool final)
+void UnionType::resolveImpl()
 {
   //union type is allowed to have itself as a member,
   //so for the purposes of resolution need to assume this
@@ -403,7 +403,7 @@ void UnionType::resolveImpl(bool final)
   resolved = true;
   for(Type*& mem : options)
   {
-    resolveType(mem, final);
+    resolveType(mem);
     if(!mem->resolved)
     {
       resolved = false;
@@ -524,9 +524,9 @@ ArrayType::ArrayType(Type* elemType, int ndims)
   subtype = (ndims == 1) ? elem : getArrayType(elemType, dims - 1);
 }
 
-void ArrayType::resolveImpl(bool final)
+void ArrayType::resolveImpl()
 {
-  resolveType(elem, final);
+  resolveType(elem);
   resolved = elem->resolved;
 }
 
@@ -587,11 +587,11 @@ TupleType::TupleType(vector<Type*> mems)
   members = mems;
 }
 
-void TupleType::resolveImpl(bool final)
+void TupleType::resolveImpl()
 {
   for(Type*& mem : members)
   {
-    resolveType(mem, final);
+    resolveType(mem);
     if(!mem->resolved)
       return;
   }
@@ -653,12 +653,12 @@ bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 
 MapType::MapType(Type* k, Type* v) : key(k), value(v) {}
 
-void MapType::resolveImpl(bool final)
+void MapType::resolveImpl()
 {
-  resolveType(key, final);
+  resolveType(key);
   if(!key->resolved)
     return;
-  resolveType(value, final);
+  resolveType(value);
   resolved = value->resolved;
 }
 
@@ -701,9 +701,9 @@ AliasType::AliasType(string alias, Type* underlying, Scope* s)
   scope = s;
 }
 
-void AliasType::resolveImpl(bool final)
+void AliasType::resolveImpl()
 {
-  resolveType(actual, final);
+  resolveType(actual);
   resolved = actual->resolved;
 }
 
@@ -722,7 +722,7 @@ EnumType::EnumType(Scope* enclosingScope)
   scope = new Scope(enclosingScope, this);
 }
 
-void EnumType::resolveImpl(bool final)
+void EnumType::resolveImpl()
 {
   //Decide what integer type will represent the enum
   //Prefer signed and then prefer smaller widths
@@ -1015,12 +1015,12 @@ CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector
   ownerStruct = owner;
 }
 
-void CallableType::resolveImpl(bool final)
+void CallableType::resolveImpl()
 {
   //CallableType is allowed to have itself as a return or argument type,
   //so temporarily pretend it is resolved to avoid circular dependency error
   resolved = true;
-  resolveType(returnType, final);
+  resolveType(returnType);
   if(!returnType->resolved)
   {
     resolved = false;
@@ -1028,7 +1028,7 @@ void CallableType::resolveImpl(bool final)
   }
   for(Type*& arg : argTypes)
   {
-    resolveType(arg, final);
+    resolveType(arg);
     if(!arg->resolved)
     {
       resolved = false;
@@ -1110,7 +1110,7 @@ ExprType::ExprType(Expression* e)
   expr = e;
 }
 
-void ExprType::resolveImpl(bool)
+void ExprType::resolveImpl()
 {
   //should never get here,
   //ExprType must be replaced by another type in resolveType()
@@ -1119,14 +1119,14 @@ void ExprType::resolveImpl(bool)
 
 ElemExprType::ElemExprType(Expression* a) : arr(a) {}
 
-void ElemExprType::resolveImpl(bool)
+void ElemExprType::resolveImpl()
 {
   //should never get here,
   //ElemExprType must be replaced by another type in resolveType()
   INTERNAL_ERROR;
 }
 
-void resolveType(Type*& t, bool final)
+void resolveType(Type*& t)
 {
   if(t->isResolved())
   {
@@ -1146,7 +1146,7 @@ void resolveType(Type*& t, bool final)
       Name found = unres->scope->findName(mem);
       //name wasn't found
       //if this is the last chance to resolve type, is an error
-      if(!found.item && final)
+      if(!found.item)
       {
         errMsgLoc(unres, "unknown type " << *mem);
       }
@@ -1172,7 +1172,7 @@ void resolveType(Type*& t, bool final)
       bool allResolved = true;
       for(Type*& mem : tupList.members)
       {
-        resolveType(mem, final);
+        resolveType(mem);
         if(!mem->isResolved())
           allResolved = false;
       }
@@ -1188,7 +1188,7 @@ void resolveType(Type*& t, bool final)
       bool allResolved = true;
       for(Type*& option : unionList.members)
       {
-        resolveType(option, final);
+        resolveType(option);
         if(!t->isResolved())
           allResolved = false;
       }
@@ -1200,8 +1200,8 @@ void resolveType(Type*& t, bool final)
     else if(unres->t.is<UnresolvedType::Map>())
     {
       auto& kv = unres->t.get<UnresolvedType::Map>();
-      resolveType(kv.key, final);
-      resolveType(kv.value, final);
+      resolveType(kv.key);
+      resolveType(kv.value);
       if(kv.key->isResolved() && kv.value->isResolved())
       {
         finalType = getMapType(kv.key, kv.value);
@@ -1213,14 +1213,14 @@ void resolveType(Type*& t, bool final)
       auto ownerStruct = unres->scope->getStructContext();
       auto& ct = unres->t.get<UnresolvedType::Callable>();
       bool allResolved = true;
-      resolveType(ct.returnType, final);
+      resolveType(ct.returnType);
       if(!ct.returnType->isResolved())
       {
         allResolved = false;
       }
       for(auto& param : ct.params)
       {
-        resolveType(param, final);
+        resolveType(param);
         if(!param->isResolved())
         {
           allResolved = false;
@@ -1239,18 +1239,18 @@ void resolveType(Type*& t, bool final)
     }
     //if arrayDims is 0, this is a no-op
     finalType = getArrayType(finalType, unres->arrayDims);
-    finalType->finalResolve();
+    finalType->resolve();
   }
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
-    resolveExpr(et->expr, final);
+    resolveExpr(et->expr);
     if(!et->expr->resolved)
       return;
     finalType = et->expr->type;
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
-    resolveExpr(eet->arr, final);
+    resolveExpr(eet->arr);
     if(!eet->arr->resolved)
       return;
     ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
@@ -1266,7 +1266,7 @@ void resolveType(Type*& t, bool final)
   }
   else
   {
-    t->resolve(final);
+    t->resolve();
     return;
   }
   //finally, replace unres with finalType

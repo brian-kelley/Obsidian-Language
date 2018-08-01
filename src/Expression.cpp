@@ -13,9 +13,9 @@ using std::numeric_limits;
 UnaryArith::UnaryArith(int o, Expression* e)
   : op(o), expr(e) {}
 
-void UnaryArith::resolveImpl(bool final)
+void UnaryArith::resolveImpl()
 {
-  resolveExpr(expr, final);
+  resolveExpr(expr);
   if(expr->resolved)
   {
     if(op == LNOT && expr->type != primitives[Prim::BOOL])
@@ -46,10 +46,10 @@ set<Variable*> UnaryArith::getReads()
 
 BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : op(o), lhs(l), rhs(r) {}
 
-void BinaryArith::resolveImpl(bool final)
+void BinaryArith::resolveImpl()
 {
-  resolveExpr(lhs, final);
-  resolveExpr(rhs, final);
+  resolveExpr(lhs);
+  resolveExpr(rhs);
   if(!lhs->resolved || !rhs->resolved)
   {
     return;
@@ -560,14 +560,14 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
 CompoundLiteral::CompoundLiteral(vector<Expression*>& mems)
   : members(mems) {}
 
-void CompoundLiteral::resolveImpl(bool final)
+void CompoundLiteral::resolveImpl()
 {
   //first, try to resolve all members
   bool allResolved = true;
   lvalue = true;
   for(size_t i = 0; i < members.size(); i++)
   {
-    resolveExpr(members[i], final);
+    resolveExpr(members[i]);
     if(!members[i]->resolved)
     {
       allResolved = false;
@@ -618,10 +618,10 @@ set<Variable*> CompoundLiteral::getWrites()
 Indexed::Indexed(Expression* grp, Expression* ind)
   : group(grp), index(ind) {}
 
-void Indexed::resolveImpl(bool final)
+void Indexed::resolveImpl()
 {
-  resolveExpr(group, final);
-  resolveExpr(index, final);
+  resolveExpr(group);
+  resolveExpr(index);
   if(!group->resolved || !index->resolved)
   {
     return;
@@ -710,9 +710,9 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
   args = a;
 }
 
-void CallExpr::resolveImpl(bool final)
+void CallExpr::resolveImpl()
 {
-  resolveExpr(callable, final);
+  resolveExpr(callable);
   if(!callable->resolved)
     return;
   auto callableType = dynamic_cast<CallableType*>(callable->type);
@@ -724,7 +724,7 @@ void CallExpr::resolveImpl(bool final)
   bool allResolved = callable->resolved;
   for(size_t i = 0; i < args.size(); i++)
   {
-    resolveExpr(args[i], final);
+    resolveExpr(args[i]);
     allResolved = allResolved && args[i]->resolved;
   }
   if(!allResolved)
@@ -776,10 +776,10 @@ set<Variable*> CallExpr::getReads()
 VarExpr::VarExpr(Variable* v, Scope* s) : var(v), scope(s) {}
 VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
-void VarExpr::resolveImpl(bool final)
+void VarExpr::resolveImpl()
 {
   if(!var->resolved)
-    var->resolve(final);
+    var->resolve();
   if(!var->resolved)
   {
     return;
@@ -842,7 +842,7 @@ SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
   exSubr = es;
 }
 
-void SubroutineExpr::resolveImpl(bool final)
+void SubroutineExpr::resolveImpl()
 {
   if(subr)
     type = subr->type;
@@ -884,9 +884,9 @@ StructMem::StructMem(Expression* b, Subroutine* s)
   member = s;
 }
 
-void StructMem::resolveImpl(bool final)
+void StructMem::resolveImpl()
 {
-  resolveExpr(base, final);
+  resolveExpr(base);
   if(!base->resolved)
   {
     return;
@@ -933,14 +933,14 @@ NewArray::NewArray(Type* elemType, vector<Expression*> dimensions)
   dims = dimensions;
 }
 
-void NewArray::resolveImpl(bool final)
+void NewArray::resolveImpl()
 {
-  resolveType(elem, final);
+  resolveType(elem);
   if(!elem->resolved)
     return;
   for(size_t i = 0; i < dims.size(); i++)
   {
-    resolveExpr(dims[i], final);
+    resolveExpr(dims[i]);
     if(!dims[i]->resolved)
     {
       return;
@@ -963,9 +963,9 @@ ArrayLength::ArrayLength(Expression* arr)
   array = arr;
 }
 
-void ArrayLength::resolveImpl(bool final)
+void ArrayLength::resolveImpl()
 {
-  resolveExpr(array, final);
+  resolveExpr(array);
   if(!array->resolved)
   {
     return;
@@ -985,12 +985,12 @@ set<Variable*> ArrayLength::getReads()
   return array->getReads();
 }
 
-void IsExpr::resolveImpl(bool final)
+void IsExpr::resolveImpl()
 {
-  resolveExpr(base, final);
+  resolveExpr(base);
   if(!base->resolved)
     return;
-  resolveType(option, final);
+  resolveType(option);
   if(!option->resolved)
     return;
   ut = dynamic_cast<UnionType*>(base->type);
@@ -1010,12 +1010,12 @@ void IsExpr::resolveImpl(bool final)
   }
 }
 
-void AsExpr::resolveImpl(bool final)
+void AsExpr::resolveImpl()
 {
-  resolveExpr(base, final);
+  resolveExpr(base);
   if(!base->resolved)
     return;
-  resolveType(option, final);
+  resolveType(option);
   if(!option->resolved)
     return;
   ut = dynamic_cast<UnionType*>(base->type);
@@ -1126,7 +1126,7 @@ UnresolvedExpr::UnresolvedExpr(Expression* b, Member* n, Scope* s)
   usage = s;
 }
 
-void resolveExpr(Expression*& expr, bool final)
+void resolveExpr(Expression*& expr)
 {
   if(expr->resolved)
   {
@@ -1135,7 +1135,7 @@ void resolveExpr(Expression*& expr, bool final)
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {
-    expr->resolve(final);
+    expr->resolve();
     return;
   }
   Expression* base = unres->base; //might be null
@@ -1152,12 +1152,6 @@ void resolveExpr(Expression*& expr, bool final)
       Name found = baseSearch->findName(names[nameIter]);
       if(!found.item)
       {
-        if(!final)
-        {
-          //can't continue, but not an error either
-          //(maybe the name just hasn't been declared yet)
-          return;
-        }
         string fullPath = names[0];
         for(int i = 0; i < nameIter; i++)
         {
@@ -1181,7 +1175,7 @@ void resolveExpr(Expression*& expr, bool final)
             {
               //is a member subroutine, so create implicit "this"
               ThisExpr* subrThis = new ThisExpr(unres->usage);
-              subrThis->resolve(true);
+              subrThis->resolve();
               //this must match owner type of subr
               if(subr->type->ownerStruct != subrThis->structType)
               {
@@ -1232,7 +1226,7 @@ void resolveExpr(Expression*& expr, bool final)
       nameIter++;
     }
   }
-  base->resolve(final);
+  base->resolve();
   //base must be resolved (need its type) to continue
   if(!base->resolved)
     return;
@@ -1243,7 +1237,7 @@ void resolveExpr(Expression*& expr, bool final)
     {
       base = new ArrayLength(base);
       //this resolution can't fail
-      base->resolve(true);
+      base->resolve();
       nameIter++;
       continue;
     }
@@ -1259,11 +1253,6 @@ void resolveExpr(Expression*& expr, bool final)
       Name found = baseSearch->findName(names[nameIter]);
       if(!found.item)
       {
-        if(!final)
-        {
-          //can't continue, but not an error either
-          return;
-        }
         string fullPath = names[0];
         for(int i = 0; i < nameIter; i++)
         {
@@ -1300,7 +1289,7 @@ void resolveExpr(Expression*& expr, bool final)
       }
       errMsgLoc(unres, fullPath << " is not an expression");
     }
-    base->resolve(final);
+    base->resolve();
   }
   //save lexical location of original parsed expression
   base->setLocation(expr);

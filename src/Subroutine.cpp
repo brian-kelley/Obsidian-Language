@@ -43,19 +43,19 @@ void Block::addStatement(Statement* s)
   statementCount++;
 }
 
-void Block::resolveImpl(bool final)
+void Block::resolveImpl()
 {
   //Block needs to resolve both child statements and declarations in scope
   for(auto& stmt : stmts)
   {
-    stmt->resolve(final);
+    stmt->resolve();
     if(!stmt->resolved)
       return;
   }
   for(auto& decl : scope->names)
   {
     Node* n = decl.second.item;
-    n->resolve(final);
+    n->resolve();
     if(!n->resolved)
       return;
   }
@@ -128,14 +128,10 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
   }
 }
 
-void Assign::resolveImpl(bool final)
+void Assign::resolveImpl()
 {
-  resolveExpr(lvalue, final);
-  resolveExpr(rvalue, final);
-  if(!lvalue->resolved || !rvalue->resolved)
-  {
-    return;
-  }
+  resolveExpr(lvalue);
+  resolveExpr(rvalue);
   if(!lvalue->assignable())
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");
@@ -146,8 +142,9 @@ void Assign::resolveImpl(bool final)
   }
   if(lvalue->type != rvalue->type)
   {
+    cout << "Converting an rvalue to " << lvalue->type->getName() << " so that assignment is possible\n";
     rvalue = new Converted(rvalue, lvalue->type);
-    rvalue->resolve(true);
+    rvalue->resolve();
   }
   resolved = true;
 }
@@ -157,9 +154,9 @@ CallStmt::CallStmt(Block* b, CallExpr* e) : Statement(b)
   eval = e;
 }
 
-void CallStmt::resolveImpl(bool final)
+void CallStmt::resolveImpl()
 {
-  eval->resolve(final);
+  eval->resolve();
   if(!eval->resolved)
     return;
   resolved = true;
@@ -180,28 +177,28 @@ ForC::ForC(Block* b) : For(b)
   increment = nullptr;
 }
 
-void ForC::resolveImpl(bool final)
+void ForC::resolveImpl()
 {
   //Resolving outerwill only resolve the declarations in outer's scope,
   //since no statements will be added to outer
-  outer->resolve(final);
+  outer->resolve();
   if(!outer->resolved)
     return;
-  init->resolve(final);
+  init->resolve();
   if(!init->resolved)
     return;
-  condition->resolve(final);
+  condition->resolve();
   if(!condition->resolved)
     return;
   if(condition->type != primitives[Prim::BOOL])
   {
     errMsgLoc(condition, "C-style for loop condition must be a bool");
   }
-  increment->resolve(final);
+  increment->resolve();
   if(!increment->resolved)
     return;
   //finally, resolve the body
-  inner->resolve(final);
+  inner->resolve();
   if(!inner->resolved)
     return;
   resolved = true;
@@ -229,11 +226,9 @@ void ForArray::createIterators(vector<string>& iters)
   outer->scope->addName(iter);
 }
 
-void ForArray::resolveImpl(bool final)
+void ForArray::resolveImpl()
 {
-  resolveExpr(arr, final);
-  if(!arr->resolved)
-    return;
+  resolveExpr(arr);
   ArrayType* arrType = dynamic_cast<ArrayType*>(arr->type);
   if(!arrType)
   {
@@ -246,12 +241,8 @@ void ForArray::resolveImpl(bool final)
   }
   //finally resolve outer and inner blocks
   //resolving outer will also resolve the counters and iter
-  outer->resolve(final);
-  if(!outer->resolved)
-    return;
-  inner->resolve(final);
-  if(!inner->resolved)
-    return;
+  outer->resolve();
+  inner->resolve();
   resolved = true;
 }
 
@@ -263,18 +254,18 @@ ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expressi
   outer->scope->addName(counter);
 }
 
-void ForRange::resolveImpl(bool final)
+void ForRange::resolveImpl()
 {
-  resolveExpr(begin, final);
+  resolveExpr(begin);
   if(!begin->resolved)
     return;
-  resolveExpr(end, final);
+  resolveExpr(end);
   if(!end->resolved)
     return;
-  outer->resolve(final);
+  outer->resolve();
   if(!outer->resolved)
     return;
-  inner->resolve(final);
+  inner->resolve();
   if(!inner->resolved)
     return;
   resolved = true;
@@ -289,16 +280,16 @@ While::While(Block* b, Expression* cond)
   body->breakable = this;
 }
 
-void While::resolveImpl(bool final)
+void While::resolveImpl()
 {
-  resolveExpr(condition, final);
+  resolveExpr(condition);
   if(!condition->resolved)
     return;
   if(condition->type != primitives[Prim::BOOL])
   {
     errMsgLoc(condition, "while loop condition must be bool");
   }
-  body->resolve(final);
+  body->resolve();
   if(!body->resolved)
     return;
   resolved = true;
@@ -319,17 +310,17 @@ If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
   elseBody = fb;
 }
 
-void If::resolveImpl(bool final)
+void If::resolveImpl()
 {
-  resolveExpr(condition, final);
+  resolveExpr(condition);
   if(!condition->resolved)
     return;
-  body->resolve(final);
+  body->resolve();
   if(!body->resolved)
     return;
   if(elseBody)
   {
-    elseBody->resolve(final);
+    elseBody->resolve();
     if(!elseBody->resolved)
       return;
   }
@@ -359,9 +350,9 @@ Match::Match(Block* b, Expression* m, string varName,
   }
 }
 
-void Match::resolveImpl(bool final)
+void Match::resolveImpl()
 {
-  resolveExpr(matched, final);
+  resolveExpr(matched);
   if(!matched->resolved)
     return;
   auto ut = dynamic_cast<UnionType*>(matched->type);
@@ -371,7 +362,7 @@ void Match::resolveImpl(bool final)
   }
   for(auto& t : types)
   {
-    resolveType(t, final);
+    resolveType(t);
     if(!t->resolved)
       return;
   }
@@ -385,7 +376,7 @@ void Match::resolveImpl(bool final)
   bool allResolved = true;
   for(auto b : cases)
   {
-    b->resolve(final);
+    b->resolve();
     if(!b->resolved)
       allResolved = false;
   }
@@ -403,16 +394,16 @@ Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> v
   block = stmtBlock;
 }
 
-void Switch::resolveImpl(bool final)
+void Switch::resolveImpl()
 {
-  resolveExpr(switched, final);
+  resolveExpr(switched);
   if(!switched->resolved)
     return;
   //resolve case values and make sure they can convert to 
   bool allResolved = true;
   for(auto& caseVal : caseValues)
   {
-    resolveExpr(caseVal, final);
+    resolveExpr(caseVal);
     if(!caseVal->resolved)
     {
       allResolved = false;
@@ -430,7 +421,7 @@ void Switch::resolveImpl(bool final)
     }
   }
   //this resolves all statements
-  block->resolve(final);
+  block->resolve();
   if(!block->resolved)
     return;
   resolved = true;
@@ -446,11 +437,11 @@ Return::Return(Block* b) : Statement(b)
   value = nullptr;
 }
 
-void Return::resolveImpl(bool final)
+void Return::resolveImpl()
 {
   if(value)
   {
-    value->resolve(final);
+    value->resolve();
     if(!value->resolved)
       return;
   }
@@ -477,7 +468,7 @@ void Return::resolveImpl(bool final)
 Break::Break(Block* b) : Statement(b)
 {}
 
-void Break::resolveImpl(bool final)
+void Break::resolveImpl()
 {
   if(block->breakable.is<None>())
   {
@@ -489,7 +480,7 @@ void Break::resolveImpl(bool final)
 Continue::Continue(Block* b) : Statement(b)
 {}
 
-void Continue::resolveImpl(bool final)
+void Continue::resolveImpl()
 {
   if(block->loop.is<None>())
   {
@@ -503,11 +494,11 @@ Print::Print(Block* b, vector<Expression*>& e) : Statement(b)
   exprs = e;
 }
 
-void Print::resolveImpl(bool final)
+void Print::resolveImpl()
 {
   for(auto& e : exprs)
   {
-    resolveExpr(e, final);
+    resolveExpr(e);
     if(!e->resolved)
     {
       return;
@@ -521,9 +512,9 @@ Assertion::Assertion(Block* b, Expression* a) : Statement(b)
   asserted = a;
 }
 
-void Assertion::resolveImpl(bool final)
+void Assertion::resolveImpl()
 {
-  resolveExpr(asserted, final);
+  resolveExpr(asserted);
   if(!asserted->resolved)
   {
     return;
@@ -563,15 +554,15 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
   body = new Block(this);
 }
 
-void Subroutine::resolveImpl(bool final)
+void Subroutine::resolveImpl()
 {
-  type->resolve(final);
+  type->resolve();
   if(!type->resolved)
     return;
   for(auto arg : args)
   {
     //resolving argument variables just resolves their types
-    arg->resolve(final);
+    arg->resolve();
     if(!arg->resolved)
     {
       return;
@@ -584,7 +575,7 @@ void Subroutine::resolveImpl(bool final)
     body->stmts.push_back(new Return(body));
   }
   //resolve the body
-  body->resolve(final);
+  body->resolve();
   if(!body->resolved)
     return;
   if(name == "main")
@@ -624,9 +615,9 @@ ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vec
   argNames = argN;
 }
 
-void ExternalSubroutine::resolveImpl(bool final)
+void ExternalSubroutine::resolveImpl()
 {
-  type->resolve(final);
+  type->resolve();
   if(!type->resolved)
     return;
   resolved = true;
@@ -637,9 +628,9 @@ Test::Test(Scope* s, Block* b) : scope(s), run(b)
   tests.push_back(this);
 }
 
-void Test::resolveImpl(bool final)
+void Test::resolveImpl()
 {
-  run->resolve(final);
+  run->resolve();
   resolved = run->resolved;
 }
 

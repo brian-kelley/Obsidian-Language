@@ -170,7 +170,7 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
       for(size_t i = 0; i < compoundRHS->members.size(); i++)
         resultMembers[i + compoundLHS->members.size()] = compoundRHS->members[i];
       CompoundLiteral* result = new CompoundLiteral(resultMembers);
-      result->resolveImpl(true);
+      result->resolve();
       return result;
     }
     else if(compoundLHS)
@@ -179,7 +179,7 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
       vector<Expression*> resultMembers = compoundLHS->members;
       resultMembers.push_back(rhs);
       CompoundLiteral* result = new CompoundLiteral(resultMembers);
-      result->resolveImpl(true);
+      result->resolve();
       return result;
     }
     else if(compoundRHS)
@@ -192,7 +192,7 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
         resultMembers[i + 1] = compoundRHS->members[i];
       }
       CompoundLiteral* result = new CompoundLiteral(resultMembers);
-      result->resolveImpl(true);
+      result->resolve();
       return result;
     }
   }

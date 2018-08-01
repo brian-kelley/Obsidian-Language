@@ -8,7 +8,7 @@
 struct Expression : public Node
 {
   Expression() : type(nullptr) {}
-  virtual void resolveImpl(bool final) {}
+  virtual void resolveImpl() {}
   //Find set of read (input) or write (output) variables
   virtual set<Variable*> getReads()
   {
@@ -74,7 +74,7 @@ struct UnaryArith : public Expression
   {
     return false;
   }
-  void resolveImpl(bool final);
+  void resolveImpl();
   set<Variable*> getReads();
 };
 
@@ -84,7 +84,7 @@ struct BinaryArith : public Expression
   int op;
   Expression* lhs;
   Expression* rhs;
-  void resolveImpl(bool final);
+  void resolveImpl();
   set<Variable*> getReads();
   bool assignable()
   {
@@ -201,7 +201,7 @@ struct StringConstant : public Expression
   {
     value = ast->val;
     type = getArrayType(primitives[Prim::CHAR], 1);
-    resolveType(type, true);
+    resolveType(type);
     resolved = true;
   }
   string value;
@@ -322,7 +322,7 @@ struct UnionConstant : public Expression
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(vector<Expression*>& mems);
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return lvalue;
@@ -354,7 +354,7 @@ struct CompoundLiteral : public Expression
 struct Indexed : public Expression
 {
   Indexed(Expression* grp, Expression* ind);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* group; //the array or tuple being subscripted
   Expression* index;
   bool assignable()
@@ -368,7 +368,7 @@ struct Indexed : public Expression
 struct CallExpr : public Expression
 {
   CallExpr(Expression* callable, vector<Expression*>& args);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* callable;
   vector<Expression*> args;
   bool assignable()
@@ -383,7 +383,7 @@ struct VarExpr : public Expression
 {
   VarExpr(Variable* v, Scope* s);
   VarExpr(Variable* v);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Variable* var;  //var must be looked up from current scope
   Scope* scope;
   bool assignable()
@@ -402,7 +402,7 @@ struct SubroutineExpr : public Expression
   SubroutineExpr(Subroutine* s);
   SubroutineExpr(Expression* thisObj, Subroutine* s);
   SubroutineExpr(ExternalSubroutine* es);
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return false;
@@ -428,7 +428,7 @@ struct UnresolvedExpr : public Expression
   {
     return false;
   }
-  void resolveImpl(bool final)
+  void resolveImpl()
   {
     INTERNAL_ERROR;
   }
@@ -438,7 +438,7 @@ struct StructMem : public Expression
 {
   StructMem(Expression* base, Variable* var);
   StructMem(Expression* base, Subroutine* subr);
-  void resolveImpl(bool final);
+  void resolveImpl();
   Expression* base;           //base->type is always StructType
   variant<Variable*, Subroutine*> member;
   bool assignable()
@@ -454,7 +454,7 @@ struct NewArray : public Expression
   NewArray(Type* elemType, vector<Expression*> dims);
   Type* elem;
   vector<Expression*> dims;
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return false;
@@ -465,7 +465,7 @@ struct ArrayLength : public Expression
 {
   ArrayLength(Expression* arr);
   Expression* array;
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return false;
@@ -483,7 +483,7 @@ struct IsExpr : public Expression
     option = t;
     type = primitives[Prim::BOOL];
   }
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return false;
@@ -508,7 +508,7 @@ struct AsExpr : public Expression
     option = t;
     type = t;
   }
-  void resolveImpl(bool final);
+  void resolveImpl();
   bool assignable()
   {
     return false;
@@ -572,7 +572,7 @@ struct ErrorVal : public Expression
   }
 };
 
-void resolveExpr(Expression*& expr, bool final);
+void resolveExpr(Expression*& expr);
 
 //expr must be resolved
 ostream& operator<<(ostream& os, Expression* expr);

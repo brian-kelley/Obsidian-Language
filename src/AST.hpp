@@ -38,15 +38,6 @@ struct Node
   //resolved = true on success.
   //
   //Externally, finalResolve or tryResolve should be used instead.
-  void finalResolve()
-  {
-    resolve(true);
-  }
-  bool tryResolve()
-  {
-    resolve(false);
-    return resolved;
-  }
   void setLocation(Node* other)
   {
     fileID = other->fileID;
@@ -61,7 +52,7 @@ struct Node
   bool resolved;
   bool resolving;
 
-  void resolve(bool final)
+  void resolve()
   {
     if(resolved)
       return;
@@ -71,11 +62,11 @@ struct Node
       errMsgLoc(this, "Circular definition in program");
     }
     resolving = true;
-    resolveImpl(final);
+    resolveImpl();
     resolving = false;
   }
 
-  virtual void resolveImpl(bool) {};
+  virtual void resolveImpl() {};
 };
 
 #endif

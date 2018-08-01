@@ -323,11 +323,11 @@ namespace IR
   {
     //generate initialization assign (don't need an AST assign)
     Expression* counterExpr = new VarExpr(fr->counter);
-    counterExpr->finalResolve();
+    counterExpr->resolve();
     Expression* counterP1 = new BinaryArith(counterExpr, PLUS, new IntConstant((int64_t) 1));
-    counterP1->finalResolve();
+    counterP1->resolve();
     Expression* cond = new BinaryArith(counterExpr, CMPL, fr->end);
-    cond->finalResolve();
+    cond->resolve();
     //init
     stmts.push_back(new AssignIR(counterExpr, fr->begin));
     auto savedBreak = breakLabel;
@@ -368,20 +368,20 @@ namespace IR
     //array[i] is the array traversed in loop of depth i
     vector<Expression*> subArrays(n, nullptr);
     Expression* zeroLong = new IntConstant((int64_t) 0);
-    zeroLong->finalResolve();
+    zeroLong->resolve();
     Expression* oneLong = new IntConstant((int64_t) 1);
-    oneLong->finalResolve();
+    oneLong->resolve();
     subArrays[0] = fa->arr;
     for(int i = 1; i < n; i++)
     {
       subArrays[i] = new Indexed(subArrays[i - 1], new VarExpr(fa->counters[i]));
-      subArrays[i]->finalResolve();
+      subArrays[i]->resolve();
     }
     vector<Expression*> dims(n, nullptr);
     for(int i = 0; i < n; i++)
     {
       dims[i] = new ArrayLength(subArrays[i]);
-      dims[i]->finalResolve();
+      dims[i]->resolve();
     }
     for(int i = 0; i < n; i++)
     {
@@ -391,14 +391,14 @@ namespace IR
       stmts.push_back(topLabels[i]);
       //compare against array dim: if false, break from loop i
       Expression* cond = new BinaryArith(new VarExpr(fa->counters[i]), CMPL, dims[i]);
-      cond->finalResolve();
+      cond->resolve();
       stmts.push_back(new CondJump(cond, bottomLabels[i]));
     }
     //update iteration variable before executing inner body
     VarExpr* iterVar = new VarExpr(fa->iter);
-    iterVar->finalResolve();
+    iterVar->resolve();
     Indexed* iterValue = new Indexed(subArrays.back(), new VarExpr(fa->counters.back()));
-    iterValue->finalResolve();
+    iterValue->resolve();
     stmts.push_back(new AssignIR(iterVar, iterValue));
     //add user body
     //user break stmts break from whole ForArray
@@ -415,7 +415,7 @@ namespace IR
     {
       stmts.push_back(midLabels[i]);
       Expression* counterIncremented = new BinaryArith(iterVar, PLUS, oneLong);
-      counterIncremented->finalResolve();
+      counterIncremented->resolve();
       stmts.push_back(new AssignIR(new VarExpr(fa->counters[i]), counterIncremented));
       stmts.push_back(new Jump(topLabels[i]));
       stmts.push_back(bottomLabels[i]);
