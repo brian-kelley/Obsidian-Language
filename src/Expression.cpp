@@ -322,6 +322,13 @@ Expression* IntConstant::convert(Type* t)
         return new FloatConstant((double) uval);
     }
   }
+  else if(dynamic_cast<CharType*>(t))
+  {
+    auto charInt = (IntegerType*) primitives[Prim::BYTE];
+    if(sval >= charInt->minSignedVal() && sval <= charInt->maxSignedVal())
+      return new CharConstant((char) sval);
+    errMsgLoc(this, "integer value doesn't fit in char");
+  }
   INTERNAL_ERROR;
   return nullptr;
 }
