@@ -49,14 +49,6 @@ int main(int argc, const char** argv)
   //empty "includes" is for root file (no other file is including it)
   includes.emplace_back();
   TIMEIT("Lexing", Parser::tokens = lex(code, 0););
-  /*
-  //print tokens
-  cout << "Tokens:\n";
-  for(auto& tok : Parser::tokens)
-  {
-    cout << tok->getStr() << '\n';
-  }
-  */
   //Parse the global/root module
   TIMEIT("Parsing", Parser::parseProgram(););
   //DEBUG_DO(outputAST(global, "parse.dot"););

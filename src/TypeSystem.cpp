@@ -277,7 +277,6 @@ StructType::StructType(string n, Scope* enclosingScope)
 void StructType::resolveImpl()
 {
   //attempt to resolve all member variables
-  bool allResolved = true;
   for(Variable* mem : members)
   {
     //resolve members requires resolving member types,
@@ -285,11 +284,7 @@ void StructType::resolveImpl()
     //call triggers a "circular dependency" error, preventing
     //self-ownership
     mem->resolve();
-    if(!mem->resolved)
-      allResolved = false;
   }
-  if(!allResolved)
-    return;
   //all members have been resolved, which means that
   //all member types (including structs) are fully resolved
   //so can now form the interface for this
@@ -404,11 +399,6 @@ void UnionType::resolveImpl()
   for(Type*& mem : options)
   {
     resolveType(mem);
-    if(!mem->resolved)
-    {
-      resolved = false;
-      return;
-    }
   }
   setDefault();
 }
@@ -527,7 +517,7 @@ ArrayType::ArrayType(Type* elemType, int ndims)
 void ArrayType::resolveImpl()
 {
   resolveType(elem);
-  resolved = elem->resolved;
+  resolved = true;
 }
 
 bool ArrayType::canConvert(Type* other)
@@ -592,8 +582,6 @@ void TupleType::resolveImpl()
   for(Type*& mem : members)
   {
     resolveType(mem);
-    if(!mem->resolved)
-      return;
   }
   resolved = true;
 }
@@ -656,10 +644,8 @@ MapType::MapType(Type* k, Type* v) : key(k), value(v) {}
 void MapType::resolveImpl()
 {
   resolveType(key);
-  if(!key->resolved)
-    return;
   resolveType(value);
-  resolved = value->resolved;
+  resolved = true;
 }
 
 bool MapType::canConvert(Type* other)
@@ -704,7 +690,7 @@ AliasType::AliasType(string alias, Type* underlying, Scope* s)
 void AliasType::resolveImpl()
 {
   resolveType(actual);
-  resolved = actual->resolved;
+  resolved = true;
 }
 
 bool AliasType::canConvert(Type* other)
@@ -1021,19 +1007,9 @@ void CallableType::resolveImpl()
   //so temporarily pretend it is resolved to avoid circular dependency error
   resolved = true;
   resolveType(returnType);
-  if(!returnType->resolved)
-  {
-    resolved = false;
-    return;
-  }
   for(Type*& arg : argTypes)
   {
     resolveType(arg);
-    if(!arg->resolved)
-    {
-      resolved = false;
-      return;
-    }
   }
   //just leave resolved = true
 }
@@ -1244,15 +1220,11 @@ void resolveType(Type*& t)
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
     resolveExpr(et->expr);
-    if(!et->expr->resolved)
-      return;
     finalType = et->expr->type;
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
     resolveExpr(eet->arr);
-    if(!eet->arr->resolved)
-      return;
     ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
     if(!arrType)
     {

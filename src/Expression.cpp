@@ -16,23 +16,20 @@ UnaryArith::UnaryArith(int o, Expression* e)
 void UnaryArith::resolveImpl()
 {
   resolveExpr(expr);
-  if(expr->resolved)
+  if(op == LNOT && expr->type != primitives[Prim::BOOL])
   {
-    if(op == LNOT && expr->type != primitives[Prim::BOOL])
-    {
-      errMsgLoc(this, "! operand must be a bool");
-    }
-    else if(op == BNOT && !expr->type->isInteger())
-    {
-      errMsgLoc(this, "~ operand must be an integer");
-    }
-    else if(op == SUB && !expr->type->isNumber())
-    {
-      errMsgLoc(this, "unary - operand must be a number");
-    }
-    type = expr->type;
-    resolved = true;
+    errMsgLoc(this, "! operand must be a bool");
   }
+  else if(op == BNOT && !expr->type->isInteger())
+  {
+    errMsgLoc(this, "~ operand must be an integer");
+  }
+  else if(op == SUB && !expr->type->isNumber())
+  {
+    errMsgLoc(this, "unary - operand must be a number");
+  }
+  type = expr->type;
+  resolved = true;
 }
 
 set<Variable*> UnaryArith::getReads()
@@ -50,10 +47,6 @@ void BinaryArith::resolveImpl()
 {
   resolveExpr(lhs);
   resolveExpr(rhs);
-  if(!lhs->resolved || !rhs->resolved)
-  {
-    return;
-  }
   //Type check the operation
   auto ltype = lhs->type;
   auto rtype = rhs->type;
@@ -568,11 +561,6 @@ void CompoundLiteral::resolveImpl()
   for(size_t i = 0; i < members.size(); i++)
   {
     resolveExpr(members[i]);
-    if(!members[i]->resolved)
-    {
-      allResolved = false;
-      break;
-    }
     if(!members[i]->assignable())
     {
       lvalue = false;
@@ -622,10 +610,6 @@ void Indexed::resolveImpl()
 {
   resolveExpr(group);
   resolveExpr(index);
-  if(!group->resolved || !index->resolved)
-  {
-    return;
-  }
   //Indexing a Tuple (literal, variable or call) requires the index to be an IntLit
   //Anything else is assumed to be an array and then the index can be any integer expression
   if(dynamic_cast<CompoundLiteral*>(group))
@@ -713,22 +697,16 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 void CallExpr::resolveImpl()
 {
   resolveExpr(callable);
-  if(!callable->resolved)
-    return;
   auto callableType = dynamic_cast<CallableType*>(callable->type);
   if(!callableType)
   {
     errMsgLoc(this, "attempt to call non-callable expression");
   }
   type = callableType->returnType;
-  bool allResolved = callable->resolved;
   for(size_t i = 0; i < args.size(); i++)
   {
     resolveExpr(args[i]);
-    allResolved = allResolved && args[i]->resolved;
   }
-  if(!allResolved)
-    return;
   //make sure number of arguments matches
   if(callableType->argTypes.size() != args.size())
   {
@@ -778,12 +756,7 @@ VarExpr::VarExpr(Variable* v) : var(v), scope(nullptr) {}
 
 void VarExpr::resolveImpl()
 {
-  if(!var->resolved)
-    var->resolve();
-  if(!var->resolved)
-  {
-    return;
-  }
+  var->resolve();
   type = var->type;
   //scope is only provided for user-written VarExprs,
   //which need to be checked here for function correctness
@@ -887,10 +860,6 @@ StructMem::StructMem(Expression* b, Subroutine* s)
 void StructMem::resolveImpl()
 {
   resolveExpr(base);
-  if(!base->resolved)
-  {
-    return;
-  }
   //make sure that member is actually a member of base
   if(member.is<Variable*>())
   {
@@ -936,15 +905,9 @@ NewArray::NewArray(Type* elemType, vector<Expression*> dimensions)
 void NewArray::resolveImpl()
 {
   resolveType(elem);
-  if(!elem->resolved)
-    return;
   for(size_t i = 0; i < dims.size(); i++)
   {
     resolveExpr(dims[i]);
-    if(!dims[i]->resolved)
-    {
-      return;
-    }
     if(!dims[i]->type->isInteger())
     {
       errMsgLoc(dims[i], "array dimensions must be integers");
@@ -966,10 +929,6 @@ ArrayLength::ArrayLength(Expression* arr)
 void ArrayLength::resolveImpl()
 {
   resolveExpr(array);
-  if(!array->resolved)
-  {
-    return;
-  }
   if(!array->type->isArray())
   {
     //len is not a keyword: <expr>.len is a special case
@@ -988,11 +947,7 @@ set<Variable*> ArrayLength::getReads()
 void IsExpr::resolveImpl()
 {
   resolveExpr(base);
-  if(!base->resolved)
-    return;
   resolveType(option);
-  if(!option->resolved)
-    return;
   ut = dynamic_cast<UnionType*>(base->type);
   if(!ut)
   {
@@ -1013,11 +968,7 @@ void IsExpr::resolveImpl()
 void AsExpr::resolveImpl()
 {
   resolveExpr(base);
-  if(!base->resolved)
-    return;
   resolveType(option);
-  if(!option->resolved)
-    return;
   ut = dynamic_cast<UnionType*>(base->type);
   if(!ut)
   {
@@ -1128,10 +1079,6 @@ UnresolvedExpr::UnresolvedExpr(Expression* b, Member* n, Scope* s)
 
 void resolveExpr(Expression*& expr)
 {
-  if(expr->resolved)
-  {
-    return;
-  }
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {
@@ -1228,8 +1175,6 @@ void resolveExpr(Expression*& expr)
   }
   base->resolve();
   //base must be resolved (need its type) to continue
-  if(!base->resolved)
-    return;
   //look up members in searchScope until a new expr can be formed
   while(nameIter < names.size())
   {

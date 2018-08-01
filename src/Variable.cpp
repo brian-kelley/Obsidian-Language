@@ -33,8 +33,6 @@ Variable::Variable(string n, Type* t, Block* b)
 void Variable::resolveImpl()
 {
   resolveType(type);
-  if(!type->resolved)
-    return;
   if(!initial)
   {
     //Always need an initial expression, so use the

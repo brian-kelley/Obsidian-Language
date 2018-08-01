@@ -49,15 +49,11 @@ void Block::resolveImpl()
   for(auto& stmt : stmts)
   {
     stmt->resolve();
-    if(!stmt->resolved)
-      return;
   }
   for(auto& decl : scope->names)
   {
     Node* n = decl.second.item;
     n->resolve();
-    if(!n->resolved)
-      return;
   }
   resolved = true;
 }
@@ -157,8 +153,6 @@ CallStmt::CallStmt(Block* b, CallExpr* e) : Statement(b)
 void CallStmt::resolveImpl()
 {
   eval->resolve();
-  if(!eval->resolved)
-    return;
   resolved = true;
 }
 
@@ -182,25 +176,15 @@ void ForC::resolveImpl()
   //Resolving outerwill only resolve the declarations in outer's scope,
   //since no statements will be added to outer
   outer->resolve();
-  if(!outer->resolved)
-    return;
   init->resolve();
-  if(!init->resolved)
-    return;
   condition->resolve();
-  if(!condition->resolved)
-    return;
   if(condition->type != primitives[Prim::BOOL])
   {
     errMsgLoc(condition, "C-style for loop condition must be a bool");
   }
   increment->resolve();
-  if(!increment->resolved)
-    return;
   //finally, resolve the body
   inner->resolve();
-  if(!inner->resolved)
-    return;
   resolved = true;
 }
 
@@ -257,17 +241,9 @@ ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expressi
 void ForRange::resolveImpl()
 {
   resolveExpr(begin);
-  if(!begin->resolved)
-    return;
   resolveExpr(end);
-  if(!end->resolved)
-    return;
   outer->resolve();
-  if(!outer->resolved)
-    return;
   inner->resolve();
-  if(!inner->resolved)
-    return;
   resolved = true;
 }
 
@@ -283,15 +259,11 @@ While::While(Block* b, Expression* cond)
 void While::resolveImpl()
 {
   resolveExpr(condition);
-  if(!condition->resolved)
-    return;
   if(condition->type != primitives[Prim::BOOL])
   {
     errMsgLoc(condition, "while loop condition must be bool");
   }
   body->resolve();
-  if(!body->resolved)
-    return;
   resolved = true;
 }
 
@@ -313,16 +285,10 @@ If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
 void If::resolveImpl()
 {
   resolveExpr(condition);
-  if(!condition->resolved)
-    return;
   body->resolve();
-  if(!body->resolved)
-    return;
   if(elseBody)
   {
     elseBody->resolve();
-    if(!elseBody->resolved)
-      return;
   }
   resolved = true;
 }
@@ -353,8 +319,6 @@ Match::Match(Block* b, Expression* m, string varName,
 void Match::resolveImpl()
 {
   resolveExpr(matched);
-  if(!matched->resolved)
-    return;
   auto ut = dynamic_cast<UnionType*>(matched->type);
   if(!ut)
   {
@@ -363,8 +327,6 @@ void Match::resolveImpl()
   for(auto& t : types)
   {
     resolveType(t);
-    if(!t->resolved)
-      return;
   }
   for(auto t : types)
   {
@@ -373,15 +335,11 @@ void Match::resolveImpl()
       errMsgLoc(this, "match includes type " << t->getName() << " which is not a member of union " << ut->getName());
     }
   }
-  bool allResolved = true;
   for(auto b : cases)
   {
     b->resolve();
-    if(!b->resolved)
-      allResolved = false;
   }
-  if(allResolved)
-    resolved = true;
+  resolved = true;
 }
 
 Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> vals, int defaultPos, Block* stmtBlock)
@@ -397,33 +355,21 @@ Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> v
 void Switch::resolveImpl()
 {
   resolveExpr(switched);
-  if(!switched->resolved)
-    return;
   //resolve case values and make sure they can convert to 
-  bool allResolved = true;
   for(auto& caseVal : caseValues)
   {
     resolveExpr(caseVal);
-    if(!caseVal->resolved)
+    if(!switched->type->canConvert(caseVal->type))
     {
-      allResolved = false;
+      errMsgLoc(caseVal, "case value type incompatible with switch value type");
     }
-    else
+    else if(switched->type != caseVal->type)
     {
-      if(!switched->type->canConvert(caseVal->type))
-      {
-        errMsgLoc(caseVal, "case value type incompatible with switch value type");
-      }
-      else if(switched->type != caseVal->type)
-      {
-        caseVal = new Converted(caseVal, switched->type);
-      }
+      caseVal = new Converted(caseVal, switched->type);
     }
   }
   //this resolves all statements
   block->resolve();
-  if(!block->resolved)
-    return;
   resolved = true;
 }
 
@@ -442,8 +388,6 @@ void Return::resolveImpl()
   if(value)
   {
     value->resolve();
-    if(!value->resolved)
-      return;
   }
   //make sure value can be converted to enclosing subroutine's return type
   auto subrRetType = block->subr->type->returnType;
@@ -499,10 +443,6 @@ void Print::resolveImpl()
   for(auto& e : exprs)
   {
     resolveExpr(e);
-    if(!e->resolved)
-    {
-      return;
-    }
   }
   resolved = true;
 }
@@ -515,10 +455,6 @@ Assertion::Assertion(Block* b, Expression* a) : Statement(b)
 void Assertion::resolveImpl()
 {
   resolveExpr(asserted);
-  if(!asserted->resolved)
-  {
-    return;
-  }
   if(asserted->type != primitives[Prim::BOOL])
   {
     errMsgLoc(this, "asserted value has non-bool type " << asserted->type->getName());
@@ -557,16 +493,10 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 void Subroutine::resolveImpl()
 {
   type->resolve();
-  if(!type->resolved)
-    return;
   for(auto arg : args)
   {
     //resolving argument variables just resolves their types
     arg->resolve();
-    if(!arg->resolved)
-    {
-      return;
-    }
   }
   if(type->returnType == primitives[Prim::VOID] &&
       (body->stmts.size() == 0 ||
@@ -576,8 +506,6 @@ void Subroutine::resolveImpl()
   }
   //resolve the body
   body->resolve();
-  if(!body->resolved)
-    return;
   if(name == "main")
   {
     if(scope->parent != global->scope)
@@ -618,8 +546,6 @@ ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vec
 void ExternalSubroutine::resolveImpl()
 {
   type->resolve();
-  if(!type->resolved)
-    return;
   resolved = true;
 }
 
@@ -631,6 +557,6 @@ Test::Test(Scope* s, Block* b) : scope(s), run(b)
 void Test::resolveImpl()
 {
   run->resolve();
-  resolved = run->resolved;
+  resolved = true;
 }
 
