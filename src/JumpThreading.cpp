@@ -119,11 +119,13 @@ bool jumpThreading(SubroutineIR* subr)
   }
   if(update)
     subr->buildCFG();
+  /*
   if(simplifyCFG(subr))
   {
     subr->buildCFG();
     update = true;
   }
+  */
   return update;
 }
 
