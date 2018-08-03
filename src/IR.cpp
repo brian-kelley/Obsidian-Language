@@ -12,6 +12,13 @@ extern Module* global;
 
 IR::Nop* nop = new IR::Nop;
 
+static Expression* negateCondition(Expression* cond)
+{
+  auto ua = new UnaryArith(LNOT, cond);
+  ua->resolve();
+  return ua;
+}
+
 namespace IR
 {
   map<Subroutine*, SubroutineIR*> ir;
@@ -61,6 +68,9 @@ namespace IR
     {
       jumpThreading(s.second);
       deadCodeElim(s.second);
+      jumpThreading(s.second);
+      deadCodeElim(s.second);
+      jumpThreading(s.second);
       deadCodeElim(s.second);
     }
     cout << "Dumping optimized IR.\n";
@@ -208,7 +218,7 @@ namespace IR
       auto savedBreak = breakLabel;
       breakLabel = bottom;
       stmts.push_back(top);
-      stmts.push_back(new CondJump(w->condition, bottom));
+      stmts.push_back(new CondJump(negateCondition(w->condition), bottom));
       addStatement(w->body);
       stmts.push_back(new Jump(top));
       stmts.push_back(bottom);
@@ -220,7 +230,7 @@ namespace IR
       {
         Label* ifEnd = new Label;
         Label* elseEnd = new Label;
-        stmts.push_back(new CondJump(i->condition, ifEnd));
+        stmts.push_back(new CondJump(negateCondition(i->condition), ifEnd));
         addStatement(i->body);
         stmts.push_back(new Jump(elseEnd));
         stmts.push_back(ifEnd);
@@ -230,7 +240,7 @@ namespace IR
       else
       {
         Label* ifEnd = new Label;
-        stmts.push_back(new CondJump(i->condition, ifEnd));
+        stmts.push_back(new CondJump(negateCondition(i->condition), ifEnd));
         addStatement(i->body);
         stmts.push_back(ifEnd);
       }
@@ -315,7 +325,7 @@ namespace IR
     stmts.push_back(top);
     //here the condition is evaluated
     //false: jump to bottom, otherwise continue
-    stmts.push_back(new CondJump(fc->condition, bottom));
+    stmts.push_back(new CondJump(negateCondition(fc->condition), bottom));
     addStatement(fc->inner);
     stmts.push_back(mid);
     addStatement(fc->increment);
@@ -344,7 +354,7 @@ namespace IR
     Label* bottom = new Label;  //just after loop (break)
     stmts.push_back(top);
     //condition eval and possible break
-    stmts.push_back(new CondJump(cond, bottom));
+    stmts.push_back(new CondJump(negateCondition(cond), bottom));
     addStatement(fr->inner);
     stmts.push_back(mid);
     stmts.push_back(new AssignIR(counterExpr, counterP1));
@@ -399,7 +409,7 @@ namespace IR
       //compare against array dim: if false, break from loop i
       Expression* cond = new BinaryArith(new VarExpr(fa->counters[i]), CMPL, dims[i]);
       cond->resolve();
-      stmts.push_back(new CondJump(cond, bottomLabels[i]));
+      stmts.push_back(new CondJump(negateCondition(cond), bottomLabels[i]));
     }
     //update iteration variable before executing inner body
     VarExpr* iterVar = new VarExpr(fa->iter);

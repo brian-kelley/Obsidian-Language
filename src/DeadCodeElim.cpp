@@ -28,7 +28,7 @@ bool deadCodeElim(SubroutineIR* subr)
   }
   size_t stmtsBefore = subr->stmts.size();
   //do a breadth-first search of reachability from the first
-  //BB to delete all unreachable in one pass
+  //BB to delete all unreachable code in one pass
   enum
   {
     NOT_VISITED,
@@ -62,6 +62,8 @@ bool deadCodeElim(SubroutineIR* subr)
   {
     if(blockVisits[bb] == NOT_VISITED)
     {
+      update = true;
+      cout << "Deleting unreachable block " << bb->start << ':' << bb->end << '\n';
       for(int i = bb->start; i < bb->end; i++)
       {
         subr->stmts[i] = nop;
@@ -69,8 +71,9 @@ bool deadCodeElim(SubroutineIR* subr)
     }
   }
   //then delete NOPs and rebuild CFG
-  subr->buildCFG();
+  if(update)
+    subr->buildCFG();
   //IR changed if # stmts changed
-  return update || stmtsBefore != subr->stmts.size();
+  return update;
 }
 

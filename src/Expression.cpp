@@ -1264,7 +1264,7 @@ ostream& operator<<(ostream& os, Expression* e)
   INTERNAL_ASSERT(e->resolved);
   if(UnaryArith* ua = dynamic_cast<UnaryArith*>(e))
   {
-    os << operatorTable[ua->op] << '(' << ua->expr << ')';
+    os << operatorTable[ua->op] << ua->expr;
   }
   else if(BinaryArith* ba = dynamic_cast<BinaryArith*>(e))
   {
