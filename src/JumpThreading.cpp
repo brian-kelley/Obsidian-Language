@@ -1,4 +1,5 @@
 #include "JumpThreading.hpp"
+#include <algorithm>
 
 using namespace IR;
 
@@ -11,6 +12,8 @@ bool jumpThreading(SubroutineIR* subr)
     if(auto jump = dynamic_cast<Jump*>(stmt))
     {
       int target = jump->dst->intLabel;
+      //is the jump effectively a no-op?
+      //(jumping over no active statements)
       bool jumpNop = true;
       for(int j = i + 1; j < target; j++)
       {
@@ -23,9 +26,12 @@ bool jumpThreading(SubroutineIR* subr)
       if(jumpNop)
       {
         update = true;
+        //replace the jump with nop
         subr->stmts[i] = nop;
         continue;
       }
+      //otherwise, can control flow be traced to a different label
+      //to reduce number of jumps taken?
       int targetInst = target + 1;
       while(targetInst < subr->stmts.size())
       {

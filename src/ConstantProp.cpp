@@ -37,7 +37,32 @@ void determineGlobalConstants()
 static Expression* convertConstant(Expression* value, Type* type)
 {
   INTERNAL_ASSERT(value->constant());
-  if(auto intConst = dynamic_cast<IntConstant*>(value))
+  int option = 0;
+  if(auto unionDst = dynamic_cast<UnionType*>(type))
+  {
+    for(size_t i = 0; i < unionDst->options.size(); i++)
+    {
+      if(unionDst->options[i] == value->type)
+      {
+        option = i;
+        break;
+      }
+    }
+    if(option < 0)
+    {
+      for(size_t i = 0; i < unionDst->options.size(); i++)
+      {
+        if(unionDst->options[i]->canConvert(value->type))
+        {
+          option = i;
+          value = convertConstant(value, unionDst->options[i]);
+          break;
+        }
+      }
+    }
+    return new UnionConstant(value, unionDst->options[option], unionDst);
+  }
+  else if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
     //do the conversion which tests for overflow and enum membership
     return intConst->convert(type);
@@ -388,9 +413,9 @@ void foldExpression(Expression*& expr)
         auto mapValue = (MapConstant*) grp;
         auto mapIt = mapValue->values.find(ind);
         if(mapIt == mapValue->values.end())
-          expr = new UnionConstant(new ErrorVal, (UnionType*) indexed->type);
+          expr = new UnionConstant(new ErrorVal, primitives[Prim::ERROR], (UnionType*) indexed->type);
         else
-          expr = new UnionConstant(mapIt->second, (UnionType*) indexed->type);
+          expr = new UnionConstant(mapIt->second, mapIt->second->type, (UnionType*) indexed->type);
         return;
       }
       INTERNAL_ERROR;

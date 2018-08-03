@@ -1003,6 +1003,24 @@ ThisExpr::ThisExpr(Scope* where)
   resolved = true;
 }
 
+UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
+{
+  INTERNAL_ASSERT(expr->constant());
+  value = expr;
+  unionType = ut;
+  type = unionType;
+  option = -1;
+  for(size_t i = 0; i < ut->options.size(); i++)
+  {
+    if(t == ut->options[i])
+    {
+      option = i;
+      break;
+    }
+  }
+  resolved = true;
+}
+
 /*************
  * Converted *
  *************/

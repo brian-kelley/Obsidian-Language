@@ -70,7 +70,7 @@ struct CodeStream
   }
   void err(string msg)
   {
-    errMsg("Lexical error at " << prevLine << ": " << prevCol << ": " << msg);
+    errMsgLocManual(fileID, prevLine, prevCol, msg);
   }
   string& src;
   vector<Token*>& toks;

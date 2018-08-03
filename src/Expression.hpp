@@ -297,14 +297,7 @@ struct MapConstant : public Expression
 //(which is guaranteed by semantic checking/implicit conversions)
 struct UnionConstant : public Expression
 {
-  UnionConstant(Expression* expr, UnionType* ut)
-  {
-    INTERNAL_ASSERT(expr->constant());
-    value = expr;
-    unionType = ut;
-    type = unionType;
-    resolved = true;
-  }
+  UnionConstant(Expression* expr, Type* t, UnionType* ut);
   bool assignable()
   {
     return false;
@@ -315,6 +308,7 @@ struct UnionConstant : public Expression
   }
   UnionType* unionType;
   Expression* value;
+  int option;
 };
 
 //it is impossible to determine the type of a CompoundLiteral by itself

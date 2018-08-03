@@ -53,16 +53,23 @@ namespace IR
     IRDebug::dumpIR("unoptimized.dot");
     for(auto& s : ir)
     {
-      cout << "  Constant-folding in " << s.first->name << '\n';
       constantFold(s.second);
     }
-    cout << "Dumping optimized IR.\n";
+    cout << "Dumping constant-folded IR.\n";
     IRDebug::dumpIR("constantFolded.dot");
+    for(auto& s : ir)
+    {
+      jumpThreading(s.second);
+      deadCodeElim(s.second);
+      deadCodeElim(s.second);
+    }
+    cout << "Dumping optimized IR.\n";
+    IRDebug::dumpIR("optimized.dot");
     return;
     /*
     //do a constant folding pass
-    //TODO: very easy to parallelize this
-    //as all subroutine are processed independently
+    //TODO: very easy to parallelize this,
+    //as subroutines are processed independently
     //
     //Figure out which globals are constants (for constant folding)
     determineGlobalConstants();
@@ -116,7 +123,7 @@ namespace IR
     }
     //create basic blocks: count non-label statements and detect boundaries
     //BBs start at jump targets (labels/after cond jump), after return, after jump
-    //several of these cases overlap naturally
+    //(several of these cases overlap naturally)
     vector<size_t> boundaries;
     boundaries.push_back(0);
     for(size_t i = 0; i < stmts.size(); i++)

@@ -132,7 +132,7 @@ void Assign::resolveImpl()
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");
   }
-  if(!rvalue->type->canConvert(lvalue->type))
+  if(!lvalue->type->canConvert(rvalue->type))
   {
     errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());
   }

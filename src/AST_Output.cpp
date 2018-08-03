@@ -322,6 +322,11 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("error");
   }
+  else if(auto uc = dynamic_cast<UnionConstant*>(e))
+  {
+    root = out.createNode("Union constant of " + e->type->getName());
+    out.createEdge(root, emitExpression(uc->value));
+  }
   else
   {
     cout << "Didn't implement emitExpression for type " << typeid(*e).name() << '\n';

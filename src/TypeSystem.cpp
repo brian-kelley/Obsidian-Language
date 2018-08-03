@@ -72,8 +72,7 @@ void createBuiltinTypes()
 
 Type* getArrayType(Type* elem, int ndims)
 {
-  if(!elem)
-    return nullptr;
+  resolveType(elem);
   if(ndims == 0)
     return elem;
   ArrayType* at = nullptr;
@@ -97,11 +96,8 @@ Type* getArrayType(Type* elem, int ndims)
 
 Type* getTupleType(vector<Type*>& members)
 {
-  for(auto mem : members)
-  {
-    if(mem == nullptr)
-      return nullptr;
-  }
+  for(auto& mem : members)
+    resolveType(mem);
   TupleType* newTuple = new TupleType(members);
   auto it = tuples.find(newTuple);
   if(it != tuples.end())
@@ -116,12 +112,7 @@ Type* getTupleType(vector<Type*>& members)
 
 Type* getUnionType(vector<Type*>& options)
 {
-  for(auto mem : options)
-  {
-    if(mem == nullptr)
-      return nullptr;
-  }
-  //only one option: union of one thing is itself
+  //only one option: union of one thing is just that thing
   if(options.size() == 1)
     return options.front();
   UnionType* ut = new UnionType(options);
@@ -135,7 +126,7 @@ Type* getUnionType(vector<Type*>& options)
   }
   else
   {
-    //use type (which is already in the set)
+    //use type that is already in the set
     delete ut;
     return *it;
   }
@@ -143,8 +134,8 @@ Type* getUnionType(vector<Type*>& options)
 
 Type* getMapType(Type* key, Type* value)
 {
-  if(!key || !value)
-    return nullptr;
+  resolveType(key);
+  resolveType(value);
   MapType* mt = new MapType(key, value);
   auto it = maps.find(mt);
   if(it == maps.end())
@@ -306,8 +297,7 @@ void StructType::resolveImpl()
       }
     }
   }
-  if(!scope->resolveAll())
-    return;
+  scope->resolveAll();
   //then add all the direct methods of this
   //need to search all submodules for subroutines and callable members
   for(auto& scopeName : scope->names)
@@ -405,6 +395,7 @@ void UnionType::resolveImpl()
 
 void UnionType::setDefault()
 {
+  /*
   for(size_t i = 0; i < options.size(); i++)
   {
     //find all the types reachable from this option,
@@ -459,12 +450,16 @@ void UnionType::setDefault()
     }
   }
   errMsg("all members of union type " << getName() << " contain the union");
+  */
+  defaultType = 0;
 }
 
 bool UnionType::canConvert(Type* other)
 {
-  //Assignment to a Union will use the first exact
-  //type match, then any successful conversion
+  if(other == this)
+  {
+    return true;
+  }
   for(auto op : options)
   {
     if(op->canConvert(other))
@@ -490,7 +485,7 @@ string UnionType::getName()
 
 Expression* UnionType::getDefaultValue()
 {
-  return new UnionConstant(options[0]->getDefaultValue(), this);
+  return new UnionConstant(options[0]->getDefaultValue(), options[0], this);
 }
 
 bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs)
@@ -1161,17 +1156,11 @@ void resolveType(Type*& t)
     {
       auto& unionList = unres->t.get<UnresolvedType::Union>();
       //resolve member types individually
-      bool allResolved = true;
       for(Type*& option : unionList.members)
       {
         resolveType(option);
-        if(!t->isResolved())
-          allResolved = false;
       }
-      if(allResolved)
-      {
-        finalType = getUnionType(unionList.members);
-      }
+      finalType = getUnionType(unionList.members);
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {

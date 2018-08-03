@@ -42,6 +42,9 @@ void Variable::resolveImpl()
   resolveExpr(initial);
   if(!type->canConvert(initial->type))
     errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
+  //convert initial value, if necessary
+  if(initial->type != type)
+    initial = new Converted(initial, type);
   resolved = true;
 }
 
