@@ -37,7 +37,7 @@ void determineGlobalConstants()
 static Expression* convertConstant(Expression* value, Type* type)
 {
   INTERNAL_ASSERT(value->constant());
-  int option = 0;
+  int option = -1;
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
     for(size_t i = 0; i < unionDst->options.size(); i++)
@@ -60,6 +60,8 @@ static Expression* convertConstant(Expression* value, Type* type)
         }
       }
     }
+    INTERNAL_ASSERT(option >= 0);
+    cout << "creating union constant of type " << unionDst->options[option]->getName() << ", value " << value << '\n';
     return new UnionConstant(value, unionDst->options[option], unionDst);
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
@@ -271,7 +273,7 @@ void foldExpression(Expression*& expr)
 {
   if(expr->constant())
   {
-    //only thing to do here is convert each string constant to char arrays
+    //only thing needed here is convert each string constant to char arrays
     if(auto str = dynamic_cast<StringConstant*>(expr))
     {
       vector<Expression*> chars;
@@ -494,6 +496,28 @@ void foldExpression(Expression*& expr)
     {
       foldExpression(arg);
     }
+  }
+  else if(auto isExpr = dynamic_cast<IsExpr*>(expr))
+  {
+    foldExpression(isExpr->base);
+    if(auto uc = dynamic_cast<UnionConstant*>(isExpr->base))
+    {
+      expr = new BoolConstant(uc->value->type == isExpr->option);
+    }
+  }
+  else if(auto asExpr = dynamic_cast<AsExpr*>(expr))
+  {
+    foldExpression(asExpr->base);
+    if(auto uc = dynamic_cast<UnionConstant*>(asExpr->base))
+    {
+      if(uc->value->type != asExpr->option)
+        errMsgLoc(asExpr, "known at compile time that union value is not a " << asExpr->option->getName());
+      expr = uc->value;
+    }
+  }
+  else
+  {
+    INTERNAL_ERROR;
   }
 }
 

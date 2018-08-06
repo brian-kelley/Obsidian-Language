@@ -29,25 +29,11 @@ bool simplifyCFG(SubroutineIR* subr)
           subr->stmts[boundary - 1] = nop;
         if(dynamic_cast<Label*>(subr->stmts[boundary]))
           subr->stmts[boundary] = nop;
-        //extend prevBB
-        prevBB->end = nextBB->end;
-        prevBB->out = nextBB->out;
-        for(auto nextOut : nextBB->out)
-        {
-          std::replace(nextOut->in.begin(), nextOut->in.end(), nextBB, prevBB);
-        }
-        //delete nextBB by shifting down all later blocks
-        for(size_t j = i; j < subr->blocks.size() - 1; j++)
-        {
-          subr->blocks[j] = subr->blocks[j + 1];
-        }
-        subr->blocks.pop_back();
+        subr->buildCFG();
       }
     }
     anyUpdate = anyUpdate || update;
   }
-  if(anyUpdate)
-    subr->buildCFG();
   return anyUpdate;
 }
 
@@ -123,13 +109,6 @@ bool jumpThreading(SubroutineIR* subr)
   }
   if(update)
     subr->buildCFG();
-  /*
-  if(simplifyCFG(subr))
-  {
-    subr->buildCFG();
-    update = true;
-  }
-  */
   return update;
 }
 

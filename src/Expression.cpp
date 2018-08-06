@@ -1953,7 +1953,7 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(UnionConstant* uc = dynamic_cast<UnionConstant*>(e))
   {
-    os << uc->value->type->getName() << ' ' << uc->value;
+    os << uc->value->type->getName() << ": " << uc->value;
   }
   else if(Indexed* in = dynamic_cast<Indexed*>(e))
   {
