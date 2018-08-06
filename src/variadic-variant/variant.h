@@ -143,7 +143,7 @@ public:
 	}
 
   template<typename X>
-  bool is() {
+  bool is() const {
 		static_assert(
 			impl::position<X, Types...>::pos != -1,
 			"Type not in variant."

@@ -441,6 +441,35 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
 #undef DO_OP
 }
 
+bool operator==(const IntConstant& lhs, const IntConstant& rhs)
+{
+  IntegerType* lhsType = (IntegerType*) lhs.type;
+  IntegerType* rhsType = (IntegerType*) rhs.type;
+  if(lhsType != rhsType)
+    return false;
+  if(lhs.isSigned())
+    return lhs.sval == rhs.sval;
+  return lhs.uval == rhs.uval;
+}
+
+bool operator<(const IntConstant& lhs, const IntConstant& rhs)
+{
+  //signed < unsigned, then narrower < wider, then compare values
+  if(lhs.isSigned() && !rhs.isSigned())
+    return true;
+  else if(!lhs.isSigned() && rhs.isSigned())
+    return false;
+  IntegerType* lhsType = (IntegerType*) lhs.type;
+  IntegerType* rhsType = (IntegerType*) rhs.type;
+  if(lhsType->size < rhsType->size)
+    return true;
+  else if(lhsType->size > rhsType->size)
+    return false;
+  if(lhs.isSigned())
+    return lhs.sval < rhs.sval;
+  return lhs.uval < rhs.uval;
+}
+
 Expression* FloatConstant::convert(Type* t)
 {
   //first, just promote to double
@@ -546,6 +575,122 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
   return result;
 }
 
+bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
+{
+  if(lhs.type != rhs.type)
+    return false;
+  if(lhs.isDoublePrec())
+    return lhs.dp == rhs.dp;
+  return lhs.fp == rhs.fp;
+}
+
+bool operator<(const FloatConstant& lhs, const FloatConstant& rhs)
+{
+  //float < double, then compare values
+  if(!lhs.isDoublePrec() && rhs.isDoublePrec())
+    return true;
+  if(lhs.isDoublePrec() && !rhs.isDoublePrec())
+    return false;
+  if(lhs.isDoublePrec())
+    return lhs.dp < rhs.dp;
+  return lhs.fp < rhs.fp;
+}
+
+bool operator==(const StringConstant& lhs, const StringConstant& rhs)
+{
+  return lhs.value == rhs.value;
+}
+
+bool operator<(const StringConstant& lhs, const StringConstant& rhs)
+{
+  return lhs.value < rhs.value;
+}
+
+bool operator==(const CharConstant& lhs, const CharConstant& rhs)
+{
+  return lhs.value == rhs.value;
+}
+
+bool operator<(const CharConstant& lhs, const CharConstant& rhs)
+{
+  return lhs.value < rhs.value;
+}
+
+bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
+{
+  return lhs.value == rhs.value;
+}
+
+bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
+{
+  return !lhs.value && rhs.value;
+}
+
+bool operator==(const MapConstant& lhs, const MapConstant& rhs)
+{
+  auto& l = lhs.values;
+  auto& r = rhs.values;
+  if(l.size() != r.size())
+    return false;
+  auto lhsIt = l.begin();
+  auto rhsIt = r.begin();
+  while(lhsIt != l.end())
+  {
+    if(lhsIt->first != rhsIt->first ||
+        lhsIt->second != rhsIt->second)
+    {
+      return false;
+    }
+    lhsIt++;
+    rhsIt++;
+  }
+  return true;
+}
+
+bool operator<(const MapConstant& lhs, const MapConstant& rhs)
+{
+  auto& l = lhs.values;
+  auto& r = rhs.values;
+  auto lhsIt = l.begin();
+  auto rhsIt = r.begin();
+  while(lhsIt != l.end() &&
+      rhsIt != r.end())
+  {
+    if(lhsIt->first < rhsIt->first)
+      return true;
+    else if(lhsIt->first > rhsIt->first)
+      return false;
+    else if(lhsIt->second < rhsIt->second)
+      return true;
+    else if(lhsIt->second> rhsIt->second)
+      return false;
+    lhsIt++;
+    rhsIt++;
+  }
+  if(lhsIt == l.end())
+  {
+    //lhs is a smaller set
+    return true;
+  }
+  return false;
+}
+
+bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
+{
+  return lhs.option == rhs.option && lhs.value == rhs.value;
+}
+
+bool operator<(const UnionConstant& lhs, const UnionConstant& rhs)
+{
+  if(lhs.option < rhs.option)
+    return true;
+  else if(lhs.option > rhs.option)
+    return false;
+  else if(lhs.value < rhs.value)
+    return true;
+  return false;
+}
+
 /*******************
  * CompoundLiteral *
  *******************/
@@ -597,6 +742,37 @@ set<Variable*> CompoundLiteral::getWrites()
     writes.insert(memWrites.begin(), memWrites.end());
   }
   return writes;
+}
+
+bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
+{
+  auto& l = lhs.members;
+  auto& r = rhs.members;
+  if(l.size() != r.size())
+    return false;
+  for(size_t i = 0; i < l.size(); i++)
+  {
+    if(l[i] != r[i])
+      return false;
+  }
+  return true;
+}
+
+bool operator<(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
+{
+  auto& l = lhs.members;
+  auto& r = rhs.members;
+  size_t i;
+  for(i = 0;; i++)
+  {
+    if(i == l.size() || i == r.size())
+      break;
+    if(l[i] < r[i])
+      return true;
+    else if(l[i] > r[i])
+      return false;
+  }
+  return i == l.size() && i != r.size();
 }
 
 /***********
@@ -679,6 +855,17 @@ set<Variable*> Indexed::getWrites()
   return group->getWrites();
 }
 
+bool operator==(const Indexed& lhs, const Indexed& rhs)
+{
+  return lhs.group == rhs.group && lhs.index == rhs.index;
+}
+
+bool operator<(const Indexed& lhs, const Indexed& rhs)
+{
+  return lhs.group < rhs.group ||
+    (lhs.group == rhs.group && lhs.index < rhs.index);
+}
+
 /************
  * CallExpr *
  ************/
@@ -747,6 +934,37 @@ set<Variable*> CallExpr::getReads()
   return reads;
 }
 
+bool operator==(const CallExpr& lhs, const CallExpr& rhs)
+{
+  if(lhs.callable != rhs.callable)
+    return false;
+  INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
+  for(size_t i = 0; i < lhs.args.size(); i++)
+  {
+    if(lhs.args[i] != rhs.args[i])
+      return false;
+  }
+  return true;
+}
+
+bool operator<(const CallExpr& lhs, const CallExpr& rhs)
+{
+  if(lhs.callable < rhs.callable)
+    return true;
+  else if(lhs.callable > rhs.callable)
+    return false;
+  //otherwise callable is same, so both have same # arguments
+  INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
+  for(size_t i = 0; i < lhs.args.size(); i++)
+  {
+    if(lhs.args[i] < rhs.args[i])
+      return true;
+    else if(lhs.args[i] > rhs.args[i])
+      return false;
+  }
+  return false;
+}
+
 /***********
  * VarExpr *
  ***********/
@@ -788,6 +1006,16 @@ set<Variable*> VarExpr::getWrites()
   set<Variable*> writes;
   writes.insert(var);
   return writes;
+}
+
+bool operator==(const VarExpr& lhs, const VarExpr& rhs)
+{
+  return lhs.var == rhs.var;
+}
+
+bool operator<(const VarExpr& lhs, const VarExpr& rhs)
+{
+  return lhs.var->id < rhs.var->id;
 }
 
 /******************
@@ -841,6 +1069,53 @@ void SubroutineExpr::resolveImpl()
   }
 }
 
+bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
+{
+  return lhs.subr == rhs.subr &&
+    lhs.exSubr == rhs.exSubr &&
+    lhs.thisObject == rhs.thisObject;
+}
+
+bool operator<(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
+{
+  enum
+  {
+    NORMAL,
+    MEMBER,
+    EXTERNAL
+  };
+  int lhsKind = NORMAL;
+  if(lhs.thisObject)
+    lhsKind = MEMBER;
+  else if(lhs.exSubr)
+    lhsKind = EXTERNAL;
+  int rhsKind = NORMAL;
+  if(rhs.thisObject)
+    rhsKind = MEMBER;
+  else if(rhs.exSubr)
+    rhsKind = EXTERNAL;
+  if(lhsKind < rhsKind)
+    return true;
+  else if(lhsKind > rhsKind)
+    return false;
+  if(lhsKind == NORMAL)
+    return lhs.subr->id < rhs.subr->id;
+  else if(lhsKind == MEMBER)
+  {
+    if(lhs.subr->id < rhs.subr->id)
+      return true;
+    else if(lhs.subr->id > rhs.subr->id)
+      return false;
+    else if(lhs.thisObject < rhs.thisObject)
+      return true;
+    else if(lhs.thisObject > rhs.thisObject)
+      return false;
+    return false;
+  }
+  else
+    return lhs.exSubr->id < rhs.exSubr->id;
+}
+
 /*************
  * StructMem *
  *************/
@@ -892,6 +1167,34 @@ set<Variable*> StructMem::getWrites()
   return base->getWrites();
 }
 
+bool operator==(const StructMem& lhs, const StructMem& rhs)
+{
+  if(lhs.base != rhs.base)
+    return false;
+  if(lhs.member.is<Variable*>() != rhs.member.is<Variable*>())
+    return false;
+  if(lhs.member.is<Variable*>())
+    return lhs.member.get<Variable*>()->id == rhs.member.get<Variable*>()->id;
+  else
+    return lhs.member.get<Subroutine*>()->id == rhs.member.get<Subroutine*>()->id;
+}
+
+bool operator<(const StructMem& lhs, const StructMem& rhs)
+{
+  if(lhs.base < rhs.base)
+    return true;
+  else if(lhs.base > rhs.base)
+    return false;
+  else if(lhs.member.is<Variable*>() && rhs.member.is<Subroutine*>())
+    return true;
+  else if(lhs.member.is<Subroutine*>() && rhs.member.is<Variable*>())
+    return false;
+  else if(lhs.member.is<Variable*>())
+    return lhs.member.get<Variable*>()->id < rhs.member.get<Variable*>()->id;
+  else
+    return lhs.member.get<Subroutine*>()->id < rhs.member.get<Subroutine*>()->id;
+}
+
 /************
  * NewArray *
  ************/
@@ -915,6 +1218,38 @@ void NewArray::resolveImpl()
   }
   type = getArrayType(elem, dims.size());
   resolved = true;
+}
+
+bool operator==(const NewArray& lhs, const NewArray& rhs)
+{
+  if(lhs.type != rhs.type)
+    return false;
+  if(lhs.dims.size() != rhs.dims.size())
+    return false;
+  for(size_t i = 0; i < lhs.dims.size(); i++)
+  {
+    if(lhs.dims[i] != rhs.dims[i])
+      return false;
+  }
+  return true;
+}
+
+bool operator<(const NewArray& lhs, const NewArray& rhs)
+{
+  //TODO: implement comparison of types
+  if(lhs.type < rhs.type)
+    return true;
+  else if(lhs.type > rhs.type)
+    return false;
+  //same types, so just compare the dimensions lexicographically
+  for(size_t i = 0; i < lhs.dims.size(); i++)
+  {
+    if(lhs.dims[i] < rhs.dims[i])
+      return true;
+    else if(lhs.dims[i] > rhs.dims[i])
+      return false;
+  }
+  return false;
 }
 
 /***************
@@ -944,6 +1279,16 @@ set<Variable*> ArrayLength::getReads()
   return array->getReads();
 }
 
+bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
+{
+  return lhs.array == rhs.array;
+}
+
+bool operator<(const ArrayLength& lhs, const ArrayLength& rhs)
+{
+  return lhs.array < rhs.array;
+}
+
 void IsExpr::resolveImpl()
 {
   resolveExpr(base);
@@ -965,6 +1310,22 @@ void IsExpr::resolveImpl()
   }
 }
 
+bool operator==(const IsExpr& lhs, const IsExpr& rhs)
+{
+  return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
+}
+
+bool operator<(const IsExpr& lhs, const IsExpr& rhs)
+{
+  if(lhs.base < rhs.base)
+    return true;
+  else if(lhs.base > rhs.base)
+    return false;
+  else if(lhs.optionIndex < rhs.optionIndex)
+    return true;
+  return false;
+}
+
 void AsExpr::resolveImpl()
 {
   resolveExpr(base);
@@ -984,6 +1345,22 @@ void AsExpr::resolveImpl()
       return;
     }
   }
+}
+
+bool operator==(const AsExpr& lhs, const AsExpr& rhs)
+{
+  return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
+}
+
+bool operator<(const AsExpr& lhs, const AsExpr& rhs)
+{
+  if(lhs.base < rhs.base)
+    return true;
+  else if(lhs.base > rhs.base)
+    return false;
+  else if(lhs.optionIndex < rhs.optionIndex)
+    return true;
+  return false;
 }
 
 /************
@@ -1048,6 +1425,22 @@ set<Variable*> Converted::getReads()
   return value->getReads();
 }
 
+bool operator==(const Converted& lhs, const Converted& rhs)
+{
+  return lhs.type == rhs.type && lhs.value == rhs.value;
+}
+
+bool operator<(const Converted& lhs, const Converted& rhs)
+{
+  if(lhs.type < rhs.type)
+    return true;
+  else if(lhs.type > rhs.type)
+    return false;
+  else if(lhs.value < rhs.value)
+    return true;
+  return false;
+}
+
 /************
  * EnumExpr *
  ************/
@@ -1057,6 +1450,24 @@ EnumExpr::EnumExpr(EnumConstant* ec)
   type = ec->et;
   value = ec;
   resolved = true;
+}
+
+bool operator==(const EnumExpr& lhs, const EnumExpr& rhs)
+{
+  return lhs.value == rhs.value;
+}
+
+bool operator<(const EnumExpr& lhs, const EnumExpr& rhs)
+{
+  if(lhs.type < rhs.type)
+    return true;
+  else if(lhs.type > rhs.type)
+    return false;
+  EnumType* en = (EnumType*) lhs.type;
+  if(en->underlying->isSigned)
+    return lhs.value->sval < rhs.value->sval;
+  else
+    return lhs.value->uval < rhs.value->uval;
 }
 
 /*********
@@ -1257,6 +1668,217 @@ void resolveExpr(Expression*& expr)
   //save lexical location of original parsed expression
   base->setLocation(expr);
   expr = base;
+}
+
+bool operator==(const Expression& l, const Expression& r)
+{
+  const Expression* lhs = &l;
+  const Expression* rhs = &r;
+  if(lhs->getTypeTag() != rhs->getTypeTag())
+    return false;
+  //now have to compare the individual types of expressions
+  //(know that they are the same type)
+  if(auto icLHS = dynamic_cast<const IntConstant*>(lhs))
+  {
+    auto icRHS = dynamic_cast<const IntConstant*>(rhs);
+    return *icLHS < *icRHS;
+  }
+  else if(auto fcLHS = dynamic_cast<const FloatConstant*>(lhs))
+  {
+    auto fcRHS = dynamic_cast<const FloatConstant*>(rhs);
+    return *fcLHS == *fcRHS;
+  }
+  else if(auto scLHS = dynamic_cast<const StringConstant*>(lhs))
+  {
+    auto scRHS = dynamic_cast<const StringConstant*>(rhs);
+    return *scLHS == *scRHS;
+  }
+  else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
+  {
+    auto bcRHS = dynamic_cast<const BoolConstant*>(rhs);
+    return *bcLHS == *bcRHS;
+  }
+  else if(auto mcLHS = dynamic_cast<const MapConstant*>(lhs))
+  {
+    auto mcRHS = dynamic_cast<const MapConstant*>(rhs);
+    return *mcLHS == *mcRHS;
+  }
+  else if(auto clLHS = dynamic_cast<const CompoundLiteral*>(lhs))
+  {
+    auto clRHS = dynamic_cast<const CompoundLiteral*>(rhs);
+    return *clLHS == *clRHS;
+  }
+  else if(auto ucLHS = dynamic_cast<const UnionConstant*>(lhs))
+  {
+    auto ucRHS = dynamic_cast<const UnionConstant*>(rhs);
+    return *ucLHS == *ucRHS;
+  }
+  else if(auto uaLHS = dynamic_cast<const UnaryArith*>(lhs))
+  {
+    auto uaRHS = dynamic_cast<const UnaryArith*>(rhs);
+    return *uaLHS == *uaRHS;
+  }
+  else if(auto baLHS = dynamic_cast<const BinaryArith*>(lhs))
+  {
+    auto baRHS = dynamic_cast<const BinaryArith*>(rhs);
+    return *baLHS == *baRHS;
+  }
+  else if(auto indLHS = dynamic_cast<const Indexed*>(lhs))
+  {
+    auto indRHS = dynamic_cast<const Indexed*>(rhs);
+    return *indLHS == *indRHS;
+  }
+  else if(auto naLHS = dynamic_cast<const NewArray*>(lhs))
+  {
+    auto naRHS = dynamic_cast<const NewArray*>(rhs);
+    return *naLHS == *naRHS;
+  }
+  else if(auto alLHS = dynamic_cast<const ArrayLength*>(lhs))
+  {
+    auto alRHS = dynamic_cast<const ArrayLength*>(rhs);
+    return *alLHS == *alRHS;
+  }
+  else if(auto asLHS = dynamic_cast<const AsExpr*>(lhs))
+  {
+    auto asRHS = dynamic_cast<const AsExpr*>(rhs);
+    return *asLHS == *asRHS;
+  }
+  else if(auto isLHS = dynamic_cast<const IsExpr*>(lhs))
+  {
+    auto isRHS = dynamic_cast<const IsExpr*>(rhs);
+    return *isLHS == *isRHS;
+  }
+  else if(auto callLHS = dynamic_cast<const CallExpr*>(lhs))
+  {
+    auto callRHS = dynamic_cast<const CallExpr*>(rhs);
+    return *callLHS == *callRHS;
+  }
+  else if(auto varLHS = dynamic_cast<const VarExpr*>(lhs))
+  {
+    auto varRHS = dynamic_cast<const VarExpr*>(rhs);
+    return *varLHS == *varRHS;
+  }
+  else if(auto convLHS = dynamic_cast<const Converted*>(lhs))
+  {
+    auto convRHS = dynamic_cast<const Converted*>(rhs);
+    return *convLHS == *convRHS;
+  }
+  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const ErrorVal*>(lhs))
+  {
+    return true;
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
+  return false;
+}
+
+bool operator<(const Expression& l, const Expression& r)
+{
+  const Expression* lhs = &l;
+  const Expression* rhs = &r;
+  if(lhs->getTypeTag() < rhs->getTypeTag())
+    return true;
+  else if(lhs->getTypeTag() > rhs->getTypeTag())
+    return false;
+  //now have to compare the individual types of expressions
+  //(know that they are the same type)
+  if(auto icLHS = dynamic_cast<const IntConstant*>(lhs))
+  {
+    auto icRHS = dynamic_cast<const IntConstant*>(rhs);
+    return *icLHS < *icRHS;
+  }
+  else if(auto fcLHS = dynamic_cast<const FloatConstant*>(lhs))
+  {
+    auto fcRHS = dynamic_cast<const FloatConstant*>(rhs);
+    return *fcLHS < *fcRHS;
+  }
+  else if(auto scLHS = dynamic_cast<const StringConstant*>(lhs))
+  {
+    auto scRHS = dynamic_cast<const StringConstant*>(rhs);
+    return *scLHS < *scRHS;
+  }
+  else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
+  {
+    auto bcRHS = dynamic_cast<const BoolConstant*>(rhs);
+    return *bcLHS < *bcRHS;
+  }
+  else if(auto mcLHS = dynamic_cast<const MapConstant*>(lhs))
+  {
+    auto mcRHS = dynamic_cast<const MapConstant*>(rhs);
+    return *mcLHS < *mcRHS;
+  }
+  else if(auto clLHS = dynamic_cast<const CompoundLiteral*>(lhs))
+  {
+    auto clRHS = dynamic_cast<const CompoundLiteral*>(rhs);
+    return *clLHS < *clRHS;
+  }
+  else if(auto ucLHS = dynamic_cast<const UnionConstant*>(lhs))
+  {
+    auto ucRHS = dynamic_cast<const UnionConstant*>(rhs);
+    return *ucLHS < *ucRHS;
+  }
+  else if(auto uaLHS = dynamic_cast<const UnaryArith*>(lhs))
+  {
+    auto uaRHS = dynamic_cast<const UnaryArith*>(rhs);
+    return *uaLHS < *uaRHS;
+  }
+  else if(auto baLHS = dynamic_cast<const BinaryArith*>(lhs))
+  {
+    auto baRHS = dynamic_cast<const BinaryArith*>(rhs);
+    return *baLHS < *baRHS;
+  }
+  else if(auto indLHS = dynamic_cast<const Indexed*>(lhs))
+  {
+    auto indRHS = dynamic_cast<const Indexed*>(rhs);
+    return *indLHS < *indRHS;
+  }
+  else if(auto naLHS = dynamic_cast<const NewArray*>(lhs))
+  {
+    auto naRHS = dynamic_cast<const NewArray*>(rhs);
+    return *naLHS < *naRHS;
+  }
+  else if(auto alLHS = dynamic_cast<const ArrayLength*>(lhs))
+  {
+    auto alRHS = dynamic_cast<const ArrayLength*>(rhs);
+    return *alLHS < *alRHS;
+  }
+  else if(auto asLHS = dynamic_cast<const AsExpr*>(lhs))
+  {
+    auto asRHS = dynamic_cast<const AsExpr*>(rhs);
+    return *asLHS < *asRHS;
+  }
+  else if(auto isLHS = dynamic_cast<const IsExpr*>(lhs))
+  {
+    auto isRHS = dynamic_cast<const IsExpr*>(rhs);
+    return *isLHS < *isRHS;
+  }
+  else if(auto callLHS = dynamic_cast<const CallExpr*>(lhs))
+  {
+    auto callRHS = dynamic_cast<const CallExpr*>(rhs);
+    return *callLHS < *callRHS;
+  }
+  else if(auto varLHS = dynamic_cast<const VarExpr*>(lhs))
+  {
+    auto varRHS = dynamic_cast<const VarExpr*>(rhs);
+    return *varLHS < *varRHS;
+  }
+  else if(auto convLHS = dynamic_cast<const Converted*>(lhs))
+  {
+    auto convRHS = dynamic_cast<const Converted*>(rhs);
+    return *convLHS < *convRHS;
+  }
+  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const ErrorVal*>(lhs))
+  {
+    //always the same, so a < b always false
+    return false;
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
+  return false;
 }
 
 ostream& operator<<(ostream& os, Expression* e)

@@ -26,7 +26,10 @@ bool deadCodeElim(SubroutineIR* subr)
       }
     }
   }
-  size_t stmtsBefore = subr->stmts.size();
+  if(update)
+  {
+    subr->buildCFG();
+  }
   //do a breadth-first search of reachability from the first
   //BB to delete all unreachable code in one pass
   enum
@@ -55,7 +58,10 @@ bool deadCodeElim(SubroutineIR* subr)
     for(auto neighbor : process->out)
     {
       if(blockVisits[neighbor] == NOT_VISITED)
+      {
         visitQueue.push(neighbor);
+        blockVisits[neighbor] = QUEUED;
+      }
     }
   }
   for(auto bb : subr->blocks)

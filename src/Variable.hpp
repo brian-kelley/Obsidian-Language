@@ -34,9 +34,9 @@ struct Variable : public Node
   //the initial value of this variable/member, instead of the default "0"
   //for locals, this is left NULL since the initial assignment is a statement
   Expression* initial;
-  //for local variables only: the position of VarDecl in the list of statements
-  //used to check for use-before-declare errors
-  int blockPos;
+  //Each variable gets a unique ID (used for comparing expressions)
+  //Comparing pointers is OK for ==, but this way is deterministic
+  int id;
 };
 
 #endif

@@ -1,13 +1,14 @@
 #include "Variable.hpp"
 #include "Subroutine.hpp"
 
+static int nextVarID = 0;
+
 Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic, bool compose)
 {
   scope = s;
   name = n;
   type = t;
   owner = s->getMemberContext();
-  blockPos = -1;
   initial = init;
   //if this variable is nonstatic and is inside a struct, add it as member
   if(!isStatic && owner)
@@ -16,6 +17,7 @@ Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic,
     owner->members.push_back(this);
     owner->composed.push_back(compose);
   }
+  id = nextVarID++;
 }
 
 Variable::Variable(string n, Type* t, Block* b)
@@ -27,7 +29,7 @@ Variable::Variable(string n, Type* t, Block* b)
   //by inserting an Assign statement at point of declaration
   initial = nullptr;
   owner = nullptr;
-  blockPos = b->statementCount;
+  id = nextVarID++;
 }
 
 void Variable::resolveImpl()

@@ -162,18 +162,22 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
     return nullptr;
   //Comparison operations easy because
   //all constant Expressions support comparison
-  if(op == CMPEQ)
-    return new BoolConstant(lhs == rhs);
-  if(op == CMPNEQ)
-    return new BoolConstant(!(lhs == rhs));
-  if(op == CMPL)
-    return new BoolConstant(lhs < rhs);
-  if(op == CMPG)
-    return new BoolConstant(rhs < lhs);
-  if(op == CMPLE)
-    return new BoolConstant(!(rhs < lhs));
-  if(op == CMPGE)
-    return new BoolConstant(!(lhs < rhs));
+  switch(op)
+  {
+    case CMPEQ:
+      return new BoolConstant(lhs == rhs);
+    case CMPNEQ:
+      return new BoolConstant(!(lhs == rhs));
+    case CMPL:
+      return new BoolConstant(lhs < rhs);
+    case CMPG:
+      return new BoolConstant(rhs < lhs);
+    case CMPLE:
+      return new BoolConstant(!(rhs < lhs));
+    case CMPGE:
+      return new BoolConstant(!(lhs < rhs));
+    default:;
+  }
   if(op == PLUS)
   {
     bool oversize =

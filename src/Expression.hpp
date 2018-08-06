@@ -34,6 +34,9 @@ struct Expression : public Node
   {
     return 0;
   }
+  //get a unique tag for this expression type
+  //just used for comparing/ordering Expressions
+  virtual int getTypeTag() const = 0;
 };
 
 //Subclasses of Expression
@@ -76,6 +79,10 @@ struct UnaryArith : public Expression
   }
   void resolveImpl();
   set<Variable*> getReads();
+  int getTypeTag() const
+  {
+    return 0;
+  }
 };
 
 struct BinaryArith : public Expression
@@ -89,6 +96,10 @@ struct BinaryArith : public Expression
   bool assignable()
   {
     return false;
+  }
+  int getTypeTag() const
+  {
+    return 1;
   }
 };
 
@@ -140,11 +151,18 @@ struct IntConstant : public Expression
   {
     return ((IntegerType*) type)->size;
   }
-  bool isSigned()
+  bool isSigned() const
   {
     return ((IntegerType*) type)->isSigned;
   }
+  int getTypeTag() const
+  {
+    return 2;
+  }
 };
+
+bool operator==(const IntConstant& lhs, const IntConstant& rhs);
+bool operator<(const IntConstant& lhs, const IntConstant& rhs);
 
 struct FloatConstant : public Expression
 {
@@ -173,9 +191,9 @@ struct FloatConstant : public Expression
     type = primitives[Prim::DOUBLE];
     resolved = true;
   }
-  bool isDoublePrec()
+  bool isDoublePrec() const
   {
-    return getConstantSize() == 8;
+    return primitives[Prim::DOUBLE] == this->type;
   }
   float fp;
   double dp;
@@ -193,7 +211,14 @@ struct FloatConstant : public Expression
     return ((FloatType*) type)->size;
   }
   Expression* convert(Type* t);
+  int getTypeTag() const
+  {
+    return 3;
+  }
 };
+
+bool operator==(const FloatConstant& lhs, const FloatConstant& rhs);
+bool operator<(const FloatConstant& lhs, const FloatConstant& rhs);
 
 struct StringConstant : public Expression
 {
@@ -217,7 +242,14 @@ struct StringConstant : public Expression
   {
     return 16 + value.length() + 1;
   }
+  int getTypeTag() const
+  {
+    return 4;
+  }
 };
+
+bool operator==(const StringConstant& lhs, const StringConstant& rhs);
+bool operator<(const StringConstant& lhs, const StringConstant& rhs);
 
 struct CharConstant : public Expression
 {
@@ -242,7 +274,14 @@ struct CharConstant : public Expression
   {
     return true;
   }
+  int getTypeTag() const
+  {
+    return 5;
+  }
 };
+
+bool operator==(const CharConstant& lhs, const CharConstant& rhs);
+bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
 struct BoolConstant : public Expression
 {
@@ -265,7 +304,14 @@ struct BoolConstant : public Expression
   {
     return 1;
   }
+  int getTypeTag() const
+  {
+    return 6;
+  }
 };
+
+bool operator==(const CharConstant& lhs, const CharConstant& rhs);
+bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
 //Map constant: hold set of constant key-value pairs
 //Relies on operator== and operator< for Expressions
@@ -290,7 +336,14 @@ struct MapConstant : public Expression
   {
     return false;
   }
+  int getTypeTag() const
+  {
+    return 7;
+  }
 };
+
+bool operator==(const MapConstant& lhs, const MapConstant& rhs);
+bool operator<(const MapConstant& lhs, const MapConstant& rhs);
 
 //UnionConstant only used in IR/optimization
 //expr->type exactly matches exactly one of ut's options
@@ -306,13 +359,20 @@ struct UnionConstant : public Expression
   {
     return true;
   }
+  int getTypeTag() const
+  {
+    return 8;
+  }
   UnionType* unionType;
   Expression* value;
   int option;
 };
 
+bool operator==(const UnionConstant& lhs, const UnionConstant& rhs);
+bool operator<(const UnionConstant& lhs, const UnionConstant& rhs);
+
 //it is impossible to determine the type of a CompoundLiteral by itself
-//CompoundLiteral covers both array and struct literals
+//(CompoundLiteral covers array, struct and tuple literals)
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(vector<Expression*>& mems);
@@ -343,7 +403,14 @@ struct CompoundLiteral : public Expression
     }
     return total;
   }
+  int getTypeTag() const
+  {
+    return 9;
+  }
 };
+
+bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
+bool operator<(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
 
 struct Indexed : public Expression
 {
@@ -355,9 +422,16 @@ struct Indexed : public Expression
   {
     return group->assignable();
   }
+  int getTypeTag() const
+  {
+    return 10;
+  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
+
+bool operator==(const Indexed& lhs, const Indexed& rhs);
+bool operator<(const Indexed& lhs, const Indexed& rhs);
 
 struct CallExpr : public Expression
 {
@@ -369,9 +443,16 @@ struct CallExpr : public Expression
   {
     return false;
   }
+  int getTypeTag() const
+  {
+    return 11;
+  }
   //TODO: do evaluate calls in optimizing mode
   set<Variable*> getReads();
 };
+
+bool operator==(const CallExpr& lhs, const CallExpr& rhs);
+bool operator<(const CallExpr& lhs, const CallExpr& rhs);
 
 struct VarExpr : public Expression
 {
@@ -385,9 +466,16 @@ struct VarExpr : public Expression
     //all variables are lvalues
     return true;
   }
+  int getTypeTag() const
+  {
+    return 12;
+  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
+
+bool operator==(const VarExpr& lhs, const VarExpr& rhs);
+bool operator<(const VarExpr& lhs, const VarExpr& rhs);
 
 //Expression to represent constant callable
 //May be standalone, or may be applied to an object
@@ -405,10 +493,17 @@ struct SubroutineExpr : public Expression
   {
     return true;
   }
+  int getTypeTag() const
+  {
+    return 13;
+  }
   Subroutine* subr;
   ExternalSubroutine* exSubr;
   Expression* thisObject; //null for static/extern
 };
+
+bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
+bool operator<(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
 
 struct UnresolvedExpr : public Expression
 {
@@ -426,6 +521,10 @@ struct UnresolvedExpr : public Expression
   {
     INTERNAL_ERROR;
   }
+  int getTypeTag() const
+  {
+    return 14;
+  }
 };
 
 struct StructMem : public Expression
@@ -439,9 +538,16 @@ struct StructMem : public Expression
   {
     return base->assignable() && member.is<Variable*>();
   }
+  int getTypeTag() const
+  {
+    return 15;
+  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
+
+bool operator==(const StructMem& lhs, const StructMem& rhs);
+bool operator<(const StructMem& lhs, const StructMem& rhs);
 
 struct NewArray : public Expression
 {
@@ -453,7 +559,14 @@ struct NewArray : public Expression
   {
     return false;
   }
+  int getTypeTag() const
+  {
+    return 16;
+  }
 };
+
+bool operator==(const NewArray& lhs, const NewArray& rhs);
+bool operator<(const NewArray& lhs, const NewArray& rhs);
 
 struct ArrayLength : public Expression
 {
@@ -464,8 +577,15 @@ struct ArrayLength : public Expression
   {
     return false;
   }
+  int getTypeTag() const
+  {
+    return 17;
+  }
   set<Variable*> getReads();
 };
+
+bool operator==(const ArrayLength& lhs, const ArrayLength& rhs);
+bool operator<(const ArrayLength& lhs, const ArrayLength& rhs);
 
 struct IsExpr : public Expression
 {
@@ -486,11 +606,18 @@ struct IsExpr : public Expression
   {
     return base->getReads();
   }
+  int getTypeTag() const
+  {
+    return 18;
+  }
   Expression* base;
   UnionType* ut;
   int optionIndex;
   Type* option;
 };
+
+bool operator==(const IsExpr& lhs, const IsExpr& rhs);
+bool operator<(const IsExpr& lhs, const IsExpr& rhs);
 
 struct AsExpr : public Expression
 {
@@ -511,11 +638,18 @@ struct AsExpr : public Expression
   {
     return base->getReads();
   }
+  int getTypeTag() const
+  {
+    return 19;
+  }
   Expression* base;
   UnionType* ut;
   int optionIndex;
   Type* option;
 };
+
+bool operator==(const AsExpr& lhs, const AsExpr& rhs);
+bool operator<(const AsExpr& lhs, const AsExpr& rhs);
 
 struct ThisExpr : public Expression
 {
@@ -525,6 +659,10 @@ struct ThisExpr : public Expression
   bool assignable()
   {
     return true;
+  }
+  int getTypeTag() const
+  {
+    return 20;
   }
 };
 
@@ -536,8 +674,15 @@ struct Converted : public Expression
   {
     return value->assignable();
   }
+  int getTypeTag() const
+  {
+    return 21;
+  }
   set<Variable*> getReads();
 };
+
+bool operator==(const Converted& lhs, const Converted& rhs);
+bool operator<(const Converted& lhs, const Converted& rhs);
 
 struct EnumExpr : public Expression
 {
@@ -551,7 +696,14 @@ struct EnumExpr : public Expression
   {
     return true;
   }
+  int getTypeTag() const
+  {
+    return 22;
+  }
 };
+
+bool operator==(const EnumExpr& lhs, const EnumExpr& rhs);
+bool operator<(const EnumExpr& lhs, const EnumExpr& rhs);
 
 struct ErrorVal : public Expression
 {
@@ -564,9 +716,33 @@ struct ErrorVal : public Expression
   {
     return true;
   }
+  int getTypeTag() const
+  {
+    return 23;
+  }
 };
 
 void resolveExpr(Expression*& expr);
+
+//compare expressions by value/semantics (not by pointer)
+bool operator==(const Expression& lhs, const Expression& rhs);
+inline bool operator!=(const Expression& lhs, const Expression& rhs)
+{
+  return !(lhs == rhs);
+}
+bool operator<(const Expression& lhs, const Expression& rhs);
+inline bool operator>(const Expression& lhs, const Expression& rhs)
+{
+  return rhs < lhs;
+}
+inline bool operator<=(const Expression& lhs, const Expression& rhs)
+{
+  return !(lhs > rhs);
+}
+inline bool operator>=(const Expression& lhs, const Expression& rhs)
+{
+  return !(lhs < rhs);
+}
 
 //expr must be resolved
 ostream& operator<<(ostream& os, Expression* expr);

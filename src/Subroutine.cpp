@@ -4,6 +4,9 @@
 
 using std::find;
 
+static int nextSubrID = 0;
+static int nextExSubrID = 0;
+
 bool programHasMain = false;
 extern Module* global;
 
@@ -16,7 +19,6 @@ Block::Block(Subroutine* s)
   loop = None();
   subr = s;
   scope = new Scope(s->scope, this);
-  statementCount = 0;
 }
 
 Block::Block(Block* parent)
@@ -25,7 +27,6 @@ Block::Block(Block* parent)
   loop = parent->loop;
   subr = parent->subr;
   scope = new Scope(parent->scope, this);
-  statementCount = 0;
 }
 
 Block::Block(Scope* s)
@@ -33,14 +34,12 @@ Block::Block(Scope* s)
   subr = nullptr;
   loop = None();
   breakable = None();
-  statementCount = 0;
   scope = new Scope(s, this);
 }
 
 void Block::addStatement(Statement* s)
 {
   stmts.push_back(s);
-  statementCount++;
 }
 
 void Block::resolveImpl()
@@ -488,6 +487,7 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
     scope->addName(v);
   }
   body = new Block(this);
+  id = nextSubrID++;
 }
 
 void Subroutine::resolveImpl()
@@ -541,6 +541,7 @@ ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vec
   c = code;
   scope = s;
   argNames = argN;
+  id = nextExSubrID++;
 }
 
 void ExternalSubroutine::resolveImpl()

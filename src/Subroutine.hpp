@@ -22,7 +22,6 @@ struct Statement : public Node
   Block* block;
   virtual void resolveImpl() {}
   virtual ~Statement() {}
-  int statementIndex;
 };
 
 //Statement types
@@ -249,6 +248,7 @@ struct Subroutine : public Node
   Block* body;
   //scope->node is this
   Scope* scope;
+  int id;
 };
 
 struct ExternalSubroutine : public Node
@@ -261,6 +261,7 @@ struct ExternalSubroutine : public Node
   string c;
   Scope* scope;
   vector<string> argNames;
+  int id;
 };
 
 struct Test : public Node
