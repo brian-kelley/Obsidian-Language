@@ -15,13 +15,15 @@ bool deadCodeElim(SubroutineIR* subr)
         update = true;
         if(boolConst->value)
         {
-          //never taken (does nothing)
+          //branch never taken (does nothing)
           subr->stmts[i] = nop;
+          cout << "Eliminated never taken condjump at " << i << '\n';
         }
         else
         {
           //always taken (just a regular jump)
           subr->stmts[i] = new Jump(condJump->taken);
+          cout << "Eliminated always taken condjump at " << i << '\n';
         }
       }
     }

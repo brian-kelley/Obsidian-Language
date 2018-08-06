@@ -313,11 +313,16 @@ struct BoolConstant : public Expression
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
 bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
+struct ExprCompare
+{
+  bool operator()(const Expression* lhs, const Expression* rhs);
+};
+
 //Map constant: hold set of constant key-value pairs
 //Relies on operator== and operator< for Expressions
 struct MapConstant : public Expression
 {
-  map<Expression*, Expression*> values;
+  map<Expression*, Expression*, ExprCompare> values;
   bool constant()
   {
     return true;

@@ -626,6 +626,10 @@ bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
   return !lhs.value && rhs.value;
 }
 
+bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs)
+{
+}
+
 bool operator==(const MapConstant& lhs, const MapConstant& rhs)
 {
   auto& l = lhs.values;

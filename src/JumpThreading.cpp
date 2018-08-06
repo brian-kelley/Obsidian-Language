@@ -59,8 +59,10 @@ bool jumpThreading(SubroutineIR* subr)
     {
       int target = jump->dst->intLabel;
       //is the jump effectively a no-op?
-      //(jumping over no active statements)
-      bool jumpNop = true;
+      //(jumping forward over no active statements)
+      bool jumpNop = false;
+      if(target > i)
+        jumpNop = true;
       for(int j = i + 1; j < target; j++)
       {
         if(!dynamic_cast<Nop*>(subr->stmts[j]))

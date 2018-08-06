@@ -60,11 +60,7 @@ namespace IR
     for(auto& s : ir)
     {
       jumpThreading(s.second);
-      deadCodeElim(s.second);
-      jumpThreading(s.second);
-      deadCodeElim(s.second);
-      jumpThreading(s.second);
-      deadCodeElim(s.second);
+      //deadCodeElim(s.second);
     }
     cout << "Dumping optimized IR.\n";
     IRDebug::dumpIR("optimized.dot");
