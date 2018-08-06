@@ -49,18 +49,21 @@ namespace IR
 
   void optimizeIR()
   {
-    cout << "Dumping unoptimized IR.\n";
     IRDebug::dumpIR("unoptimized.dot");
     for(auto& s : ir)
     {
       constantFold(s.second);
     }
-    cout << "Dumping constant-folded IR.\n";
     IRDebug::dumpIR("constantFolded.dot");
     for(auto& s : ir)
     {
       jumpThreading(s.second);
-      //deadCodeElim(s.second);
+      deadCodeElim(s.second);
+    }
+    IRDebug::dumpIR("dce.dot");
+    for(auto& s : ir)
+    {
+      simplifyCFG(s.second);
     }
     cout << "Dumping optimized IR.\n";
     IRDebug::dumpIR("optimized.dot");

@@ -46,6 +46,8 @@ bool simplifyCFG(SubroutineIR* subr)
     }
     anyUpdate = anyUpdate || update;
   }
+  if(anyUpdate)
+    subr->buildCFG();
   return anyUpdate;
 }
 

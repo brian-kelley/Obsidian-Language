@@ -3,6 +3,7 @@
 
 #include "IR.hpp"
 
+bool simplifyCFG(IR::SubroutineIR* subr);
 bool jumpThreading(IR::SubroutineIR* subr);
 
 #endif
