@@ -203,17 +203,6 @@ void determineGlobalConstants()
   }
 }
 
-void determineModifiedVars()
-{
-  for(auto& s : IR::ir)
-  {
-    auto subr = s.second;
-    for(auto stmt : subr->stmts)
-    {
-    }
-  }
-}
-
 //Convert a constant expression to another type
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)

@@ -6,6 +6,11 @@
 
 struct Callable
 {
+  Callable()
+  {
+    subr = nullptr;
+    exSubr = nullptr;
+  }
   Callable(Subroutine* s) : subr(s), exSubr(nullptr) {}
   Callable(ExternalSubroutine* es) : subr(nullptr), exSubr(es) {}
   Callable(const Callable& other) : subr(other.subr), exSubr(other.exSubr) {}
@@ -29,7 +34,7 @@ bool operator<(const Callable& lhs, const Callable& rhs);
 //program (including variable initializers)
 struct CGNode
 {
-  vector<CGNode*> out;
+  set<Callable> out;
   Callable c;
 };
 
@@ -40,9 +45,20 @@ struct CallGraph
 
 extern CallGraph callGraph;
 
-//find the set of Callables which can be found in expressions,
+void buildCallGraph();
+
+//internal
+
+//find the global set of Callables which can be found in expressions,
 //except those which are the callable of a CallExpr
+//
+//these may be the target of an indirect call somewhere
 void determineIndirectReachable();
+
+//(used by determineIndirectReachable)
+//get the set of callable constants found in an expression which
+//could eventually be assigned as a first-class function and called
+set<Callable> getExpressionCallables(Expression* e)
 
 #endif
 

@@ -20,6 +20,9 @@ bool operator<(const Callable& lhs, const Callable& rhs)
   return lhs.exSubr < rhs.exSubr;
 }
 
+//Get the set of indirectly-reachable callables with the given type
+//Must assume that any indirect call of a callable with type ct could
+//refer to any of these callables
 static set<Callable> getReachableCallables(CallableType* ct)
 {
   set<Callable> reach;
@@ -31,59 +34,61 @@ static set<Callable> getReachableCallables(CallableType* ct)
   return reach;
 }
 
-static set<Callable> getExpressionCallables(Expression* e)
+//Get the set of Callables (effectively, SubroutineExprs) contained
+//in the expression
+set<Callable> getExpressionCallables(Expression* e)
 {
-  set<Variable*> writes;
-  if(auto cl = dynamic_cast<CompoundLiteral*>(e))
+  set<Variable*> callables;
+  if(auto subExpr = dynamic_cast<SubroutineExpr*>(e))
+  {
+    //the most important case: a subroutine
+    //used in expression outside call
+    if(subExpr->subr)
+      callables.insert(subExpr->subr);
+    else
+      callables.insert(subExpr->exSubr);
+  }
+  else if(auto cl = dynamic_cast<CompoundLiteral*>(e))
   {
     for(auto m : cl->members)
     {
-      auto mw = getExpressionWrites(m, lhs);
-      writes.insert(mw.begin(), mw.end());
+      auto c = getExpressionCallables(m);
+      callables.insert(c.begin(), c.end());
     }
-  }
-  else if(auto ua = dynamic_cast<UnaryArith*>(e))
-  {
-    return getExpressionWrites(na->expr, false);
-  }
-  else if(auto ba = dynamic_cast<BinaryArith*>(e))
-  {
-    auto w = getExpressionWrites(ba->lhs, false);
-    writes.insert(w.begin(), w.end());
-    w = getExpressionWrites(ba->lhs, false);
-    writes.insert(w.begin(), w.end());
   }
   else if(auto in = dynamic_cast<Indexed*>(e))
   {
-    //group can be an lvalue, but index cannot
-    auto w = getExpressionWrites(in->group, lhs);
-    writes.insert(w.begin(), w.end());
-    w = getExpressionWrites(in->index, false);
-    writes.insert(w.begin(), w.end());
-  }
-  else if(auto al = dynamic_cast<ArrayLength*>(e))
-  {
-    return getExpressionWrites(al->array, false);
+    return getExpressionCallables(in->group);
   }
   else if(auto ae = dynamic_cast<AsExpr*>(e))
   {
-    return getExpressionWrites(ae->base, false);
+    return getExpressionCallables(ae->base);
   }
   else if(auto ie = dynamic_cast<IsExpr*>(e))
   {
-    return getExpressionWrites(ie->base, false);
+    return getExpressionCallables(ie->base);
   }
   else if(auto call = dynamic_cast<CallExpr*>(e))
   {
-    //need to use the call graph to determine possibly modified variables
-  }
-  else if(auto var = dynamic_cast<VarExpr*>(e))
-  {
+    for(auto a : call->args)
+    {
+      auto c = getExpressionCallables(a);
+      callables.insert(c.begin(), c.end());
+    }
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
+    return getExpressionCallables(conv->value);
   }
   return writes;
+}
+
+//trivial helper to just add to indirect reachables whatever
+//SubroutineExprs appear in an expression
+void addIndirectReachables(Expression* e)
+{
+  auto temp = getExpressionCallables(e);
+  indirectReachable.insert(temp.begin(), temp.end());
 }
 
 void determineIndirectReachable()
@@ -94,6 +99,189 @@ void determineIndirectReachable()
   //SubroutineExprs)
   for(auto& s : IR::ir)
   {
+    for(auto& stmt : s.second->stmts)
+    {
+      //note: only need to check the statement types that
+      //let expressions get assigned to a variable/parameter (only place
+      //where indirect calls are possible)
+      if(auto a = dynamic_cast<AssignIR*>(s))
+      {
+        addIndirectReachables(a->lhs);
+        addIndirectReachables(a->rhs);
+      }
+      else if(auto c = dynamic_cast<CallIR*>(s))
+      {
+        addIndirectReachables(c->eval);
+      }
+      else if(auto cj = dynamic_cast<CondJump*>(s))
+      {
+        addIndirectReachables(cj->cond);
+      }
+      else if(auto r = dynamic_cast<ReturnIR*>(s))
+      {
+        if(r->expr)
+          addIndirectReachables(r->expr);
+      }
+    }
+  }
+}
+
+//Given an expression, return all possible call targets
+//determineIndirectReachable() must have been called first
+static set<Callable> getExprCalls(Expression* e)
+{
+  set<Callable> c;
+  if(auto cl = dynamic_cast<CompoundLiteral*>(e))
+  {
+    for(auto m : cl->members)
+    {
+      auto temp = getExprCalls(m);
+      c.insert(temp.begin(), temp.end());
+    }
+  }
+  else if(auto ua = dynamic_cast<UnaryArith*>(e))
+  {
+    auto temp = getExprCalls(ua->expr);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto ba = dynamic_cast<BinaryArith*>(e))
+  {
+    auto temp = getExprCalls(ba->lhs);
+    c.insert(temp.begin(), temp.end());
+    temp = getExprCalls(ba->rhs);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto ind = dynamic_cast<Indexed*>(e))
+  {
+    auto temp = getExprCalls(ind->group);
+    c.insert(temp.begin(), temp.end());
+    temp = getExprCalls(ind->index);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto al = dynamic_cast<ArrayLength*>(e))
+  {
+    auto temp = getExprCalls(al->array);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto as = dynamic_cast<AsExpr*>(e))
+  {
+    auto temp = getExprCalls(as->base);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto is = dynamic_cast<IsExpr*>(e))
+  {
+    auto temp = getExprCalls(is->base);
+    c.insert(temp.begin(), temp.end());
+  }
+  else if(auto call = dynamic_cast<CallExpr*>(e))
+  {
+    //first, process the args
+    for(auto arg : call->args)
+    {
+      auto temp = getExprCalls(arg);
+      c.insert(temp.begin(), temp.end());
+    }
+    //then, add outgoing edge(s) for this call
+    if(auto direct = dynamic_cast<SubroutineExpr*>(call->callable))
+    {
+      //is a direct call, only one edge to add
+      if(direct->subr)
+        c.insert(direct->subr);
+      else
+        c.insert(direct->exSubr);
+    }
+    else
+    {
+      //indirect call
+      auto temp = getReachableCallables((CallableType*) call->callable->type);
+      c.insert(temp.begin(), temp.end());
+    }
+  }
+  else if(auto conv = dynamic_cast<Converted*>(e))
+  {
+    auto temp = getExprCalls(conv->expr);
+    c.insert(temp.begin(), temp.end());
+  }
+  //else: no child expressions so no calls
+  return c;
+}
+
+void buildCallGraph()
+{
+  determineIndirectReachable();
+  //First, create all the CG nodes for normal subroutines.
+  //This includes outgoing edges for regular direct calls,
+  //and all possible indirect calls
+  for(auto& s : IR::ir)
+  {
+    auto subr = s.second;
+    CGNode* node = new CGNode;
+    node->c = s.first;
+    //for each statement, find call instructions (both in stmts and exprs)
+    for(auto stmt : subr->stmts)
+    {
+      if(auto ai = dynamic_cast<AssignIR*>(stmt))
+      {
+        auto temp = getExprCalls(ai->dst);
+        node->out.insert(temp.begin(), temp.end());
+        temp = getExprCalls(ai->src);
+        node->out.insert(temp.begin(), temp.end());
+      }
+      else if(auto ci = dynamic_cast<CallIR*>(stmt))
+      {
+        auto temp = getExprCalls(ci->eval);
+        node->out.insert(temp.begin(), temp.end());
+      }
+      else if(auto cj = dynamic_cast<CondJump*>(stmt))
+      {
+        auto temp = getExprCalls(cj->cond);
+        node->out.insert(temp.begin(), temp.end());
+      }
+      else if(auto ri = dynamic_cast<ReturnIR*>(stmt))
+      {
+        if(ri->expr)
+        {
+          auto temp = getExprCalls(ri->expr);
+          node->out.insert(temp.begin(), temp.end());
+        }
+      }
+      else if(auto pi = dynamic_cast<PrintIR*>(stmt))
+      {
+        for(auto e : pi->exprs)
+        {
+          auto temp = getExprCalls(e);
+          node->out.insert(temp.begin(), temp.end());
+        }
+      }
+      else if(auto asi = dynamic_cast<AssertionIR*>(stmt))
+      {
+        auto temp = getExprCalls(asi->asserted);
+        node->out.insert(temp.begin(), temp.end());
+      }
+      //else: statement uses no expressions and can't call anything
+    }
+    callGraph.nodes[s.first] = node;
+  }
+  //Then, determine all possible calls by external subroutines:
+  //since external subroutines can't access global vars, they
+  //may only call first-class subroutines passed in through arguments.
+  for(auto es : allExSubrs)
+  {
+    CGNode* node = new CGNode;
+    for(auto argType : es->type->argTypes)
+    {
+      auto dependencyTypes = argType->dependencies();
+      for(auto t : dependencyTypes)
+      {
+        if(auto ct = dynamic_cast<CallableType*>(t))
+        {
+          //a callable type can be passed to external subroutine here
+          auto temp = getReachableCallables(ct);
+          node->out.insert(temp.begin(), temp.end());
+        }
+      }
+    }
+    callGraph.nodes[es] = node;
   }
 }
 

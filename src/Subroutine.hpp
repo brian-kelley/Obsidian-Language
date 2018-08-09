@@ -43,6 +43,10 @@ struct Switch;
 struct Match;
 
 struct Subroutine;
+struct ExternalSubroutine;
+
+extern vector<Subroutine*> allSubrs;
+extern vector<ExternalSubroutine*> allExSubrs;
 
 struct Test;
 

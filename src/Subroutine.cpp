@@ -488,6 +488,7 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
   }
   body = new Block(this);
   id = nextSubrID++;
+  allSubrs.push_back(this);
 }
 
 void Subroutine::resolveImpl()
@@ -542,6 +543,7 @@ ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vec
   scope = s;
   argNames = argN;
   id = nextExSubrID++;
+  allExSubrs.push_back(this);
 }
 
 void ExternalSubroutine::resolveImpl()

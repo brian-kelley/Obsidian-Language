@@ -60,6 +60,21 @@ struct Type : public Node
     INTERNAL_ERROR;
     return nullptr;
   }
+  //get the set of types which may be "owned" as a member by this type
+  set<Type*> dependencies()
+  {
+    vector<UnionType*> empty;
+    return dependencies(empty);
+  }
+  //In order to respect the fact that unions can own themselves directly or indirectly,
+  //need to keep track of which unions have already been accounted for (avoid infinite recursion)
+  virtual set<Type*> dependencies(vector<UnionType*>& exclude)
+  {
+    //for all non-compound types, only dependency is itself
+    set<Type*> s;
+    s.insert(this);
+    return s;
+  }
 };
 
 struct Scope;
@@ -191,6 +206,7 @@ struct StructType : public Type
   map<string, IfaceMember> interface;
   void resolveImpl();
   Expression* getDefaultValue();
+  set<Type*> dependencies(vector<UnionType*>& exclude);
 };
 
 struct UnionType : public Type
@@ -202,6 +218,7 @@ struct UnionType : public Type
   bool isUnion() {return true;}
   void setDefault();
   string getName();
+  set<Type*> dependencies(vector<UnionType*>& exclude);
   //the default type (the first type that doesn't cause infinite recursion)
   int defaultType;
   Expression* getDefaultValue();
@@ -218,6 +235,7 @@ struct ArrayType : public Type
   bool canConvert(Type* other);
   void resolveImpl();
   bool isArray() {return true;}
+  set<Type*> dependencies(vector<UnionType*>& exclude);
   string getName()
   {
     string name = elem->getName();
@@ -239,6 +257,7 @@ struct TupleType : public Type
   bool canConvert(Type* other);
   void resolveImpl();
   bool isTuple() {return true;}
+  set<Type*> dependencies(vector<UnionType*>& exclude);
   string getName()
   {
     string name = "(";
@@ -262,6 +281,7 @@ struct MapType : public Type
   Type* key;
   Type* value;
   bool isMap() {return true;}
+  set<Type*> dependencies(vector<UnionType*>& exclude);
   string getName()
   {
     string name = "(";
@@ -302,6 +322,10 @@ struct AliasType : public Type
   string getName()
   {
     return name;
+  }
+  set<Type*> dependencies(UnionType* exclude)
+  {
+    return actual->dependencies(exclude);
   }
 };
 

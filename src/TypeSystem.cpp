@@ -370,6 +370,18 @@ Expression* StructType::getDefaultValue()
   return new CompoundLiteral(vals);
 }
 
+set<Type*> StructType::dependencies(vector<UnionType*>& exclude)
+{
+  set<Type*> d;
+  d.insert(this);
+  for(auto mem : members)
+  {
+    auto temp = mem->type->dependencies(exclude);
+    d.insert(temp.begin(), temp.end());
+  }
+  return d;
+}
+
 /**************/
 /* Union Type */
 /**************/
@@ -470,6 +482,25 @@ bool UnionType::canConvert(Type* other)
   return false;
 }
 
+set<Type*> StructType::dependencies(vector<UnionType*>& exclude)
+{
+  //stop the recursion here if this is the union type being excluded
+  if(find(exclude.begin(), exclude.end(), this) != exclude.end())
+    return set<Type*>();
+  set<Type*> d;
+  d.insert(this);
+  //can use the vector like a stack to avoid unnecessary copy
+  exclude.push_back(this);
+  for(auto op : options)
+  {
+    auto temp = op->dependencies(exclude);
+    d.insert(temp.begin(), temp.end());
+  }
+  //callee may use exclude again, so restore it
+  exclude.pop_back();
+  return d;
+}
+
 string UnionType::getName()
 {
   string name = "(";
@@ -554,6 +585,11 @@ Expression* ArrayType::getDefaultValue()
   return cl;
 }
 
+set<Type*> ArrayType::dependencies(vector<UnionType*>& exclude)
+{
+  return elem->dependencies(exclude);
+}
+
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
 {
   if(lhs->elem < rhs->elem)
@@ -624,6 +660,17 @@ Expression* TupleType::getDefaultValue()
   return cl;
 }
 
+set<Type*> TupleType::dependencies(vector<UnionType*>& exclude)
+{
+  set<Type*> d;
+  for(auto m : members)
+  {
+    auto temp = m->dependencies(exclude);
+    d.insert(temp.begin(), temp.end());
+  }
+  return d;
+}
+
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
 {
   return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
@@ -664,6 +711,16 @@ bool MapType::canConvert(Type* other)
       !value->canConvert(subtypeTuple->members[1]);
   }
   return false;
+}
+
+set<Type*> MapType::dependencies(vector<UnionType*>& exclude)
+{
+  set<Type*> d;
+  auto temp = key->dependencies(exclude);
+  d.insert(temp.begin(), temp.end());
+  temp = value->dependencies(exclude);
+  d.insert(temp.begin(), temp.end());
+  return d;
 }
 
 bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
