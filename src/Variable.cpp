@@ -3,6 +3,8 @@
 
 static int nextVarID = 0;
 
+vector<Variable*> allVars;
+
 Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic, bool compose)
 {
   scope = s;
@@ -18,6 +20,7 @@ Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic,
     owner->composed.push_back(compose);
   }
   id = nextVarID++;
+  allVars.push_back(this);
 }
 
 Variable::Variable(string n, Type* t, Block* b)
@@ -30,6 +33,7 @@ Variable::Variable(string n, Type* t, Block* b)
   initial = nullptr;
   owner = nullptr;
   id = nextVarID++;
+  allVars.push_back(this);
 }
 
 void Variable::resolveImpl()

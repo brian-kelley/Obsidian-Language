@@ -22,7 +22,6 @@ bool simplifyCFG(SubroutineIR* subr)
       if(prevBB->out.size() == 1 && prevBB->out[0] == nextBB &&
           nextBB->in.size() == 1 && nextBB->in[0] == prevBB)
       {
-        cout << "Merging basic blocks at statement " << prevBB->end << '\n';
         update = true;
         int boundary = nextBB->start;
         if(dynamic_cast<Jump*>(subr->stmts[boundary - 1]))

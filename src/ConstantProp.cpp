@@ -5,7 +5,178 @@
 using namespace IR;
 
 //Max number of bytes in constant expressions
+//(higher value increases compiler memory usage and code size,
+//but gives more opportunities for constant folding)
 const int maxConstantSize = 512;
+
+//Join operator for "ConstantVar" (used by dataflow analysis).
+//associative/commutative
+//
+//Since undefined values are impossible, there is no need for a "top" value
+ConstantVar join(ConstantVar& lhs, ConstantVar& rhs)
+{
+  if(lhs.val.is<Nonconstant>() || rhs.val.is<Nonconstant>())
+    return ConstantVar();
+  Expression* l = lhs.val.get<Expression*>();
+  Expression* r = rhs.val.get<Expression*>();
+  if(*l != *r)
+    return ConstantVar();
+  //lhs, rhs have identical constant values
+  return ConstantVar(l);
+}
+
+map<Variable*, ConstantVar> globalConstants;
+map<Subroutine*, set<Variable*>> modifiedVars;
+
+set<Variable*> getStatementWrites(StatementIR* stmt)
+{
+  set<Variable*> writes;
+  if(auto assign = dynamic_cast<AssignIR*>(stmt))
+  {
+    auto l = getExpressionWrites(assign->dst, true);
+    writes.insert(l.begin(), l.end());
+    auto r = getExpressionWrites(assign->src, false);
+    writes.insert(r.begin(), r.end());
+  }
+  else if(auto call = dynamic_cast<CallIR*>(stmt))
+  {
+    //foldExpression doesn't evaluate calls,
+    //so foldExpression will produce another CallExpr
+    return getExpressionWrites(call->eval, false);
+  }
+  else if(auto condJump = dynamic_cast<CondJump*>(stmt))
+  {
+    return getExpressionWrites(condJump->cond, false);
+  }
+  else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
+  {
+    if(ret->expr)
+    {
+      auto w = getExpressionWrites(ret->expr, false);
+      writes.insert(w.begin(), w.end());
+    }
+  }
+  else if(auto print = dynamic_cast<PrintIR*>(stmt))
+  {
+    for(auto e : print->exprs)
+    {
+      auto w = getExpressionWrites(e, false);
+      writes.insert(w.begin(), w.end());
+    }
+  }
+  else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
+  {
+    return getExpressionWrites(assertion->asserted, false);
+  }
+  return writes;
+}
+
+//Get the set of variables possibly modified by evaluating expression
+//(lhs is whether this is the left hand of an assignment)
+set<Variable*> getExpressionWrites(Expression* e, bool lhs)
+{
+  set<Variable*> writes;
+  if(auto cl = dynamic_cast<CompoundLiteral*>(e))
+  {
+    for(auto m : cl->members)
+    {
+      auto mw = getExpressionWrites(m, lhs);
+      writes.insert(mw.begin(), mw.end());
+    }
+  }
+  else if(auto ua = dynamic_cast<UnaryArith*>(e))
+  {
+    return getExpressionWrites(na->expr, false);
+  }
+  else if(auto ba = dynamic_cast<BinaryArith*>(e))
+  {
+    auto w = getExpressionWrites(ba->lhs, false);
+    writes.insert(w.begin(), w.end());
+    w = getExpressionWrites(ba->lhs, false);
+    writes.insert(w.begin(), w.end());
+  }
+  else if(auto in = dynamic_cast<Indexed*>(e))
+  {
+    //group can be an lvalue, but index cannot
+    auto w = getExpressionWrites(in->group, lhs);
+    writes.insert(w.begin(), w.end());
+    w = getExpressionWrites(in->index, false);
+    writes.insert(w.begin(), w.end());
+  }
+  else if(auto al = dynamic_cast<ArrayLength*>(e))
+  {
+    return getExpressionWrites(al->array, false);
+  }
+  else if(auto ae = dynamic_cast<AsExpr*>(e))
+  {
+    return getExpressionWrites(ae->base, false);
+  }
+  else if(auto ie = dynamic_cast<IsExpr*>(e))
+  {
+    return getExpressionWrites(ie->base, false);
+  }
+  else if(auto call = dynamic_cast<CallExpr*>(e))
+  {
+    //need to use the call graph to determine possibly modified variables
+  }
+  else if(auto var = dynamic_cast<VarExpr*>(e))
+  {
+    writes.insert(var->var);
+  }
+  else if(auto conv = dynamic_cast<Converted*>(e))
+  {
+    auto w = getExpressionWrites(conv->value, false);
+    writes.insert(w.begin(), w.end());
+  }
+  return writes;
+}
+
+void foldGlobals()
+{
+  //before the first pass, assume all globals are non-const
+  for(auto v : allVars)
+  {
+    if(v->isGlobal())
+    {
+      globalConstants[v] = ConstantVar();
+    }
+  }
+  bool update = true;
+  while(update)
+  {
+    update = false;
+    for(auto& glob : globalConstants)
+    {
+      Variable* globVar = glob.first;
+      //fold globVar's initial value (if possible)
+      Expression* prev = globVar->initial;
+      foldExpression(globVar->initial);
+      if(globVar->initial->constant() &&
+          prev != globVar->initial)
+      {
+        update = true;
+        glob.second = ConstantVar(globVar->initial);
+      }
+      //on subsequent sweeps, expressions using constant
+      //global variables can be folded
+    }
+  }
+}
+
+void determineModifiedVars()
+{
+  for(auto& s : IR::ir)
+  {
+    auto subr = s.second;
+    set<Variable*> modified;
+    for(auto bb : subr->blocks)
+    {
+      auto bbMod = subr->getWrites(bb);
+      modified.insert(bbMod.begin(), bbMod.end());
+    }
+    modifiedVars[subr] = modified;
+  }
+}
 
 void determineGlobalConstants()
 {
@@ -28,6 +199,17 @@ void determineGlobalConstants()
           }
         }
       }
+    }
+  }
+}
+
+void determineModifiedVars()
+{
+  for(auto& s : IR::ir)
+  {
+    auto subr = s.second;
+    for(auto stmt : subr->stmts)
+    {
     }
   }
 }
@@ -290,6 +472,12 @@ void foldExpression(Expression*& expr)
   }
   else if(auto ve = dynamic_cast<VarExpr*>(expr))
   {
+    if(ve->var->isGlobal())
+    {
+      //check the global constant table
+      auto& cv = globalConstants[ve->var];
+      if(cv.
+    }
     if(ve->var->isGlobal() && globalConstants[ve->var])
     {
       //safe to replace var with its initial value
@@ -564,17 +752,28 @@ void constantFold(IR::SubroutineIR* subr)
   }
 }
 
+//This holds the constant/nonconstant variable sets for each basic block.
+//Populated lazily: assignments to variables add the constant value,
+//or "nonconst"
+
+struct ConstantSet
+{
+  map<Variable*, ConstantVar> vals;
+};
+
 bool constantPropagation(SubroutineIR* subr)
 {
   bool update = false;
-  //First, go through each BB and replace general Expressions
-  //with constants wherever possible (constant folding)
-  //
-  //Also record which variables hold constant values at exit of BBs
-  //
-  //Then do constant propagation dataflow analysis across BBs
-  //
-  //VarExprs of constant variables can then be replaced by constant
+  //Full constant fold/propagate process:
+  //  While updates can still be made:
+  //  -fold constants
+  //  -within BBs (sequentially over statements),
+  //   record which variables are constant
+  //  -replace usage of constant variables with the constants
+  //  -fold constants again
+  //  -record which variables have known constant values at exit of BBs
+  //  -do constant-prop dataflow analysis
+  constantFold(subr);
   for(auto bb : subr->blocks)
   {
     for(int i = bb->start; i < bb->end; i++)

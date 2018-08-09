@@ -14,6 +14,10 @@ namespace TypeSystem
   struct Type;
 }
 
+struct Variable;
+
+extern vector<Variable*> allVars;
+
 struct Variable : public Node
 {
   //ctor for global/static/member variables and arguments

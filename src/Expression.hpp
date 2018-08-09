@@ -387,6 +387,7 @@ struct CompoundLiteral : public Expression
     return lvalue;
   }
   vector<Expression*> members;
+  //(set during resolution): is every member an lvalue?
   bool lvalue;
   set<Variable*> getReads();
   set<Variable*> getWrites();

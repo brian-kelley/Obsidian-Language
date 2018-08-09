@@ -50,6 +50,7 @@ namespace IR
   void optimizeIR()
   {
     IRDebug::dumpIR("unoptimized.dot");
+    foldGlobals();
     for(auto& s : ir)
     {
       constantFold(s.second);
