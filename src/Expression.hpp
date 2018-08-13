@@ -37,6 +37,7 @@ struct Expression : public Node
   //get a unique tag for this expression type
   //just used for comparing/ordering Expressions
   virtual int getTypeTag() const = 0;
+  virtual Variable* getRootVariable() {INTERNAL_ERROR;}
 };
 
 //Subclasses of Expression
@@ -432,6 +433,10 @@ struct Indexed : public Expression
   {
     return 10;
   }
+  Variable* getRootVariable()
+  {
+    return group->getRootVariable();
+  }
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -475,6 +480,10 @@ struct VarExpr : public Expression
   int getTypeTag() const
   {
     return 12;
+  }
+  Variable* getRootVariable()
+  {
+    return var;
   }
   set<Variable*> getReads();
   set<Variable*> getWrites();
@@ -550,6 +559,10 @@ struct StructMem : public Expression
   int getTypeTag() const
   {
     return 15;
+  }
+  Variable* getRootVariable()
+  {
+    return base->getRootVariable();
   }
   set<Variable*> getReads();
   set<Variable*> getWrites();

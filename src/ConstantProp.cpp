@@ -38,14 +38,39 @@ LocalConstantTable::LocalConstantTable(Subroutine* subr)
   }
   //now know how many variables there are,
   //so create the constant table with right size
+  size_t i = 0;
   for(auto bb : IR::ir[subr]->blocks)
   {
     constants.emplace_back(locals.size(), ConstantVar(UNDEFINED_VAL));
+    blockTable[bb] = i++;
   }
 }
 
 //The table for current subroutine
 LocalConstantTable* localConstants = nullptr;
+//The current basic block being processed in constant propagation
+int currentBB;
+
+bool LocalConstantTable::update(Variable* var, ConstantVar& replace)
+{
+  return update(varTable[var], replace);
+}
+
+bool LocalConstantTable::update(int varIndex, ConstantVar& replace)
+{
+  ConstantVar& prev = constants[currentBB][varIndex];
+  if(prev != replace)
+  {
+    prev = replace;
+    return true;
+  }
+  return false;
+}
+
+ConstantVar& LocalConstantTable::getStatus(Variable* var)
+{
+  return constants[currentBB][varTable[var]];
+}
 
 //Join operator for "ConstantVar" (used by dataflow analysis).
 //associative/commutative
@@ -409,8 +434,13 @@ void foldExpression(Expression*& expr)
     }
     else if(ve->var->isLocal())
     {
-      //look up the variable in local constant table,
-      //and replace if possible
+      //look up the variable in local constant table
+      auto& status = localConstants->getStatus(ve->var);
+      if(status.val.is<Expression*>())
+        expr = status.val.get<Expression*>();
+      else if(status.val.is<UndefinedVal>())
+        errMsgLoc(ve, "use of undefined variable");
+      //else: non-constant, can't do anything
     }
   }
   else if(auto conv = dynamic_cast<Converted*>(expr))
@@ -682,52 +712,56 @@ void constantFold(IR::SubroutineIR* subr)
 //"this" is assignable but is assumed to be NonConstant throughout all subroutines
 //rhs may or may not be constant
 //Pass "nullptr" for rhs to mean "some non-constant expression"
-void bindValue(Expression* lhs, Expression* rhs, int currentBB)
+bool bindValue(Expression* lhs, Expression* rhs)
 {
   if(auto ve = dynamic_cast<VarExpr*>(lhs))
   {
+    //don't care about parameters/globals being modified
     if(ve->var->isLocal())
     {
       int varIndex = localConstants->varTable[ve->var];
       if(rhs && rhs->constant())
-        localConstants->constants[currentBB][varIndex] = ConstantVar(rhs);
+        return localConstants->update(varIndex, ConstantVar(rhs));
       else
-        localConstants->constants[currentBB][varIndex] = ConstantVar(NON_CONSTANT);
+        return localConstants->update(varIndex, ConstantVar(NON_CONSTANT));
     }
-    //don't care about parameters/globals being modified
   }
   else if(auto in = dynamic_cast<Indexed*>(lhs))
   {
     //assigning to an element poisons the whole LHS as non-const
-    bindValue(in->group, nullptr);
+    return bindValue(in->group, nullptr);
   }
   else if(auto sm = dynamic_cast<StructMem*>(lhs))
   {
-    bindValue(sm->base, nullptr);
+    return bindValue(sm->base, nullptr);
   }
   else if(auto clLHS = dynamic_cast<CompoundLiteral*>(lhs))
   {
     //bind value for individual elements if rhs is also a compound literal
     //otherwise, every element of LHS is now non-const
+    bool update = false;
     if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
     {
       for(size_t i = 0; i < clRHS->members.size(); i++)
-        bindValue(clLHS->members[i], clRHS->members[i]);
+        update = bindValue(clLHS->members[i], clRHS->members[i]) || update;
     }
     else
     {
       for(auto mem : clLHS->members)
-        bindValue(mem, nullptr);
+        update = bindValue(mem, nullptr) || update;
     }
+    return update;
   }
   else
   {
     INTERNAL_ERROR;
   }
+  return false;
 }
 
-void cpApplyStatement(StatementIR* stmt)
+bool cpApplyStatement(StatementIR* stmt)
 {
+  bool update = false;
   //Process all expressions in the statement in order of evaluation
   //If it's an assign:
   //  -whole RHS is processed before whole LHS (important for compound assignment)
@@ -735,81 +769,180 @@ void cpApplyStatement(StatementIR* stmt)
   if(auto ai = dynamic_cast<AssignIR*>(stmt))
   {
     //first, process side effects of the whole RHS
-    cpProcessExpression(ai->src);
+    update = cpProcessExpression(ai->src) || update;
     //then process all side effects of LHS
-    cpProcessExpression(ai->dst);
-    //finally, update the values of assigned variables depending on RHS
-    //note: RHS is completely folded now, if possible
-    //Complicated case is assignment to tuple: have known constants
-    //if and only if RHS is a compound literal consisting of constants
-    if(auto clLHS = dynamic_cast<CompoundLiteral*>(ai->dst))
-    {
-      if(auto clRHS = dynamic_cast<CompoundLiteral*>(ai->src))
-      {
-        //for each constant element of RHS, can mark corresponding variable in LHS as constant
-      }
-      else
-      {
-        //some kind of non-const compound value is being split and assigned to
-        //multiple LHS values: all LHS values are now non-constant
-      }
-    }
+    update = cpProcessExpression(ai->dst) || update;
+    //finally, update the values of assigned variable(s)
+    update = bindValue(ai->dst, ai->src) || update;
   }
   else if(auto ci = dynamic_cast<CallIR*>(stmt))
   {
     //just apply the side effects of evaluating the call
-    cpProcessExpression(ci->eval);
+    return cpProcessExpression(ci->eval);
   }
   else if(auto cj = dynamic_cast<CondJump*>(stmt))
   {
-    cpProcessExpression(cj->eval);
+    return cpProcessExpression(cj->eval);
   }
   else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
   {
     if(ret->expr)
-      cpProcessExpression(ret->expr);
+      return cpProcessExpression(ret->expr);
+    return false;
   }
   else if(auto pi = dynamic_cast<PrintIR*>(stmt))
   {
     for(auto& p : pi->exprs)
-      cpProcessExpression(p);
+      update = cpProcessExpression(p) || update;
   }
   else if(auto asi = dynamic_cast<AssertionIR*>(stmt))
   {
-    cpProcessExpression(asi->asserted);
+    return cpProcessExpression(asi->asserted);
   }
+  return update;
 }
 
-void cpProcessExpression(Expression*& stmt)
+//cpProcessExpression 
+bool cpProcessExpression(Expression*& expr)
 {
+  bool update = false;
   //Fold this expression each child expression using
   //current (incoming) constant set and then process it to apply side effects
+  //Note that the ONLY type of expression that can have side effects on local
+  //variables is a member procedure call with a local variable as the base
+  //
+  //Also need to process children of all compound expressions
+  if(auto call = dynamic_cast<CallExpr*&>(expr))
+  {
+    update = cpProcessExpression(call->callable) || update;
+    for(auto& arg : call->args)
+    {
+      update = cpProcessExpression(arg) || update;
+    }
+    if(auto sm = dynamic_cast<StructMem*>(call->callable))
+    {
+      if(!((CallableType*) sm->type)->pure)
+      {
+        Variable* root = sm->getRootVariable();
+        if(root->isLocal())
+        {
+          if(localConstants->update(root, ConstantVar(NON_CONSTANT)))
+            update = true;
+        }
+      }
+    }
+  }
+  else if(auto cl = dynamic_cast<CompoundLiteral*>(expr))
+  {
+    for(auto& mem : cl->members)
+    {
+      update = cpProcessExpression(mem) || update;
+    }
+  }
+  else if(auto ua = dynamic_cast<UnaryArith*>(expr))
+  {
+    update = cpProcessExpression(ua->expr);
+  }
+  else if(auto ba = dynamic_cast<BinaryArith*>(expr))
+  {
+    update = cpProcessExpression(ba->lhs) || update;
+    update = cpProcessExpression(ba->rhs) || update;
+  }
+  else if(auto ind = dynamic_cast<Indexed*>(expr))
+  {
+    update = cpProcessExpression(ind->group) || update;
+    update = cpProcessExpression(ind->index) || update;
+  }
+  else if(auto arrLen = dynamic_cast<ArrayLength*>(expr))
+  {
+    update = cpProcessExpression(arrLen->array);
+  }
+  else if(auto as = dynamic_cast<AsExpr*>(expr))
+  {
+    update = cpProcessExpression(as->base);
+  }
+  else if(auto is = dynamic_cast<IsExpr*>(expr))
+  {
+    update = cpProcessExpression(is->base);
+  }
+  else if(auto conv = dynamic_cast<Converted*>(expr))
+  {
+    update = cpProcessExpression(conv->value);
+  }
+  //else: no child expressions so no side effects possible
+  //but, now that side effects of children have been taken into account,
+  //is now the right time to fold the overall expression
+  Expression* prevExpr = expr;
+  foldExpression(expr);
+  if(*prevExpr != *expr)
+    update = true;
+  return update;
 }
 
 bool constantPropagation(Subroutine* subr)
 {
+  bool anyUpdate = false;
   bool update = false;
-  //Full constant fold/propagate process:
-  //  While updates can still be made:
-  //  -fold constants
-  //  -within BBs (sequentially over statements),
-  //   record which variables are constant
-  //  -replace usage of constant variables with the constants
-  //  -fold constants again
-  //  -record which variables have known constant values at exit of BBs
-  //  -do constant-prop dataflow analysis
   auto subrIR = IR::ir[subr];
-  constantFold(subrIR);
   localConstants = new LocalConstantTable(subr);
-  for(auto bb : subr->blocks)
+  queue<int> processQueue;
+  vector<bool> blocksInQueue(subrIR->blocks.size(), false);
+  processQueue.push(0);
+  blocksInQueue[0] = true;
+  while(!processQueue.empty())
   {
-    for(int i = bb->start; i < bb->end; i++)
+    int process = processQueue.front();
+    processQueue.pop();
+    blocksInQueue[process] = false;
+    currentBB = process;
+    auto processBlock = subrIR->blocks[process];
+    //join all incoming constant statuses with previous ones for this block
+    bool update = false;
+    for(auto toJoin : processBlock->in)
     {
-      StatementIR* stmt = subr->stmts[i];
+      int incomingIndex = localConstants->blockTable[toJoin];
+      for(size_t i = 0; i < localConstants->locals.size(); i++)
+      {
+        ConstantVar met = constantMeet(
+            localConstants->constants[process][i],
+            localConstants->constants[incomingIndex][i]);
+        if(localConstants->update(i, met))
+          update = true;
+      }
+    }
+    //then, fold constants within process and update constant statuses
+    for(int i = processBlock->start; i < processBlock->end; i++)
+    {
+      if(cpApplyStatement(subrIR->stmts[i]))
+        update = true;
+    }
+    if(update)
+    {
+      //need to process all outgoing blocks
+      for(auto out : processBlock->out)
+      {
+        int outIndex = localConstants->blockTable[out];
+        if(!blocksInQueue[outIndex])
+        {
+          processQueue.push(outIndex);
+        }
+      }
+      anyUpdate = true;
     }
   }
   delete localConstants;
   localConstants = nullptr;
   return update;
+}
+
+bool operator==(const ConstantVar& lhs, const ConstantVar& rhs)
+{
+  if(lhs.val.which() != rhs.val.which())
+    return false;
+  if(lhs.val.is<Expression*>())
+  {
+    return *(lhs.val.get<Expression*>()) == *(rhs.val.get<Expression*>());
+  }
+  return true;
 }
 

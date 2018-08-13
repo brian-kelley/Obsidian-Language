@@ -41,14 +41,14 @@ bool constantPropagation(IR::SubroutineIR* subr);
 void foldExpression(Expression*& expr);
 
 //apply the effects of a statement to local constant table
-void cpApplyStatement(StatementIR* stmt);
+bool cpApplyStatement(StatementIR* stmt);
 //Apply the effects of an expression to constant table, then fold the expression.
 //These steps can't be separated because the constant status of a variable
 //can change within an expression
-void cpProcessExpression(Expression*& stmt);
+bool cpProcessExpression(Expression*& expr);
 //in local constant table, apply the action of "lhs = rhs"
 //rhs may or may not be constant, and one or both of lhs/rhs can be compound
-void bindValue(Expression* lhs, Expression* rhs, int currentBB);
+bool bindValue(Expression* lhs, Expression* rhs);
 
 struct UndefinedVal {};
 struct NonConstant {};
@@ -81,13 +81,20 @@ struct ConstantVar
   variant<UndefinedVal, Nonconstant, Expression*> val;
 };
 
+bool operator==(const ConstantVar& lhs, const ConstantVar& rhs);
+
 //LocalConstantTable efficiently tracks all constants for whole subroutine
 struct LocalConstantTable
 {
   //Construct initial table, with all variables undefined at every BB
   LocalConstantTable(Subroutine* subr);
   map<Variable*, int> varTable;
+  map<BasicBlock*, int> blockTable;
   vector<Variable*> locals;
+  bool update(Variable* var, ConstantVar& replace);
+  bool update(int varIndex, ConstantVar& replace);
+  //return current status of the variable
+  ConstantVar& getStatus(Variable* var);
   //inner list corresponds to variables
   //outer list corresponds to basic blocks
   vector<vector<ConstantVar>> constants;
