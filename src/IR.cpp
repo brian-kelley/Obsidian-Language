@@ -42,13 +42,14 @@ namespace IR
 
   void optimizeIR()
   {
-    IRDebug::dumpIR("unoptimized.dot");
     foldGlobals();
+    IRDebug::dumpIR("unoptimized.dot");
     for(auto& s : ir)
     {
-      constantFold(s.second);
+      //this does constant folding and propagation simultaneously
+      constantPropagation(s.first);
     }
-    IRDebug::dumpIR("constantFolded.dot");
+    IRDebug::dumpIR("constantProp.dot");
     for(auto& s : ir)
     {
       jumpThreading(s.second);

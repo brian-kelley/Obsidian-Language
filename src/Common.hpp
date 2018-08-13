@@ -44,6 +44,8 @@ struct None{};
 
 struct Node;
 
+extern vector<string> sourceFiles;
+
 //Whether compiler is in debug mode (enabled = diagnostic output)
 #define DEBUG
 
@@ -62,7 +64,7 @@ bool runCommand(string command, bool silenced = false);
 #define errMsg(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
 
 #define errMsgLocManual(fileID, line, col, msg) \
-{ostringstream oss_; oss_ << "Error in " << fileID << ", " << line << ":" << col << '\n' << msg; errAndQuit(oss_.str());}
+{ostringstream oss_; oss_ << "Error in " << sourceFiles[fileID] << ", " << line << "." << col << ":\n" << msg; errAndQuit(oss_.str());}
 
 #define errMsgLoc(node, msg) errMsgLocManual(node->fileID, node->line, node->col, msg)
 

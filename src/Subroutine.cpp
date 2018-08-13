@@ -140,7 +140,6 @@ void Assign::resolveImpl()
   }
   if(lvalue->type != rvalue->type)
   {
-    cout << "Converting an rvalue to " << lvalue->type->getName() << " so that assignment is possible\n";
     rvalue = new Converted(rvalue, lvalue->type);
     rvalue->resolve();
   }

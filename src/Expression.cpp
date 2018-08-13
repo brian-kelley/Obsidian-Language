@@ -1701,6 +1701,11 @@ bool operator==(const Expression& l, const Expression& r)
     auto scRHS = dynamic_cast<const StringConstant*>(rhs);
     return *scLHS == *scRHS;
   }
+  else if(auto ccLHS = dynamic_cast<const CharConstant*>(lhs))
+  {
+    auto ccRHS = dynamic_cast<const CharConstant*>(rhs);
+    return *ccLHS == *ccRHS;
+  }
   else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
   {
     auto bcRHS = dynamic_cast<const BoolConstant*>(rhs);
@@ -1806,6 +1811,11 @@ bool operator<(const Expression& l, const Expression& r)
   {
     auto scRHS = dynamic_cast<const StringConstant*>(rhs);
     return *scLHS < *scRHS;
+  }
+  else if(auto ccLHS = dynamic_cast<const CharConstant*>(lhs))
+  {
+    auto ccRHS = dynamic_cast<const CharConstant*>(rhs);
+    return *ccLHS < *ccRHS;
   }
   else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
   {

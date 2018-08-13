@@ -31,21 +31,21 @@ void constantFold(IR::SubroutineIR* subr);
  *       but also evaluating any member procedure call will modify the struct
  *    -If constant set changed, enqueue all outgoing BBs not already in queue
  */
-bool constantPropagation(IR::SubroutineIR* subr);
+bool constantPropagation(Subroutine* subr);
 
 //Internal
 //Try to replace the expression with equivalent constant, if not already constant
 //Requires all dependencies to be constant and
 //the result to be smaller than maxConstantSize
 //Uses both global constant table and local constant table
-void foldExpression(Expression*& expr);
+void foldExpression(Expression*& expr, bool isLHS = false);
 
 //apply the effects of a statement to local constant table
 bool cpApplyStatement(IR::StatementIR* stmt);
 //Apply the effects of an expression to constant table, then fold the expression.
 //These steps can't be separated because the constant status of a variable
 //can change within an expression
-bool cpProcessExpression(Expression*& expr);
+bool cpProcessExpression(Expression*& expr, bool isLHS = false);
 //in local constant table, apply the action of "lhs = rhs"
 //rhs may or may not be constant, and one or both of lhs/rhs can be compound
 bool bindValue(Expression* lhs, Expression* rhs);
