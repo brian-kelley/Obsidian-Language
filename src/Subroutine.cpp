@@ -7,6 +7,9 @@ using std::find;
 static int nextSubrID = 0;
 static int nextExSubrID = 0;
 
+vector<Subroutine*> allSubrs;
+vector<ExternalSubroutine*> allExSubrs;
+
 bool programHasMain = false;
 extern Module* global;
 

@@ -15,7 +15,6 @@ IR::Nop* nop = new IR::Nop;
 namespace IR
 {
   map<Subroutine*, SubroutineIR*> ir;
-  map<Variable*, bool> globalConstants;
 
   //walk the AST and build independent IR for each subroutine
   void buildIR()
@@ -32,12 +31,6 @@ namespace IR
         {
           Subroutine* subr = (Subroutine*) name.second.item;
           ir[subr] = new SubroutineIR(subr);
-        }
-        else if(name.second.kind == Name::VARIABLE)
-        {
-          Variable* var = (Variable*) name.second.item;
-          if(var->isGlobal())
-            globalConstants[var] = true;
         }
       }
       for(auto child : scope->children)

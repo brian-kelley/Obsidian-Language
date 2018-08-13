@@ -51,12 +51,12 @@ LocalConstantTable* localConstants = nullptr;
 //The current basic block being processed in constant propagation
 int currentBB;
 
-bool LocalConstantTable::update(Variable* var, ConstantVar& replace)
+bool LocalConstantTable::update(Variable* var, ConstantVar replace)
 {
   return update(varTable[var], replace);
 }
 
-bool LocalConstantTable::update(int varIndex, ConstantVar& replace)
+bool LocalConstantTable::update(int varIndex, ConstantVar replace)
 {
   ConstantVar& prev = constants[currentBB][varIndex];
   if(prev != replace)
@@ -111,7 +111,7 @@ void foldGlobals()
   {
     if(v->isGlobal())
     {
-      globalConstants[v] = ConstantVar();
+      globalConstants[v] = ConstantVar(NON_CONSTANT);
     }
   }
   bool update = true;
@@ -157,7 +157,7 @@ void filterGlobalConstants()
           {
             //there is an assignment to w,
             //so w might not always be a constant
-            globalConstants[w] = ConstantVar();
+            globalConstants[w] = ConstantVar(NON_CONSTANT);
           }
         }
       }
@@ -778,11 +778,11 @@ bool cpApplyStatement(StatementIR* stmt)
   else if(auto ci = dynamic_cast<CallIR*>(stmt))
   {
     //just apply the side effects of evaluating the call
-    return cpProcessExpression(ci->eval);
+    return cpProcessExpression((Expression*&) ci->eval);
   }
   else if(auto cj = dynamic_cast<CondJump*>(stmt))
   {
-    return cpProcessExpression(cj->eval);
+    return cpProcessExpression(cj->cond);
   }
   else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
   {
@@ -812,7 +812,7 @@ bool cpProcessExpression(Expression*& expr)
   //variables is a member procedure call with a local variable as the base
   //
   //Also need to process children of all compound expressions
-  if(auto call = dynamic_cast<CallExpr*&>(expr))
+  if(auto call = dynamic_cast<CallExpr*>(expr))
   {
     update = cpProcessExpression(call->callable) || update;
     for(auto& arg : call->args)
@@ -897,7 +897,6 @@ bool constantPropagation(Subroutine* subr)
     currentBB = process;
     auto processBlock = subrIR->blocks[process];
     //join all incoming constant statuses with previous ones for this block
-    bool update = false;
     for(auto toJoin : processBlock->in)
     {
       int incomingIndex = localConstants->blockTable[toJoin];

@@ -407,63 +407,19 @@ void UnionType::resolveImpl()
 
 void UnionType::setDefault()
 {
-  /*
   for(size_t i = 0; i < options.size(); i++)
   {
-    //find all the types reachable from this option,
-    //then see if this is reachable
-    set<Type*> visited;
-    stack<Type*> search;
-    search.push(options[i]);
-    bool reachable = false;
-    while(!search.empty())
+    auto deps = options[i]->dependencies();
+    if(deps.find(this) == deps.end())
     {
-      Type* process = search.top();
-      if(process == this)
-      {
-        reachable = true;
-        break;
-      }
-      search.pop();
-      visited.insert(process);
-      if(auto ut = dynamic_cast<UnionType*>(process))
-      {
-        for(auto op : ut->options)
-        {
-          if(visited.find(op) == visited.end())
-          {
-            search.push(op);
-          }
-        }
-      }
-      else if(auto st = dynamic_cast<StructType*>(process))
-      {
-        for(auto mem : st->members)
-        {
-          if(visited.find(mem->type) == visited.end())
-          {
-            search.push(mem->type);
-          }
-        }
-      }
-      else if(auto at = dynamic_cast<ArrayType*>(process))
-      {
-        if(visited.find(at->elem) == visited.end())
-        {
-          search.push(at->elem);
-        }
-      }
-    }
-    if(!reachable)
-    {
-      //OK to use option i as default
+      //option i does not contain this union, so it's a suitable
+      //default value
       defaultType = i;
       return;
     }
   }
-  errMsg("all members of union type " << getName() << " contain the union");
-  */
-  defaultType = 0;
+  errMsg("All possible options of " << getName() << " contain the union itself,\n"
+      "so it's impossible to create a finite default instance");
 }
 
 bool UnionType::canConvert(Type* other)

@@ -41,7 +41,7 @@ bool constantPropagation(IR::SubroutineIR* subr);
 void foldExpression(Expression*& expr);
 
 //apply the effects of a statement to local constant table
-bool cpApplyStatement(StatementIR* stmt);
+bool cpApplyStatement(IR::StatementIR* stmt);
 //Apply the effects of an expression to constant table, then fold the expression.
 //These steps can't be separated because the constant status of a variable
 //can change within an expression
@@ -63,6 +63,14 @@ enum ConstPropKind
 //(undefined values are impossible)
 struct ConstantVar
 {
+  ConstantVar()
+  {
+    val = UndefinedVal();
+  }
+  ConstantVar(const ConstantVar& other)
+  {
+    val = other.val;
+  }
   ConstantVar(ConstPropKind cpk)
   {
     switch(cpk)
@@ -78,10 +86,14 @@ struct ConstantVar
   {
     val = e;
   }
-  variant<UndefinedVal, Nonconstant, Expression*> val;
+  variant<UndefinedVal, NonConstant, Expression*> val;
 };
 
 bool operator==(const ConstantVar& lhs, const ConstantVar& rhs);
+inline bool operator!=(const ConstantVar& lhs, const ConstantVar& rhs)
+{
+  return !(lhs == rhs);
+}
 
 //LocalConstantTable efficiently tracks all constants for whole subroutine
 struct LocalConstantTable
@@ -89,10 +101,10 @@ struct LocalConstantTable
   //Construct initial table, with all variables undefined at every BB
   LocalConstantTable(Subroutine* subr);
   map<Variable*, int> varTable;
-  map<BasicBlock*, int> blockTable;
+  map<IR::BasicBlock*, int> blockTable;
   vector<Variable*> locals;
-  bool update(Variable* var, ConstantVar& replace);
-  bool update(int varIndex, ConstantVar& replace);
+  bool update(Variable* var, ConstantVar replace);
+  bool update(int varIndex, ConstantVar replace);
   //return current status of the variable
   ConstantVar& getStatus(Variable* var);
   //inner list corresponds to variables
