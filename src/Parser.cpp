@@ -419,6 +419,7 @@ namespace Parser
     if(!acceptPunct(SEMICOLON))
     {
       fc->condition = parseExpression(fc->outer->scope);
+      expectPunct(SEMICOLON);
     }
     if(!acceptPunct(RPAREN))
     {

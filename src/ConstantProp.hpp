@@ -94,6 +94,7 @@ inline bool operator!=(const ConstantVar& lhs, const ConstantVar& rhs)
 {
   return !(lhs == rhs);
 }
+ostream& operator<<(ostream& os, const ConstantVar& cv);
 
 //LocalConstantTable efficiently tracks all constants for whole subroutine
 struct LocalConstantTable

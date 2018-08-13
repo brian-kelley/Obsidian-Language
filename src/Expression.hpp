@@ -115,8 +115,24 @@ struct IntConstant : public Expression
   }
   IntConstant(IntLit* ast)
   {
-    uval = ast->val;
-    type = primitives[Prim::ULONG];
+    //Prefer a signed type to represent positive integer constants
+    auto intType = (IntegerType*) primitives[Prim::INT];
+    auto longType = (IntegerType*) primitives[Prim::LONG];
+    if(ast->val <= (uint64_t) intType->maxSignedVal())
+    {
+      type = intType;
+      sval = ast->val;
+    }
+    else if(ast->val <= (uint64_t) longType->maxSignedVal())
+    {
+      type = longType;
+      sval = ast->val;
+    }
+    else
+    {
+      type = primitives[Prim::ULONG];
+      uval = ast->val;
+    }
     resolved = true;
   }
   IntConstant(int64_t val)

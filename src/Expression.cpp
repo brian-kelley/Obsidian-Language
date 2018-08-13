@@ -1689,7 +1689,7 @@ bool operator==(const Expression& l, const Expression& r)
   if(auto icLHS = dynamic_cast<const IntConstant*>(lhs))
   {
     auto icRHS = dynamic_cast<const IntConstant*>(rhs);
-    return *icLHS < *icRHS;
+    return *icLHS == *icRHS;
   }
   else if(auto fcLHS = dynamic_cast<const FloatConstant*>(lhs))
   {

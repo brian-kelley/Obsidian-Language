@@ -116,11 +116,18 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
         break;
       }
     case INC:
-      rvalue = new BinaryArith(lhs, PLUS, new IntConstant((int64_t) 1));
-      break;
+      {
+        IntConstant* one = new IntConstant((int64_t) 1);
+        one->type = primitives[Prim::BYTE];
+        rvalue = new BinaryArith(lhs, PLUS, one);
+        break;
+      }
     case DEC:
-      rvalue = new BinaryArith(lhs, SUB, new IntConstant((int64_t) 1));
-      break;
+      {
+        IntConstant* one = new IntConstant((int64_t) 1);
+        one->type = primitives[Prim::BYTE];
+        rvalue = new BinaryArith(lhs, SUB, one);
+      }
     default:
       errMsgLoc(this, "invalid operation for assignment");
   }
