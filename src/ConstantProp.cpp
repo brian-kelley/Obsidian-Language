@@ -794,16 +794,10 @@ bool cpApplyStatement(StatementIR* stmt)
   {
     //first, process side effects of the whole RHS
     update = cpProcessExpression(ai->src) || update;
-    if(update)
-      cout << "Got update while evaluating RHS\n";
     //then process all side effects of LHS
     update = cpProcessExpression(ai->dst, true) || update;
-    if(update)
-      cout << "Got update while evaluating LHS\n";
     //finally, update the values of assigned variable(s)
     update = bindValue(ai->dst, ai->src) || update;
-    if(update)
-      cout << "Got update while inserting new value " << ai->src << " for lvalue " << ai->dst << "\n";
   }
   else if(auto ci = dynamic_cast<CallIR*>(stmt))
   {
@@ -835,7 +829,6 @@ bool cpApplyStatement(StatementIR* stmt)
 //cpProcessExpression 
 bool cpProcessExpression(Expression*& expr, bool isLHS)
 {
-  //cout << "Processing expr: " << expr << '\n';
   bool update = false;
   //Fold this expression each child expression using
   //current (incoming) constant set and then process it to apply side effects
@@ -907,7 +900,6 @@ bool cpProcessExpression(Expression*& expr, bool isLHS)
   foldExpression(expr, isLHS);
   if(*prevExpr != *expr)
   {
-    cout << "An update occurred, since " << prevExpr << " != " << expr << '\n';
     update = true;
   }
   return update;
@@ -916,7 +908,6 @@ bool cpProcessExpression(Expression*& expr, bool isLHS)
 bool constantPropagation(Subroutine* subr)
 {
   bool anyUpdate = false;
-  bool update = false;
   auto subrIR = IR::ir[subr];
   localConstants = new LocalConstantTable(subr);
   queue<int> processQueue;
@@ -927,6 +918,7 @@ bool constantPropagation(Subroutine* subr)
   {
     int process = processQueue.front();
     processQueue.pop();
+    bool update = false;
     blocksInQueue[process] = false;
     currentBB = process;
     auto processBlock = subrIR->blocks[process];
@@ -936,14 +928,12 @@ bool constantPropagation(Subroutine* subr)
       int incomingIndex = localConstants->blockTable[toJoin];
       for(size_t i = 0; i < localConstants->locals.size(); i++)
       {
-        cout << "Processing meet of var " << localConstants->locals[i]->name << " from BB " << incomingIndex << " into " << process << '\n';
         ConstantVar met = constantMeet(
             localConstants->constants[process][i],
             localConstants->constants[incomingIndex][i]);
-        cout << "Meet operator of " << localConstants->constants[process][i] << " and " << localConstants->constants[incomingIndex][i] << " is " << met << '\n';
         if(localConstants->update(i, met))
         {
-          cout << "Got update while meeting with incoming block.\n";
+          update = true;
         }
       }
     }
@@ -952,7 +942,6 @@ bool constantPropagation(Subroutine* subr)
     {
       if(cpApplyStatement(subrIR->stmts[i]))
       {
-        cout << "Got update while procesing statement " << i << '\n';
         update = true;
       }
     }
@@ -965,6 +954,7 @@ bool constantPropagation(Subroutine* subr)
         if(!blocksInQueue[outIndex])
         {
           processQueue.push(outIndex);
+          blocksInQueue[outIndex] = true;
         }
       }
       anyUpdate = true;
@@ -972,7 +962,7 @@ bool constantPropagation(Subroutine* subr)
   }
   delete localConstants;
   localConstants = nullptr;
-  return update;
+  return anyUpdate;
 }
 
 bool operator==(const ConstantVar& lhs, const ConstantVar& rhs)
