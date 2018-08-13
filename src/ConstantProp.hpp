@@ -5,8 +5,6 @@
 
 //Fold global variable initial values
 void foldGlobals();
-//Find the set of variables modified in each 
-void determineModifiedVars();
 //Constant folding evaluates as many expressions as possible,
 //replacing them with constants
 void constantFold(IR::SubroutineIR* subr);
@@ -42,6 +40,16 @@ bool constantPropagation(IR::SubroutineIR* subr);
 //Uses both global constant table and local constant table
 void foldExpression(Expression*& expr);
 
+//apply the effects of a statement to local constant table
+void cpApplyStatement(StatementIR* stmt);
+//Apply the effects of an expression to constant table, then fold the expression.
+//These steps can't be separated because the constant status of a variable
+//can change within an expression
+void cpProcessExpression(Expression*& stmt);
+//in local constant table, apply the action of "lhs = rhs"
+//rhs may or may not be constant, and one or both of lhs/rhs can be compound
+void bindValue(Expression* lhs, Expression* rhs, int currentBB);
+
 struct UndefinedVal {};
 struct NonConstant {};
 
@@ -73,6 +81,18 @@ struct ConstantVar
   variant<UndefinedVal, Nonconstant, Expression*> val;
 };
 
+//LocalConstantTable efficiently tracks all constants for whole subroutine
+struct LocalConstantTable
+{
+  //Construct initial table, with all variables undefined at every BB
+  LocalConstantTable(Subroutine* subr);
+  map<Variable*, int> varTable;
+  vector<Variable*> locals;
+  //inner list corresponds to variables
+  //outer list corresponds to basic blocks
+  vector<vector<ConstantVar>> constants;
+};
+
 //Meet operator for ConstantVar (for dataflow analysis)
 //Is associative/commutative
 //c/d = constant, x = nonconstant, ? = undefined
@@ -83,7 +103,6 @@ struct ConstantVar
 ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs);
 
 extern map<Variable*, ConstantVar> globalConstants;
-extern map<Subroutine*, set<Variable*>> modifiedVars;
 
 #endif
 

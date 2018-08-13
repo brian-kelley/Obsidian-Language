@@ -9,10 +9,43 @@ using namespace IR;
 //but gives more opportunities for constant folding)
 const int maxConstantSize = 512;
 
-struct LocalConstantSet
+LocalConstantTable::LocalConstantTable(Subroutine* subr)
 {
+  //dfs through block scopes to find all local vars
+  //note: parameters are not included
+  stack<Scope*> search;
+  search.push(subr->body->scope);
+  while(!search.empty())
+  {
+    auto process = search.top();
+    search.pop();
+    for(auto& name : process->names)
+    {
+      if(name.second.kind == Name::VARIABLE)
+      {
+        Variable* var = (Variable*) name.second.item;
+        varTable[var] = locals.size();
+        locals.push_back(var);
+      }
+    }
+    for(auto child : process->children)
+    {
+      if(child->node.is<Block*>())
+      {
+        search.push(child);
+      }
+    }
+  }
+  //now know how many variables there are,
+  //so create the constant table with right size
+  for(auto bb : IR::ir[subr]->blocks)
+  {
+    constants.emplace_back(locals.size(), ConstantVar(UNDEFINED_VAL));
+  }
+}
 
-};
+//The table for current subroutine
+LocalConstantTable* localConstants = nullptr;
 
 //Join operator for "ConstantVar" (used by dataflow analysis).
 //associative/commutative
@@ -80,8 +113,8 @@ void foldGlobals()
 }
 
 //Remove constant status of global variables that get modified anywhere
-//Will still use the folded value to initialize global,
-//but can't use that value during folding anymore
+//Will still use the folded value to initialize the global,
+//but can't use that value in folding
 void filterGlobalConstants()
 {
   for(auto& s : IR::ir)
@@ -644,16 +677,116 @@ void constantFold(IR::SubroutineIR* subr)
   }
 }
 
-//This holds the constant/nonconstant variable sets for each basic block.
-//Populated lazily: assignments to variables add the constant value,
-//or "nonconst"
-
-struct ConstantSet
+//Update local constant table for assignment of rhs to lhs
+//Each kind of lvalue (var, indexed, structmem, compoundLit) handled separately
+//"this" is assignable but is assumed to be NonConstant throughout all subroutines
+//rhs may or may not be constant
+//Pass "nullptr" for rhs to mean "some non-constant expression"
+void bindValue(Expression* lhs, Expression* rhs, int currentBB)
 {
-  map<Variable*, ConstantVar> vals;
-};
+  if(auto ve = dynamic_cast<VarExpr*>(lhs))
+  {
+    if(ve->var->isLocal())
+    {
+      int varIndex = localConstants->varTable[ve->var];
+      if(rhs && rhs->constant())
+        localConstants->constants[currentBB][varIndex] = ConstantVar(rhs);
+      else
+        localConstants->constants[currentBB][varIndex] = ConstantVar(NON_CONSTANT);
+    }
+    //don't care about parameters/globals being modified
+  }
+  else if(auto in = dynamic_cast<Indexed*>(lhs))
+  {
+    //assigning to an element poisons the whole LHS as non-const
+    bindValue(in->group, nullptr);
+  }
+  else if(auto sm = dynamic_cast<StructMem*>(lhs))
+  {
+    bindValue(sm->base, nullptr);
+  }
+  else if(auto clLHS = dynamic_cast<CompoundLiteral*>(lhs))
+  {
+    //bind value for individual elements if rhs is also a compound literal
+    //otherwise, every element of LHS is now non-const
+    if(auto clRHS = dynamic_cast<CompoundLiteral*>(rhs))
+    {
+      for(size_t i = 0; i < clRHS->members.size(); i++)
+        bindValue(clLHS->members[i], clRHS->members[i]);
+    }
+    else
+    {
+      for(auto mem : clLHS->members)
+        bindValue(mem, nullptr);
+    }
+  }
+  else
+  {
+    INTERNAL_ERROR;
+  }
+}
 
-bool constantPropagation(SubroutineIR* subr)
+void cpApplyStatement(StatementIR* stmt)
+{
+  //Process all expressions in the statement in order of evaluation
+  //If it's an assign:
+  //  -whole RHS is processed before whole LHS (important for compound assignment)
+  //  -after processing side effects of LHS, update root variable's constant status
+  if(auto ai = dynamic_cast<AssignIR*>(stmt))
+  {
+    //first, process side effects of the whole RHS
+    cpProcessExpression(ai->src);
+    //then process all side effects of LHS
+    cpProcessExpression(ai->dst);
+    //finally, update the values of assigned variables depending on RHS
+    //note: RHS is completely folded now, if possible
+    //Complicated case is assignment to tuple: have known constants
+    //if and only if RHS is a compound literal consisting of constants
+    if(auto clLHS = dynamic_cast<CompoundLiteral*>(ai->dst))
+    {
+      if(auto clRHS = dynamic_cast<CompoundLiteral*>(ai->src))
+      {
+        //for each constant element of RHS, can mark corresponding variable in LHS as constant
+      }
+      else
+      {
+        //some kind of non-const compound value is being split and assigned to
+        //multiple LHS values: all LHS values are now non-constant
+      }
+    }
+  }
+  else if(auto ci = dynamic_cast<CallIR*>(stmt))
+  {
+    //just apply the side effects of evaluating the call
+    cpProcessExpression(ci->eval);
+  }
+  else if(auto cj = dynamic_cast<CondJump*>(stmt))
+  {
+    cpProcessExpression(cj->eval);
+  }
+  else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
+  {
+    if(ret->expr)
+      cpProcessExpression(ret->expr);
+  }
+  else if(auto pi = dynamic_cast<PrintIR*>(stmt))
+  {
+    for(auto& p : pi->exprs)
+      cpProcessExpression(p);
+  }
+  else if(auto asi = dynamic_cast<AssertionIR*>(stmt))
+  {
+    cpProcessExpression(asi->asserted);
+  }
+}
+
+void cpProcessExpression(Expression*& stmt)
+{
+  //Fold this expression each child expression using
+  //current (incoming) constant set and then process it to apply side effects
+}
+
+bool constantPropagation(Subroutine* subr)
 {
   bool update = false;
   //Full constant fold/propagate process:
@@ -665,7 +798,9 @@ bool constantPropagation(SubroutineIR* subr)
   //  -fold constants again
   //  -record which variables have known constant values at exit of BBs
   //  -do constant-prop dataflow analysis
-  constantFold(subr);
+  auto subrIR = IR::ir[subr];
+  constantFold(subrIR);
+  localConstants = new LocalConstantTable(subr);
   for(auto bb : subr->blocks)
   {
     for(int i = bb->start; i < bb->end; i++)
@@ -673,6 +808,8 @@ bool constantPropagation(SubroutineIR* subr)
       StatementIR* stmt = subr->stmts[i];
     }
   }
+  delete localConstants;
+  localConstants = nullptr;
   return update;
 }
 
