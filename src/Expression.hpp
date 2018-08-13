@@ -487,7 +487,9 @@ bool operator<(const VarExpr& lhs, const VarExpr& rhs);
 //May be standalone, or may be applied to an object
 struct SubroutineExpr : public Expression
 {
-  SubroutineExpr(Subroutine* s);
+  //Need a scope for the standalone subroutine call,
+  //to check for correct lambda semantics
+  SubroutineExpr(Subroutine* s, Scope* scope);
   SubroutineExpr(Expression* thisObj, Subroutine* s);
   SubroutineExpr(ExternalSubroutine* es);
   void resolveImpl();
@@ -506,6 +508,7 @@ struct SubroutineExpr : public Expression
   Subroutine* subr;
   ExternalSubroutine* exSubr;
   Expression* thisObject; //null for static/extern
+  Scope* usage;
 };
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);

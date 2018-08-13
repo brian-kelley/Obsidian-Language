@@ -9,131 +9,46 @@ using namespace IR;
 //but gives more opportunities for constant folding)
 const int maxConstantSize = 512;
 
+struct LocalConstantSet
+{
+
+};
+
 //Join operator for "ConstantVar" (used by dataflow analysis).
 //associative/commutative
 //
 //Since undefined values are impossible, there is no need for a "top" value
-ConstantVar join(ConstantVar& lhs, ConstantVar& rhs)
+ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs)
 {
-  if(lhs.val.is<Nonconstant>() || rhs.val.is<Nonconstant>())
-    return ConstantVar();
-  Expression* l = lhs.val.get<Expression*>();
-  Expression* r = rhs.val.get<Expression*>();
-  if(*l != *r)
-    return ConstantVar();
-  //lhs, rhs have identical constant values
-  return ConstantVar(l);
+  //meet(c, c) = c
+  //meet(c, d) = x
+  //meet(x, _) = x
+  //meet(?, _) = _
+  if(lhs.val.is<Expression*>() && rhs.val.is<Expression*>())
+  {
+    Expression* l = lhs.val.get<Expression*>();
+    Expression* r = rhs.val.get<Expression*>();
+    if(*l != *r)
+      return ConstantVar(NON_CONSTANT);
+    else
+      return ConstantVar(l);
+  }
+  else if(lhs.val.is<NonConstant>() || rhs.val.is<NonConstant>())
+  {
+    return ConstantVar(NON_CONSTANT);
+  }
+  else if(lhs.val.is<UndefinedVal>())
+  {
+    return rhs;
+  }
+  return lhs;
 }
 
 map<Variable*, ConstantVar> globalConstants;
-map<Subroutine*, set<Variable*>> modifiedVars;
-
-set<Variable*> getStatementWrites(StatementIR* stmt)
-{
-  set<Variable*> writes;
-  if(auto assign = dynamic_cast<AssignIR*>(stmt))
-  {
-    auto l = getExpressionWrites(assign->dst, true);
-    writes.insert(l.begin(), l.end());
-    auto r = getExpressionWrites(assign->src, false);
-    writes.insert(r.begin(), r.end());
-  }
-  else if(auto call = dynamic_cast<CallIR*>(stmt))
-  {
-    //foldExpression doesn't evaluate calls,
-    //so foldExpression will produce another CallExpr
-    return getExpressionWrites(call->eval, false);
-  }
-  else if(auto condJump = dynamic_cast<CondJump*>(stmt))
-  {
-    return getExpressionWrites(condJump->cond, false);
-  }
-  else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
-  {
-    if(ret->expr)
-    {
-      auto w = getExpressionWrites(ret->expr, false);
-      writes.insert(w.begin(), w.end());
-    }
-  }
-  else if(auto print = dynamic_cast<PrintIR*>(stmt))
-  {
-    for(auto e : print->exprs)
-    {
-      auto w = getExpressionWrites(e, false);
-      writes.insert(w.begin(), w.end());
-    }
-  }
-  else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
-  {
-    return getExpressionWrites(assertion->asserted, false);
-  }
-  return writes;
-}
-
-//Get the set of variables possibly modified by evaluating expression
-//(lhs is whether this is the left hand of an assignment)
-set<Variable*> getExpressionWrites(Expression* e, bool lhs)
-{
-  set<Variable*> writes;
-  if(auto cl = dynamic_cast<CompoundLiteral*>(e))
-  {
-    for(auto m : cl->members)
-    {
-      auto mw = getExpressionWrites(m, lhs);
-      writes.insert(mw.begin(), mw.end());
-    }
-  }
-  else if(auto ua = dynamic_cast<UnaryArith*>(e))
-  {
-    return getExpressionWrites(na->expr, false);
-  }
-  else if(auto ba = dynamic_cast<BinaryArith*>(e))
-  {
-    auto w = getExpressionWrites(ba->lhs, false);
-    writes.insert(w.begin(), w.end());
-    w = getExpressionWrites(ba->lhs, false);
-    writes.insert(w.begin(), w.end());
-  }
-  else if(auto in = dynamic_cast<Indexed*>(e))
-  {
-    //group can be an lvalue, but index cannot
-    auto w = getExpressionWrites(in->group, lhs);
-    writes.insert(w.begin(), w.end());
-    w = getExpressionWrites(in->index, false);
-    writes.insert(w.begin(), w.end());
-  }
-  else if(auto al = dynamic_cast<ArrayLength*>(e))
-  {
-    return getExpressionWrites(al->array, false);
-  }
-  else if(auto ae = dynamic_cast<AsExpr*>(e))
-  {
-    return getExpressionWrites(ae->base, false);
-  }
-  else if(auto ie = dynamic_cast<IsExpr*>(e))
-  {
-    return getExpressionWrites(ie->base, false);
-  }
-  else if(auto call = dynamic_cast<CallExpr*>(e))
-  {
-    //need to use the call graph to determine possibly modified variables
-  }
-  else if(auto var = dynamic_cast<VarExpr*>(e))
-  {
-    writes.insert(var->var);
-  }
-  else if(auto conv = dynamic_cast<Converted*>(e))
-  {
-    auto w = getExpressionWrites(conv->value, false);
-    writes.insert(w.begin(), w.end());
-  }
-  return writes;
-}
 
 void foldGlobals()
 {
-  //before the first pass, assume all globals are non-const
+  //before the first pass, assume all globals are non-constant
   for(auto v : allVars)
   {
     if(v->isGlobal())
@@ -155,6 +70,7 @@ void foldGlobals()
           prev != globVar->initial)
       {
         update = true;
+        //can update global's constant status to a constant value
         glob.second = ConstantVar(globVar->initial);
       }
       //on subsequent sweeps, expressions using constant
@@ -163,22 +79,10 @@ void foldGlobals()
   }
 }
 
-void determineModifiedVars()
-{
-  for(auto& s : IR::ir)
-  {
-    auto subr = s.second;
-    set<Variable*> modified;
-    for(auto bb : subr->blocks)
-    {
-      auto bbMod = subr->getWrites(bb);
-      modified.insert(bbMod.begin(), bbMod.end());
-    }
-    modifiedVars[subr] = modified;
-  }
-}
-
-void determineGlobalConstants()
+//Remove constant status of global variables that get modified anywhere
+//Will still use the folded value to initialize global,
+//but can't use that value during folding anymore
+void filterGlobalConstants()
 {
   for(auto& s : IR::ir)
   {
@@ -194,8 +98,8 @@ void determineGlobalConstants()
           if(w->isGlobal())
           {
             //there is an assignment to w,
-            //so w is not a constant
-            IR::globalConstants[w] = false;
+            //so w might not always be a constant
+            globalConstants[w] = ConstantVar();
           }
         }
       }
@@ -465,16 +369,15 @@ void foldExpression(Expression*& expr)
     {
       //check the global constant table
       auto& cv = globalConstants[ve->var];
-      if(cv.
+      if(cv.val.is<Expression*>())
+      {
+        expr = cv.val.get<Expression*>();
+      }
     }
-    if(ve->var->isGlobal() && globalConstants[ve->var])
+    else if(ve->var->isLocal())
     {
-      //safe to replace var with its initial value
-      //attempt to fold global constant's value in-place
-      //that way this work doesn't have to be repeated for each use
-      foldExpression(ve->var->initial);
-      if(ve->var->initial->constant())
-        expr = ve->var->initial;
+      //look up the variable in local constant table,
+      //and replace if possible
     }
   }
   else if(auto conv = dynamic_cast<Converted*>(expr))

@@ -29,6 +29,7 @@ bool simplifyCFG(SubroutineIR* subr)
         if(dynamic_cast<Label*>(subr->stmts[boundary]))
           subr->stmts[boundary] = nop;
         subr->buildCFG();
+        break;
       }
     }
     anyUpdate = anyUpdate || update;

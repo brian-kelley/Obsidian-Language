@@ -23,6 +23,20 @@ using std::numeric_limits;
 *   type system structs   *
 **************************/
 
+struct Type;
+struct StructType;
+struct ArrayType;
+struct TupleType;
+struct UnionType;
+struct MapType;
+struct IntegerType;
+struct FloatType;
+struct CharType;
+struct ErrorType;
+struct UnresolvedType;
+struct ExprType;
+struct ElemExprType;
+
 struct Type : public Node
 {
   virtual ~Type() {}
@@ -323,7 +337,7 @@ struct AliasType : public Type
   {
     return name;
   }
-  set<Type*> dependencies(UnionType* exclude)
+  set<Type*> dependencies(vector<UnionType*>& exclude)
   {
     return actual->dependencies(exclude);
   }
@@ -512,7 +526,6 @@ struct CallableType : public Type
   Type* returnType;
   vector<Type*> argTypes;
   bool pure;            //true for functions, false for procedures
-  bool nonterminating;
   bool isCallable()
   {
     return true;

@@ -482,7 +482,7 @@ bool UnionType::canConvert(Type* other)
   return false;
 }
 
-set<Type*> StructType::dependencies(vector<UnionType*>& exclude)
+set<Type*> UnionType::dependencies(vector<UnionType*>& exclude)
 {
   //stop the recursion here if this is the union type being excluded
   if(find(exclude.begin(), exclude.end(), this) != exclude.end())

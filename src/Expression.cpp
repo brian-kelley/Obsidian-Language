@@ -628,6 +628,7 @@ bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
 
 bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs)
 {
+  return *lhs < *rhs;
 }
 
 bool operator==(const MapConstant& lhs, const MapConstant& rhs)
@@ -957,7 +958,7 @@ bool operator<(const CallExpr& lhs, const CallExpr& rhs)
     return true;
   else if(lhs.callable > rhs.callable)
     return false;
-  //otherwise callable is same, so both have same # arguments
+  //otherwise the callable is identical, so both have same # arguments
   INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
   for(size_t i = 0; i < lhs.args.size(); i++)
   {
@@ -1026,11 +1027,12 @@ bool operator<(const VarExpr& lhs, const VarExpr& rhs)
  * SubroutineExpr *
  ******************/
 
-SubroutineExpr::SubroutineExpr(Subroutine* s)
+SubroutineExpr::SubroutineExpr(Subroutine* s, Scope* scope)
 {
   thisObject = nullptr;
   subr = s;
   exSubr = nullptr;
+  usage = scope;
 }
 
 SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
@@ -1038,6 +1040,7 @@ SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
   thisObject = root;
   subr = s;
   exSubr = nullptr;
+  usage = nullptr;
 }
 
 SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
@@ -1045,6 +1048,7 @@ SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
   thisObject = nullptr;
   subr = nullptr;
   exSubr = es;
+  usage = nullptr;
 }
 
 void SubroutineExpr::resolveImpl()
@@ -1569,7 +1573,7 @@ void resolveExpr(Expression*& expr)
             {
               //nonmember subroutine can be called from anywhere,
               //so no context checking here
-              base = new SubroutineExpr(subr);
+              base = new SubroutineExpr(subr, unres->usage);
             }
             break;
           }
@@ -1645,7 +1649,7 @@ void resolveExpr(Expression*& expr)
           baseSearch = ((Module*) found.item)->scope;
           break;
         case Name::SUBROUTINE:
-          base = new SubroutineExpr((Subroutine*) found.item);
+          base = new SubroutineExpr((Subroutine*) found.item, unres->usage);
           validBase = true;
           break;
         case Name::VARIABLE:

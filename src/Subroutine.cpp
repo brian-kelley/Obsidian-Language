@@ -493,6 +493,10 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 
 void Subroutine::resolveImpl()
 {
+  if(scope->parent->node.is<Block*>() && !type->pure)
+  {
+    errMsgLoc(this, "can't declare procedure in block scope");
+  }
   type->resolve();
   for(auto arg : args)
   {
@@ -507,6 +511,7 @@ void Subroutine::resolveImpl()
   }
   //resolve the body
   body->resolve();
+  //do additional checks for main()
   if(name == "main")
   {
     if(scope->parent != global->scope)

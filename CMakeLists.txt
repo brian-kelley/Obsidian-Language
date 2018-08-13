@@ -21,6 +21,7 @@ add_executable (onyx
   src/Subroutine.cpp
   src/IR.cpp
   src/Dataflow.cpp
+  src/CallGraph.cpp
   src/ConstantProp.cpp
   src/JumpThreading.cpp
   src/DeadCodeElim.cpp

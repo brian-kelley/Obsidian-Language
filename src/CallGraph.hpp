@@ -1,4 +1,4 @@
-#ifdef CALL_GRAPH_H
+#ifndef CALL_GRAPH_H
 #define CALL_GRAPH_H
 
 #include "Common.hpp"
@@ -14,7 +14,7 @@ struct Callable
   Callable(Subroutine* s) : subr(s), exSubr(nullptr) {}
   Callable(ExternalSubroutine* es) : subr(nullptr), exSubr(es) {}
   Callable(const Callable& other) : subr(other.subr), exSubr(other.exSubr) {}
-  CallableType* type()
+  CallableType* type() const
   {
     if(subr)
       return subr->type;
@@ -58,7 +58,7 @@ void determineIndirectReachable();
 //(used by determineIndirectReachable)
 //get the set of callable constants found in an expression which
 //could eventually be assigned as a first-class function and called
-set<Callable> getExpressionCallables(Expression* e)
+set<Callable> getExpressionCallables(Expression* e);
 
 #endif
 

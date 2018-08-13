@@ -1,4 +1,7 @@
 #include "CallGraph.hpp"
+#include "IR.hpp"
+
+using namespace IR;
 
 //The set of all subroutines/external subroutines
 //which are possibly reachable through indirect calls
@@ -38,22 +41,22 @@ static set<Callable> getReachableCallables(CallableType* ct)
 //in the expression
 set<Callable> getExpressionCallables(Expression* e)
 {
-  set<Variable*> callables;
+  set<Callable> c;
   if(auto subExpr = dynamic_cast<SubroutineExpr*>(e))
   {
     //the most important case: a subroutine
     //used in expression outside call
     if(subExpr->subr)
-      callables.insert(subExpr->subr);
+      c.insert(subExpr->subr);
     else
-      callables.insert(subExpr->exSubr);
+      c.insert(subExpr->exSubr);
   }
   else if(auto cl = dynamic_cast<CompoundLiteral*>(e))
   {
     for(auto m : cl->members)
     {
-      auto c = getExpressionCallables(m);
-      callables.insert(c.begin(), c.end());
+      auto temp = getExpressionCallables(m);
+      c.insert(temp.begin(), temp.end());
     }
   }
   else if(auto in = dynamic_cast<Indexed*>(e))
@@ -72,15 +75,15 @@ set<Callable> getExpressionCallables(Expression* e)
   {
     for(auto a : call->args)
     {
-      auto c = getExpressionCallables(a);
-      callables.insert(c.begin(), c.end());
+      auto temp = getExpressionCallables(a);
+      c.insert(temp.begin(), temp.end());
     }
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
     return getExpressionCallables(conv->value);
   }
-  return writes;
+  return c;
 }
 
 //trivial helper to just add to indirect reachables whatever
@@ -104,20 +107,20 @@ void determineIndirectReachable()
       //note: only need to check the statement types that
       //let expressions get assigned to a variable/parameter (only place
       //where indirect calls are possible)
-      if(auto a = dynamic_cast<AssignIR*>(s))
+      if(auto a = dynamic_cast<AssignIR*>(stmt))
       {
-        addIndirectReachables(a->lhs);
-        addIndirectReachables(a->rhs);
+        addIndirectReachables(a->dst);
+        addIndirectReachables(a->src);
       }
-      else if(auto c = dynamic_cast<CallIR*>(s))
+      else if(auto c = dynamic_cast<CallIR*>(stmt))
       {
         addIndirectReachables(c->eval);
       }
-      else if(auto cj = dynamic_cast<CondJump*>(s))
+      else if(auto cj = dynamic_cast<CondJump*>(stmt))
       {
         addIndirectReachables(cj->cond);
       }
-      else if(auto r = dynamic_cast<ReturnIR*>(s))
+      else if(auto r = dynamic_cast<ReturnIR*>(stmt))
       {
         if(r->expr)
           addIndirectReachables(r->expr);
@@ -199,7 +202,7 @@ static set<Callable> getExprCalls(Expression* e)
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
-    auto temp = getExprCalls(conv->expr);
+    auto temp = getExprCalls(conv->value);
     c.insert(temp.begin(), temp.end());
   }
   //else: no child expressions so no calls
