@@ -911,9 +911,11 @@ bool constantPropagation(Subroutine* subr)
   auto subrIR = IR::ir[subr];
   localConstants = new LocalConstantTable(subr);
   queue<int> processQueue;
-  vector<bool> blocksInQueue(subrIR->blocks.size(), false);
-  processQueue.push(0);
-  blocksInQueue[0] = true;
+  vector<bool> blocksInQueue(subrIR->blocks.size(), true);
+  for(size_t i = 0; i < subrIR->blocks.size(); i++)
+  {
+    processQueue.push(i);
+  }
   while(!processQueue.empty())
   {
     int process = processQueue.front();

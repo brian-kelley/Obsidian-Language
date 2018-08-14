@@ -127,6 +127,7 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
         IntConstant* one = new IntConstant((int64_t) 1);
         one->type = primitives[Prim::BYTE];
         rvalue = new BinaryArith(lhs, SUB, one);
+        break;
       }
     default:
       errMsgLoc(this, "invalid operation for assignment");
