@@ -37,6 +37,22 @@ set<Variable*> UnaryArith::getReads()
   return expr->getReads();
 }
 
+bool operator==(const UnaryArith& lhs, const UnaryArith& rhs)
+{
+  return lhs.op == rhs.op && *lhs.expr == *rhs.expr;
+}
+
+bool operator<(const UnaryArith& lhs, const UnaryArith& rhs)
+{
+  if(lhs.op < rhs.op)
+    return true;
+  else if(lhs.op > rhs.op)
+    return false;
+  else if(*lhs.expr < *rhs.expr)
+    return true;
+  return false;
+}
+
 /***************
  * BinaryArith *
  ***************/
@@ -217,6 +233,32 @@ set<Variable*> BinaryArith::getReads()
   auto rhsReads = rhs->getReads();
   reads.insert(rhsReads.begin(), rhsReads.end());
   return reads;
+}
+
+bool operator==(const BinaryArith& lhs, const BinaryArith& rhs)
+{
+  if(lhs.op != rhs.op)
+    return false;
+  if(*lhs.lhs != *rhs.lhs)
+    return false;
+  if(*lhs.rhs != *rhs.rhs)
+    return false;
+  return true;
+}
+
+bool operator<(const BinaryArith& lhs, const BinaryArith& rhs)
+{
+  if(lhs.op < rhs.op)
+    return true;
+  else if(lhs.op > rhs.op)
+    return false;
+  else if(*lhs.lhs < *rhs.lhs)
+    return true;
+  else if(*lhs.lhs > *rhs.lhs)
+    return false;
+  else if(*lhs.rhs < *rhs.rhs)
+    return true;
+  return false;
 }
 
 /**********************

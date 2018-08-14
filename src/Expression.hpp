@@ -86,6 +86,9 @@ struct UnaryArith : public Expression
   }
 };
 
+bool operator==(const UnaryArith& lhs, const UnaryArith& rhs);
+bool operator<(const UnaryArith& lhs, const UnaryArith& rhs);
+
 struct BinaryArith : public Expression
 {
   BinaryArith(Expression* lhs, int op, Expression* rhs);
@@ -103,6 +106,9 @@ struct BinaryArith : public Expression
     return 1;
   }
 };
+
+bool operator==(const BinaryArith& lhs, const BinaryArith& rhs);
+bool operator<(const BinaryArith& lhs, const BinaryArith& rhs);
 
 struct IntConstant : public Expression
 {

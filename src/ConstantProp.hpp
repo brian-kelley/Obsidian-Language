@@ -3,34 +3,20 @@
 
 #include "IR.hpp"
 
-//Fold global variable initial values
-void foldGlobals();
+//Fold global variable initial values,
+//and record which globals have constant initial values AND are never modified
+//(these can be replaced by foldExpression)
+void findGlobalConstants();
+
 //Constant folding evaluates as many expressions as possible,
 //replacing them with constants
+//
+//DEPRECATED: use constantPropagation instead, which does
+//both folding and propagation until no more updates can be done
 void constantFold(IR::SubroutineIR* subr);
-//Constant propagation decides which local variables have
-//constant values at each statement, and replaces their
-//usage with constants
 
-/* Constant propagation psuedocode:
- *
- *  -Store constant sets at the closing of each BB
- *  -Constant set before first BB is undefined for every var
- *    -good because it lets compiler give error for any usage of undefined var.
- *     (all local var decls have an assignment at the place of declaration,
- *     so they are never undefined after that)
- *  -Insert first BB into a processing queue
- *  -While processing queue is not empty:
- *    -Grab a BB to process
- *    -Join the constant set with those of each incoming BB
- *      (note that join is associative, so join with one BB at a time)
- *    -For each statement:
- *      -Replace VarExprs with constants using constant set (in folding)
- *      -Apply effects of the statement on constant set:
- *       only AssignIR can actually affect local variables,
- *       but also evaluating any member procedure call will modify the struct
- *    -If constant set changed, enqueue all outgoing BBs not already in queue
- */
+//constantPropagation determines when variables
+//have constant values, and replaces their usage by constants
 bool constantPropagation(Subroutine* subr);
 
 //Internal
@@ -106,6 +92,7 @@ struct LocalConstantTable
   vector<Variable*> locals;
   bool update(Variable* var, ConstantVar replace);
   bool update(int varIndex, ConstantVar replace);
+  bool meetUpdate(int varIndex, int destBlock, ConstantVar incoming);
   //return current status of the variable
   ConstantVar& getStatus(Variable* var);
   //inner list corresponds to variables

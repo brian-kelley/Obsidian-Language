@@ -9,6 +9,13 @@ using namespace IR;
 //but gives more opportunities for constant folding)
 const int maxConstantSize = 512;
 
+//whether the local constant table currently contains correct,
+//up-to-date constant information
+//
+//if this is true, foldExpression() will use local constant table to
+//replace VarExprs with constants
+bool foldLocals = false;
+
 LocalConstantTable::LocalConstantTable(Subroutine* subr)
 {
   //dfs through block scopes to find all local vars
@@ -67,6 +74,18 @@ bool LocalConstantTable::update(int varIndex, ConstantVar replace)
   return false;
 }
 
+bool LocalConstantTable::meetUpdate(int varIndex, int destBlock, ConstantVar incoming)
+{
+  ConstantVar& prev = constants[destBlock][varIndex];
+  ConstantVar met = constantMeet(prev, incoming);
+  if(prev != met)
+  {
+    constants[destBlock][varIndex] = met;
+    return true;
+  }
+  return false;
+}
+
 ConstantVar& LocalConstantTable::getStatus(Variable* var)
 {
   return constants[currentBB][varTable[var]];
@@ -105,7 +124,7 @@ ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs)
 
 map<Variable*, ConstantVar> globalConstants;
 
-void foldGlobals()
+void findGlobalConstants()
 {
   //before the first pass, assume all globals are non-constant
   for(auto v : allVars)
@@ -132,17 +151,8 @@ void foldGlobals()
         //can update global's constant status to a constant value
         glob.second = ConstantVar(globVar->initial);
       }
-      //on subsequent sweeps, expressions using constant
-      //global variables can be folded
     }
   }
-}
-
-//Remove constant status of global variables that get modified anywhere
-//Will still use the folded value to initialize the global,
-//but can't use that value in folding
-void filterGlobalConstants()
-{
   for(auto& s : IR::ir)
   {
     auto subr = s.second;
@@ -441,7 +451,7 @@ void foldExpression(Expression*& expr, bool isLHS)
         expr = cv.val.get<Expression*>();
       }
     }
-    else if(ve->var->isLocal())
+    else if(ve->var->isLocal() && foldLocals)
     {
       //look up the variable in local constant table
       auto& status = localConstants->getStatus(ve->var);
@@ -688,6 +698,7 @@ void foldExpression(Expression*& expr, bool isLHS)
 
 void constantFold(IR::SubroutineIR* subr)
 {
+  foldLocals = false;
   //every expression (including parts of an assignment LHS)
   //may be folded (i.e. myArray[5 + 3] = 8 % 3)
   //
@@ -911,55 +922,66 @@ bool constantPropagation(Subroutine* subr)
   auto subrIR = IR::ir[subr];
   localConstants = new LocalConstantTable(subr);
   queue<int> processQueue;
-  vector<bool> blocksInQueue(subrIR->blocks.size(), true);
+  //all blocks will be processed at least once
   for(size_t i = 0; i < subrIR->blocks.size(); i++)
   {
     processQueue.push(i);
   }
+  //blocks should be in queue at most once, so keep track with this
+  vector<bool> blocksInQueue(subrIR->blocks.size(), true);
   while(!processQueue.empty())
   {
     int process = processQueue.front();
     processQueue.pop();
+    // To process a block:
+    //  -Have some variable states at entry to block.
+    //   These have already been met with incoming blocks when they were processed.
+    //   Save a copy of this so original can be modified temporarily.
+    //  -Go through statements in BB, updating var statuses
+    //  -Meet new outgoing var statuses with those of all outgoing blocks
+    //  -If any var status changes in an outgoing block, put it in queue
+    vector<ConstantVar> savedConstants = localConstants->constants[process];
     bool update = false;
     blocksInQueue[process] = false;
     currentBB = process;
     auto processBlock = subrIR->blocks[process];
-    //join all incoming constant statuses with previous ones for this block
-    for(auto toJoin : processBlock->in)
-    {
-      int incomingIndex = localConstants->blockTable[toJoin];
-      for(size_t i = 0; i < localConstants->locals.size(); i++)
-      {
-        ConstantVar met = constantMeet(
-            localConstants->constants[process][i],
-            localConstants->constants[incomingIndex][i]);
-        if(localConstants->update(i, met))
-        {
-          update = true;
-        }
-      }
-    }
-    //then, fold constants within process and update constant statuses
+    foldLocals = false;
+    //apply effects of each statement (and its expressions) to constant statuses
     for(int i = processBlock->start; i < processBlock->end; i++)
     {
-      if(cpApplyStatement(subrIR->stmts[i]))
+      cpApplyStatement(subrIR->stmts[i]);
+    }
+    //meet the statuses with all outgoing blocks
+    for(auto out : processBlock->out)
+    {
+      int outIndex = localConstants->blockTable[out];
+      bool outUpdated = false;
+      for(size_t i = 0; i < localConstants->locals.size(); i++)
       {
-        update = true;
+        if(localConstants->meetUpdate(i, outIndex, localConstants->constants[currentBB][i]))
+          outUpdated = true;
+      }
+      if(outUpdated && !blocksInQueue[outIndex])
+      {
+        blocksInQueue[outIndex] = true;
+        processQueue.push(outIndex);
       }
     }
+    //restore saved statuses from start of current BB
+    localConstants->constants[currentBB] = savedConstants;
     if(update)
-    {
-      //need to process all outgoing blocks
-      for(auto out : processBlock->out)
-      {
-        int outIndex = localConstants->blockTable[out];
-        if(!blocksInQueue[outIndex])
-        {
-          processQueue.push(outIndex);
-          blocksInQueue[outIndex] = true;
-        }
-      }
       anyUpdate = true;
+  }
+  // Now that BB-level var statuses have stabilized:
+  //  -go through each BB one more time, folding expressions (and local VarExprs) and updating statuses with statements
+  //  -don't need to make a copy of statuses since they won't be used again
+  foldLocals = true;
+  for(auto& bb : subrIR->blocks)
+  {
+    currentBB = localConstants->blockTable[bb];
+    for(int i = bb->start; i < bb->end; i++)
+    {
+      cpApplyStatement(subrIR->stmts[i]);
     }
   }
   delete localConstants;

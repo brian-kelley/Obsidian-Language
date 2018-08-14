@@ -42,11 +42,13 @@ namespace IR
 
   void optimizeIR()
   {
-    foldGlobals();
     IRDebug::dumpIR("unoptimized.dot");
+    findGlobalConstants();
     for(auto& s : ir)
     {
-      //this does constant folding and propagation simultaneously
+      //fold all constants 
+      constantFold(s.second);
+      //this does constant propagation and folding of VarExprs
       constantPropagation(s.first);
     }
     IRDebug::dumpIR("constantProp.dot");
