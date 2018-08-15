@@ -507,13 +507,10 @@ bool operator<(const IntConstant& lhs, const IntConstant& rhs)
     return true;
   else if(lhsType->size > rhsType->size)
     return false;
-  cout << "Comparing two IntConstants with same type.\n";
   if(lhs.isSigned())
   {
-    cout << "Signed, so comparing " << lhs.sval << " with " << rhs.sval << "\n";
     return lhs.sval < rhs.sval;
   }
-  cout << "Unsigned, so comparing " << lhs.uval << " with " << rhs.uval << "\n";
   return lhs.uval < rhs.uval;
 }
 

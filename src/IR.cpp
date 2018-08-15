@@ -62,38 +62,11 @@ namespace IR
       }
       cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
     }
-    cout << "Dumping optimized IR.\n";
     IRDebug::dumpIR("optimized.dot");
-    return;
-    /*
-    //do a constant folding pass
-    //TODO: very easy to parallelize this,
-    //as subroutines are processed independently
-    //
-    //Figure out which globals are constants (for constant folding)
-    determineGlobalConstants();
-    for(auto& s : ir)
-    {
-      auto subr = s.second;
-      int updates = 1;
-      while(updates)
-      {
-        updates = 0;
-        updates += constantFold(subr);
-        updates += constantPropagation(subr);
-      }
-      updates = 1;
-      while(updates)
-      {
-        updates += jumpThreading(subr);
-        updates += deadCodeElim(subr);
-      }
-      //TODO: common subexpression elimination goes here
-    }
-    */
   }
 
   //addStatement() will save, modify and restore these as needed
+  //(using the call stack to respect nested control structures)
   static Label* breakLabel = nullptr;
   static Label* continueLabel = nullptr;
 

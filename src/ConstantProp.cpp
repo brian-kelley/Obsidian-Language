@@ -997,17 +997,10 @@ bool constantPropagation(Subroutine* subr)
       {
         //assume branch always falls through or is always taken,
         //depending on constCoord
-        cout << "Speculatively reducing cond jump " << cj->intLabel << " to ";
         if(constCond->value)
-        {
           reachableOut.push_back(subrIR->blocks[process + 1]);
-          cout << "always fall through\n";
-        }
         else
-        {
           reachableOut.push_back(subrIR->blockStarts[cj->taken->intLabel]);
-          cout << "always taken\n";
-        }
         prunedOutgoing = true;
       }
     }
