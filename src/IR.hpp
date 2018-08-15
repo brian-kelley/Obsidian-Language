@@ -183,6 +183,7 @@ namespace IR
     Subroutine* subr;
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
+    map<int, BasicBlock*> blockStarts;
     private:
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);

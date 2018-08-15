@@ -46,21 +46,21 @@ namespace IR
     findGlobalConstants();
     for(auto& s : ir)
     {
-      //fold all constants 
       constantFold(s.second);
-      //this does constant propagation and folding of VarExprs
-      constantPropagation(s.first);
-    }
-    IRDebug::dumpIR("constantProp.dot");
-    for(auto& s : ir)
-    {
-      jumpThreading(s.second);
-      deadCodeElim(s.second);
-    }
-    IRDebug::dumpIR("dce.dot");
-    for(auto& s : ir)
-    {
-      simplifyCFG(s.second);
+      int sweeps = 0;
+      bool update = true;
+      while(update)
+      {
+        update = false;
+        //fold all constants 
+        //this does constant propagation and folding of VarExprs
+        update = constantPropagation(s.first) || update;
+        update = jumpThreading(s.second) || update;
+        update = deadCodeElim(s.second) || update;
+        update = simplifyCFG(s.second) || update;
+        sweeps++;
+      }
+      cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
     }
     cout << "Dumping optimized IR.\n";
     IRDebug::dumpIR("optimized.dot");
@@ -110,6 +110,7 @@ namespace IR
   void SubroutineIR::buildCFG()
   {
     blocks.clear();
+    blockStarts.clear();
     //remove no-ops
     auto newEnd = std::remove_if(
         stmts.begin(), stmts.end(),
@@ -165,6 +166,10 @@ namespace IR
         //all others fall-through to next block
         blocks[i]->link(blocks[i + 1]);
       }
+    }
+    for(auto bb : blocks)
+    {
+      blockStarts[bb->start] = bb;
     }
   }
 

@@ -370,6 +370,18 @@ static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
       return result;
     }
   }
+  else if(op == LOR)
+  {
+    auto lhsBool = (BoolConstant*) lhs;
+    auto rhsBool = (BoolConstant*) rhs;
+    return new BoolConstant(lhsBool->value || rhsBool->value);
+  }
+  else if(op == LAND)
+  {
+    auto lhsBool = (BoolConstant*) lhs;
+    auto rhsBool = (BoolConstant*) rhs;
+    return new BoolConstant(lhsBool->value && rhsBool->value);
+  }
   //all other binary ops are numerical operations between two ints or two floats
   FloatConstant* lhsFloat = dynamic_cast<FloatConstant*>(lhs);
   FloatConstant* rhsFloat = dynamic_cast<FloatConstant*>(rhs);
@@ -808,7 +820,12 @@ bool cpApplyStatement(StatementIR* stmt)
     //then process all side effects of LHS
     update = cpProcessExpression(ai->dst, true) || update;
     //finally, update the values of assigned variable(s)
-    update = bindValue(ai->dst, ai->src) || update;
+    //if in constant-folding mode, don't want to track updates to constant statuses
+    //(only care about modified Expressions in the IR)
+    if(foldLocals)
+      bindValue(ai->dst, ai->src);
+    else
+      update = bindValue(ai->dst, ai->src) || update;
   }
   else if(auto ci = dynamic_cast<CallIR*>(stmt))
   {
@@ -907,12 +924,12 @@ bool cpProcessExpression(Expression*& expr, bool isLHS)
   //else: no child expressions so no side effects possible
   //but, now that side effects of children have been taken into account,
   //is now the right time to fold the overall expression
+  if(foldLocals)
+    update = false;
   Expression* prevExpr = expr;
   foldExpression(expr, isLHS);
   if(*prevExpr != *expr)
-  {
     update = true;
-  }
   return update;
 }
 
@@ -920,19 +937,24 @@ bool constantPropagation(Subroutine* subr)
 {
   bool anyUpdate = false;
   auto subrIR = IR::ir[subr];
+  if(subrIR->blocks.size() == 0)
+    return false;
   localConstants = new LocalConstantTable(subr);
   queue<int> processQueue;
   //all blocks will be processed at least once
-  for(size_t i = 0; i < subrIR->blocks.size(); i++)
-  {
-    processQueue.push(i);
-  }
+  processQueue.push(0);
   //blocks should be in queue at most once, so keep track with this
-  vector<bool> blocksInQueue(subrIR->blocks.size(), true);
+  vector<bool> blocksInQueue(subrIR->blocks.size(), false);
+  blocksInQueue[0] = true;
+  //Keep track of which blocks have been processed at all.
+  //Blocks which are determined to be unreachable won't be processed at all,
+  //so their variable statuses won't be valid.
+  vector<bool> processedBlocks(subrIR->blocks.size(), false);
   while(!processQueue.empty())
   {
     int process = processQueue.front();
     processQueue.pop();
+    processedBlocks[process] = true;
     // To process a block:
     //  -Have some variable states at entry to block.
     //   These have already been met with incoming blocks when they were processed.
@@ -951,8 +973,49 @@ bool constantPropagation(Subroutine* subr)
     {
       cpApplyStatement(subrIR->stmts[i]);
     }
-    //meet the statuses with all outgoing blocks
-    for(auto out : processBlock->out)
+    //meet the statuses with all outgoing blocks that are reachable
+    //given current set of constants
+    //
+    //This is always correct since in all cases where the condition turns out non-constant,
+    //currentBB will have to be reached and processed again by another block
+    //
+    //Note that a CondJump is the only instruction with multiple outgoing blocks
+    vector<BasicBlock*> reachableOut;
+    bool prunedOutgoing = false;
+    if(auto cj = dynamic_cast<CondJump*>(subrIR->stmts[processBlock->end - 1]))
+    {
+      //Since a CondJump can only have local var side effects through a call,
+      //don't need to worry about folding the condition before vs. after applying side effects
+      //
+      //Also, don't overwrite the condition in the CondJump, since this folding may not actually
+      //be correct in the final version
+      Expression* cond = cj->cond;
+      foldLocals = true;
+      foldExpression(cond);
+      foldLocals = false;
+      if(auto constCond = dynamic_cast<BoolConstant*>(cond))
+      {
+        //assume branch always falls through or is always taken,
+        //depending on constCoord
+        cout << "Speculatively reducing cond jump " << cj->intLabel << " to ";
+        if(constCond->value)
+        {
+          reachableOut.push_back(subrIR->blocks[process + 1]);
+          cout << "always fall through\n";
+        }
+        else
+        {
+          reachableOut.push_back(subrIR->blockStarts[cj->taken->intLabel]);
+          cout << "always taken\n";
+        }
+        prunedOutgoing = true;
+      }
+    }
+    if(!prunedOutgoing)
+    {
+      reachableOut = processBlock->out;
+    }
+    for(auto out : reachableOut)
     {
       int outIndex = localConstants->blockTable[out];
       bool outUpdated = false;
@@ -976,12 +1039,16 @@ bool constantPropagation(Subroutine* subr)
   //  -go through each BB one more time, folding expressions (and local VarExprs) and updating statuses with statements
   //  -don't need to make a copy of statuses since they won't be used again
   foldLocals = true;
-  for(auto& bb : subrIR->blocks)
+  for(size_t i = 0; i < subrIR->blocks.size(); i++)
   {
+    if(!processedBlocks[i])
+      continue;
+    auto bb = subrIR->blocks[i];
     currentBB = localConstants->blockTable[bb];
-    for(int i = bb->start; i < bb->end; i++)
+    for(int j = bb->start; j < bb->end; j++)
     {
-      cpApplyStatement(subrIR->stmts[i]);
+      if(cpApplyStatement(subrIR->stmts[j]))
+        anyUpdate = true;
     }
   }
   delete localConstants;

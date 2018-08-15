@@ -17,13 +17,11 @@ bool deadCodeElim(SubroutineIR* subr)
         {
           //branch never taken (does nothing)
           subr->stmts[i] = nop;
-          cout << "Eliminated never taken condjump at " << i << '\n';
         }
         else
         {
           //always taken (just a regular jump)
           subr->stmts[i] = new Jump(condJump->taken);
-          cout << "Eliminated always taken condjump at " << i << '\n';
         }
       }
     }
@@ -71,7 +69,6 @@ bool deadCodeElim(SubroutineIR* subr)
     if(blockVisits[bb] == NOT_VISITED)
     {
       update = true;
-      cout << "Deleting unreachable block " << bb->start << ':' << bb->end << '\n';
       for(int i = bb->start; i < bb->end; i++)
       {
         subr->stmts[i] = nop;
