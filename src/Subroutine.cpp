@@ -445,10 +445,15 @@ void Continue::resolveImpl()
 Print::Print(Block* b, vector<Expression*>& e) : Statement(b)
 {
   exprs = e;
+  usage = b->scope;
 }
 
 void Print::resolveImpl()
 {
+  if(usage->getFunctionContext())
+  {
+    errMsgLoc(this, "print can't be used in a function");
+  }
   for(auto& e : exprs)
   {
     resolveExpr(e);
@@ -475,7 +480,7 @@ Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Typ
 {
   name = n;
   scope = new Scope(enclosing, this);
-  auto enclosingStruct = scope->getMemberContext();
+  auto enclosingStruct = enclosing->getMemberContext();
   if(enclosingStruct && !isStatic)
   {
     type = new CallableType(pure, enclosingStruct, returnType, argTypes);

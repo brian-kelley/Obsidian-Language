@@ -127,7 +127,11 @@ namespace Parser
         expectPunct(SEMICOLON);
       return;
     }
-    INTERNAL_ERROR;
+    else
+    {
+      cout << "Expected decl but got " << lookAhead()->getStr() << '\n';
+      INTERNAL_ERROR;
+    }
   }
 
   Type* parseType(Scope* s)

@@ -225,6 +225,7 @@ struct Print : public Statement
   Print(Block* b, vector<Expression*>& exprs);
   void resolveImpl();
   vector<Expression*> exprs;
+  Scope* usage;
 };
 
 struct Assertion : public Statement

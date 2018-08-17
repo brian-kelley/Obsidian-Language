@@ -357,6 +357,10 @@ bool StructType::canConvert(Type* other)
     }
     return true;
   }
+  else if(members.size() == 1)
+  {
+    return members[0]->type->canConvert(other);
+  }
   return false;
 }
 

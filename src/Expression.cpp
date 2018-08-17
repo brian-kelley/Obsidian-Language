@@ -1026,11 +1026,6 @@ bool operator<(const Indexed& lhs, const Indexed& rhs)
 
 CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 {
-  auto ct = dynamic_cast<CallableType*>(c->type);
-  if(!ct)
-  {
-    errMsg("expression is not callable");
-  }
   callable = c;
   args = a;
 }
@@ -1041,7 +1036,7 @@ void CallExpr::resolveImpl()
   auto callableType = dynamic_cast<CallableType*>(callable->type);
   if(!callableType)
   {
-    errMsgLoc(this, "attempt to call non-callable expression");
+    errMsgLoc(this, "attempt to call expression of type " << callable->type->getName());
   }
   type = callableType->returnType;
   for(size_t i = 0; i < args.size(); i++)
@@ -1238,6 +1233,7 @@ void SubroutineExpr::resolveImpl()
         (subr ? subr->name : exSubr->name) << \
         " on an object");
   }
+  resolved = true;
 }
 
 Expression* SubroutineExpr::copy()
@@ -1595,9 +1591,14 @@ bool operator<(const AsExpr& lhs, const AsExpr& rhs)
 
 ThisExpr::ThisExpr(Scope* where)
 {
+  usage = where;
+}
+
+void ThisExpr::resolveImpl()
+{
   //figure out which struct "this" refers to,
   //or show error if there is none
-  structType = where->getStructContext();
+  structType = usage->getStructContext();
   if(!structType)
   {
     errMsgLoc(this, "can't use 'this' in static context");
@@ -1781,6 +1782,7 @@ void resolveExpr(Expression*& expr)
             {
               //is a member subroutine, so create implicit "this"
               ThisExpr* subrThis = new ThisExpr(unres->usage);
+              subrThis->setLocation(unres);
               subrThis->resolve();
               //this must match owner type of subr
               if(subr->type->ownerStruct != subrThis->structType)
@@ -1808,6 +1810,8 @@ void resolveExpr(Expression*& expr)
             if(var->owner)
             {
               ThisExpr* varThis = new ThisExpr(unres->usage);
+              varThis->setLocation(unres);
+              varThis->resolve();
               if(varThis->structType != var->owner)
               {
                 errMsgLoc(unres,
@@ -1871,7 +1875,7 @@ void resolveExpr(Expression*& expr)
           baseSearch = ((Module*) found.item)->scope;
           break;
         case Name::SUBROUTINE:
-          base = new SubroutineExpr((Subroutine*) found.item);
+          base = new SubroutineExpr(base, (Subroutine*) found.item);
           validBase = true;
           break;
         case Name::VARIABLE:
@@ -1882,22 +1886,18 @@ void resolveExpr(Expression*& expr)
           errMsgLoc(unres, "identifier " << names[nameIter] <<
               " is not a valid member of struct " << base->type->getName());
       }
+      nameIter++;
     }
     if(!validBase)
     {
-      //used up all the names but ended up with a module, not an expr
-      string fullPath = names[0];
-      for(int i = 0; i < nameIter; i++)
-      {
-        fullPath = fullPath + '.' + names[i];
-      }
-      errMsgLoc(unres, fullPath << " is not an expression");
+      errMsgLoc(unres, unres->name << " is not an expression");
     }
     base->resolve();
   }
   //save lexical location of original parsed expression
   base->setLocation(expr);
   expr = base;
+  INTERNAL_ASSERT(base->resolved);
 }
 
 bool operator==(const Expression& l, const Expression& r)
@@ -2002,8 +2002,19 @@ bool operator==(const Expression& l, const Expression& r)
   {
     return true;
   }
+  else if(auto subrLHS = dynamic_cast<const SubroutineExpr*>(lhs))
+  {
+    auto subrRHS = dynamic_cast<const SubroutineExpr*>(rhs);
+    return *subrLHS == *subrRHS;
+  }
+  else if(auto smLHS = dynamic_cast<const StructMem*>(lhs))
+  {
+    auto smRHS = dynamic_cast<const StructMem*>(rhs);
+    return *smLHS == *smRHS;
+  }
   else
   {
+    cout << "Didn't implement comparison for " << typeid(*lhs).name() << '\n';
     INTERNAL_ERROR;
   }
   return false;
@@ -2205,6 +2216,25 @@ ostream& operator<<(ostream& os, Expression* e)
         os << ", ";
     }
     os << ')';
+  }
+  else if(auto sm = dynamic_cast<StructMem*>(e))
+  {
+    os << sm->base << '.';
+    if(sm->member.is<Variable*>())
+      os << sm->member.get<Variable*>()->name;
+    else
+      os << sm->member.get<Subroutine*>()->name;
+  }
+  else if(auto se = dynamic_cast<SubroutineExpr*>(e))
+  {
+    if(se->subr)
+    {
+      if(se->thisObject)
+        os << se->thisObject << '.';
+      os << se->subr->name;
+    }
+    else
+      os << se->exSubr->name;
   }
   else if(VarExpr* ve = dynamic_cast<VarExpr*>(e))
   {

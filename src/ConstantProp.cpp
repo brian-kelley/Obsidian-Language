@@ -180,6 +180,7 @@ static Expression* convertConstant(Expression* value, Type* type)
 {
   INTERNAL_ASSERT(value->constant());
   int option = -1;
+  auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
     for(size_t i = 0; i < unionDst->options.size(); i++)
@@ -204,6 +205,14 @@ static Expression* convertConstant(Expression* value, Type* type)
     }
     INTERNAL_ASSERT(option >= 0);
     return new UnionConstant(value, unionDst->options[option], unionDst);
+  }
+  else if(structDst && structDst->members.size() == 1 &&
+      !dynamic_cast<CompoundLiteral*>(value))
+  {
+    vector<Expression*> mem(1, value);
+    auto cl = new CompoundLiteral(mem);
+    cl->resolve();
+    return cl;
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
@@ -706,7 +715,7 @@ bool foldExpression(Expression*& expr, bool isLHS)
       update = true;
     }
   }
-  else
+  else if(!dynamic_cast<ThisExpr*>(expr))
   {
     INTERNAL_ERROR;
   }

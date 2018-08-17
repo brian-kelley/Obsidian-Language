@@ -729,6 +729,7 @@ bool operator<(const AsExpr& lhs, const AsExpr& rhs);
 struct ThisExpr : public Expression
 {
   ThisExpr(Scope* where);
+  void resolveImpl();
   //structType is equal to type
   StructType* structType;
   bool assignable()
@@ -739,6 +740,7 @@ struct ThisExpr : public Expression
   {
     return 20;
   }
+  Scope* usage;
   Expression* copy();
 };
 

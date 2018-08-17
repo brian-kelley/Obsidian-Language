@@ -327,6 +327,28 @@ int emitExpression(Expression* e)
     root = out.createNode("Union constant of " + e->type->getName());
     out.createEdge(root, emitExpression(uc->value));
   }
+  else if(auto sm = dynamic_cast<StructMem*>(e))
+  {
+    root = out.createNode("Struct member");
+    out.createEdge(root, emitExpression(sm->base));
+    if(sm->member.is<Variable*>())
+      out.createEdge(root, emitVariable(sm->member.get<Variable*>()));
+    else
+      out.createEdge(root, out.createNode("Subroutine " + sm->member.get<Subroutine*>()->name));
+  }
+  else if(auto se = dynamic_cast<SubroutineExpr*>(e))
+  {
+    if(se->thisObject)
+    {
+      root = out.createNode("Member subroutine");
+      out.createEdge(root, emitExpression(se->thisObject));
+      out.createEdge(root, out.createNode(se->subr->name));
+    }
+    else if(se->subr)
+      root = out.createNode("Subroutine " + se->subr->name);
+    else
+      root = out.createNode("External subroutine " + se->exSubr->name);
+  }
   else
   {
     cout << "Didn't implement emitExpression for type " << typeid(*e).name() << '\n';
