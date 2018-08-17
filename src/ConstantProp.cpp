@@ -129,7 +129,10 @@ void findGlobalConstants()
   {
     if(v->isGlobal())
     {
-      globalConstants[v] = ConstantVar(NON_CONSTANT);
+      if(v->initial->constant())
+        globalConstants[v] = ConstantVar(v->initial);
+      else
+        globalConstants[v] = ConstantVar(NON_CONSTANT);
     }
   }
   bool update = true;
@@ -140,13 +143,10 @@ void findGlobalConstants()
     {
       Variable* globVar = glob.first;
       //fold globVar's initial value (if possible)
-      Expression* prev = globVar->initial;
-      foldExpression(globVar->initial);
-      if(globVar->initial->constant() &&
-          prev != globVar->initial)
+      bool changed = foldExpression(globVar->initial);
+      if(changed && globVar->initial->constant())
       {
         update = true;
-        //can update global's constant status to a constant value
         glob.second = ConstantVar(globVar->initial);
       }
     }
@@ -422,8 +422,9 @@ static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem)
 //
 //Return true if any IR changes are made
 //Set constant to true if expr is now, or was already, a constant
-void foldExpression(Expression*& expr, bool isLHS)
+bool foldExpression(Expression*& expr, bool isLHS)
 {
+  bool update = false;
   //Save the lexical location of previous expr,
   //since folded expr should have the same position
   Node* oldLoc = expr;
@@ -441,16 +442,15 @@ void foldExpression(Expression*& expr, bool isLHS)
       cl->type = str->type;
       cl->resolved = true;
       expr = cl;
+      update = true;
     }
-    expr->setLocation(oldLoc);
-    return;
   }
   else if(auto ve = dynamic_cast<VarExpr*>(expr))
   {
     //Can't fold variable that gets modified by an assignment
     if(isLHS)
     {
-      return;
+      return false;
     }
     if(ve->var->isGlobal())
     {
@@ -459,6 +459,7 @@ void foldExpression(Expression*& expr, bool isLHS)
       if(cv.val.is<Expression*>())
       {
         expr = cv.val.get<Expression*>();
+        update = true;
       }
     }
     else if(ve->var->isLocal() && foldLocals)
@@ -466,7 +467,10 @@ void foldExpression(Expression*& expr, bool isLHS)
       //look up the variable in local constant table
       auto& status = localConstants->getStatus(ve->var);
       if(status.val.is<Expression*>())
+      {
         expr = status.val.get<Expression*>();
+        update = true;
+      }
       else if(status.val.is<UndefinedVal>())
         errMsgLoc(ve, "use of variable " << ve->var->name << " before initialization");
       //else: non-constant, can't do anything
@@ -474,20 +478,26 @@ void foldExpression(Expression*& expr, bool isLHS)
   }
   else if(auto conv = dynamic_cast<Converted*>(expr))
   {
-    foldExpression(conv->value);
+    update = foldExpression(conv->value) || update;
     if(conv->value->constant())
+    {
       expr = convertConstant(conv->value, conv->type);
+      update = true;
+    }
   }
   else if(auto binArith = dynamic_cast<BinaryArith*>(expr))
   {
     //evalBinOp returns null if expr not constant or is too big to evaluate
     Expression* result = evalBinOp(binArith->lhs, binArith->op, binArith->rhs);
     if(result)
+    {
       expr = result;
+      update = true;
+    }
   }
   else if(auto unaryArith = dynamic_cast<UnaryArith*>(expr))
   {
-    foldExpression(unaryArith->expr);
+    update = foldExpression(unaryArith->expr) || update;
     if(unaryArith->expr->constant())
     {
       if(unaryArith->op == LNOT)
@@ -495,7 +505,6 @@ void foldExpression(Expression*& expr, bool isLHS)
         //operand must be a bool constant
         expr = new BoolConstant(!((BoolConstant*) unaryArith->expr)->value);
         expr->setLocation(oldLoc);
-        return;
       }
       else if(unaryArith->op == BNOT)
       {
@@ -506,7 +515,6 @@ void foldExpression(Expression*& expr, bool isLHS)
         else
           expr = new IntConstant(~(input->uval));
         expr->setLocation(oldLoc);
-        return;
       }
       else if(unaryArith->op == SUB)
       {
@@ -530,8 +538,6 @@ void foldExpression(Expression*& expr, bool isLHS)
             IntConstant* neg = new IntConstant(-ic->sval);
             neg->type = intType;
             expr = neg;
-            expr->setLocation(oldLoc);
-            return;
           }
           else
           {
@@ -547,22 +553,21 @@ void foldExpression(Expression*& expr, bool isLHS)
           neg->dp = -fc->dp;
           neg->type = fc->type;
           expr = neg;
-          expr->setLocation(oldLoc);
-          return;
         }
         else
         {
           INTERNAL_ERROR;
         }
       }
+      update = true;
     }
   }
   else if(auto indexed = dynamic_cast<Indexed*>(expr))
   {
     Expression*& grp = indexed->group;
     Expression*& ind = indexed->index;
-    foldExpression(grp, isLHS);
-    foldExpression(ind);
+    update = foldExpression(grp, isLHS) || update;
+    update = foldExpression(ind) || update;
     if(grp->constant() && ind->constant())
     {
       if(dynamic_cast<ArrayType*>(grp->type))
@@ -577,8 +582,6 @@ void foldExpression(Expression*& expr, bool isLHS)
                 " out of bounds [0, " << arrValues->members.size() - 1 << ")");
           }
           expr = arrValues->members[intIndex->sval];
-          expr->setLocation(oldLoc);
-          return;
         }
         else
         {
@@ -588,8 +591,6 @@ void foldExpression(Expression*& expr, bool isLHS)
                 " out of bounds [0, " << arrValues->members.size() - 1 << ")");
           }
           expr = arrValues->members[intIndex->uval];
-          expr->setLocation(oldLoc);
-          return;
         }
       }
       else if(dynamic_cast<MapType*>(grp->type))
@@ -601,10 +602,12 @@ void foldExpression(Expression*& expr, bool isLHS)
           expr = new UnionConstant(new ErrorVal, primitives[Prim::ERROR], (UnionType*) indexed->type);
         else
           expr = new UnionConstant(mapIt->second, mapIt->second->type, (UnionType*) indexed->type);
-        expr->setLocation(oldLoc);
-        return;
       }
-      INTERNAL_ERROR;
+      else
+      {
+        INTERNAL_ERROR;
+      }
+      update = true;
     }
   }
   else if(auto newArray = dynamic_cast<NewArray*>(expr))
@@ -617,7 +620,7 @@ void foldExpression(Expression*& expr, bool isLHS)
     vector<uint64_t> dimVals;
     for(auto& dim : newArray->dims)
     {
-      foldExpression(dim);
+      update = foldExpression(dim) || update;
       if(!dim->constant())
       {
         allConstant = false;
@@ -639,11 +642,12 @@ void foldExpression(Expression*& expr, bool isLHS)
     {
       //can create the array
       expr = createArray(dimVals.data(), newArray->dims.size(), arrType->elem);
+      update = true;
     }
   }
   else if(auto structMem = dynamic_cast<StructMem*>(expr))
   {
-    foldExpression(structMem->base, isLHS);
+    update = foldExpression(structMem->base, isLHS) || update;
     if(structMem->base->constant() && structMem->member.is<Variable*>())
     {
       Variable* var = structMem->member.get<Variable*>();
@@ -654,8 +658,8 @@ void foldExpression(Expression*& expr, bool isLHS)
         if(st->members[memIndex] == var)
         {
           expr = ((CompoundLiteral*) structMem->base)->members[memIndex];
-          expr->setLocation(oldLoc);
-          return;
+          update = true;
+          break;
         }
       }
       INTERNAL_ERROR;
@@ -663,40 +667,43 @@ void foldExpression(Expression*& expr, bool isLHS)
   }
   else if(auto arrayLen = dynamic_cast<ArrayLength*>(expr))
   {
-    foldExpression(arrayLen->array);
+    update = foldExpression(arrayLen->array) || update;
     if(arrayLen->array->constant())
     {
       int64_t len = ((CompoundLiteral*) arrayLen->array)->members.size();
       expr = new IntConstant(len);
+      update = true;
     }
   }
   else if(auto call = dynamic_cast<CallExpr*>(expr))
   {
     //can try to fold both the callable and each argument
-    foldExpression(call->callable);
+    update = foldExpression(call->callable) || update;
     for(auto& arg : call->args)
     {
-      foldExpression(arg);
+      update = foldExpression(arg) || update;
     }
   }
   else if(auto isExpr = dynamic_cast<IsExpr*>(expr))
   {
-    foldExpression(isExpr->base);
+    update = foldExpression(isExpr->base) || update;
     if(auto uc = dynamic_cast<UnionConstant*>(isExpr->base))
     {
       expr = new BoolConstant(uc->value->type == isExpr->option);
+      update = true;
     }
   }
   else if(auto asExpr = dynamic_cast<AsExpr*>(expr))
   {
-    foldExpression(asExpr->base);
+    update = foldExpression(asExpr->base) || update;
     if(auto uc = dynamic_cast<UnionConstant*>(asExpr->base))
     {
       if(uc->value->type != asExpr->option)
       {
-        //errMsgLoc(asExpr, "known at compile time that union value is not a " << asExpr->option->getName());
+        errMsgLoc(asExpr, "known at compile time that union value is not a " << asExpr->option->getName());
       }
       expr = uc->value;
+      update = true;
     }
   }
   else
@@ -704,6 +711,7 @@ void foldExpression(Expression*& expr, bool isLHS)
     INTERNAL_ERROR;
   }
   expr->setLocation(oldLoc);
+  return update;
 }
 
 void constantFold(IR::SubroutineIR* subr)

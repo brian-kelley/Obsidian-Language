@@ -55,12 +55,10 @@ namespace IR
         //fold all constants 
         //this does constant propagation and folding of VarExprs
         update = constantPropagation(s.first) || update;
-        IRDebug::dumpIR("constProp" + to_string(sweeps) + ".dot");
         //update = jumpThreading(s.second) || update;
         update = deadCodeElim(s.second) || update;
         update = simplifyCFG(s.second) || update;
         sweeps++;
-        IRDebug::dumpIR("sweep" + to_string(sweeps) + ".dot");
       }
       cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
     }

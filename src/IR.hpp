@@ -178,7 +178,8 @@ namespace IR
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
-    //Remove no-ops and rebuild the control flow graph
+    //Remove no-ops and labels, and rebuild the control flow graph
+    //(labels are just a convenience for translating AST to IR)
     void buildCFG();
     set<Variable*> getReads(BasicBlock* bb);
     set<Variable*> getWrites(BasicBlock* bb);

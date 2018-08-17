@@ -24,7 +24,7 @@ bool constantPropagation(Subroutine* subr);
 //Requires all dependencies to be constant and
 //the result to be smaller than maxConstantSize
 //Uses both global constant table and local constant table
-void foldExpression(Expression*& expr, bool isLHS = false);
+bool foldExpression(Expression*& expr, bool isLHS = false);
 
 //apply the effects of a statement to local constant table
 bool cpApplyStatement(IR::StatementIR* stmt);

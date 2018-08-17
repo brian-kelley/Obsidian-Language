@@ -124,7 +124,7 @@ namespace Parser
       //variable declaration
       parseVarDecl(s);
       if(semicolon)
-        expectPunct(semicolon);
+        expectPunct(SEMICOLON);
       return;
     }
     INTERNAL_ERROR;
