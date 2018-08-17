@@ -37,6 +37,13 @@ set<Variable*> UnaryArith::getReads()
   return expr->getReads();
 }
 
+Expression* UnaryArith::copy()
+{
+  auto c = new UnaryArith(op, expr->copy());
+  c->resolve();
+  return c;
+}
+
 bool operator==(const UnaryArith& lhs, const UnaryArith& rhs)
 {
   return lhs.op == rhs.op && *lhs.expr == *rhs.expr;
@@ -233,6 +240,13 @@ set<Variable*> BinaryArith::getReads()
   auto rhsReads = rhs->getReads();
   reads.insert(rhsReads.begin(), rhsReads.end());
   return reads;
+}
+
+Expression* BinaryArith::copy()
+{
+  auto c = new BinaryArith(lhs->copy(), op, rhs->copy());
+  c->resolve();
+  return c;
 }
 
 bool operator==(const BinaryArith& lhs, const BinaryArith& rhs)
@@ -483,6 +497,16 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
 #undef DO_OP
 }
 
+Expression* IntConstant::copy()
+{
+  auto c = new IntConstant;
+  c->type = type;
+  c->sval = sval;
+  c->uval = uval;
+  c->resolve();
+  return c;
+}
+
 bool operator==(const IntConstant& lhs, const IntConstant& rhs)
 {
   IntegerType* lhsType = (IntegerType*) lhs.type;
@@ -619,6 +643,15 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
   return result;
 }
 
+Expression* FloatConstant::copy()
+{
+  auto c = new FloatConstant;
+  c->type = type;
+  c->fp = fp;
+  c->dp = dp;
+  return c;
+}
+
 bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
 {
   if(lhs.type != rhs.type)
@@ -640,6 +673,11 @@ bool operator<(const FloatConstant& lhs, const FloatConstant& rhs)
   return lhs.fp < rhs.fp;
 }
 
+Expression* StringConstant::copy()
+{
+  return new StringConstant(value);
+}
+
 bool operator==(const StringConstant& lhs, const StringConstant& rhs)
 {
   return lhs.value == rhs.value;
@@ -648,6 +686,11 @@ bool operator==(const StringConstant& lhs, const StringConstant& rhs)
 bool operator<(const StringConstant& lhs, const StringConstant& rhs)
 {
   return lhs.value < rhs.value;
+}
+
+Expression* CharConstant::copy()
+{
+  return new CharConstant(value);
 }
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs)
@@ -660,6 +703,11 @@ bool operator<(const CharConstant& lhs, const CharConstant& rhs)
   return lhs.value < rhs.value;
 }
 
+Expression* BoolConstant::copy()
+{
+  return new BoolConstant(value);
+}
+
 bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
 {
   return lhs.value == rhs.value;
@@ -670,9 +718,26 @@ bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
   return !lhs.value && rhs.value;
 }
 
-bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs)
+bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs) const
 {
   return *lhs < *rhs;
+}
+
+MapConstant::MapConstant(MapType* mt)
+{
+  type = mt;
+  resolved = true;
+}
+
+Expression* MapConstant::copy()
+{
+  MapConstant* c = new MapConstant((MapType*) type);
+  //have to deep copy all the keys/values
+  for(auto& kv : values)
+  {
+    c->values[kv.first->copy()] = kv.second->copy();
+  }
+  return c;
 }
 
 bool operator==(const MapConstant& lhs, const MapConstant& rhs)
@@ -722,6 +787,29 @@ bool operator<(const MapConstant& lhs, const MapConstant& rhs)
     return true;
   }
   return false;
+}
+
+UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
+{
+  INTERNAL_ASSERT(expr->constant());
+  value = expr;
+  unionType = ut;
+  type = unionType;
+  option = -1;
+  for(size_t i = 0; i < ut->options.size(); i++)
+  {
+    if(t == ut->options[i])
+    {
+      option = i;
+      break;
+    }
+  }
+  resolved = true;
+}
+
+Expression* UnionConstant::copy()
+{
+  return new UnionConstant(value->copy(), type, unionType);
 }
 
 bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
@@ -791,6 +879,16 @@ set<Variable*> CompoundLiteral::getWrites()
     writes.insert(memWrites.begin(), memWrites.end());
   }
   return writes;
+}
+
+Expression* CompoundLiteral::copy()
+{
+  vector<Expression*> memsCopy;
+  for(auto m : members)
+    memsCopy.push_back(m->copy());
+  CompoundLiteral* c = new CompoundLiteral(memsCopy);
+  c->resolve();
+  return c;
 }
 
 bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
@@ -904,6 +1002,13 @@ set<Variable*> Indexed::getWrites()
   return group->getWrites();
 }
 
+Expression* Indexed::copy()
+{
+  Indexed* c = new Indexed(group->copy(), index->copy());
+  c->resolve();
+  return c;
+}
+
 bool operator==(const Indexed& lhs, const Indexed& rhs)
 {
   return lhs.group == rhs.group && lhs.index == rhs.index;
@@ -983,6 +1088,16 @@ set<Variable*> CallExpr::getReads()
   return reads;
 }
 
+Expression* CallExpr::copy()
+{
+  vector<Expression*> argsCopy;
+  for(auto a : args)
+    argsCopy.push_back(a->copy());
+  auto c = new CallExpr(callable->copy(), argsCopy);
+  c->resolve();
+  return c;
+}
+
 bool operator==(const CallExpr& lhs, const CallExpr& rhs)
 {
   if(lhs.callable != rhs.callable)
@@ -1057,6 +1172,13 @@ set<Variable*> VarExpr::getWrites()
   return writes;
 }
 
+Expression* VarExpr::copy()
+{
+  auto c = new VarExpr(var);
+  c->resolve();
+  return c;
+}
+
 bool operator==(const VarExpr& lhs, const VarExpr& rhs)
 {
   return lhs.var == rhs.var;
@@ -1071,12 +1193,11 @@ bool operator<(const VarExpr& lhs, const VarExpr& rhs)
  * SubroutineExpr *
  ******************/
 
-SubroutineExpr::SubroutineExpr(Subroutine* s, Scope* scope)
+SubroutineExpr::SubroutineExpr(Subroutine* s)
 {
   thisObject = nullptr;
   subr = s;
   exSubr = nullptr;
-  usage = scope;
 }
 
 SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
@@ -1084,7 +1205,6 @@ SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
   thisObject = root;
   subr = s;
   exSubr = nullptr;
-  usage = nullptr;
 }
 
 SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
@@ -1092,7 +1212,6 @@ SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
   thisObject = nullptr;
   subr = nullptr;
   exSubr = es;
-  usage = nullptr;
 }
 
 void SubroutineExpr::resolveImpl()
@@ -1119,6 +1238,19 @@ void SubroutineExpr::resolveImpl()
         (subr ? subr->name : exSubr->name) << \
         " on an object");
   }
+}
+
+Expression* SubroutineExpr::copy()
+{
+  SubroutineExpr* c = nullptr;
+  if(thisObject)
+    c = new SubroutineExpr(thisObject, subr);
+  else if(subr)
+    c = new SubroutineExpr(subr);
+  else
+    c = new SubroutineExpr(exSubr);
+  c->resolve();
+  return c;
 }
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
@@ -1219,6 +1351,17 @@ set<Variable*> StructMem::getWrites()
   return base->getWrites();
 }
 
+Expression* StructMem::copy()
+{
+  StructMem* c = nullptr;
+  if(member.is<Variable*>())
+    c = new StructMem(base->copy(), member.get<Variable*>());
+  else
+    c = new StructMem(base->copy(), member.get<Subroutine*>());
+  c->resolve();
+  return c;
+}
+
 bool operator==(const StructMem& lhs, const StructMem& rhs)
 {
   if(lhs.base != rhs.base)
@@ -1270,6 +1413,16 @@ void NewArray::resolveImpl()
   }
   type = getArrayType(elem, dims.size());
   resolved = true;
+}
+
+Expression* NewArray::copy()
+{
+  vector<Expression*> dimsCopy;
+  for(auto d : dims)
+    dimsCopy.push_back(d->copy());
+  auto c = new NewArray(elem, dimsCopy);
+  c->resolve();
+  return c;
 }
 
 bool operator==(const NewArray& lhs, const NewArray& rhs)
@@ -1331,6 +1484,13 @@ set<Variable*> ArrayLength::getReads()
   return array->getReads();
 }
 
+Expression* ArrayLength::copy()
+{
+  ArrayLength* c = new ArrayLength(array->copy());
+  c->resolve();
+  return c;
+}
+
 bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
 {
   return lhs.array == rhs.array;
@@ -1360,6 +1520,13 @@ void IsExpr::resolveImpl()
       return;
     }
   }
+}
+
+Expression* IsExpr::copy()
+{
+  auto c = new IsExpr(base->copy(), option);
+  c->resolve();
+  return c;
 }
 
 bool operator==(const IsExpr& lhs, const IsExpr& rhs)
@@ -1399,6 +1566,13 @@ void AsExpr::resolveImpl()
   }
 }
 
+Expression* AsExpr::copy()
+{
+  auto c = new AsExpr(base->copy(), option);
+  c->resolve();
+  return c;
+}
+
 bool operator==(const AsExpr& lhs, const AsExpr& rhs)
 {
   return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
@@ -1432,22 +1606,9 @@ ThisExpr::ThisExpr(Scope* where)
   resolved = true;
 }
 
-UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
+Expression* ThisExpr::copy()
 {
-  INTERNAL_ASSERT(expr->constant());
-  value = expr;
-  unionType = ut;
-  type = unionType;
-  option = -1;
-  for(size_t i = 0; i < ut->options.size(); i++)
-  {
-    if(t == ut->options[i])
-    {
-      option = i;
-      break;
-    }
-  }
-  resolved = true;
+  return this;
 }
 
 /*************
@@ -1477,6 +1638,13 @@ set<Variable*> Converted::getReads()
   return value->getReads();
 }
 
+Expression* Converted::copy()
+{
+  auto c = new Converted(value->copy(), type);
+  c->resolve();
+  return c;
+}
+
 bool operator==(const Converted& lhs, const Converted& rhs)
 {
   return lhs.type == rhs.type && lhs.value == rhs.value;
@@ -1502,6 +1670,11 @@ EnumExpr::EnumExpr(EnumConstant* ec)
   type = ec->et;
   value = ec;
   resolved = true;
+}
+
+Expression* EnumExpr::copy()
+{
+  return this;
 }
 
 bool operator==(const EnumExpr& lhs, const EnumExpr& rhs)
@@ -1530,6 +1703,11 @@ ErrorVal::ErrorVal()
 {
   type = primitives[Prim::ERROR];
   resolved = true;
+}
+
+Expression* ErrorVal::copy()
+{
+  return this;
 }
 
 /*************************/
@@ -1617,7 +1795,7 @@ void resolveExpr(Expression*& expr)
             {
               //nonmember subroutine can be called from anywhere,
               //so no context checking here
-              base = new SubroutineExpr(subr, unres->usage);
+              base = new SubroutineExpr(subr);
             }
             break;
           }
@@ -1693,7 +1871,7 @@ void resolveExpr(Expression*& expr)
           baseSearch = ((Module*) found.item)->scope;
           break;
         case Name::SUBROUTINE:
-          base = new SubroutineExpr((Subroutine*) found.item, unres->usage);
+          base = new SubroutineExpr((Subroutine*) found.item);
           validBase = true;
           break;
         case Name::VARIABLE:

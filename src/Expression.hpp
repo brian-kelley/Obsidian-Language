@@ -38,6 +38,8 @@ struct Expression : public Node
   //just used for comparing/ordering Expressions
   virtual int getTypeTag() const = 0;
   virtual Variable* getRootVariable() {INTERNAL_ERROR;}
+  //deep copy (must already be resolved)
+  virtual Expression* copy() = 0;
 };
 
 //Subclasses of Expression
@@ -84,6 +86,7 @@ struct UnaryArith : public Expression
   {
     return 0;
   }
+  Expression* copy();
 };
 
 bool operator==(const UnaryArith& lhs, const UnaryArith& rhs);
@@ -105,6 +108,7 @@ struct BinaryArith : public Expression
   {
     return 1;
   }
+  Expression* copy();
 };
 
 bool operator==(const BinaryArith& lhs, const BinaryArith& rhs);
@@ -182,6 +186,7 @@ struct IntConstant : public Expression
   {
     return 2;
   }
+  Expression* copy();
 };
 
 bool operator==(const IntConstant& lhs, const IntConstant& rhs);
@@ -238,6 +243,7 @@ struct FloatConstant : public Expression
   {
     return 3;
   }
+  Expression* copy();
 };
 
 bool operator==(const FloatConstant& lhs, const FloatConstant& rhs);
@@ -248,6 +254,13 @@ struct StringConstant : public Expression
   StringConstant(StrLit* ast)
   {
     value = ast->val;
+    type = getArrayType(primitives[Prim::CHAR], 1);
+    resolveType(type);
+    resolved = true;
+  }
+  StringConstant(string str)
+  {
+    value = str;
     type = getArrayType(primitives[Prim::CHAR], 1);
     resolveType(type);
     resolved = true;
@@ -269,6 +282,7 @@ struct StringConstant : public Expression
   {
     return 4;
   }
+  Expression* copy();
 };
 
 bool operator==(const StringConstant& lhs, const StringConstant& rhs);
@@ -301,6 +315,7 @@ struct CharConstant : public Expression
   {
     return 5;
   }
+  Expression* copy();
 };
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
@@ -331,6 +346,7 @@ struct BoolConstant : public Expression
   {
     return 6;
   }
+  Expression* copy();
 };
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
@@ -338,13 +354,14 @@ bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
 struct ExprCompare
 {
-  bool operator()(const Expression* lhs, const Expression* rhs);
+  bool operator()(const Expression* lhs, const Expression* rhs) const;
 };
 
 //Map constant: hold set of constant key-value pairs
 //Relies on operator== and operator< for Expressions
 struct MapConstant : public Expression
 {
+  MapConstant(MapType* mt);
   map<Expression*, Expression*, ExprCompare> values;
   bool constant()
   {
@@ -368,6 +385,7 @@ struct MapConstant : public Expression
   {
     return 7;
   }
+  Expression* copy();
 };
 
 bool operator==(const MapConstant& lhs, const MapConstant& rhs);
@@ -391,6 +409,7 @@ struct UnionConstant : public Expression
   {
     return 8;
   }
+  Expression* copy();
   UnionType* unionType;
   Expression* value;
   int option;
@@ -436,6 +455,7 @@ struct CompoundLiteral : public Expression
   {
     return 9;
   }
+  Expression* copy();
 };
 
 bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
@@ -459,6 +479,7 @@ struct Indexed : public Expression
   {
     return group->getRootVariable();
   }
+  Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -480,6 +501,7 @@ struct CallExpr : public Expression
   {
     return 11;
   }
+  Expression* copy();
   //TODO: do evaluate calls in optimizing mode
   set<Variable*> getReads();
 };
@@ -507,6 +529,7 @@ struct VarExpr : public Expression
   {
     return var;
   }
+  Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -518,9 +541,7 @@ bool operator<(const VarExpr& lhs, const VarExpr& rhs);
 //May be standalone, or may be applied to an object
 struct SubroutineExpr : public Expression
 {
-  //Need a scope for the standalone subroutine call,
-  //to check for correct lambda semantics
-  SubroutineExpr(Subroutine* s, Scope* scope);
+  SubroutineExpr(Subroutine* s);
   SubroutineExpr(Expression* thisObj, Subroutine* s);
   SubroutineExpr(ExternalSubroutine* es);
   void resolveImpl();
@@ -536,10 +557,10 @@ struct SubroutineExpr : public Expression
   {
     return 13;
   }
+  Expression* copy();
   Subroutine* subr;
   ExternalSubroutine* exSubr;
   Expression* thisObject; //null for static/extern
-  Scope* usage;
 };
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
@@ -565,6 +586,11 @@ struct UnresolvedExpr : public Expression
   {
     return 14;
   }
+  Expression* copy()
+  {
+    INTERNAL_ERROR;
+    return nullptr;
+  }
 };
 
 struct StructMem : public Expression
@@ -586,6 +612,7 @@ struct StructMem : public Expression
   {
     return base->getRootVariable();
   }
+  Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
@@ -607,6 +634,7 @@ struct NewArray : public Expression
   {
     return 16;
   }
+  Expression* copy();
 };
 
 bool operator==(const NewArray& lhs, const NewArray& rhs);
@@ -625,6 +653,7 @@ struct ArrayLength : public Expression
   {
     return 17;
   }
+  Expression* copy();
   set<Variable*> getReads();
 };
 
@@ -654,6 +683,7 @@ struct IsExpr : public Expression
   {
     return 18;
   }
+  Expression* copy();
   Expression* base;
   UnionType* ut;
   int optionIndex;
@@ -686,6 +716,7 @@ struct AsExpr : public Expression
   {
     return 19;
   }
+  Expression* copy();
   Expression* base;
   UnionType* ut;
   int optionIndex;
@@ -708,6 +739,7 @@ struct ThisExpr : public Expression
   {
     return 20;
   }
+  Expression* copy();
 };
 
 struct Converted : public Expression
@@ -722,6 +754,7 @@ struct Converted : public Expression
   {
     return 21;
   }
+  Expression* copy();
   set<Variable*> getReads();
 };
 
@@ -744,6 +777,7 @@ struct EnumExpr : public Expression
   {
     return 22;
   }
+  Expression* copy();
 };
 
 bool operator==(const EnumExpr& lhs, const EnumExpr& rhs);
@@ -764,6 +798,7 @@ struct ErrorVal : public Expression
   {
     return 23;
   }
+  Expression* copy();
 };
 
 void resolveExpr(Expression*& expr);

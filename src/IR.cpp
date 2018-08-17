@@ -55,10 +55,12 @@ namespace IR
         //fold all constants 
         //this does constant propagation and folding of VarExprs
         update = constantPropagation(s.first) || update;
-        update = jumpThreading(s.second) || update;
+        IRDebug::dumpIR("constProp" + to_string(sweeps) + ".dot");
+        //update = jumpThreading(s.second) || update;
         update = deadCodeElim(s.second) || update;
         update = simplifyCFG(s.second) || update;
         sweeps++;
+        IRDebug::dumpIR("sweep" + to_string(sweeps) + ".dot");
       }
       cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
     }
@@ -140,8 +142,10 @@ namespace IR
         blocks[i]->link(blocks[i + 1]);
       }
     }
-    for(auto bb : blocks)
+    for(size_t i = 0; i < blocks.size(); i++)
     {
+      auto bb = blocks[i];
+      bb->index = i;
       blockStarts[bb->start] = bb;
     }
   }
@@ -404,6 +408,34 @@ namespace IR
       stmts.push_back(new Jump(topLabels[i]));
       stmts.push_back(bottomLabels[i]);
     }
+  }
+
+  //is target reachable from root?
+  bool SubroutineIR::reachable(BasicBlock* root, BasicBlock* target)
+  {
+    if(root == target)
+      return true;
+    //a block is "reached" as soon as it is added to the visit queue
+    vector<bool> reached(blocks.size(), false);
+    stack<BasicBlock*> toVisit;
+    toVisit.push(root);
+    reached[root->index] = true;
+    while(!toVisit.empty())
+    {
+      BasicBlock* process = toVisit.top();
+      toVisit.pop();
+      for(auto out : process->out)
+      {
+        if(!reached[out->index])
+        {
+          if(out == target)
+            return true;
+          reached[out->index] = true;
+          toVisit.push(out);
+        }
+      }
+    }
+    return false;
   }
 }
 

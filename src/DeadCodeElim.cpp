@@ -4,15 +4,16 @@ using namespace IR;
 
 bool deadCodeElim(SubroutineIR* subr)
 {
-  //replace cond jumps with constant conditions with regular jumps
-  bool update = false;
+  //replace cond jumps with constant conditions with regular jumps,
+  //and remove always-true and always-false assertions
+  bool updatePhase1 = false;
   for(size_t i = 0; i < subr->stmts.size(); i++)
   {
     if(auto condJump = dynamic_cast<CondJump*>(subr->stmts[i]))
     {
       if(auto boolConst = dynamic_cast<BoolConstant*>(condJump->cond))
       {
-        update = true;
+        updatePhase1 = true;
         if(boolConst->value)
         {
           //branch never taken (does nothing)
@@ -25,8 +26,26 @@ bool deadCodeElim(SubroutineIR* subr)
         }
       }
     }
+    else if(auto asi = dynamic_cast<AssertionIR*>(subr->stmts[i]))
+    {
+      if(auto constAsserted = dynamic_cast<BoolConstant*>(asi->asserted))
+      {
+        if(constAsserted->value)
+        {
+          //assert(true) is a no-op
+          subr->stmts[i] = nop;
+          updatePhase1 = true;
+        }
+        else
+        {
+          //assert(false) will always fail,
+          //so tell user about it at compile time
+          errMsgLoc(asi->asserted, "asserted condition always false");
+        }
+      }
+    }
   }
-  if(update)
+  if(updatePhase1)
   {
     subr->buildCFG();
   }
@@ -64,11 +83,12 @@ bool deadCodeElim(SubroutineIR* subr)
       }
     }
   }
+  bool updatePhase2 = false;
   for(auto bb : subr->blocks)
   {
     if(blockVisits[bb] == NOT_VISITED)
     {
-      update = true;
+      updatePhase2 = true;
       for(int i = bb->start; i < bb->end; i++)
       {
         subr->stmts[i] = nop;
@@ -76,9 +96,8 @@ bool deadCodeElim(SubroutineIR* subr)
     }
   }
   //then delete NOPs and rebuild CFG
-  if(update)
+  if(updatePhase2)
     subr->buildCFG();
-  //IR changed if # stmts changed
-  return update;
+  return updatePhase1 || updatePhase2;
 }
 

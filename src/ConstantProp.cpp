@@ -45,11 +45,9 @@ LocalConstantTable::LocalConstantTable(Subroutine* subr)
   }
   //now know how many variables there are,
   //so create the constant table with right size
-  size_t i = 0;
-  for(auto bb : IR::ir[subr]->blocks)
+  for(size_t i = 0; i < IR::ir[subr]->blocks.size(); i++)
   {
     constants.emplace_back(locals.size(), ConstantVar(UNDEFINED_VAL));
-    blockTable[bb] = i++;
   }
 }
 
@@ -276,7 +274,7 @@ static Expression* convertConstant(Expression* value, Type* type)
     }
     else if(auto mt = dynamic_cast<MapType*>(type))
     {
-      auto mc = new MapConstant;
+      auto mc = new MapConstant(mt);
       //add each key/value pair to the map
       for(size_t i = 0; i < compLit->members.size(); i++)
       {
@@ -989,7 +987,7 @@ bool constantPropagation(Subroutine* subr)
       //
       //Also, don't overwrite the condition in the CondJump, since this folding may not actually
       //be correct in the final version
-      Expression* cond = cj->cond;
+      Expression* cond = cj->cond->copy();
       foldLocals = true;
       foldExpression(cond);
       foldLocals = false;
@@ -997,30 +995,37 @@ bool constantPropagation(Subroutine* subr)
       {
         //assume branch always falls through or is always taken,
         //depending on constCoord
+        BasicBlock* constDest = nullptr;
         if(constCond->value)
-          reachableOut.push_back(subrIR->blocks[process + 1]);
+          constDest = subrIR->blocks[process + 1];
         else
-          reachableOut.push_back(subrIR->blockStarts[cj->taken->intLabel]);
-        prunedOutgoing = true;
+          constDest = subrIR->blockStarts[cj->taken->intLabel];
+        //it is only safe to treat this jump as const if the
+        //condjump is never reachable again from the non-taken branch
+        if(!subrIR->reachable(constDest, processBlock))
+        {
+          reachableOut.push_back(constDest);
+          prunedOutgoing = true;
+        }
       }
     }
     if(!prunedOutgoing)
     {
+      //could not prune any paths: will process all ougoing paths
       reachableOut = processBlock->out;
     }
     for(auto out : reachableOut)
     {
-      int outIndex = localConstants->blockTable[out];
       bool outUpdated = false;
       for(size_t i = 0; i < localConstants->locals.size(); i++)
       {
-        if(localConstants->meetUpdate(i, outIndex, localConstants->constants[currentBB][i]))
+        if(localConstants->meetUpdate(i, out->index, localConstants->constants[currentBB][i]))
           outUpdated = true;
       }
-      if(outUpdated && !blocksInQueue[outIndex])
+      if(outUpdated && !blocksInQueue[out->index])
       {
-        blocksInQueue[outIndex] = true;
-        processQueue.push(outIndex);
+        blocksInQueue[out->index] = true;
+        processQueue.push(out->index);
       }
     }
     //restore saved statuses from start of current BB
@@ -1037,7 +1042,7 @@ bool constantPropagation(Subroutine* subr)
     if(!processedBlocks[i])
       continue;
     auto bb = subrIR->blocks[i];
-    currentBB = localConstants->blockTable[bb];
+    currentBB = bb->index;
     for(int j = bb->start; j < bb->end; j++)
     {
       if(cpApplyStatement(subrIR->stmts[j]))

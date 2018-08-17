@@ -170,6 +170,8 @@ namespace IR
     //statements where BB starts and ends
     int start;
     int end;
+    //which BB is this in linear code sequence?
+    int index;
   };
 
   struct SubroutineIR
@@ -184,6 +186,8 @@ namespace IR
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
     map<int, BasicBlock*> blockStarts;
+    //is one BB reachable from another?
+    bool reachable(BasicBlock* root, BasicBlock* target);
     private:
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);

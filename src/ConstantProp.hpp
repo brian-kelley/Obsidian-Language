@@ -88,7 +88,6 @@ struct LocalConstantTable
   //Construct initial table, with all variables undefined at every BB
   LocalConstantTable(Subroutine* subr);
   map<Variable*, int> varTable;
-  map<IR::BasicBlock*, int> blockTable;
   vector<Variable*> locals;
   bool update(Variable* var, ConstantVar replace);
   bool update(int varIndex, ConstantVar replace);
