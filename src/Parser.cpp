@@ -87,6 +87,7 @@ namespace Parser
   void parseScopedDecl(Scope* s, bool semicolon)
   {
     Punct colon(COLON);
+    Oper composeOperator(BXOR);
     if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
       switch(kw->kw)
@@ -119,7 +120,7 @@ namespace Parser
           INTERNAL_ERROR;
       }
     }
-    else if(lookAhead()->type == IDENTIFIER)
+    else if(lookAhead()->type == IDENTIFIER || lookAhead()->compareTo(&composeOperator))
     {
       //variable declaration
       parseVarDecl(s);
@@ -347,18 +348,21 @@ namespace Parser
   Assign* parseVarDecl(Scope* s)
   {
     Node* loc = lookAhead();
-    string name = expectIdent();
-    expectPunct(COLON);
     bool isStatic = false;
     bool compose = false;
-    //"static" and "^" are mutually exclusive
-    if(acceptPunct(STATIC))
+    if(acceptOper(BXOR))
+    {
+      compose = true;
+    }
+    string name = expectIdent();
+    expectPunct(COLON);
+    if(acceptKeyword(STATIC))
     {
       isStatic = true;
     }
-    else if(acceptOper(BXOR))
+    if(isStatic && compose)
     {
-      compose = true;
+      errMsgLoc(loc, "composition operator can't be applied to static variable");
     }
     Type* type = nullptr;
     bool isAuto = false;
@@ -381,8 +385,7 @@ namespace Parser
     }
     //create the variable and add to scope
     Variable* var = nullptr;
-    bool local = s->node.is<Block*>();
-    if(local)
+    if(s->node.is<Block*>())
     {
       //local variable uses special constructor
       var = new Variable(name, type, s->node.get<Block*>());

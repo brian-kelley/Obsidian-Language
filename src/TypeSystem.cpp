@@ -267,6 +267,7 @@ StructType::StructType(string n, Scope* enclosingScope)
 
 void StructType::resolveImpl()
 {
+  cout << "Resolving struct " << name << '\n';
   //attempt to resolve all member variables
   for(Variable* mem : members)
   {
@@ -290,6 +291,7 @@ void StructType::resolveImpl()
       {
         errMsgLoc(members[i], "composition requested on non-struct member");
       }
+      memStruct->resolve();
       //add everything in memStruct's interface to this interface
       for(auto& ifaceKV : memStruct->interface)
       {
@@ -297,9 +299,9 @@ void StructType::resolveImpl()
       }
     }
   }
-  scope->resolveAll();
-  //then add all the direct methods of this
-  //need to search all submodules for subroutines and callable members
+  //Build the interface
+  //An unresolved member subroutine still knows which struct it
+  //belongs to, so it's not necessary to resolve any part of the subroutine here
   for(auto& scopeName : scope->names)
   {
     switch(scopeName.second.kind)
@@ -307,6 +309,8 @@ void StructType::resolveImpl()
       case Name::SUBROUTINE:
         {
           Subroutine* subr = (Subroutine*) scopeName.second.item;
+          //ownerStruct is populated by ctor (before resolve)
+          //so it's safe to access here
           if(subr->type->ownerStruct == this)
           {
             interface[subr->name] = IfaceMember(nullptr, subr);
@@ -316,6 +320,9 @@ void StructType::resolveImpl()
       case Name::VARIABLE:
         {
           Variable* var = (Variable*) scopeName.second.item;
+          //var (member) type can't contain its owner type,
+          //so this shouldn't cause a circular dependency
+          var->resolve();
           auto ct = dynamic_cast<CallableType*>(var->type);
           if(ct && ct->ownerStruct == this)
           {
@@ -326,6 +333,8 @@ void StructType::resolveImpl()
       default:;
     }
   }
+  //now, it's safe to resolve all members
+  scope->resolveAll();
   resolved = true;
 }
 

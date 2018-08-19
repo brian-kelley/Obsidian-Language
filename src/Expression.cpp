@@ -1750,7 +1750,8 @@ void resolveExpr(Expression*& expr)
   //the struct scope if base is a struct, otherwise just usage
   size_t nameIter = 0;
   vector<string>& names = unres->name->names;
-  //first, get a base expression
+  //need a "base" expression first
+  //(could be the whole expr, or could be the root of a StructMem etc.)
   if(!base)
   {
     Scope* baseSearch = unres->usage;
@@ -1837,6 +1838,13 @@ void resolveExpr(Expression*& expr)
     }
   }
   base->resolve();
+  cout << "Have base expr: " << base << '\n';
+  cout << "Remaining names: ";
+  for(auto i = nameIter; i < names.size(); i++)
+  {
+    cout << names[i] << ' ';
+  }
+  cout << '\n';
   //base must be resolved (need its type) to continue
   //look up members in searchScope until a new expr can be formed
   while(nameIter < names.size())
@@ -1858,15 +1866,22 @@ void resolveExpr(Expression*& expr)
     Scope* baseSearch = baseStruct->scope;
     while(!validBase && nameIter < names.size())
     {
+      cout << "Searching for " << names[nameIter] << " in scope " << baseSearch->getFullPath() << '\n';
+      cout << "Note: all names in that scope: ";
+      for(auto& n : baseSearch->names)
+      {
+        cout << n.first << ' ';
+      }
+      cout << '\n';
       Name found = baseSearch->findName(names[nameIter]);
       if(!found.item)
       {
-        string fullPath = names[0];
-        for(int i = 0; i < nameIter; i++)
+        string fullPath;
+        for(int i = 0; i <= nameIter; i++)
         {
           fullPath = fullPath + '.' + names[i];
         }
-        errMsgLoc(unres, "unknown identifier " << fullPath);
+        errMsgLoc(unres, "unknown member " << fullPath);
       }
       //based on type of name, either set base or update search scope
       switch(found.kind)
