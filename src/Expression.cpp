@@ -1873,33 +1873,64 @@ void resolveExpr(Expression*& expr)
         cout << n.first << ' ';
       }
       cout << '\n';
-      Name found = baseSearch->findName(names[nameIter]);
-      if(!found.item)
+      //before doing name lookup, look in the struct's interface
+      auto& iface = baseStruct->interface;
+      if(iface.find(names[nameIter]) != iface.end())
       {
-        string fullPath;
-        for(int i = 0; i <= nameIter; i++)
+        auto& ifaceMember = iface[names[nameIter]];
+        Node* baseLoc = base;
+        if(ifaceMember.member)
         {
-          fullPath = fullPath + '.' + names[i];
+          //replace base with another StructMem to access the composed member
+          base = new StructMem(base, ifaceMember.member);
+          base->setLocation(baseLoc);
+          base->resolve();
         }
-        errMsgLoc(unres, "unknown member " << fullPath);
+        if(ifaceMember.callable.is<Subroutine*>())
+        {
+          base = new SubroutineExpr(base, ifaceMember.callable.get<Subroutine*>());
+          base->setLocation(baseLoc);
+          base->resolve();
+        }
+        else
+        {
+          base = new StructMem(base, ifaceMember.callable.get<Variable*>());
+          base->setLocation(baseLoc);
+          base->resolve();
+        }
+        //in any case, accessing a composed member is a valid expression
+        validBase = true;
       }
-      //based on type of name, either set base or update search scope
-      switch(found.kind)
+      else
       {
-        case Name::MODULE:
-          baseSearch = ((Module*) found.item)->scope;
-          break;
-        case Name::SUBROUTINE:
-          base = new SubroutineExpr(base, (Subroutine*) found.item);
-          validBase = true;
-          break;
-        case Name::VARIABLE:
-          base = new StructMem(base, (Variable*) found.item);
-          validBase = true;
-          break;
-        default:
-          errMsgLoc(unres, "identifier " << names[nameIter] <<
-              " is not a valid member of struct " << base->type->getName());
+        Name found = baseSearch->findName(names[nameIter]);
+        if(!found.item)
+        {
+          string fullPath;
+          for(int i = 0; i <= nameIter; i++)
+          {
+            fullPath = fullPath + '.' + names[i];
+          }
+          errMsgLoc(unres, "unknown member " << fullPath);
+        }
+        //based on type of name, either set base or update search scope
+        switch(found.kind)
+        {
+          case Name::MODULE:
+            baseSearch = ((Module*) found.item)->scope;
+            break;
+          case Name::SUBROUTINE:
+            base = new SubroutineExpr(base, (Subroutine*) found.item);
+            validBase = true;
+            break;
+          case Name::VARIABLE:
+            base = new StructMem(base, (Variable*) found.item);
+            validBase = true;
+            break;
+          default:
+            errMsgLoc(unres, "identifier " << names[nameIter] <<
+                " is not a valid member of struct " << base->type->getName());
+        }
       }
       nameIter++;
     }

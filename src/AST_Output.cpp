@@ -365,6 +365,23 @@ int emitStruct(StructType* s)
   //A struct is just a collection of decls, like a module
   for(auto decl : s->scope->names)
   {
+    if(auto varMember = dynamic_cast<Variable*>(decl.second.item))
+    {
+      //find the index of the member
+      size_t i = 0;
+      for(; i < s->members.size(); i++)
+      {
+        if(s->members[i] == varMember)
+          break;
+      }
+      if(s->composed[i])
+      {
+        int varRoot = out.createNode("Composed variable " + varMember->name);
+        out.createEdge(root, varRoot);
+        out.createEdge(varRoot, emitExpression(varMember->initial));
+        continue;
+      }
+    }
     out.createEdge(root, emitName(&decl.second));
   }
   return root;
@@ -404,7 +421,6 @@ int emitExternSubroutine(ExternalSubroutine* s)
 int emitVariable(Variable* v)
 {
   int root = out.createNode("Variable " + v->name);
-  out.createEdge(root, out.createNode(v->name));
   if(v->initial)
     out.createEdge(root, emitExpression(v->initial));
   else

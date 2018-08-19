@@ -179,6 +179,7 @@ void findGlobalConstants()
 static Expression* convertConstant(Expression* value, Type* type)
 {
   INTERNAL_ASSERT(value->constant());
+  cout << "Converting constant " << value << " to type " << type->getName() << '\n';
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
@@ -213,6 +214,21 @@ static Expression* convertConstant(Expression* value, Type* type)
     auto cl = new CompoundLiteral(mem);
     cl->resolve();
     return cl;
+  }
+  else if(structDst)
+  {
+    auto clRHS = dynamic_cast<CompoundLiteral*>(value);
+    INTERNAL_ASSERT(clRHS);
+    //just need to convert the elements in a
+    //CompoundLiteral to match struct member types 
+    vector<Expression*> mems;
+    for(size_t i = 0; i < clRHS->members.size(); i++)
+    {
+      mems.push_back(convertConstant(clRHS->members[i], structDst->members[i]->type));
+    }
+    clRHS->setLocation(value);
+    clRHS->resolve();
+    return clRHS;
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
   {

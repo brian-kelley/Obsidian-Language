@@ -5,6 +5,11 @@
 #include "TypeSystem.hpp"
 #include "AST.hpp"
 
+struct Expression;
+
+//expr must be resolved
+ostream& operator<<(ostream& os, Expression* expr);
+
 struct Expression : public Node
 {
   Expression() : type(nullptr) {}
@@ -824,9 +829,6 @@ inline bool operator>=(const Expression& lhs, const Expression& rhs)
 {
   return !(lhs < rhs);
 }
-
-//expr must be resolved
-ostream& operator<<(ostream& os, Expression* expr);
 
 #endif
 
