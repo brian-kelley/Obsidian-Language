@@ -12,16 +12,18 @@ void IRDebug::dumpIR(string filename)
   //use a sequential counter to disambiguate
   //subroutines with same name
   int counter = 0;
+  Dotfile dotGraph("IR");
   for(auto& subrPair : IR::ir)
   {
     SubroutineIR* subr = subrPair.second;
     Oss nameOss;
     nameOss << subrPair.first->name << "_" << counter++ << "__";
-    Dotfile dotGraph(nameOss.str());
     map<BasicBlock*, int> nodes;
     for(auto bb : subr->blocks)
     {
       Oss bbStream;
+      if(bb == subr->blocks.front())
+        bbStream << "// Subroutine " << subrPair.first->name << "\\n";
       bbStream << "// Basic Block " << bb->start << ":" << bb->end << "\\n";
       for(int stmt = bb->start; stmt < bb->end; stmt++)
       {
@@ -36,8 +38,8 @@ void IRDebug::dumpIR(string filename)
         dotGraph.createEdge(nodes[bb], nodes[outgoing]);
       }
     }
-    dotGraph.write(outputFile);
   }
+  dotGraph.write(outputFile);
   outputFile.close();
 }
 
