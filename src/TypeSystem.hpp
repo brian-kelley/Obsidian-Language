@@ -136,29 +136,29 @@ struct ErrorType;
 
 struct ArrayCompare
 {
-  bool operator()(const ArrayType* lhs, const ArrayType* rhs);
+  bool operator()(const ArrayType* lhs, const ArrayType* rhs) const;
 };
 
 struct TupleCompare
 {
-  bool operator()(const TupleType* lhs, const TupleType* rhs);
+  bool operator()(const TupleType* lhs, const TupleType* rhs) const;
 };
 
 struct UnionCompare
 {
-  bool operator()(const UnionType* lhs, const UnionType* rhs);
+  bool operator()(const UnionType* lhs, const UnionType* rhs) const;
 };
 
 struct MapCompare
 {
-  bool operator()(const MapType* lhs, const MapType* rhs);
+  bool operator()(const MapType* lhs, const MapType* rhs) const;
 };
 
 struct CallableType;
 
 struct CallableCompare
 {
-  bool operator()(const CallableType* lhs, const CallableType* rhs);
+  bool operator()(const CallableType* lhs, const CallableType* rhs) const;
 };
 
 IntegerType* getIntegerType(int bytes, bool isSigned);
@@ -235,6 +235,12 @@ struct UnionType : public Type
   set<Type*> dependencies(vector<UnionType*>& exclude);
   //the default type (the first type that doesn't cause infinite recursion)
   int defaultType;
+  //A union needs a "short name" so that getName() for
+  //self-containing unions returns a finite string
+  //All self-containing unions must be the underlying type of some AliasType,
+  //so a short name will always be available
+  bool hasShortName;
+  string shortName;
   Expression* getDefaultValue();
 };
 
@@ -560,11 +566,6 @@ struct UnresolvedType : public Type
     Tuple(vector<Type*>& m) : members(m) {}
     vector<Type*> members;
   };
-  struct Union
-  {
-    Union(vector<Type*>& m) : members(m) {}
-    vector<Type*> members;
-  };
   struct Map
   {
     Map(Type* k, Type* v) : key(k), value(v) {}
@@ -580,7 +581,11 @@ struct UnresolvedType : public Type
     Type* returnType;
     vector<Type*> params;
   };
-  variant<Prim::PrimType, Member*, Tuple, Union, Map, Callable> t;
+  //Note that UnionType is one of the options here
+  //UnionType is allowed to have unresolved members, and its resolveImpl()
+  //is needed to gracefully deal with circular dependencies (impossible in
+  //resolveType())
+  variant<Prim::PrimType, Member*, Tuple, UnionType*, Map, Callable> t;
   Scope* scope;
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else

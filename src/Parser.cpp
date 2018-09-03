@@ -234,7 +234,10 @@ namespace Parser
           types.push_back(parseType(s));
         }
         while(acceptOper(BOR));
-        t->t = UnresolvedType::Union(types);
+        //use an actual UnionType (not an UnresolvedType) here,
+        //since only UnionType::resolve can handle circular
+        //dependencies correctly
+        t->t = new UnionType(types);
       }
       else
       {
@@ -271,7 +274,7 @@ namespace Parser
         optionalTypes.push_back(primitives[Prim::ERROR]);
         t = new UnresolvedType;
         t->scope = s;
-        t->t = UnresolvedType::Union(optionalTypes);
+        t->t = new UnionType(optionalTypes);
       }
     }
     return t;

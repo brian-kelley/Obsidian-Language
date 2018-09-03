@@ -1742,6 +1742,7 @@ void resolveExpr(Expression*& expr)
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {
+    cout << "Resolving an expr of type " << typeid(*expr).name() << '\n';
     expr->resolve();
     return;
   }

@@ -136,7 +136,15 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 
 void Assign::resolveImpl()
 {
+  if(lvalue)
+    cout << "lvalue is an " << typeid(*lvalue).name() << '\n';
+  else
+    cout << "lvalue null!\n";
   resolveExpr(lvalue);
+  if(rvalue)
+    cout << "rvalue is an " << typeid(*rvalue).name() << '\n';
+  else
+    cout << "rvalue null!\n";
   resolveExpr(rvalue);
   if(!lvalue->assignable())
   {

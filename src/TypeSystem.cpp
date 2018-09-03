@@ -402,6 +402,7 @@ set<Type*> StructType::dependencies(vector<UnionType*>& exclude)
 UnionType::UnionType(vector<Type*> types)
 {
   options = types;
+  hasShortName = false;
   sort(options.begin(), options.end());
 }
 
@@ -409,7 +410,7 @@ void UnionType::resolveImpl()
 {
   //union type is allowed to have itself as a member,
   //so for the purposes of resolution need to assume this
-  //can be resolved
+  //union can be resolved (in order to avoid false circular dependency)
   resolved = true;
   for(Type*& mem : options)
   {
@@ -472,6 +473,8 @@ set<Type*> UnionType::dependencies(vector<UnionType*>& exclude)
 
 string UnionType::getName()
 {
+  if(hasShortName)
+    return shortName;
   string name = "(";
   name += options[0]->getName();
   for(int i = 1; i < options.size(); i++)
@@ -485,10 +488,10 @@ string UnionType::getName()
 
 Expression* UnionType::getDefaultValue()
 {
-  return new UnionConstant(options[0]->getDefaultValue(), options[0], this);
+  return new UnionConstant(options[defaultType]->getDefaultValue(), options[defaultType], this);
 }
 
-bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs)
+bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs) const
 {
   return lexicographical_compare(lhs->options.begin(), lhs->options.end(),
       rhs->options.begin(), rhs->options.end());
@@ -559,7 +562,7 @@ set<Type*> ArrayType::dependencies(vector<UnionType*>& exclude)
   return elem->dependencies(exclude);
 }
 
-bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs)
+bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs) const
 {
   if(lhs->elem < rhs->elem)
     return true;
@@ -640,7 +643,7 @@ set<Type*> TupleType::dependencies(vector<UnionType*>& exclude)
   return d;
 }
 
-bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs)
+bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs) const
 {
   return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
       rhs->members.begin(), rhs->members.end());
@@ -692,7 +695,7 @@ set<Type*> MapType::dependencies(vector<UnionType*>& exclude)
   return d;
 }
 
-bool MapCompare::operator()(const MapType* lhs, const MapType* rhs)
+bool MapCompare::operator()(const MapType* lhs, const MapType* rhs) const
 {
   return (lhs->key < rhs->key) || (lhs->key == rhs->key && lhs->value < rhs->value);
 }
@@ -710,6 +713,15 @@ AliasType::AliasType(string alias, Type* underlying, Scope* s)
 
 void AliasType::resolveImpl()
 {
+  cout << "Resolving alias type " << name << '\n';
+  if(auto ut = dynamic_cast<UnionType*>(actual))
+  {
+    if(!ut->hasShortName)
+    {
+      ut->shortName = name;
+      ut->hasShortName = true;
+    }
+  }
   resolveType(actual);
   resolved = true;
 }
@@ -1079,7 +1091,7 @@ bool CallableType::canConvert(Type* other)
   return true;
 }
 
-bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs)
+bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs) const
 {
   //an arbitrary way to order all possible callables (is lhs < rhs?)
   if(!lhs->pure && rhs->pure)
@@ -1133,6 +1145,7 @@ void resolveType(Type*& t)
   Type* finalType = nullptr;
   if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
   {
+    cout << "Resolving unresolved type.\n";
     if(unres->t.is<Prim::PrimType>())
     {
       finalType = primitives[unres->t.get<Prim::PrimType>()];
@@ -1156,7 +1169,7 @@ void resolveType(Type*& t)
           finalType = (EnumType*) found.item;
           break;
         case Name::TYPEDEF:
-          finalType = ((AliasType*) found.item)->actual;
+          finalType = (AliasType*) found.item;
           break;
         default:
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
@@ -1178,15 +1191,9 @@ void resolveType(Type*& t)
         finalType = getTupleType(tupList.members);
       }
     }
-    else if(unres->t.is<UnresolvedType::Union>())
+    else if(unres->t.is<UnionType*>())
     {
-      auto& unionList = unres->t.get<UnresolvedType::Union>();
-      //resolve member types individually
-      for(Type*& option : unionList.members)
-      {
-        resolveType(option);
-      }
-      finalType = getUnionType(unionList.members);
+      finalType = getUnionType(unres->t.get<UnionType*>()->options);
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {
@@ -1227,6 +1234,11 @@ void resolveType(Type*& t)
     {
       //can't apply array dimensions, so return early
       return;
+    }
+    if(auto alias = dynamic_cast<AliasType*>(finalType))
+    {
+      alias->resolve();
+      finalType = alias->actual;
     }
     //if arrayDims is 0, this is a no-op
     finalType = getArrayType(finalType, unres->arrayDims);

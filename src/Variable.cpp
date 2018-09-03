@@ -39,10 +39,12 @@ Variable::Variable(string n, Type* t, Block* b)
 void Variable::resolveImpl()
 {
   resolveType(type);
+  cout << "Resolved type successfully!\n";
   if(!initial)
   {
     //Always need an initial expression, so use the
     //default one implicitly
+    cout << "Using default initializer for " << name << ":" << type->getName() << '\n';
     initial = type->getDefaultValue();
   }
   resolveExpr(initial);

@@ -58,7 +58,7 @@ struct Node
       return;
     if(resolving)
     {
-      INTERNAL_ERROR;
+      //INTERNAL_ERROR;
       errMsgLoc(this, "Circular definition in program");
     }
     resolving = true;
