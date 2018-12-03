@@ -12,6 +12,11 @@ using std::sort;
 
 extern Module* global;
 
+SimpleType* voidType;
+SimpleConstant* voidVal;
+SimpleType* errorType;
+SimpleConstant* errorVal;
+
 vector<Type*> primitives;
 
 map<string, Type*> primNames;
@@ -38,8 +43,12 @@ void createBuiltinTypes()
   primitives[Prim::ULONG] = new IntegerType("ulong", 8, false);
   primitives[Prim::FLOAT] = new FloatType("float", 4);
   primitives[Prim::DOUBLE] = new FloatType("double", 8);
-  primitives[Prim::VOID] = new VoidType;
-  primitives[Prim::ERROR] = new ErrorType;
+  voidType = new SimpleType("void");
+  voidVal = voidType->val;
+  errorType = new SimpleType("error");
+  errorVal = errorType->val;
+  primitives[Prim::VOID] = voidType;
+  primitives[Prim::ERROR] = errorType;
   primNames["bool"] = primitives[Prim::BOOL];
   primNames["char"] = primitives[Prim::CHAR];
   primNames["byte"] = primitives[Prim::BYTE];
@@ -53,8 +62,8 @@ void createBuiltinTypes()
   primNames["float"] = primitives[Prim::FLOAT];
   primNames["double"] = primitives[Prim::DOUBLE];
   primNames["void"] = primitives[Prim::VOID];
-  primNames["Error"] = primitives[Prim::ERROR];
-  //string is a builtin alias for char[] (not a primitive)
+  primNames["error"] = primitives[Prim::ERROR];
+  //string is a builtin alias for char[] (but not a primitive)
   Scope* glob = global->scope;
   glob->addName(new AliasType(
         "string", getArrayType(primitives[Prim::CHAR], 1), glob));
@@ -229,7 +238,7 @@ Type* maybe(Type* t)
 {
   vector<Type*> options;
   options.push_back(t);
-  options.push_back(primitives[Prim::ERROR]);
+  options.push_back(voidType);
   return getUnionType(options);
 }
 
@@ -1005,15 +1014,6 @@ Expression* BoolType::getDefaultValue()
   return new BoolConstant(false);
 }
 
-/*************/
-/* Void Type */
-/*************/
-
-bool VoidType::canConvert(Type* t)
-{
-  return t->isVoid();
-}
-
 /*****************/
 /* Callable Type */
 /*****************/
@@ -1109,9 +1109,16 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
       rhs->argTypes.begin(), rhs->argTypes.end());
 }
 
-Expression* ErrorType::getDefaultValue()
+SimpleType::SimpleType(string n)
 {
-  return new ErrorVal;
+  resolved = true;
+  name = n;
+  val = new SimpleConstant(this);
+}
+
+Expression* SimpleType::getDefaultValue()
+{
+  return val;
 }
 
 ExprType::ExprType(Expression* e)

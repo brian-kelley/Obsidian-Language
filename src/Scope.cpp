@@ -92,6 +92,11 @@ Name::Name(EnumType* e, Scope* s)
 {
   item = e;
 }
+Name::Name(SimpleType* t, Scope* s)
+  : kind(SIMPLE_TYPE), name(t->name), scope(s)
+{
+  item = t;
+}
 Name::Name(AliasType* a, Scope* s)
   : kind(TYPEDEF), name(a->name), scope(s)
 {

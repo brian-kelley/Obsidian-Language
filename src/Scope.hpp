@@ -9,6 +9,7 @@ struct StructType;
 struct AliasType;
 struct EnumType;
 struct EnumConstant;
+struct SimpleType;
 struct Subroutine;
 struct ExternalSubroutine;
 struct Variable;
@@ -37,6 +38,7 @@ struct Name
     STRUCT,
     ENUM,
     TYPEDEF,
+    SIMPLE_TYPE,
     SUBROUTINE,
     EXTERN_SUBR,
     VARIABLE,
@@ -46,6 +48,7 @@ struct Name
   Name(Module* m, Scope* parent);
   Name(StructType* st, Scope* s);
   Name(EnumType* e, Scope* s);
+  Name(SimpleType* t, Scope* s);
   Name(AliasType* a, Scope* s);
   Name(Subroutine* subr, Scope* s);
   Name(ExternalSubroutine* subr, Scope* s);

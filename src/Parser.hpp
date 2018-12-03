@@ -27,9 +27,12 @@ struct ExternalSubroutine;
 struct Type;
 struct StructType;
 
+//Parse the whole program into the global AST
+void parseProgram();
+
 namespace Parser
 {
-  //Token stream management
+  //The full token stream
   extern vector<Token*> tokens;
 
   /*
@@ -41,58 +44,62 @@ namespace Parser
   void emit(Token* tok);
   */
 
-  //Parse a program from token string (only parsing function called from main)
-  void parseProgram();
+  struct Stream
+  {
+    Stream();
+    Stream(const Stream& s);
+    size_t pos;
+    bool emitErrors;
+    Stream& operator=(const Stream& other);
+    bool operator==(const Stream& s);
+    bool operator!=(const Stream& s);
+    bool operator<(const Stream& s);
 
-  //Token stream & utilities
-  extern size_t pos;                //token iterator
-  extern vector<Token*> tokens;    //all tokens from lexer
+    void accept();                //accept (and discard) any token
+    bool accept(Token& t);
+    Token* accept(int tokType);   //return NULL if tokType doesn't match next
+    bool acceptKeyword(int type);
+    bool acceptOper(int type);
+    bool acceptPunct(int type);
+    void expect(Token& t);
+    Token* expect(int tokType);
+    void expectKeyword(int type);
+    void expectOper(int type);
+    void expectPunct(int type);
+    string expectIdent();
+    Token* lookAhead(int n = 0);  //get the next token without advancing pos
+    void err(string msg = "");
 
-  void unget();                 //back up one token (no-op if at start of token string)
-  void accept();                //accept (and discard) any token
-  bool accept(Token& t);
-  Token* accept(int tokType);   //return NULL if tokType doesn't match next
-  bool acceptKeyword(int type);
-  bool acceptOper(int type);
-  bool acceptPunct(int type);
-  void expect(Token& t);
-  Token* expect(int tokType);
-  void expectKeyword(int type);
-  void expectOper(int type);
-  void expectPunct(int type);
-  string expectIdent();
-  Token* lookAhead(int n = 0);  //get the next token without advancing pos
-  void err(string msg = "");
-
-  void parseScopedDecl(Scope* s, bool semicolon);
-  //parse a statement, but don't add it to block
-  Statement* parseStatement(Block* b, bool semicolon);
-  //parse a statement or declaration
-  //if statement, return it but don't add to block
-  //if decl, add it to block's scope
-  Statement* parseStatementOrDecl(Block* b, bool semicolon);
-  If* parseIf(Block* b);
-  While* parseWhile(Block* b);
-  //parse a variable declaration, and add the variable to scope
-  //if s belongs to a block and the variable is initialized, return the assignment
-  Assign* parseVarDecl(Scope* s);
-  Expression* parseExpression(Scope* s, int prec = 0);
-  void parseSubroutine(Scope* s);
-  void parseExternalSubroutine(Scope* s);
-  void parseModule(Scope* s);
-  void parseStruct(Scope* s);
-  void parseAlias(Scope* s);
-  void parseEnum(Scope* s);
-  ForC* parseForC(Block* b);
-  ForArray* parseForArray(Block* b);
-  ForRange* parseForRange(Block* b);
-  Switch* parseSwitch(Block* b);
-  Match* parseMatch(Block* b);
-  Member* parseMember();
-  //Parse a block (which has already been constructed)
-  void parseBlock(Block* b);
-  void parseTest(Scope* s);
-  Type* parseType(Scope* s);
+    void parseScopedDecl(Scope* s, bool semicolon);
+    //parse a statement, but don't add it to block
+    Statement* parseStatement(Block* b, bool semicolon);
+    //parse a statement or declaration
+    //if statement, return it but don't add to block
+    //if decl, add it to block's scope
+    Statement* parseStatementOrDecl(Block* b, bool semicolon);
+    If* parseIf(Block* b);
+    While* parseWhile(Block* b);
+    //parse a variable declaration, and add the variable to scope
+    //if s belongs to a block and the variable is initialized, return the assignment
+    Assign* parseVarDecl(Scope* s);
+    Expression* parseExpression(Scope* s, int prec = 0);
+    void parseSubroutine(Scope* s);
+    void parseExternalSubroutine(Scope* s);
+    void parseModule(Scope* s);
+    void parseStruct(Scope* s);
+    void parseAlias(Scope* s);
+    void parseEnum(Scope* s);
+    ForC* parseForC(Block* b);
+    ForArray* parseForArray(Block* b);
+    ForRange* parseForRange(Block* b);
+    Switch* parseSwitch(Block* b);
+    Match* parseMatch(Block* b);
+    Member* parseMember();
+    //Parse a block (which has already been constructed)
+    void parseBlock(Block* b);
+    void parseTest(Scope* s);
+    Type* parseType(Scope* s);
+  };
 }
 
 //Utils

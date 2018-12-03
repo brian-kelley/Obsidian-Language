@@ -1696,19 +1696,29 @@ bool operator<(const EnumExpr& lhs, const EnumExpr& rhs)
     return lhs.value->uval < rhs.value->uval;
 }
 
-/*********
- * Error *
- *********/
-
-ErrorVal::ErrorVal()
+/******************
+ * SimpleConstant *
+ ******************/
+SimpleConstant::SimpleConstant(SimpleType* s)
 {
-  type = primitives[Prim::ERROR];
+  st = s;
+  type = s;
   resolved = true;
 }
 
-Expression* ErrorVal::copy()
+Expression* SimpleConstant::copy()
 {
-  return this;
+  return new SimpleConstant(st);
+}
+
+bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs)
+{
+  return lhs.st == rhs.st;
+}
+
+bool operator<(const SimpleConstant& lhs, const SimpleConstant& rhs)
+{
+  return lhs.st < rhs.st;
 }
 
 /*************************/
@@ -2045,8 +2055,9 @@ bool operator==(const Expression& l, const Expression& r)
     auto convRHS = dynamic_cast<const Converted*>(rhs);
     return *convLHS == *convRHS;
   }
-  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const ErrorVal*>(lhs))
+  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const SimpleConstant*>(lhs))
   {
+    //in all contexts, these exprs have only one possible value
     return true;
   }
   else if(auto subrLHS = dynamic_cast<const SubroutineExpr*>(lhs))
@@ -2167,9 +2178,8 @@ bool operator<(const Expression& l, const Expression& r)
     auto convRHS = dynamic_cast<const Converted*>(rhs);
     return *convLHS < *convRHS;
   }
-  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const ErrorVal*>(lhs))
+  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const SimpleConstant*>(lhs))
   {
-    //always the same, so a < b always false
     return false;
   }
   else
@@ -2316,9 +2326,9 @@ ostream& operator<<(ostream& os, Expression* e)
   {
     os << "this";
   }
-  else if(dynamic_cast<ErrorVal*>(e))
+  else if(auto sic = dynamic_cast<SimpleConstant*>(e))
   {
-    os << "error";
+    os << sic->st->name;
   }
   return os;
 }

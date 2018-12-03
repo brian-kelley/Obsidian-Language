@@ -29,13 +29,26 @@ struct ArrayType;
 struct TupleType;
 struct UnionType;
 struct MapType;
+struct AliasType;
 struct IntegerType;
 struct FloatType;
 struct CharType;
-struct ErrorType;
+struct BoolType;
+struct CallableType;
+struct EnumType;
+//The general unary type
+//"void" and "error" are built-in types of this kind
+struct SimpleType;
 struct UnresolvedType;
 struct ExprType;
 struct ElemExprType;
+
+struct SimpleConstant;
+
+extern SimpleType* voidType;
+extern SimpleConstant* voidVal;
+extern SimpleType* errorType;
+extern SimpleConstant* errorVal;
 
 struct Type : public Node
 {
@@ -62,9 +75,9 @@ struct Type : public Node
   virtual bool isFloat()    {return false;}
   virtual bool isChar()     {return false;}
   virtual bool isBool()     {return false;}
-  virtual bool isVoid()     {return false;}
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
+  virtual bool isSimple()    {return false;}
   virtual bool isResolved() {return true;}
   //Get a constant expression representing the "default"
   //or uninitialized value for the type, usable for constant folding etc.
@@ -117,23 +130,6 @@ namespace Prim
 
 extern vector<Type*> primitives;
 
-struct Type;
-//All Type subclasses:
-struct StructType;
-struct TupleType;
-struct ArrayType;
-struct UnionType;
-struct MapType;
-struct AliasType;
-struct EnumType;
-struct IntegerType;
-struct FloatType;
-struct CharType;
-struct BoolType;
-struct VoidType;
-struct CallableType;
-struct ErrorType;
-
 struct ArrayCompare
 {
   bool operator()(const ArrayType* lhs, const ArrayType* rhs) const;
@@ -176,7 +172,7 @@ Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* return
 //If either is not a number, NULL
 Type* promote(Type* lhs, Type* rhs);
 
-//get (t | Error)
+//get (t | error)
 Type* maybe(Type* t);
 
 void createBuiltinTypes();
@@ -315,7 +311,6 @@ struct MapType : public Type
   void resolveImpl();
 };
 
-
 struct AliasType : public Type
 {
   AliasType(string alias, Type* underlying, Scope* scope);
@@ -336,7 +331,6 @@ struct AliasType : public Type
   bool isInteger()  {return actual->isInteger();}
   bool isNumber()   {return actual->isNumber();}
   bool isBool()     {return actual->isBool();}
-  bool isVoid()     {return actual->isVoid();}
   bool isPrimitive(){return actual->isPrimitive();}
   bool isAlias()    {return true;}
   string getName()
@@ -482,42 +476,22 @@ struct BoolType : public Type
   Expression* getDefaultValue();
 };
 
-struct VoidType : public Type
+struct SimpleType : public Type
 {
-  VoidType()
-  {
-    resolved = true;
-  }
-  bool canConvert(Type* other);
-  bool isVoid() {return true;}
-  bool isPrimitive() {return true;}
-  string getName()
-  {
-    return "void";
-  }
-  Expression* getDefaultValue()
-  {
-    INTERNAL_ERROR;
-    return nullptr;
-  }
-};
-
-struct ErrorType : public Type
-{
-  ErrorType()
-  {
-    resolved = true;
-  }
+  SimpleType(string n);
   bool canConvert(Type* other)
   {
     return other == this;
   }
+  //for all purposes, this is POD and primitive
   bool isPrimitive() {return true;}
   string getName()
   {
-    return "Error";
+    return name;
   }
   Expression* getDefaultValue();
+  SimpleConstant* val;
+  string name;
 };
 
 struct CallableType : public Type

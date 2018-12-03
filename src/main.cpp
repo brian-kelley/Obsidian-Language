@@ -50,7 +50,7 @@ int main(int argc, const char** argv)
   includes.emplace_back();
   TIMEIT("Lexing", Parser::tokens = lex(code, 0););
   //Parse the global/root module
-  TIMEIT("Parsing", Parser::parseProgram(););
+  TIMEIT("Parsing", parseProgram(););
   //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->resolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)

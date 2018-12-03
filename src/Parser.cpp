@@ -5,6 +5,7 @@
 #include "Subroutine.hpp"
 #include "Expression.hpp"
 #include "Variable.hpp"
+#include <exception>
 #include <limits>
 
 using std::numeric_limits;
@@ -41,21 +42,20 @@ extern Module* global;
     expectPunct(COMMA); \
   }
 
+void parseProgram()
+{
+  Parser::Stream mainStream;
+  while(!mainStream.accept(PastEOF::inst))
+  {
+    mainStream.parseScopedDecl(global->scope, true);
+  }
+}
+
 namespace Parser
 {
-  size_t pos;
   vector<Token*> tokens;
 
-  void parseProgram()
-  {
-    pos = 0;
-    while(!accept(PastEOF::inst))
-    {
-      parseScopedDecl(global->scope, true);
-    }
-  }
-
-  void parseModule(Scope* s)
+  void Stream::parseModule(Scope* s)
   {
     Node* loc = lookAhead();
     expectKeyword(MODULE);
@@ -70,7 +70,7 @@ namespace Parser
     s->addName(m);
   }
 
-  void parseStruct(Scope* s)
+  void Stream::parseStruct(Scope* s)
   {
     Node* loc = lookAhead();
     expectKeyword(STRUCT);
@@ -84,7 +84,7 @@ namespace Parser
     }
   }
 
-  void parseScopedDecl(Scope* s, bool semicolon)
+  void Stream::parseScopedDecl(Scope* s, bool semicolon)
   {
     Punct colon(COLON);
     Oper composeOperator(BXOR);
@@ -116,8 +116,28 @@ namespace Parser
         case TEST:
           parseTest(s);
           return;
+        case VOID:
+        case BOOL:
+        case CHAR:
+        case BYTE:
+        case UBYTE:
+        case SHORT:
+        case USHORT:
+        case INT:
+        case UINT:
+        case LONG:
+        case ULONG:
+        case FLOAT:
+        case DOUBLE:
+        case FUNCTYPE:
+        case PROCTYPE:
+        case STATIC:
+          parseVarDecl(s);
+          if(semicolon)
+            expectPunct(SEMICOLON);
+          return;
         default:
-          INTERNAL_ERROR;
+          err("expected a declaration");
       }
     }
     else if(lookAhead()->type == IDENTIFIER || lookAhead()->compareTo(&composeOperator))
@@ -135,7 +155,7 @@ namespace Parser
     }
   }
 
-  Type* parseType(Scope* s)
+  Type* Stream::parseType(Scope* s)
   {
     UnresolvedType* t = new UnresolvedType;
     t->scope = s;
@@ -172,8 +192,6 @@ namespace Parser
           t->t = Prim::DOUBLE; break;
         case VOID:
           t->t = Prim::VOID; break;
-        case ERROR_TYPE:
-          t->t = Prim::ERROR; break;
         case FUNCTYPE:
           pure = true;
           //fall through
@@ -255,6 +273,8 @@ namespace Parser
       //unexpected token type
       err("expected a type");
     }
+    if(!t)
+      return nullptr;
     Punct lbrack(LBRACKET);
     Punct rbrack(RBRACKET);
     Punct quest(QUESTION);
@@ -280,7 +300,7 @@ namespace Parser
     return t;
   }
 
-  Member* parseMember()
+  Member* Stream::parseMember()
   {
     Member* m = new Member;
     m->setLocation(lookAhead());
@@ -292,7 +312,7 @@ namespace Parser
     return m;
   }
 
-  void parseSubroutine(Scope* s)
+  void Stream::parseSubroutine(Scope* s)
   {
     Node* location = lookAhead();
     bool pure;
@@ -327,7 +347,7 @@ namespace Parser
     s->addName(subr);
   }
 
-  void parseExternalSubroutine(Scope* s)
+  void Stream::parseExternalSubroutine(Scope* s)
   {
     Node* loc = lookAhead();
     expectKeyword(EXTERN);
@@ -348,7 +368,7 @@ namespace Parser
     s->addName(es);
   }
 
-  Assign* parseVarDecl(Scope* s)
+  Assign* Stream::parseVarDecl(Scope* s)
   {
     Node* loc = lookAhead();
     bool isStatic = false;
@@ -415,7 +435,7 @@ namespace Parser
     }
   }
 
-  ForC* parseForC(Block* b)
+  ForC* Stream::parseForC(Block* b)
   {
     ForC* fc = new ForC(b);
     fc->setLocation(lookAhead());
@@ -443,7 +463,7 @@ namespace Parser
     return fc;
   }
 
-  ForArray* parseForArray(Block* b)
+  ForArray* Stream::parseForArray(Block* b)
   {
     ForArray* fa = new ForArray(b);
     fa->setLocation(lookAhead());
@@ -466,7 +486,7 @@ namespace Parser
     return fa;
   }
 
-  ForRange* parseForRange(Block* b)
+  ForRange* Stream::parseForRange(Block* b)
   {
     Node* loc = lookAhead();
     expectKeyword(FOR);
@@ -482,7 +502,7 @@ namespace Parser
     return fr;
   }
 
-  Switch* parseSwitch(Block* b)
+  Switch* Stream::parseSwitch(Block* b)
   {
     Node* loc = lookAhead();
     expectKeyword(SWITCH);
@@ -528,7 +548,7 @@ namespace Parser
     return switchStmt;
   }
 
-  Match* parseMatch(Block* b)
+  Match* Stream::parseMatch(Block* b)
   {
     Node* loc = lookAhead();
     expectKeyword(MATCH);
@@ -550,7 +570,7 @@ namespace Parser
     return matchStmt;
   }
 
-  void parseAlias(Scope* s)
+  void Stream::parseAlias(Scope* s)
   {
     Node* loc = lookAhead();
     expectKeyword(TYPEDEF);
@@ -560,7 +580,7 @@ namespace Parser
     s->addName(aType);
   }
 
-  void parseEnum(Scope* s)
+  void Stream::parseEnum(Scope* s)
   {
     EnumType* e = new EnumType(s);
     e->setLocation(lookAhead());
@@ -602,7 +622,7 @@ namespace Parser
     s->addName(e);
   }
 
-  void parseTest(Scope* s)
+  void Stream::parseTest(Scope* s)
   {
     Node* location = lookAhead();
     Block* b = new Block(s);
@@ -613,22 +633,46 @@ namespace Parser
     //it is not added to any scope
   }
 
-  Statement* parseStatementOrDecl(Block* b, bool semicolon)
+  Statement* Stream::parseStatementOrDecl(Block* b, bool semicolon)
   {
     Token* next = lookAhead(0);
-    Token* next2 = lookAhead(1);
-    Punct colon(COLON);
-    if(next->type == IDENTIFIER && next2->compareTo(&colon))
+    if(next->type == IDENTIFIER)
     {
-      //variable declaration
-      auto stmt = parseVarDecl(b->scope);
-      if(semicolon)
-        expectPunct(SEMICOLON);
-      return stmt;
-    }
-    else if(next->type == IDENTIFIER)
-    {
-      return parseStatement(b, semicolon);
+      Stream s1(*this);
+      Stream s2(*this);
+      //with errors disabled, parsing failure will just throw
+      s1.emitErrors = false;
+      s2.emitErrors = false;
+      Type* t = nullptr;
+      Expression* e = nullptr;
+      try
+      {
+        t = s1.parseType(b->scope);
+      }
+      catch(...) {}
+      try
+      {
+        e = s2.parseExpression(b->scope);
+      }
+      catch(...) {}
+      Ident* id;
+      if(t && (id = (Ident*) s1.accept(IDENTIFIER)))
+      {
+        //parse a VarDecl in the original stream
+        auto stmt = parseVarDecl(b->scope);
+        if(semicolon)
+          expectPunct(SEMICOLON);
+        return stmt;
+      }
+      else if(e && s1.acceptOper(ASSIGN))
+      {
+        //parse an assign or call
+        return parseStatement(b, semicolon);
+      }
+      else
+      {
+        err("Expected statement or declaration.");
+      }
     }
     else if(next->type == KEYWORD)
     {
@@ -658,22 +702,18 @@ namespace Parser
           {
             return parseStatement(b, semicolon);
           }
-        default:
-          INTERNAL_ERROR;
+        default:;
       }
     }
-    else if(next->type == PUNCTUATION)
+    else if(acceptPunct(SEMICOLON) || acceptPunct(LBRACE))
     {
       return parseStatement(b, semicolon);
     }
-    else
-    {
-      err("Expected statement or declaration");
-    }
+    err("Expected statement or declaration");
     return nullptr;
   }
 
-  Statement* parseStatement(Block* b, bool semicolon)
+  Statement* Stream::parseStatement(Block* b, bool semicolon)
   {
     Token* next = lookAhead();
     Punct lbrack(LBRACKET);
@@ -816,7 +856,7 @@ namespace Parser
     return nullptr;
   }
 
-  If* parseIf(Block* b)
+  If* Stream::parseIf(Block* b)
   {
     Node* location = lookAhead();
     expectKeyword(IF);
@@ -838,7 +878,7 @@ namespace Parser
     return i;
   }
 
-  While* parseWhile(Block* b)
+  While* Stream::parseWhile(Block* b)
   {
     Node* location = lookAhead();
     expectKeyword(WHILE);
@@ -851,7 +891,7 @@ namespace Parser
     return w;
   }
 
-  void parseBlock(Block* b)
+  void Stream::parseBlock(Block* b)
   {
     b->setLocation(lookAhead());
     expectPunct(LBRACE);
@@ -863,7 +903,7 @@ namespace Parser
     }
   }
 
-  Expression* parseExpression(Scope* s, int prec)
+  Expression* Stream::parseExpression(Scope* s, int prec)
   {
     Node* location = lookAhead();
     Punct rparen(RPAREN);
@@ -969,10 +1009,6 @@ namespace Parser
       {
         base = new BoolConstant(false);
       }
-      else if(acceptKeyword(ERROR_VALUE))
-      {
-        base = new ErrorVal;
-      }
       else if(auto intLit = (IntLit*) accept(INT_LITERAL))
       {
         base = new IntConstant(intLit);
@@ -1042,12 +1078,12 @@ namespace Parser
     return nullptr;
   }
 
-  void accept()
+  void Stream::accept()
   {
     pos++;
   }
 
-  bool accept(Token& t)
+  bool Stream::accept(Token& t)
   {
     bool res = lookAhead()->compareTo(&t);
     if(res)
@@ -1055,7 +1091,7 @@ namespace Parser
     return res;
   }
 
-  Token* accept(int tokType)
+  Token* Stream::accept(int tokType)
   {
     Token* next = lookAhead();
     bool res = next->type == tokType;
@@ -1068,25 +1104,25 @@ namespace Parser
       return NULL;
   }
 
-  bool acceptKeyword(int type)
+  bool Stream::acceptKeyword(int type)
   {
     Keyword kw(type);
     return accept(kw);
   }
 
-  bool acceptOper(int type)
+  bool Stream::acceptOper(int type)
   {
     Oper op(type);
     return accept(op);
   }
 
-  bool acceptPunct(int type)
+  bool Stream::acceptPunct(int type)
   {
     Punct p(type);
     return accept(p);
   }
 
-  void expect(Token& t)
+  void Stream::expect(Token& t)
   {
     auto next = lookAhead();
     if(t.compareTo(next))
@@ -1097,7 +1133,7 @@ namespace Parser
     err(string("expected ") + t.getStr() + " but got " + next->getStr());
   }
 
-  Token* expect(int tokType)
+  Token* Stream::expect(int tokType)
   {
     Token* next = lookAhead();
     if(next->type == tokType)
@@ -1111,31 +1147,31 @@ namespace Parser
     return next;
   }
 
-  void expectKeyword(int type)
+  void Stream::expectKeyword(int type)
   {
     Keyword kw(type);
     expect(kw);
   }
 
-  void expectOper(int type)
+  void Stream::expectOper(int type)
   {
     Oper op(type);
     expect(op);
   }
 
-  void expectPunct(int type)
+  void Stream::expectPunct(int type)
   {
     Punct p(type);
     expect(p);
   }
 
-  string expectIdent()
+  string Stream::expectIdent()
   {
     Ident* i = (Ident*) expect(IDENTIFIER);
     return i->name;
   }
 
-  Token* lookAhead(int n)
+  Token* Stream::lookAhead(int n)
   {
     int index = pos + n;
     if(index >= tokens.size())
@@ -1148,21 +1184,52 @@ namespace Parser
     }
   }
 
-  void err(string msg)
+  void Stream::err(string msg)
   {
-    string fullMsg = string("Syntax error at line ") + to_string(lookAhead()->line) + ", column " + to_string(lookAhead()->col);
-    if(msg.length())
-      fullMsg += string(": ") + msg;
+    if(emitErrors)
+    {
+      string fullMsg = string("Syntax error at line ") + to_string(lookAhead()->line) + ", column " + to_string(lookAhead()->col);
+      if(msg.length())
+        fullMsg += string(": ") + msg;
+      else
+        fullMsg += '.';
+      //display error and terminate
+      errAndQuit(fullMsg);
+    }
     else
-      fullMsg += '.';
-    //display error and terminate
-    errAndQuit(fullMsg);
+    {
+      //can't proceed with parsing, so just throw
+      throw std::logic_error("");
+    }
   }
 
-  void unget()
+  Stream::Stream()
   {
-    assert(pos > 0);
-    pos--;
+    pos = 0;
+    emitErrors = true;
+  }
+  Stream::Stream(const Stream& s)
+  {
+    pos = s.pos;
+    emitErrors = s.emitErrors;
+  }
+  Stream& Stream::operator=(const Stream& s)
+  {
+    pos = s.pos;
+    emitErrors = s.emitErrors;
+    return *this;
+  }
+  bool Stream::operator==(const Stream& s)
+  {
+    return pos == s.pos;
+  }
+  bool Stream::operator!=(const Stream& s)
+  {
+    return pos != s.pos;
+  }
+  bool Stream::operator<(const Stream& s)
+  {
+    return pos < s.pos;
   }
 }
 

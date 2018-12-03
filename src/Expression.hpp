@@ -56,6 +56,7 @@ struct BoolConstant;
 struct MapConstant;
 struct CompoundLiteral;
 struct UnionConstant;
+struct UnaryConstant;
 //Arithmetic
 struct UnaryArith;
 struct BinaryArith;
@@ -790,9 +791,10 @@ struct EnumExpr : public Expression
 bool operator==(const EnumExpr& lhs, const EnumExpr& rhs);
 bool operator<(const EnumExpr& lhs, const EnumExpr& rhs);
 
-struct ErrorVal : public Expression
+struct SimpleConstant : public Expression
 {
-  ErrorVal();
+  SimpleConstant(SimpleType* s);
+  SimpleType* st;
   bool assignable()
   {
     return false;
@@ -807,6 +809,9 @@ struct ErrorVal : public Expression
   }
   Expression* copy();
 };
+
+bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs);
+bool operator<(const SimpleConstant& lhs, const SimpleConstant& rhs);
 
 void resolveExpr(Expression*& expr);
 

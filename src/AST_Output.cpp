@@ -318,9 +318,9 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("this");
   }
-  else if(dynamic_cast<ErrorVal*>(e))
+  else if(auto sic = dynamic_cast<SimpleConstant*>(e))
   {
-    root = out.createNode("error");
+    root = out.createNode(sic->st->name);
   }
   else if(auto uc = dynamic_cast<UnionConstant*>(e))
   {

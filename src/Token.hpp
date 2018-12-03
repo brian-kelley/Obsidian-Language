@@ -41,8 +41,6 @@ enum
   TYPEDEF,
   STRUCT,
   THIS,
-  ERROR_TYPE,
-  ERROR_VALUE,
   IF,
   ELSE,
   FOR,
