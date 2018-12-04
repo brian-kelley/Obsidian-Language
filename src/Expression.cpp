@@ -1699,6 +1699,7 @@ bool operator<(const EnumExpr& lhs, const EnumExpr& rhs)
 /******************
  * SimpleConstant *
  ******************/
+
 SimpleConstant::SimpleConstant(SimpleType* s)
 {
   st = s;
@@ -1752,7 +1753,7 @@ void resolveExpr(Expression*& expr)
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {
-    cout << "Resolving an expr of type " << typeid(*expr).name() << '\n';
+    cout << ((void*) expr) << '\n';
     expr->resolve();
     return;
   }
@@ -1839,6 +1840,9 @@ void resolveExpr(Expression*& expr)
             }
             break;
           }
+        case Name::SIMPLE_TYPE:
+          base = ((SimpleType*) found.item)->val;
+          break;
         case Name::ENUM_CONSTANT:
           base = new EnumExpr((EnumConstant*) found.item);
           break;

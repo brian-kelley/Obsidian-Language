@@ -136,16 +136,18 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 
 void Assign::resolveImpl()
 {
-  if(lvalue)
-    cout << "lvalue is an " << typeid(*lvalue).name() << '\n';
-  else
-    cout << "lvalue null!\n";
   resolveExpr(lvalue);
+  //Default-initialized local variables produce an assignment
+  //with a null rvalue - use the default value for the type
   if(rvalue)
-    cout << "rvalue is an " << typeid(*rvalue).name() << '\n';
+  {
+    resolveExpr(rvalue);
+  }
   else
-    cout << "rvalue null!\n";
-  resolveExpr(rvalue);
+  {
+    rvalue = lvalue->type->getDefaultValue();
+    rvalue->resolve();
+  }
   if(!lvalue->assignable())
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");

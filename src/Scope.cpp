@@ -63,6 +63,7 @@ IMPL_ADD_NAME(StructType)
 IMPL_ADD_NAME(Subroutine)
 IMPL_ADD_NAME(ExternalSubroutine)
 IMPL_ADD_NAME(AliasType)
+IMPL_ADD_NAME(SimpleType)
 IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
 

@@ -40,19 +40,15 @@ void Variable::resolveImpl()
 {
   resolveType(type);
   cout << "Resolved type successfully!\n";
-  if(!initial)
+  if(initial)
   {
-    //Always need an initial expression, so use the
-    //default one implicitly
-    cout << "Using default initializer for " << name << ":" << type->getName() << '\n';
-    initial = type->getDefaultValue();
+    resolveExpr(initial);
+    if(!type->canConvert(initial->type))
+      errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
+    //convert initial value, if necessary
+    if(initial->type != type)
+      initial = new Converted(initial, type);
   }
-  resolveExpr(initial);
-  if(!type->canConvert(initial->type))
-    errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
-  //convert initial value, if necessary
-  if(initial->type != type)
-    initial = new Converted(initial, type);
   resolved = true;
 }
 

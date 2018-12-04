@@ -1118,6 +1118,12 @@ SimpleType::SimpleType(string n)
 
 Expression* SimpleType::getDefaultValue()
 {
+  cout << "Getting simple type " << name << " default value.\n";
+  cout << "  Expr: " << val << '\n';
+  if(val->resolved)
+    cout << "  It's ressolved.\n";
+  else
+    cout << "  It's NOT ressolved (bad).\n";
   return val;
 }
 
@@ -1171,6 +1177,9 @@ void resolveType(Type*& t)
       {
         case Name::STRUCT:
           finalType = (StructType*) found.item;
+          break;
+        case Name::SIMPLE_TYPE:
+          finalType = (SimpleType*) found.item;
           break;
         case Name::ENUM:
           finalType = (EnumType*) found.item;

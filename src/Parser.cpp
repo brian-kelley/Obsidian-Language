@@ -107,6 +107,13 @@ namespace Parser
           if(semicolon)
             expectPunct(SEMICOLON);
           return;
+        case TYPE:
+          {
+            parseSimpleType(s);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            return;
+          }
         case ENUM:
           parseEnum(s);
           return;
@@ -373,26 +380,21 @@ namespace Parser
     Node* loc = lookAhead();
     bool isStatic = false;
     bool compose = false;
+    bool isAuto = false;
+    Type* type = nullptr;
     if(acceptOper(BXOR))
     {
       compose = true;
     }
-    string name = expectIdent();
-    expectPunct(COLON);
-    if(acceptKeyword(STATIC))
+    else if(acceptKeyword(STATIC))
     {
       isStatic = true;
     }
-    if(isStatic && compose)
-    {
-      errMsgLoc(loc, "composition operator can't be applied to static variable");
-    }
-    Type* type = nullptr;
-    bool isAuto = false;
     if(acceptKeyword(AUTO))
       isAuto = true;
     else
       type = parseType(s);
+    string name = expectIdent();
     Expression* init = nullptr;
     if(acceptOper(ASSIGN))
     {
@@ -400,7 +402,7 @@ namespace Parser
     }
     if(!init && isAuto)
     {
-      errMsgLoc(loc, "auto-typed variable requires initialization");
+      errMsgLoc(loc, "auto-typed variable requires initializing expression");
     }
     if(isAuto)
     {
@@ -427,7 +429,9 @@ namespace Parser
     s->addName(var);
     if(s->node.is<Block*>())
     {
-      return new Assign(s->node.get<Block*>(), new VarExpr(var), init);
+      Assign* a = new Assign(s->node.get<Block*>(), new VarExpr(var), init);
+      a->setLocation(loc);
+      return a;
     }
     else
     {
@@ -580,6 +584,16 @@ namespace Parser
     s->addName(aType);
   }
 
+  void Stream::parseSimpleType(Scope* s)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(TYPE);
+    string name = expectIdent();
+    auto st = new SimpleType(name);
+    st->setLocation(loc);
+    s->addName(st);
+  }
+
   void Stream::parseEnum(Scope* s)
   {
     EnumType* e = new EnumType(s);
@@ -685,6 +699,7 @@ namespace Parser
         case EXTERN:
         case MODULE:
         case TYPEDEF:
+        case TYPE:
         case ENUM:
         case TEST:
           {

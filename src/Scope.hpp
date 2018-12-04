@@ -85,6 +85,7 @@ struct Scope
   void addName(Subroutine* s);
   void addName(AliasType* a);
   void addName(ExternalSubroutine* s);
+  void addName(SimpleType* s);
   void addName(EnumType* e);
   void addName(EnumConstant* e);
   bool resolveAll();

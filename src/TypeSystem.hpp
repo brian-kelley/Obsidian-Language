@@ -172,7 +172,7 @@ Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* return
 //If either is not a number, NULL
 Type* promote(Type* lhs, Type* rhs);
 
-//get (t | error)
+//get (t | void)
 Type* maybe(Type* t);
 
 void createBuiltinTypes();
