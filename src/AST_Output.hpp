@@ -12,6 +12,7 @@ struct StructType;
 struct AliasType;
 struct Subroutine;
 struct ExternalSubroutine;
+struct SimpleType;
 struct EnumType;
 struct Variable;
 
@@ -30,6 +31,7 @@ namespace AstOut
   int emitExternSubroutine(ExternalSubroutine* s);
   int emitVariable(Variable* v);
   int emitEnum(EnumType* e);
+  int emitSimpleType(SimpleType* s);
 }
 
 #endif

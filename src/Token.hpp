@@ -24,6 +24,7 @@ enum
   FUNC,
   PROC,
   VOID,
+  ERROR,
   BOOL,
   CHAR,
   BYTE,

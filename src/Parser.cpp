@@ -124,6 +124,7 @@ namespace Parser
           parseTest(s);
           return;
         case VOID:
+        case ERROR:
         case BOOL:
         case CHAR:
         case BYTE:
@@ -175,6 +176,10 @@ namespace Parser
       //all possible types now (except Callables) are primitive, so set kind
       switch(keyword->kw)
       {
+        case VOID:
+          t->t = Prim::VOID; break;
+        case ERROR:
+          t->t = Prim::ERROR; break;
         case BOOL:
           t->t = Prim::BOOL; break;
         case CHAR:
@@ -197,8 +202,6 @@ namespace Parser
           t->t = Prim::FLOAT; break;
         case DOUBLE:
           t->t = Prim::DOUBLE; break;
-        case VOID:
-          t->t = Prim::VOID; break;
         case FUNCTYPE:
           pure = true;
           //fall through
@@ -433,10 +436,7 @@ namespace Parser
       a->setLocation(loc);
       return a;
     }
-    else
-    {
-      return nullptr;
-    }
+    return nullptr;
   }
 
   ForC* Stream::parseForC(Block* b)
@@ -1023,6 +1023,14 @@ namespace Parser
       else if(acceptKeyword(FALSE))
       {
         base = new BoolConstant(false);
+      }
+      else if(acceptKeyword(VOID))
+      {
+        base = ((SimpleType*) primitives[Prim::VOID])->val;
+      }
+      else if(acceptKeyword(ERROR))
+      {
+        base = ((SimpleType*) primitives[Prim::ERROR])->val;
       }
       else if(auto intLit = (IntLit*) accept(INT_LITERAL))
       {

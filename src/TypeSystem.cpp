@@ -12,11 +12,6 @@ using std::sort;
 
 extern Module* global;
 
-SimpleType* voidType;
-SimpleConstant* voidVal;
-SimpleType* errorType;
-SimpleConstant* errorVal;
-
 vector<Type*> primitives;
 
 map<string, Type*> primNames;
@@ -43,12 +38,8 @@ void createBuiltinTypes()
   primitives[Prim::ULONG] = new IntegerType("ulong", 8, false);
   primitives[Prim::FLOAT] = new FloatType("float", 4);
   primitives[Prim::DOUBLE] = new FloatType("double", 8);
-  voidType = new SimpleType("void");
-  voidVal = voidType->val;
-  errorType = new SimpleType("error");
-  errorVal = errorType->val;
-  primitives[Prim::VOID] = voidType;
-  primitives[Prim::ERROR] = errorType;
+  primitives[Prim::VOID] = new SimpleType("void");
+  primitives[Prim::ERROR] = new SimpleType("error");
   primNames["bool"] = primitives[Prim::BOOL];
   primNames["char"] = primitives[Prim::CHAR];
   primNames["byte"] = primitives[Prim::BYTE];
@@ -62,7 +53,6 @@ void createBuiltinTypes()
   primNames["float"] = primitives[Prim::FLOAT];
   primNames["double"] = primitives[Prim::DOUBLE];
   primNames["void"] = primitives[Prim::VOID];
-  primNames["error"] = primitives[Prim::ERROR];
   //string is a builtin alias for char[] (but not a primitive)
   Scope* glob = global->scope;
   glob->addName(new AliasType(
@@ -238,7 +228,7 @@ Type* maybe(Type* t)
 {
   vector<Type*> options;
   options.push_back(t);
-  options.push_back(voidType);
+  options.push_back(primitives[Prim::VOID]);
   return getUnionType(options);
 }
 

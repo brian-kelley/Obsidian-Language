@@ -56,6 +56,8 @@ int emitName(Name* n)
       return emitVariable((Variable*) n->item);
     case Name::ENUM:
       return emitEnum((EnumType*) n->item);
+    case Name::SIMPLE_TYPE:
+      return emitSimpleType((SimpleType*) n->item);
     default:
       INTERNAL_ERROR;
   }
@@ -439,6 +441,11 @@ int emitEnum(EnumType* e)
       out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->uval)));
   }
   return root;
+}
+
+int emitSimpleType(SimpleType* s)
+{
+  return out.createNode("Type " + s->name);
 }
 
 } //namespace AstOut

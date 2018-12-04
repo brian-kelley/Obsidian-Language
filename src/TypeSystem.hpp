@@ -45,11 +45,6 @@ struct ElemExprType;
 
 struct SimpleConstant;
 
-extern SimpleType* voidType;
-extern SimpleConstant* voidVal;
-extern SimpleType* errorType;
-extern SimpleConstant* errorVal;
-
 struct Type : public Node
 {
   virtual ~Type() {}

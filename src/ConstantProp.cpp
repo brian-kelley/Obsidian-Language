@@ -624,7 +624,11 @@ bool foldExpression(Expression*& expr, bool isLHS)
         auto mapValue = (MapConstant*) grp;
         auto mapIt = mapValue->values.find(ind);
         if(mapIt == mapValue->values.end())
-          expr = new UnionConstant(voidVal, errorType, (UnionType*) indexed->type);
+        {
+          auto voidType = (SimpleType*) primitives[Prim::VOID];
+          auto voidConstant = voidType->val;
+          expr = new UnionConstant(voidConstant, voidType, (UnionType*) indexed->type);
+        }
         else
           expr = new UnionConstant(mapIt->second, mapIt->second->type, (UnionType*) indexed->type);
       }

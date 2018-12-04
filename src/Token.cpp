@@ -16,6 +16,7 @@ void initTokens()
 {
 #define SET_KEY(str, val) keywordMap[str] = val;
   SET_KEY("void", VOID)
+  SET_KEY("error", ERROR)
   SET_KEY("bool", BOOL)
   SET_KEY("char", CHAR)
   SET_KEY("byte", BYTE)
