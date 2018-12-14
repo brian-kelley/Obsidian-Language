@@ -55,8 +55,10 @@ void createBuiltinTypes()
   primNames["void"] = primitives[Prim::VOID];
   //string is a builtin alias for char[] (but not a primitive)
   Scope* glob = global->scope;
-  glob->addName(new AliasType(
-        "string", getArrayType(primitives[Prim::CHAR], 1), glob));
+  auto stringType = new AliasType("string",
+      getArrayType(primitives[Prim::CHAR], 1), glob);
+  stringType->resolve();
+  glob->addName(stringType);
   glob->addName(new AliasType("i8", primitives[Prim::BYTE], glob));
   glob->addName(new AliasType("u8", primitives[Prim::UBYTE], glob));
   glob->addName(new AliasType("i16", primitives[Prim::SHORT], glob));
@@ -114,7 +116,11 @@ Type* getUnionType(vector<Type*>& options)
   //only one option: union of one thing is just that thing
   if(options.size() == 1)
     return options.front();
+  cout << "Here, constructing union with " << options.size() << " things.\n";
   UnionType* ut = new UnionType(options);
+  cout << "Resolving it.\n";
+  ut->resolve();
+  cout << "Done.\n";
   //check if ut is already in the set of all union types
   auto it = unions.find(ut);
   if(it == unions.end())
@@ -407,13 +413,17 @@ UnionType::UnionType(vector<Type*> types)
 
 void UnionType::resolveImpl()
 {
+  cout << "Resolving union type.\n";
   //union type is allowed to have itself as a member,
   //so for the purposes of resolution need to assume this
   //union can be resolved (in order to avoid false circular dependency)
   resolved = true;
+  int i = 0;
   for(Type*& mem : options)
   {
+    cout << "resolving member " << i++ << "...";
     resolveType(mem);
+    cout << "done.\n";
   }
   setDefault();
 }
@@ -712,17 +722,23 @@ AliasType::AliasType(string alias, Type* underlying, Scope* s)
 
 void AliasType::resolveImpl()
 {
-  cout << "Resolving alias type " << name << '\n';
-  if(auto ut = dynamic_cast<UnionType*>(actual))
+  //AliasType can legally refer to itself through a union,
+  //so pretend it's resolved during the resolution. Don't
+  //report false circular dependency error.
+  resolved = true;
+  resolveType(actual);
+  if(actual->resolved)
   {
-    if(!ut->hasShortName)
+    if(auto ut = dynamic_cast<UnionType*>(actual))
     {
-      ut->shortName = name;
-      ut->hasShortName = true;
+      if(!ut->hasShortName)
+      {
+        ut->shortName = name;
+        ut->hasShortName = true;
+      }
     }
   }
-  resolveType(actual);
-  resolved = true;
+  resolved = actual->resolved;
 }
 
 bool AliasType::canConvert(Type* other)
@@ -743,7 +759,7 @@ EnumType::EnumType(Scope* enclosingScope)
 void EnumType::resolveImpl()
 {
   //Decide what integer type will represent the enum
-  //Prefer signed and then prefer smaller widths
+  //Prefer signed, and then prefer smaller widths
   bool canUseS = true;
   bool canUseU = true;
   for(auto ec : values)
@@ -755,7 +771,7 @@ void EnumType::resolveImpl()
   }
   if(!canUseS && !canUseU)
   {
-    errMsgLoc(this, "neither long nor ulong canrepresent all values in enum");
+    errMsgLoc(this, "neither long nor ulong can represent all values in enum");
   }
   //Try different integer widths until all values fit
   for(int width = 1; width <= 8; width *= 2)
@@ -1197,9 +1213,13 @@ void resolveType(Type*& t)
         finalType = getTupleType(tupList.members);
       }
     }
-    else if(unres->t.is<UnionType*>())
+    else if(unres->t.is<UnresolvedType::Union>())
     {
-      finalType = getUnionType(unres->t.get<UnionType*>()->options);
+      //first, resolve the elements of the union
+      auto& unionList = unres->t.get<UnresolvedType::Union>();
+      t = new UnionType(unionList.members);
+      t->resolve();
+      finalType = t;
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {
@@ -1243,6 +1263,8 @@ void resolveType(Type*& t)
     }
     if(auto alias = dynamic_cast<AliasType*>(finalType))
     {
+      //found the type, but it's a typedef
+      //make sure the alias resolves (this resolves underlying too)
       alias->resolve();
       finalType = alias->actual;
     }

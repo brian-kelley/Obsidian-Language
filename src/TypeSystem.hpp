@@ -535,6 +535,11 @@ struct UnresolvedType : public Type
     Tuple(vector<Type*>& m) : members(m) {}
     vector<Type*> members;
   };
+  struct Union
+  {
+    Union(vector<Type*>& m) : members(m) {}
+    vector<Type*> members;
+  };
   struct Map
   {
     Map(Type* k, Type* v) : key(k), value(v) {}
@@ -554,7 +559,7 @@ struct UnresolvedType : public Type
   //UnionType is allowed to have unresolved members, and its resolveImpl()
   //is needed to gracefully deal with circular dependencies (impossible in
   //resolveType())
-  variant<Prim::PrimType, Member*, Tuple, UnionType*, Map, Callable> t;
+  variant<Prim::PrimType, Member*, Tuple, Union, Map, Callable> t;
   Scope* scope;
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else

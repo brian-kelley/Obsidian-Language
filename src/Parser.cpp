@@ -265,7 +265,7 @@ namespace Parser
         //use an actual UnionType (not an UnresolvedType) here,
         //since only UnionType::resolve can handle circular
         //dependencies correctly
-        t->t = new UnionType(types);
+        t->t = UnresolvedType::Union(types);
       }
       else
       {
@@ -301,10 +301,10 @@ namespace Parser
       {
         vector<Type*> optionalTypes;
         optionalTypes.push_back(t);
-        optionalTypes.push_back(primitives[Prim::ERROR]);
+        optionalTypes.push_back(primitives[Prim::VOID]);
         t = new UnresolvedType;
         t->scope = s;
-        t->t = new UnionType(optionalTypes);
+        t->t = UnresolvedType::Union(optionalTypes);
       }
     }
     return t;
