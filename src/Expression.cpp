@@ -2237,14 +2237,29 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
   {
-    os << '[';
-    for(size_t i = 0; i < compLit->members.size(); i++)
+    if(compLit->constant() && compLit->type == getArrayType(primitives[Prim::CHAR], 1))
     {
-      os << compLit->members[i];
-      if(i != compLit->members.size() - 1)
-        os << ", ";
+      //it's a string, so just print it as a string literal
+      os << generateCharDotfile('"');
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        auto scc = dynamic_cast<CharConstant*>(compLit->members[i]);
+        INTERNAL_ASSERT(scc);
+        os << generateCharDotfile(scc->value);
+      }
+      os << generateCharDotfile('"');
     }
-    os << ']';
+    else
+    {
+      os << '[';
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        os << compLit->members[i];
+        if(i != compLit->members.size() - 1)
+          os << ", ";
+      }
+      os << ']';
+    }
   }
   else if(MapConstant* mc = dynamic_cast<MapConstant*>(e))
   {
@@ -2261,7 +2276,10 @@ ostream& operator<<(ostream& os, Expression* e)
   }
   else if(UnionConstant* uc = dynamic_cast<UnionConstant*>(e))
   {
-    os << uc->value->type->getName() << ": " << uc->value;
+    if(uc->value->type->isSimple())
+      os << uc->value;
+    else
+      os << uc->value->type->getName() << ": " << uc->value;
   }
   else if(Indexed* in = dynamic_cast<Indexed*>(e))
   {

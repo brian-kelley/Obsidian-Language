@@ -480,6 +480,7 @@ struct SimpleType : public Type
   }
   //for all purposes, this is POD and primitive
   bool isPrimitive() {return true;}
+  bool isSimple() {return true;}
   string getName()
   {
     return name;

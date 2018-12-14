@@ -285,6 +285,7 @@ static Expression* convertConstant(Expression* value, Type* type)
         }
         //else: don't need to convert member
       }
+      return compLit;
     }
     else if(auto tt = dynamic_cast<TupleType*>(type))
     {
@@ -296,6 +297,7 @@ static Expression* convertConstant(Expression* value, Type* type)
               compLit->members[i], tt->members[i]);
         }
       }
+      return compLit;
     }
     else if(auto mt = dynamic_cast<MapType*>(type))
     {
@@ -313,6 +315,7 @@ static Expression* convertConstant(Expression* value, Type* type)
           val = convertConstant(val, mt->value);
         mc->values[key] = val;
       }
+      return mc;
     }
   }
   //????
