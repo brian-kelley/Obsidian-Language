@@ -72,8 +72,9 @@ struct Type : public Node
   virtual bool isBool()     {return false;}
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
-  virtual bool isSimple()    {return false;}
-  virtual bool isResolved() {return true;}
+  virtual bool isSimple()   {return false;}
+  //canonicalize (replace all AliasTypes with underlying types)
+  virtual Type* canonicalize() {return this;}
   //Get a constant expression representing the "default"
   //or uninitialized value for the type, usable for constant folding etc.
   virtual Expression* getDefaultValue()
@@ -83,19 +84,10 @@ struct Type : public Node
     return nullptr;
   }
   //get the set of types which may be "owned" as a member by this type
-  set<Type*> dependencies()
+  //default is just this type (only valid for the non-compound types)
+  virtual void dependencies(set<Type*>& types)
   {
-    vector<UnionType*> empty;
-    return dependencies(empty);
-  }
-  //In order to respect the fact that unions can own themselves directly or indirectly,
-  //need to keep track of which unions have already been accounted for (avoid infinite recursion)
-  virtual set<Type*> dependencies(vector<UnionType*>& exclude)
-  {
-    //for all non-compound types, only dependency is itself
-    set<Type*> s;
-    s.insert(this);
-    return s;
+    types.insert(this);
   }
 };
 
@@ -161,7 +153,7 @@ Type* getArrayType(Type* elem, int ndims);
 Type* getTupleType(vector<Type*>& members);
 Type* getUnionType(vector<Type*>& options);
 Type* getMapType(Type* key, Type* value);
-Type* getSubroutineType(StructType* owner, bool pure, bool nonterm, Type* returnValue, vector<Type*>& argTypes);
+Type* getSubroutineType(StructType* owner, bool pure, Type* returnValue, vector<Type*>& argTypes);
 
 //If lhs and rhs are both numbers, return the best type for the result
 //If either is not a number, NULL
@@ -211,7 +203,7 @@ struct StructType : public Type
   map<string, IfaceMember> interface;
   void resolveImpl();
   Expression* getDefaultValue();
-  set<Type*> dependencies(vector<UnionType*>& exclude);
+  void dependencies(set<Type*>& types);
 };
 
 struct UnionType : public Type
@@ -223,15 +215,16 @@ struct UnionType : public Type
   bool isUnion() {return true;}
   void setDefault();
   string getName();
-  set<Type*> dependencies(vector<UnionType*>& exclude);
-  //the default type (the first type that doesn't cause infinite recursion)
-  int defaultType;
+  Type* canonicalize();
+  void dependencies(set<Type*>& types);
   //A union needs a "short name" so that getName() for
   //self-containing unions returns a finite string
   //All self-containing unions must be the underlying type of some AliasType,
   //so a short name will always be available
   bool hasShortName;
   string shortName;
+  Expression* defaultVal;
+  //Lazily create and return defaultVal
   Expression* getDefaultValue();
 };
 
@@ -245,8 +238,9 @@ struct ArrayType : public Type
   int dims;
   bool canConvert(Type* other);
   void resolveImpl();
+  Type* canonicalize();
   bool isArray() {return true;}
-  set<Type*> dependencies(vector<UnionType*>& exclude);
+  void dependencies(set<Type*>& types);
   string getName()
   {
     string name = elem->getName();
@@ -267,8 +261,9 @@ struct TupleType : public Type
   vector<Type*> members;
   bool canConvert(Type* other);
   void resolveImpl();
+  Type* canonicalize();
   bool isTuple() {return true;}
-  set<Type*> dependencies(vector<UnionType*>& exclude);
+  void dependencies(set<Type*>& types);
   string getName()
   {
     string name = "(";
@@ -291,8 +286,9 @@ struct MapType : public Type
   MapType(Type* k, Type* v);
   Type* key;
   Type* value;
+  Type* canonicalize();
   bool isMap() {return true;}
-  set<Type*> dependencies(vector<UnionType*>& exclude);
+  void dependencies(set<Type*>& types);
   string getName()
   {
     string name = "(";
@@ -328,13 +324,18 @@ struct AliasType : public Type
   bool isBool()     {return actual->isBool();}
   bool isPrimitive(){return actual->isPrimitive();}
   bool isAlias()    {return true;}
+  Type* canonicalize()
+  {
+    INTERNAL_ASSERT(resolved);
+    return actual->canonicalize();
+  }
   string getName()
   {
     return name;
   }
-  set<Type*> dependencies(vector<UnionType*>& exclude)
+  void dependencies(set<Type*>& types)
   {
-    return actual->dependencies(exclude);
+    actual->dependencies(types);
   }
 };
 
@@ -514,6 +515,7 @@ struct CallableType : public Type
   {
     return !pure;
   }
+  Type* canonicalize();
   //Conversion rules:
   //all funcs can be procs
   //ownerStructs must match exactly
@@ -564,7 +566,6 @@ struct UnresolvedType : public Type
   Scope* scope;
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else
-  bool isResolved() {return false;}
   bool canConvert(Type* other) {return false;}
   virtual string getName() {return "<UNKNOWN TYPE>";}
 };
@@ -576,7 +577,6 @@ struct ExprType : public Type
   ExprType(Expression* e);
   void resolveImpl();
   Expression* expr;
-  bool isResolved() {return false;}
   bool canConvert(Type* other) {return false;}
   string getName() {return "<unresolved expression type>";};
 };
@@ -588,7 +588,6 @@ struct ElemExprType : public Type
   ElemExprType(Expression* arr);
   void resolveImpl();
   Expression* arr;
-  bool isResolved() {return false;}
   bool canConvert(Type* other) {return false;}
   string getName() {return "<unresolved array expr element type>";};
 };

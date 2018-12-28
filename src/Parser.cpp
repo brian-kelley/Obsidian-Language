@@ -87,6 +87,7 @@ namespace Parser
   void Stream::parseScopedDecl(Scope* s, bool semicolon)
   {
     Punct colon(COLON);
+    Punct lparen(LPAREN);
     Oper composeOperator(BXOR);
     if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
@@ -148,7 +149,9 @@ namespace Parser
           err("expected a declaration");
       }
     }
-    else if(lookAhead()->type == IDENTIFIER || lookAhead()->compareTo(&composeOperator))
+    else if(lookAhead()->type == IDENTIFIER ||
+        lookAhead()->compareTo(&composeOperator) ||
+        lookAhead()->compareTo(&lparen))
     {
       //variable declaration
       parseVarDecl(s);
@@ -158,7 +161,7 @@ namespace Parser
     }
     else
     {
-      cout << "Expected decl but got " << lookAhead()->getStr() << '\n';
+      err("Expected decl but got " + lookAhead()->getStr() + '\n');
       INTERNAL_ERROR;
     }
   }
@@ -214,14 +217,9 @@ namespace Parser
             vector<Type*> params;
             while(!acceptPunct(RPAREN))
             {
-              //if "IDENT :" are next two tokens, accept and discard
-              //(parameter names are optional in callable types)
-              if(lookAhead(0)->type == IDENTIFIER && lookAhead(1)->compareTo(&colon))
-              {
-                accept();
-                accept();
-              }
               params.push_back(parseType(s));
+              //accept an optional parameter name
+              accept(IDENTIFIER);
             }
             t->t = UnresolvedType::Callable(pure, isStatic, retType, params);
             break;

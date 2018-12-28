@@ -1,11 +1,6 @@
 ---------------------
       TODO:
 ---------------------
--Lambda semantics:
-  -Functions are trivial since they can't capture. Just treat like regular functions
-  -Procedures:
-    -determine the set of captured variables (just by scanning all expressions in lambda)
-    -Have a reference type internally (invisible to user). Use references to pass captured vars.
 
 -Add include keyword
   -only allowed inside a module

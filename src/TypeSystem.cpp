@@ -85,6 +85,7 @@ Type* getArrayType(Type* elem, int ndims)
   {
     at = new ArrayType(elem, ndims);
   }
+  at->resolve();
   auto it = arrays.find(at);
   if(it == arrays.end())
   {
@@ -100,6 +101,7 @@ Type* getTupleType(vector<Type*>& members)
   for(auto& mem : members)
     resolveType(mem);
   TupleType* newTuple = new TupleType(members);
+  newTuple->resolve();
   auto it = tuples.find(newTuple);
   if(it != tuples.end())
   {
@@ -116,11 +118,8 @@ Type* getUnionType(vector<Type*>& options)
   //only one option: union of one thing is just that thing
   if(options.size() == 1)
     return options.front();
-  cout << "Here, constructing union with " << options.size() << " things.\n";
   UnionType* ut = new UnionType(options);
-  cout << "Resolving it.\n";
   ut->resolve();
-  cout << "Done.\n";
   //check if ut is already in the set of all union types
   auto it = unions.find(ut);
   if(it == unions.end())
@@ -142,6 +141,7 @@ Type* getMapType(Type* key, Type* value)
   resolveType(key);
   resolveType(value);
   MapType* mt = new MapType(key, value);
+  mt->resolve();
   auto it = maps.find(mt);
   if(it == maps.end())
   {
@@ -165,6 +165,7 @@ Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type
       return nullptr;
   }
   auto ct = new CallableType(pure, owner, retType, argTypes);
+  ct->resolve();
   auto it = callables.find(ct);
   if(it == callables.end())
   {
@@ -272,6 +273,7 @@ StructType::StructType(string n, Scope* enclosingScope)
 
 void StructType::resolveImpl()
 {
+  resolved = true;
   cout << "Resolving struct " << name << '\n';
   //attempt to resolve all member variables
   for(Variable* mem : members)
@@ -282,6 +284,15 @@ void StructType::resolveImpl()
     //self-ownership
     mem->resolve();
   }
+  for(Variable* mem : members)
+  {
+    if(!mem->resolved)
+    {
+      resolved = false;
+      return;
+    }
+  }
+  //all members must now be resolved (including types)
   //all members have been resolved, which means that
   //all member types (including structs) are fully resolved
   //so can now form the interface for this
@@ -294,7 +305,7 @@ void StructType::resolveImpl()
       auto memStruct = dynamic_cast<StructType*>(members[i]->type);
       if(!memStruct)
       {
-        errMsgLoc(members[i], "composition requested on non-struct member");
+        errMsgLoc(members[i], "composition only works on struct types");
       }
       memStruct->resolve();
       //add everything in memStruct's interface to this interface
@@ -337,6 +348,13 @@ void StructType::resolveImpl()
         }
       default:;
     }
+  }
+  //make sure the struct doesn't contain itself
+  {
+    set<Type*> deps;
+    dependencies(deps);
+    if(deps.find(this) != deps.end())
+      errMsgLoc(this, "struct " + name + " contains itself.");
   }
   //now, it's safe to resolve all members
   scope->resolveAll();
@@ -388,16 +406,16 @@ Expression* StructType::getDefaultValue()
   return new CompoundLiteral(vals);
 }
 
-set<Type*> StructType::dependencies(vector<UnionType*>& exclude)
+void StructType::dependencies(set<Type*>& types)
 {
-  set<Type*> d;
-  d.insert(this);
-  for(auto mem : members)
+  INTERNAL_ASSERT(resolved);
+  if(types.find(this) == types.end())
   {
-    auto temp = mem->type->dependencies(exclude);
-    d.insert(temp.begin(), temp.end());
+    for(auto mem : members)
+    {
+      mem->type->dependencies(types);
+    }
   }
-  return d;
 }
 
 /**************/
@@ -408,41 +426,24 @@ UnionType::UnionType(vector<Type*> types)
 {
   options = types;
   hasShortName = false;
-  sort(options.begin(), options.end());
+  defaultVal = nullptr;
 }
 
 void UnionType::resolveImpl()
 {
-  cout << "Resolving union type.\n";
   //union type is allowed to have itself as a member,
   //so for the purposes of resolution need to assume this
   //union can be resolved (in order to avoid false circular dependency)
   resolved = true;
-  int i = 0;
   for(Type*& mem : options)
   {
-    cout << "resolving member " << i++ << "...";
     resolveType(mem);
-    cout << "done.\n";
   }
-  setDefault();
 }
 
 void UnionType::setDefault()
 {
-  for(size_t i = 0; i < options.size(); i++)
-  {
-    auto deps = options[i]->dependencies();
-    if(deps.find(this) == deps.end())
-    {
-      //option i does not contain this union, so it's a suitable
-      //default value
-      defaultType = i;
-      return;
-    }
-  }
-  errMsg("All possible options of " << getName() << " contain the union itself,\n"
-      "so it's impossible to create a finite default instance");
+  INTERNAL_ERROR;
 }
 
 bool UnionType::canConvert(Type* other)
@@ -461,23 +462,33 @@ bool UnionType::canConvert(Type* other)
   return false;
 }
 
-set<Type*> UnionType::dependencies(vector<UnionType*>& exclude)
+void UnionType::dependencies(set<Type*>& types)
 {
-  //stop the recursion here if this is the union type being excluded
-  if(find(exclude.begin(), exclude.end(), this) != exclude.end())
-    return set<Type*>();
-  set<Type*> d;
-  d.insert(this);
-  //can use the vector like a stack to avoid unnecessary copy
-  exclude.push_back(this);
-  for(auto op : options)
+  INTERNAL_ASSERT(resolved);
+  if(types.find(this) == types.end())
   {
-    auto temp = op->dependencies(exclude);
-    d.insert(temp.begin(), temp.end());
+    //dependencies to add is the intersection of deps of all members
+    set<Type*> memIntersect;
+    for(auto op : options)
+    {
+      types.insert(op);
+      op->dependencies(memIntersect);
+    }
+    set<Type*> memTemp;
+    for(auto op : options)
+    {
+      memTemp.clear();
+      op->dependencies(memTemp);
+      for(auto it = memIntersect.begin(); it != memIntersect.end();)
+      {
+        if(memTemp.find(*it) == memTemp.end())
+          it = memIntersect.erase(it);
+        else
+          it++;
+      }
+    }
+    types.insert(memIntersect.begin(), memIntersect.end());
   }
-  //callee may use exclude again, so restore it
-  exclude.pop_back();
-  return d;
 }
 
 string UnionType::getName()
@@ -495,9 +506,39 @@ string UnionType::getName()
   return name;
 }
 
+Type* UnionType::canonicalize()
+{
+  INTERNAL_ASSERT(resolved);
+  vector<Type*> ops;
+  for(auto o : options)
+    ops.push_back(o->canonicalize());
+  return getUnionType(ops);
+}
+
 Expression* UnionType::getDefaultValue()
 {
-  return new UnionConstant(options[defaultType]->getDefaultValue(), options[defaultType], this);
+  INTERNAL_ASSERT(resolved);
+  if(!defaultVal)
+  {
+    int defaultType = -1;
+    for(size_t i = 0; i < options.size(); i++)
+    {
+      set<Type*> opDeps;
+      options[i]->dependencies(opDeps);
+      if(opDeps.find(this) == opDeps.end())
+      {
+        //option i does not contain this union, so it's a suitable
+        //default value
+        defaultType = i;
+        break;
+      }
+    }
+    INTERNAL_ASSERT(defaultType >= 0);
+    defaultVal = new UnionConstant(
+        options[defaultType]->getDefaultValue(),
+        options[defaultType], this);
+  }
+  return defaultVal;
 }
 
 bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs) const
@@ -524,6 +565,12 @@ ArrayType::ArrayType(Type* elemType, int ndims)
 void ArrayType::resolveImpl()
 {
   resolveType(elem);
+  set<Type*> deps;
+  elem->dependencies(deps);
+  if(deps.find(this) != deps.end())
+  {
+    errMsg("array type " + getName() + " contains itself");
+  }
   resolved = true;
 }
 
@@ -566,9 +613,16 @@ Expression* ArrayType::getDefaultValue()
   return cl;
 }
 
-set<Type*> ArrayType::dependencies(vector<UnionType*>& exclude)
+Type* ArrayType::canonicalize()
 {
-  return elem->dependencies(exclude);
+  INTERNAL_ASSERT(resolved);
+  return getArrayType(elem->canonicalize(), dims);
+}
+
+void ArrayType::dependencies(set<Type*>& types)
+{
+  INTERNAL_ASSERT(resolved);
+  elem->dependencies(types);
 }
 
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs) const
@@ -594,6 +648,12 @@ void TupleType::resolveImpl()
   for(Type*& mem : members)
   {
     resolveType(mem);
+  }
+  set<Type*> deps;
+  dependencies(deps);
+  if(deps.find(this) != deps.end())
+  {
+    errMsg("type " + getName() + " contains itself.");
   }
   resolved = true;
 }
@@ -641,15 +701,24 @@ Expression* TupleType::getDefaultValue()
   return cl;
 }
 
-set<Type*> TupleType::dependencies(vector<UnionType*>& exclude)
+Type* TupleType::canonicalize()
 {
-  set<Type*> d;
+  vector<Type*> mems;
   for(auto m : members)
+    mems.push_back(m->canonicalize());
+  return getTupleType(mems);
+}
+
+void TupleType::dependencies(set<Type*>& types)
+{
+  INTERNAL_ASSERT(resolved);
+  if(types.find(this) == types.end())
   {
-    auto temp = m->dependencies(exclude);
-    d.insert(temp.begin(), temp.end());
+    for(auto m : members)
+    {
+      m->dependencies(types);
+    }
   }
-  return d;
 }
 
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs) const
@@ -694,14 +763,17 @@ bool MapType::canConvert(Type* other)
   return false;
 }
 
-set<Type*> MapType::dependencies(vector<UnionType*>& exclude)
+Type* MapType::canonicalize()
 {
-  set<Type*> d;
-  auto temp = key->dependencies(exclude);
-  d.insert(temp.begin(), temp.end());
-  temp = value->dependencies(exclude);
-  d.insert(temp.begin(), temp.end());
-  return d;
+  auto ckey = key->canonicalize();
+  auto cvalue = value->canonicalize();
+  return getMapType(ckey, cvalue);
+}
+
+void MapType::dependencies(set<Type*>& types)
+{
+  key->dependencies(types);
+  value->dependencies(types);
 }
 
 bool MapCompare::operator()(const MapType* lhs, const MapType* rhs) const
@@ -738,6 +810,8 @@ void AliasType::resolveImpl()
       }
     }
   }
+  //AliasType resolution fails if and only if the
+  //underlying type failed to resolve
   resolved = actual->resolved;
 }
 
@@ -1074,6 +1148,19 @@ string CallableType::getName()
   return oss.str();
 }
 
+Type* CallableType::canonicalize()
+{
+  INTERNAL_ASSERT(resolved);
+  //canonicalize argument list
+  vector<Type*> cargs;
+  for(auto a : argTypes)
+  {
+    cargs.push_back(a->canonicalize());
+  }
+  return getSubroutineType(ownerStruct, pure,
+      returnType->canonicalize(), cargs);
+}
+
 //all funcs can be procs
 //all nonmember/static functions can
 //  be member functions (by ignoring the this argument)
@@ -1156,18 +1243,17 @@ void ElemExprType::resolveImpl()
 
 void resolveType(Type*& t)
 {
-  if(t->isResolved())
+  if(t->resolved)
   {
     //nothing to do
     return;
   }
-  Type* finalType = nullptr;
   if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
   {
     cout << "Resolving unresolved type.\n";
     if(unres->t.is<Prim::PrimType>())
     {
-      finalType = primitives[unres->t.get<Prim::PrimType>()];
+      t = primitives[unres->t.get<Prim::PrimType>()];
     }
     else if(unres->t.is<Member*>())
     {
@@ -1182,16 +1268,16 @@ void resolveType(Type*& t)
       switch(found.kind)
       {
         case Name::STRUCT:
-          finalType = (StructType*) found.item;
+          t = (StructType*) found.item;
           break;
         case Name::SIMPLE_TYPE:
-          finalType = (SimpleType*) found.item;
+          t = (SimpleType*) found.item;
           break;
         case Name::ENUM:
-          finalType = (EnumType*) found.item;
+          t = (EnumType*) found.item;
           break;
         case Name::TYPEDEF:
-          finalType = (AliasType*) found.item;
+          t = (AliasType*) found.item;
           break;
         default:
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
@@ -1199,19 +1285,9 @@ void resolveType(Type*& t)
     }
     else if(unres->t.is<UnresolvedType::Tuple>())
     {
-      auto& tupList = unres->t.get<UnresolvedType::Tuple>();
-      //resolve member types individually
-      bool allResolved = true;
-      for(Type*& mem : tupList.members)
-      {
-        resolveType(mem);
-        if(!mem->isResolved())
-          allResolved = false;
-      }
-      if(allResolved)
-      {
-        finalType = getTupleType(tupList.members);
-      }
+      auto& tupleList = unres->t.get<UnresolvedType::Tuple>();
+      t = new TupleType(tupleList.members);
+      t->resolve();
     }
     else if(unres->t.is<UnresolvedType::Union>())
     {
@@ -1219,63 +1295,61 @@ void resolveType(Type*& t)
       auto& unionList = unres->t.get<UnresolvedType::Union>();
       t = new UnionType(unionList.members);
       t->resolve();
-      finalType = t;
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {
       auto& kv = unres->t.get<UnresolvedType::Map>();
-      resolveType(kv.key);
-      resolveType(kv.value);
-      if(kv.key->isResolved() && kv.value->isResolved())
-      {
-        finalType = getMapType(kv.key, kv.value);
-      }
+      t = new MapType(kv.key, kv.value);
+      t->resolve();
     }
     else if(unres->t.is<UnresolvedType::Callable>())
     {
       //walk up scope tree to see if in a non-static context
       auto ownerStruct = unres->scope->getStructContext();
       auto& ct = unres->t.get<UnresolvedType::Callable>();
+      bool isStatic = ct.isStatic || !ownerStruct;
       bool allResolved = true;
       resolveType(ct.returnType);
-      if(!ct.returnType->isResolved())
+      if(!ct.returnType->resolved)
       {
         allResolved = false;
       }
       for(auto& param : ct.params)
       {
         resolveType(param);
-        if(!param->isResolved())
+        if(!param->resolved)
         {
           allResolved = false;
         }
       }
       if(allResolved)
       {
-        finalType = getSubroutineType(ownerStruct, ct.pure,
-            ct.returnType, ct.params);
+        if(isStatic)
+        {
+          t = new CallableType(ct.pure, ct.returnType, ct.params);
+        }
+        else
+        {
+          t = new CallableType(ct.pure, ownerStruct,
+              ct.returnType, ct.params);
+        }
       }
+      t->resolve();
     }
-    if(!finalType)
+    if(!t->resolved)
     {
       //can't apply array dimensions, so return early
       return;
     }
-    if(auto alias = dynamic_cast<AliasType*>(finalType))
-    {
-      //found the type, but it's a typedef
-      //make sure the alias resolves (this resolves underlying too)
-      alias->resolve();
-      finalType = alias->actual;
-    }
     //if arrayDims is 0, this is a no-op
-    finalType = getArrayType(finalType, unres->arrayDims);
-    finalType->resolve();
+    t = new ArrayType(t, unres->arrayDims);
+    t->resolve();
   }
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
     resolveExpr(et->expr);
-    finalType = et->expr->type;
+    if(et->expr->resolved)
+      t = et->expr->type;
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
@@ -1284,11 +1358,11 @@ void resolveType(Type*& t)
     if(!arrType)
     {
       //arr's type is already singular, so use that
-      finalType = eet->arr->type;
+      t = eet->arr->type;
     }
     else
     {
-      finalType = arrType->elem;
+      t = arrType->elem;
     }
   }
   else
@@ -1296,7 +1370,9 @@ void resolveType(Type*& t)
     t->resolve();
     return;
   }
-  //finally, replace unres with finalType
-  t = finalType;
+  if(t->resolved)
+  {
+    t = t->canonicalize();
+  }
 }
 

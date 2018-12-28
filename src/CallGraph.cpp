@@ -268,6 +268,8 @@ void buildCallGraph()
   //Then, determine all possible calls by external subroutines:
   //since external subroutines can't access global vars, they
   //may only call first-class subroutines passed in through arguments.
+  //TODO!!!
+  /*
   for(auto es : allExSubrs)
   {
     CGNode* node = new CGNode;
@@ -286,5 +288,6 @@ void buildCallGraph()
     }
     callGraph.nodes[es] = node;
   }
+  */
 }
 
