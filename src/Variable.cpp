@@ -39,10 +39,17 @@ Variable::Variable(string n, Type* t, Block* b)
 void Variable::resolveImpl()
 {
   resolveType(type);
+  if(type->resolved)
+    cout << "Type of " << name << " is " << type->getName() << '\n';
+  else
+    cout << "Failed to resolve type of var " << name << '\n';
+  INTERNAL_ASSERT(type->resolved);
   cout << "Resolved type successfully!\n";
   if(initial)
   {
     resolveExpr(initial);
+    INTERNAL_ASSERT(initial->resolved);
+    cout << "Note: initial value for \"" << name << "\" is " << initial << '\n';
     if(!type->canConvert(initial->type))
       errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
     //convert initial value, if necessary

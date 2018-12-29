@@ -274,21 +274,32 @@ StructType::StructType(string n, Scope* enclosingScope)
 void StructType::resolveImpl()
 {
   resolved = true;
-  cout << "Resolving struct " << name << '\n';
+  //resolve member types first
+  for(Variable* mem : members)
+  {
+    resolveType(mem->type);
+    if(!mem->type->resolved)
+    {
+      resolved = false;
+      return;
+    }
+  }
+  //with all member types resolved,
+  //can make sure the struct is finite-sized
+  for(auto mem : members)
+  {
+    set<Type*> deps;
+    mem->type->dependencies(deps);
+    if(deps.find(this) != deps.end())
+      errMsgLoc(this, "struct " + name + " contains itself.");
+  }
+  resolved = false;
   //attempt to resolve all member variables
   for(Variable* mem : members)
   {
-    //resolve members requires resolving member types,
-    //and calling resolve() on this while already in a resolve
-    //call triggers a "circular dependency" error, preventing
-    //self-ownership
     mem->resolve();
-  }
-  for(Variable* mem : members)
-  {
     if(!mem->resolved)
     {
-      resolved = false;
       return;
     }
   }
@@ -349,16 +360,9 @@ void StructType::resolveImpl()
       default:;
     }
   }
-  //make sure the struct doesn't contain itself
-  {
-    set<Type*> deps;
-    dependencies(deps);
-    if(deps.find(this) != deps.end())
-      errMsgLoc(this, "struct " + name + " contains itself.");
-  }
+  resolved = true;
   //now, it's safe to resolve all members
   scope->resolveAll();
-  resolved = true;
 }
 
 //direct conversion requires other to be the same type
@@ -409,6 +413,7 @@ Expression* StructType::getDefaultValue()
 void StructType::dependencies(set<Type*>& types)
 {
   INTERNAL_ASSERT(resolved);
+  types.insert(this);
   if(types.find(this) == types.end())
   {
     for(auto mem : members)
@@ -441,22 +446,28 @@ void UnionType::resolveImpl()
   }
 }
 
-void UnionType::setDefault()
-{
-  INTERNAL_ERROR;
-}
-
 bool UnionType::canConvert(Type* other)
 {
+  cout << "Attempting to convert " << other->getName() << " to " << getName() << '\n';
   if(other == this)
   {
     return true;
   }
+  else
+  {
+    cout << "It's not the same union.\n";
+  }
   for(auto op : options)
   {
+    cout << "  Attempting to convert to option " << op->getName() << '\n';
     if(op->canConvert(other))
     {
+      cout << "  Success.\n";
       return true;
+    }
+    else
+    {
+      cout << "  Failed.\n";
     }
   }
   return false;
@@ -467,27 +478,29 @@ void UnionType::dependencies(set<Type*>& types)
   INTERNAL_ASSERT(resolved);
   if(types.find(this) == types.end())
   {
+    types.insert(this);
     //dependencies to add is the intersection of deps of all members
-    set<Type*> memIntersect;
+    map<Type*, int> memIntersect;
     for(auto op : options)
     {
-      types.insert(op);
-      op->dependencies(memIntersect);
-    }
-    set<Type*> memTemp;
-    for(auto op : options)
-    {
-      memTemp.clear();
-      op->dependencies(memTemp);
-      for(auto it = memIntersect.begin(); it != memIntersect.end();)
+      set<Type*> opDeps;
+      opDeps.insert(op);
+      op->dependencies(opDeps);
+      for(auto opDep : opDeps)
       {
-        if(memTemp.find(*it) == memTemp.end())
-          it = memIntersect.erase(it);
+        auto it = memIntersect.find(opDep);
+        if(it == memIntersect.end())
+          memIntersect[opDep] = 1;
         else
-          it++;
+          it->second++;
       }
     }
-    types.insert(memIntersect.begin(), memIntersect.end());
+    //True dependencies are those that appear in every option
+    for(auto it : memIntersect)
+    {
+      if(it.second == options.size())
+        types.insert(it.first);
+    }
   }
 }
 
@@ -622,6 +635,7 @@ Type* ArrayType::canonicalize()
 void ArrayType::dependencies(set<Type*>& types)
 {
   INTERNAL_ASSERT(resolved);
+  types.insert(this);
   elem->dependencies(types);
 }
 
@@ -649,13 +663,14 @@ void TupleType::resolveImpl()
   {
     resolveType(mem);
   }
-  set<Type*> deps;
-  dependencies(deps);
-  if(deps.find(this) != deps.end())
-  {
-    errMsg("type " + getName() + " contains itself.");
-  }
   resolved = true;
+  for(auto mem : members)
+  {
+    set<Type*> deps;
+    mem->dependencies(deps);
+    if(deps.find(this) != deps.end())
+      errMsgLoc(this, "tuple contains itself.");
+  }
 }
 
 bool TupleType::canConvert(Type* other)
@@ -714,8 +729,10 @@ void TupleType::dependencies(set<Type*>& types)
   INTERNAL_ASSERT(resolved);
   if(types.find(this) == types.end())
   {
+    types.insert(this);
     for(auto m : members)
     {
+      types.insert(m);
       m->dependencies(types);
     }
   }
@@ -1282,6 +1299,7 @@ void resolveType(Type*& t)
         default:
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
       }
+      t->resolve();
     }
     else if(unres->t.is<UnresolvedType::Tuple>())
     {
@@ -1341,9 +1359,11 @@ void resolveType(Type*& t)
       //can't apply array dimensions, so return early
       return;
     }
-    //if arrayDims is 0, this is a no-op
-    t = new ArrayType(t, unres->arrayDims);
-    t->resolve();
+    if(unres->arrayDims > 0)
+    {
+      t = new ArrayType(t, unres->arrayDims);
+      t->resolve();
+    }
   }
   else if(ExprType* et = dynamic_cast<ExprType*>(t))
   {
@@ -1368,11 +1388,19 @@ void resolveType(Type*& t)
   else
   {
     t->resolve();
-    return;
   }
   if(t->resolved)
   {
+    void* before = t;
+    cout << "Canonicalizing type " << t->getName() << '\n';
     t = t->canonicalize();
+    cout << "It is now " << t->getName() << '\n';
+    void* after = t;
+    if(before == after)
+      cout << "  Didn't change.\n";
+    else
+      cout << "  It's different.\n";
   }
+  INTERNAL_ASSERT(t->resolved);
 }
 

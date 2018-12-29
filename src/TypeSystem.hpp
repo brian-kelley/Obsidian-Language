@@ -213,7 +213,6 @@ struct UnionType : public Type
   vector<Type*> options;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
-  void setDefault();
   string getName();
   Type* canonicalize();
   void dependencies(set<Type*>& types);
@@ -477,6 +476,11 @@ struct SimpleType : public Type
   SimpleType(string n);
   bool canConvert(Type* other)
   {
+    cout << "Checking if " << other->getName() << " can convert to simple type " << name << '\n';
+    if(other == this)
+      cout << "  Yes, it can.\n";
+    else
+      cout << "  No, it can't.\n";
     return other == this;
   }
   //for all purposes, this is POD and primitive
