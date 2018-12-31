@@ -15,6 +15,7 @@ extern Module* global;
 vector<Type*> primitives;
 
 map<string, Type*> primNames;
+/*
 vector<StructType*> structs;
 set<ArrayType*, ArrayCompare> arrays;
 set<TupleType*, TupleCompare> tuples;
@@ -22,6 +23,7 @@ set<UnionType*, UnionCompare> unions;
 set<MapType*, MapCompare> maps;
 set<CallableType*, CallableCompare> callables;
 set<EnumType*> enums;
+*/
 
 void createBuiltinTypes()
 {
@@ -71,6 +73,7 @@ void createBuiltinTypes()
   glob->addName(new AliasType("f64", primitives[Prim::DOUBLE], glob));
 }
 
+/*
 Type* getArrayType(Type* elem, int ndims)
 {
   resolveType(elem);
@@ -95,7 +98,19 @@ Type* getArrayType(Type* elem, int ndims)
   delete at;
   return *it;
 }
+*/
 
+Type* getArrayType(Type* elem, int ndims)
+{
+  resolveType(elem);
+  if(ndims == 0)
+    return elem;
+  auto a = new ArrayType(elem, ndims);
+  a->resolve();
+  return a;
+}
+
+/*
 Type* getTupleType(vector<Type*>& members)
 {
   for(auto& mem : members)
@@ -112,7 +127,20 @@ Type* getTupleType(vector<Type*>& members)
   tuples.insert(newTuple);
   return newTuple;
 }
+*/
 
+Type* getTupleType(vector<Type*>& members)
+{
+  for(auto& mem : members)
+    resolveType(mem);
+  if(members.size() == 1)
+    return members[0];
+  TupleType* t = new TupleType(members);
+  t->resolve();
+  return t;
+}
+
+/*
 Type* getUnionType(vector<Type*>& options)
 {
   //only one option: union of one thing is just that thing
@@ -135,7 +163,21 @@ Type* getUnionType(vector<Type*>& options)
     return *it;
   }
 }
+*/
 
+Type* getUnionType(vector<Type*>& options)
+{
+  for(auto& op : options)
+    resolveType(op);
+  //only one option: union of one thing is just that thing
+  if(options.size() == 1)
+    return options[0];
+  UnionType* u = new UnionType(options);
+  u->resolve();
+  return u;
+}
+
+/*
 Type* getMapType(Type* key, Type* value)
 {
   resolveType(key);
@@ -154,7 +196,18 @@ Type* getMapType(Type* key, Type* value)
     return *it;
   }
 }
+*/
 
+Type* getMapType(Type* key, Type* value)
+{
+  resolveType(key);
+  resolveType(value);
+  MapType* mt = new MapType(key, value);
+  mt->resolve();
+  return mt;
+}
+
+/*
 Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type*>& argTypes)
 {
   if(retType == nullptr)
@@ -177,14 +230,27 @@ Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type
     return *it;
   }
 }
+*/
+
+Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type*>& argTypes)
+{
+  CallableType* ct = nullptr;
+  if(owner)
+  {
+    ct = new CallableType(pure, owner, retType, argTypes);
+  }
+  else
+  {
+    ct = new CallableType(pure, retType, argTypes);
+  }
+  ct->resolve();
+  return ct;
+}
 
 Type* promote(Type* lhs, Type* rhs)
 {
-  if(!lhs->isNumber() || !rhs->isNumber())
-  {
-    return nullptr;
-  }
-  if(lhs == rhs)
+  INTERNAL_ASSERT(lhs->isNumber() && rhs->isNumber());
+  if(typesSame(lhs, rhs))
   {
     return lhs;
   }
@@ -195,7 +261,7 @@ Type* promote(Type* lhs, Type* rhs)
     auto lhsInt = dynamic_cast<IntegerType*>(lhs);
     auto rhsInt = dynamic_cast<IntegerType*>(rhs);
     int size = std::max(lhsInt->size, rhsInt->size);
-    bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
+   bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
     //to combine signed and unsigned of same size, expand to next size if not already 8 bytes
     if(lhsInt->size == rhsInt->size && lhsInt->isSigned != rhsInt->isSigned && size != 8)
     {
@@ -266,7 +332,7 @@ IntegerType* getIntegerType(int bytes, bool isSigned)
 
 StructType::StructType(string n, Scope* enclosingScope)
 {
-  structs.push_back(this);
+  //structs.push_back(this);
   this->name = n;
   scope = new Scope(enclosingScope, this);
 }
@@ -430,7 +496,6 @@ void StructType::dependencies(set<Type*>& types)
 UnionType::UnionType(vector<Type*> types)
 {
   options = types;
-  hasShortName = false;
   defaultVal = nullptr;
 }
 
@@ -449,7 +514,7 @@ void UnionType::resolveImpl()
 bool UnionType::canConvert(Type* other)
 {
   cout << "Attempting to convert " << other->getName() << " to " << getName() << '\n';
-  if(other == this)
+  if(typesSame(other, this))
   {
     return true;
   }
@@ -506,8 +571,6 @@ void UnionType::dependencies(set<Type*>& types)
 
 string UnionType::getName()
 {
-  if(hasShortName)
-    return shortName;
   string name = "(";
   name += options[0]->getName();
   for(int i = 1; i < options.size(); i++)
@@ -519,17 +582,9 @@ string UnionType::getName()
   return name;
 }
 
-Type* UnionType::canonicalize()
-{
-  INTERNAL_ASSERT(resolved);
-  vector<Type*> ops;
-  for(auto o : options)
-    ops.push_back(o->canonicalize());
-  return getUnionType(ops);
-}
-
 Expression* UnionType::getDefaultValue()
 {
+  cout << "Determining default value for union " << getName() << '\n';
   INTERNAL_ASSERT(resolved);
   if(!defaultVal)
   {
@@ -550,15 +605,18 @@ Expression* UnionType::getDefaultValue()
     defaultVal = new UnionConstant(
         options[defaultType]->getDefaultValue(),
         options[defaultType], this);
+    cout << "Default value is: " << defaultVal << '\n';
   }
   return defaultVal;
 }
 
+/*
 bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs) const
 {
   return lexicographical_compare(lhs->options.begin(), lhs->options.end(),
       rhs->options.begin(), rhs->options.end());
 }
+*/
 
 /**************/
 /* Array Type */
@@ -626,12 +684,6 @@ Expression* ArrayType::getDefaultValue()
   return cl;
 }
 
-Type* ArrayType::canonicalize()
-{
-  INTERNAL_ASSERT(resolved);
-  return getArrayType(elem->canonicalize(), dims);
-}
-
 void ArrayType::dependencies(set<Type*>& types)
 {
   INTERNAL_ASSERT(resolved);
@@ -639,6 +691,7 @@ void ArrayType::dependencies(set<Type*>& types)
   elem->dependencies(types);
 }
 
+/*
 bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs) const
 {
   if(lhs->elem < rhs->elem)
@@ -647,6 +700,7 @@ bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs) const
     return true;
   return false;
 }
+*/
 
 /**************/
 /* Tuple Type */
@@ -716,14 +770,6 @@ Expression* TupleType::getDefaultValue()
   return cl;
 }
 
-Type* TupleType::canonicalize()
-{
-  vector<Type*> mems;
-  for(auto m : members)
-    mems.push_back(m->canonicalize());
-  return getTupleType(mems);
-}
-
 void TupleType::dependencies(set<Type*>& types)
 {
   INTERNAL_ASSERT(resolved);
@@ -738,11 +784,13 @@ void TupleType::dependencies(set<Type*>& types)
   }
 }
 
+/*
 bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs) const
 {
   return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
       rhs->members.begin(), rhs->members.end());
 }
+*/
 
 /************/
 /* Map Type */
@@ -780,23 +828,18 @@ bool MapType::canConvert(Type* other)
   return false;
 }
 
-Type* MapType::canonicalize()
-{
-  auto ckey = key->canonicalize();
-  auto cvalue = value->canonicalize();
-  return getMapType(ckey, cvalue);
-}
-
 void MapType::dependencies(set<Type*>& types)
 {
   key->dependencies(types);
   value->dependencies(types);
 }
 
+/*
 bool MapCompare::operator()(const MapType* lhs, const MapType* rhs) const
 {
   return (lhs->key < rhs->key) || (lhs->key == rhs->key && lhs->value < rhs->value);
 }
+*/
 
 /**************/
 /* Alias Type */
@@ -816,25 +859,9 @@ void AliasType::resolveImpl()
   //report false circular dependency error.
   resolved = true;
   resolveType(actual);
-  if(actual->resolved)
-  {
-    if(auto ut = dynamic_cast<UnionType*>(actual))
-    {
-      if(!ut->hasShortName)
-      {
-        ut->shortName = name;
-        ut->hasShortName = true;
-      }
-    }
-  }
   //AliasType resolution fails if and only if the
   //underlying type failed to resolve
   resolved = actual->resolved;
-}
-
-bool AliasType::canConvert(Type* other)
-{
-  return actual->canConvert(other);
 }
 
 /*************/
@@ -1165,19 +1192,6 @@ string CallableType::getName()
   return oss.str();
 }
 
-Type* CallableType::canonicalize()
-{
-  INTERNAL_ASSERT(resolved);
-  //canonicalize argument list
-  vector<Type*> cargs;
-  for(auto a : argTypes)
-  {
-    cargs.push_back(a->canonicalize());
-  }
-  return getSubroutineType(ownerStruct, pure,
-      returnType->canonicalize(), cargs);
-}
-
 //all funcs can be procs
 //all nonmember/static functions can
 //  be member functions (by ignoring the this argument)
@@ -1201,6 +1215,7 @@ bool CallableType::canConvert(Type* other)
   return true;
 }
 
+/*
 bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs) const
 {
   //an arbitrary way to order all possible callables (is lhs < rhs?)
@@ -1218,6 +1233,7 @@ bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rh
       lhs->argTypes.begin(), lhs->argTypes.end(),
       rhs->argTypes.begin(), rhs->argTypes.end());
 }
+*/
 
 SimpleType::SimpleType(string n)
 {
@@ -1389,18 +1405,116 @@ void resolveType(Type*& t)
   {
     t->resolve();
   }
-  if(t->resolved)
-  {
-    void* before = t;
-    cout << "Canonicalizing type " << t->getName() << '\n';
-    t = t->canonicalize();
-    cout << "It is now " << t->getName() << '\n';
-    void* after = t;
-    if(before == after)
-      cout << "  Didn't change.\n";
-    else
-      cout << "  It's different.\n";
-  }
   INTERNAL_ASSERT(t->resolved);
+}
+
+typedef pair<const Type*, const Type*> TypePair;
+
+//This function implements operator==(Type*, Type*)
+//Needs "assumptions" list so that recursive type
+//comparison terminates.
+static bool typesSameImpl(const Type* t1, const Type* t2,
+    set<TypePair>& assume)
+{
+  if(t1 == t2)
+    return true;
+  //note: == is commutative so check for both (t1, t2) and (t2, t1)
+  if(assume.find(TypePair(t1, t2)) != assume.end() ||
+      assume.find(TypePair(t2, t1)) != assume.end())
+    return true;
+  assume.insert(TypePair(t1, t2));
+  //first, canonicalize aliases
+  while(auto at = dynamic_cast<const AliasType*>(t1))
+  {
+    t1 = at->actual;
+  }
+  while(auto at = dynamic_cast<const AliasType*>(t2))
+  {
+    t2 = at->actual;
+  }
+  if(auto a1 = dynamic_cast<const ArrayType*>(t1))
+  {
+    auto a2 = dynamic_cast<const ArrayType*>(t2);
+    if(!a2)
+      return false;
+    return a1->dims == a2->dims &&
+      typesSameImpl(a1->elem, a2->elem,assume);
+  }
+  else if(auto tt1 = dynamic_cast<const TupleType*>(t1))
+  {
+    auto tt2 = dynamic_cast<const TupleType*>(t2);
+    if(!tt2)
+      return false;
+    if(tt1->members.size() != tt2->members.size())
+      return false;
+    for(size_t i = 0; i < tt1->members.size(); i++)
+    {
+      if(!typesSameImpl(tt1->members[i], tt2->members[i], assume))
+        return false;
+    }
+    return true;
+  }
+  else if(auto u1 = dynamic_cast<const UnionType*>(t1))
+  {
+    auto u2 = dynamic_cast<const UnionType*>(t2);
+    if(!u2)
+      return false;
+    if(u1->options.size() != u2->options.size())
+      return false;
+    for(size_t i = 0; i < u1->options.size(); i++)
+    {
+      if(!typesSameImpl(u1->options[i], u2->options[i], assume))
+        return false;
+    }
+    return true;
+  }
+  else if(auto m1 = dynamic_cast<const MapType*>(t1))
+  {
+    auto m2 = dynamic_cast<const MapType*>(t2);
+    if(!m2)
+      return false;
+    if(!typesSameImpl(m1->key, m2->key, assume))
+      return false;
+    if(!typesSameImpl(m1->value, m2->value, assume))
+      return false;
+    return true;
+  }
+  else if(auto c1 = dynamic_cast<const CallableType*>(t1))
+  {
+    auto c2 = dynamic_cast<const CallableType*>(t2);
+    if(!c2)
+      return false;
+    if(c1->pure != c2->pure)
+      return false;
+    if(c1->ownerStruct != c2->ownerStruct)
+      return false;
+    if(c1->argTypes.size() != c2->argTypes.size())
+      return false;
+    if(!typesSameImpl(c1->returnType, c2->returnType, assume))
+      return false;
+    for(size_t i = 0; i < c1->argTypes.size(); i++)
+    {
+      if(!typesSameImpl(c1->argTypes[i], c2->argTypes[i], assume))
+        return false;
+    }
+    return true;
+  }
+  //There should be no need to compare other types
+  return false;
+}
+
+bool typesSame(const Type* t1, const Type* t2)
+{
+  set<TypePair> assume;
+  return typesSameImpl(t1, t2, assume);
+}
+
+Type* canonicalize(Type* t)
+{
+  while(auto at = dynamic_cast<AliasType*>(t))
+  {
+    t = at->actual;
+  }
+  return t;
 }
 

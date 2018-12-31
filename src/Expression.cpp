@@ -286,6 +286,7 @@ Expression* IntConstant::convert(Type* t)
     //just give this constant the same value,
     //then make sure the value fits
     IntConstant* intConstant = new IntConstant;
+    intConstant->setLocation(this);
     if(isSigned() == dstType->isSigned)
     {
       intConstant->uval = uval;
@@ -333,12 +334,20 @@ Expression* IntConstant::convert(Type* t)
       if(isSigned())
       {
         if(ec->fitsS64 && ec->sval == sval)
-          return new EnumExpr(ec);
+        {
+          auto ee = new EnumExpr(ec);
+          ee->setLocation(this);
+          return ee;
+        }
       }
       else
       {
         if(ec->fitsU64 && ec->uval == uval)
-          return new EnumExpr(ec);
+        {
+          auto ee = new EnumExpr(ec);
+          ee->setLocation(this);
+          return ee;
+        }
       }
     }
     if(isSigned())
@@ -356,35 +365,42 @@ Expression* IntConstant::convert(Type* t)
   else if(auto floatType = dynamic_cast<FloatType*>(t))
   {
     //integer -> float/double conversion always succeeds
+    FloatConstant* fc = nullptr;
     if(floatType->size == 4)
     {
       if(isSigned())
-        return new FloatConstant((float) sval);
+        fc = new FloatConstant((float) sval);
       else
-        return new FloatConstant((float) uval);
+        fc = new FloatConstant((float) uval);
     }
     else
     {
       if(isSigned())
-        return new FloatConstant((double) sval);
+        fc = new FloatConstant((double) sval);
       else
-        return new FloatConstant((double) uval);
+        fc = new FloatConstant((double) uval);
     }
+    fc->setLocation(this);
+    return fc;
   }
   else if(dynamic_cast<CharType*>(t))
   {
     auto charInt = (IntegerType*) primitives[Prim::UBYTE];
+    CharConstant* cc = nullptr;
     if(isSigned())
     {
       if(sval >= 0 && sval <= charInt->maxUnsignedVal())
-        return new CharConstant((char) sval);
+        cc = new CharConstant((char) sval);
     }
     else
     {
       if(uval <= charInt->maxUnsignedVal())
-        return new CharConstant((char) uval);
+        cc = new CharConstant((char) uval);
     }
-    errMsgLoc(this, "integer value doesn't fit in char");
+    if(!cc)
+      errMsgLoc(this, "integer value doesn't fit in char");
+    cc->setLocation(this);
+    return cc;
   }
   INTERNAL_ERROR;
   return nullptr;

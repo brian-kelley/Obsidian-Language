@@ -73,8 +73,6 @@ struct Type : public Node
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
   virtual bool isSimple()   {return false;}
-  //canonicalize (replace all AliasTypes with underlying types)
-  virtual Type* canonicalize() {return this;}
   //Get a constant expression representing the "default"
   //or uninitialized value for the type, usable for constant folding etc.
   virtual Expression* getDefaultValue()
@@ -117,6 +115,7 @@ namespace Prim
 
 extern vector<Type*> primitives;
 
+/*
 struct ArrayCompare
 {
   bool operator()(const ArrayType* lhs, const ArrayType* rhs) const;
@@ -143,6 +142,7 @@ struct CallableCompare
 {
   bool operator()(const CallableType* lhs, const CallableType* rhs) const;
 };
+*/
 
 IntegerType* getIntegerType(int bytes, bool isSigned);
 
@@ -166,6 +166,7 @@ void createBuiltinTypes();
 
 extern map<string, Type*> primNames;
 
+/*
 extern vector<StructType*> structs;
 extern set<ArrayType*, ArrayCompare> arrays;
 extern set<TupleType*, TupleCompare> tuples;
@@ -173,6 +174,7 @@ extern set<UnionType*, UnionCompare> unions;
 extern set<MapType*, MapCompare> maps;
 extern set<CallableType*, CallableCompare> callables;
 extern set<EnumType*> enums;
+*/
 
 struct StructType : public Type
 {
@@ -214,14 +216,7 @@ struct UnionType : public Type
   bool canConvert(Type* other);
   bool isUnion() {return true;}
   string getName();
-  Type* canonicalize();
   void dependencies(set<Type*>& types);
-  //A union needs a "short name" so that getName() for
-  //self-containing unions returns a finite string
-  //All self-containing unions must be the underlying type of some AliasType,
-  //so a short name will always be available
-  bool hasShortName;
-  string shortName;
   Expression* defaultVal;
   //Lazily create and return defaultVal
   Expression* getDefaultValue();
@@ -237,7 +232,6 @@ struct ArrayType : public Type
   int dims;
   bool canConvert(Type* other);
   void resolveImpl();
-  Type* canonicalize();
   bool isArray() {return true;}
   void dependencies(set<Type*>& types);
   string getName()
@@ -260,7 +254,6 @@ struct TupleType : public Type
   vector<Type*> members;
   bool canConvert(Type* other);
   void resolveImpl();
-  Type* canonicalize();
   bool isTuple() {return true;}
   void dependencies(set<Type*>& types);
   string getName()
@@ -285,7 +278,6 @@ struct MapType : public Type
   MapType(Type* k, Type* v);
   Type* key;
   Type* value;
-  Type* canonicalize();
   bool isMap() {return true;}
   void dependencies(set<Type*>& types);
   string getName()
@@ -308,7 +300,6 @@ struct AliasType : public Type
   string name;
   Type* actual;
   Scope* scope;
-  bool canConvert(Type* other);
   bool isArray()    {return actual->isArray();}
   bool isStruct()   {return actual->isStruct();}
   bool isUnion()    {return actual->isUnion();}
@@ -323,11 +314,6 @@ struct AliasType : public Type
   bool isBool()     {return actual->isBool();}
   bool isPrimitive(){return actual->isPrimitive();}
   bool isAlias()    {return true;}
-  Type* canonicalize()
-  {
-    INTERNAL_ASSERT(resolved);
-    return actual->canonicalize();
-  }
   string getName()
   {
     return name;
@@ -335,6 +321,14 @@ struct AliasType : public Type
   void dependencies(set<Type*>& types)
   {
     actual->dependencies(types);
+  }
+  bool canConvert(Type* other)
+  {
+    return actual->canConvert(other);
+  }
+  Expression* getDefaultValue()
+  {
+    return actual->getDefaultValue();
   }
 };
 
@@ -519,7 +513,6 @@ struct CallableType : public Type
   {
     return !pure;
   }
-  Type* canonicalize();
   //Conversion rules:
   //all funcs can be procs
   //ownerStructs must match exactly
@@ -599,6 +592,12 @@ struct ElemExprType : public Type
 //If t is an unresolved type, replace it with a fully resolved version
 //(if possible)
 void resolveType(Type*& t);
+
+//Check if the types are semantically equivalent
+bool typesSame(const Type* t1, const Type* t2);
+
+//Remove all alias wrappers around a type
+Type* canonicalize(Type* t);
 
 #endif
 

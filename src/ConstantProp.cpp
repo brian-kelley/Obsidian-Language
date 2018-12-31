@@ -178,16 +178,22 @@ void findGlobalConstants()
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)
 {
+  Node* loc = value;
   INTERNAL_ASSERT(value->constant());
+  type = canonicalize(type);
   cout << "Converting constant " << value << " to type " << type->getName() << '\n';
+  cout << "Note: value's location: " << value->printLocation() << '\n';
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
+    cout << "  Converting to union type.\n";
     for(size_t i = 0; i < unionDst->options.size(); i++)
     {
-      if(unionDst->options[i] == value->type)
+      cout << "    Checking for exact match against option " << unionDst->options[i]->getName() << '\n';
+      if(typesSame(unionDst->options[i], value->type))
       {
+        cout << "    Yes, using that.\n";
         option = i;
         break;
       }
@@ -196,23 +202,30 @@ static Expression* convertConstant(Expression* value, Type* type)
     {
       for(size_t i = 0; i < unionDst->options.size(); i++)
       {
+        cout << "    Checking for convertible match against option " << unionDst->options[i]->getName() << '\n';
         if(unionDst->options[i]->canConvert(value->type))
         {
+          cout << "    Yes, using that.\n";
           option = i;
           value = convertConstant(value, unionDst->options[i]);
           break;
         }
       }
     }
+    cout << "  Using option " << option << '\n';
     INTERNAL_ASSERT(option >= 0);
-    return new UnionConstant(value, unionDst->options[option], unionDst);
+    value = new UnionConstant(value, unionDst->options[option], unionDst);
+    value->setLocation(loc);
+    return value;
   }
   else if(structDst && structDst->members.size() == 1 &&
       !dynamic_cast<CompoundLiteral*>(value))
   {
+    //Single-member struct is equivalent to the member
     vector<Expression*> mem(1, value);
     auto cl = new CompoundLiteral(mem);
     cl->resolve();
+    cl->setLocation(loc);
     return cl;
   }
   else if(structDst)
@@ -228,21 +241,28 @@ static Expression* convertConstant(Expression* value, Type* type)
     }
     clRHS->setLocation(value);
     clRHS->resolve();
+    clRHS->setLocation(loc);
     return clRHS;
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
     //do the conversion which tests for overflow and enum membership
-    return intConst->convert(type);
+    value = intConst->convert(type);
+    value->setLocation(loc);
+    return value;
   }
   else if(auto charConst = dynamic_cast<CharConstant*>(value))
   {
     //char is equivalent to an 8-bit unsigned for purposes of value conversion
-    return new IntConstant((uint64_t) charConst->value);
+    value = new IntConstant((uint64_t) charConst->value);
+    value->setLocation(loc);
+    return value;
   }
   else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
   {
-    return floatConst->convert(type);
+    value = floatConst->convert(type);
+    value->setLocation(loc);
+    return value;
   }
   else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
   {
@@ -251,11 +271,13 @@ static Expression* convertConstant(Expression* value, Type* type)
       //make a signed temporary int constant, then convert that
       //(this can't possible lose information)
       IntConstant asInt(enumConst->value->sval);
+      asInt.setLocation(loc);
       return asInt.convert(type);
     }
     else
     {
       IntConstant asInt(enumConst->value->uval);
+      asInt.setLocation(loc);
       return asInt.convert(type);
     }
   }
