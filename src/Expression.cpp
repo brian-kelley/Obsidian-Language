@@ -808,6 +808,7 @@ bool operator<(const MapConstant& lhs, const MapConstant& rhs)
 UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
 {
   INTERNAL_ASSERT(expr->constant());
+  setLocation(expr);
   value = expr;
   unionType = ut;
   type = unionType;

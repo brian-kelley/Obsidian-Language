@@ -178,9 +178,15 @@ void findGlobalConstants()
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)
 {
+  //For converting union constants, use the underlying value
+  if(auto uc = dynamic_cast<UnionConstant*>(value))
+  {
+    value = uc->value;
+  }
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
   type = canonicalize(type);
+  cout << "\n\n\n";
   cout << "Converting constant " << value << " to type " << type->getName() << '\n';
   cout << "Note: value's location: " << value->printLocation() << '\n';
   int option = -1;
