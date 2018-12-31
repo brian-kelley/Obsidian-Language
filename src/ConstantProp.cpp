@@ -338,6 +338,7 @@ static Expression* convertConstant(Expression* value, Type* type)
     }
   }
   //????
+  cout << "Failed to convert constant expr \"" << value << "\" to type \"" << type->getName() << "\"\n";
   INTERNAL_ERROR;
   return nullptr;
 }

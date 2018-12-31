@@ -676,7 +676,7 @@ namespace Parser
           expectPunct(SEMICOLON);
         return stmt;
       }
-      else if(e && s1.acceptOper(ASSIGN))
+      else if(e)
       {
         //parse an assign or call
         return parseStatement(b, semicolon);

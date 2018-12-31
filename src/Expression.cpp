@@ -51,6 +51,7 @@ bool operator==(const UnaryArith& lhs, const UnaryArith& rhs)
 
 bool operator<(const UnaryArith& lhs, const UnaryArith& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.op < rhs.op)
     return true;
   else if(lhs.op > rhs.op)
@@ -262,6 +263,7 @@ bool operator==(const BinaryArith& lhs, const BinaryArith& rhs)
 
 bool operator<(const BinaryArith& lhs, const BinaryArith& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.op < rhs.op)
     return true;
   else if(lhs.op > rhs.op)
@@ -527,7 +529,7 @@ bool operator==(const IntConstant& lhs, const IntConstant& rhs)
 {
   IntegerType* lhsType = (IntegerType*) lhs.type;
   IntegerType* rhsType = (IntegerType*) rhs.type;
-  if(lhsType != rhsType)
+  if(!typesSame(lhsType, rhsType))
     return false;
   if(lhs.isSigned())
     return lhs.sval == rhs.sval;
@@ -536,6 +538,7 @@ bool operator==(const IntConstant& lhs, const IntConstant& rhs)
 
 bool operator<(const IntConstant& lhs, const IntConstant& rhs)
 {
+  INTERNAL_ERROR;
   //signed < unsigned, then narrower < wider, then compare values
   if(lhs.isSigned() && !rhs.isSigned())
     return true;
@@ -548,9 +551,7 @@ bool operator<(const IntConstant& lhs, const IntConstant& rhs)
   else if(lhsType->size > rhsType->size)
     return false;
   if(lhs.isSigned())
-  {
     return lhs.sval < rhs.sval;
-  }
   return lhs.uval < rhs.uval;
 }
 
@@ -571,6 +572,7 @@ Expression* FloatConstant::convert(Type* t)
             " can't be represented in any signed integer");
       }
       IntConstant asLong((int64_t) val);
+      asLong.setLocation(this);
       return asLong.convert(t);
     }
     else
@@ -581,19 +583,19 @@ Expression* FloatConstant::convert(Type* t)
             " can't be represented in any unsigned integer");
       }
       IntConstant asULong((uint64_t) val);
+      asULong.setLocation(this);
       return asULong.convert(t);
     }
   }
   else if(auto floatType = dynamic_cast<FloatType*>(t))
   {
+    FloatConstant* fc = nullptr;
     if(floatType->size == 4)
-    {
-      return new FloatConstant((float) val);
-    }
+      fc = new FloatConstant((float) val);
     else
-    {
-      return new FloatConstant(val);
-    }
+      fc = new FloatConstant(val);
+    fc->setLocation(this);
+    return fc;
   }
   else if(dynamic_cast<EnumType*>(t))
   {
@@ -656,6 +658,7 @@ FloatConstant* FloatConstant::binOp(int op, FloatConstant* rhs)
   }
   //set the type and then check that result actually fits
   result->type = type;
+  result->setLocation(this);
   return result;
 }
 
@@ -665,12 +668,13 @@ Expression* FloatConstant::copy()
   c->type = type;
   c->fp = fp;
   c->dp = dp;
+  c->setLocation(this);
   return c;
 }
 
 bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
 {
-  if(lhs.type != rhs.type)
+  if(!typesSame(lhs.type, rhs.type))
     return false;
   if(lhs.isDoublePrec())
     return lhs.dp == rhs.dp;
@@ -679,6 +683,7 @@ bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
 
 bool operator<(const FloatConstant& lhs, const FloatConstant& rhs)
 {
+  INTERNAL_ERROR;
   //float < double, then compare values
   if(!lhs.isDoublePrec() && rhs.isDoublePrec())
     return true;
@@ -691,7 +696,9 @@ bool operator<(const FloatConstant& lhs, const FloatConstant& rhs)
 
 Expression* StringConstant::copy()
 {
-  return new StringConstant(value);
+  auto sc = new StringConstant(value);
+  sc->setLocation(this);
+  return sc;
 }
 
 bool operator==(const StringConstant& lhs, const StringConstant& rhs)
@@ -701,12 +708,15 @@ bool operator==(const StringConstant& lhs, const StringConstant& rhs)
 
 bool operator<(const StringConstant& lhs, const StringConstant& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.value < rhs.value;
 }
 
 Expression* CharConstant::copy()
 {
-  return new CharConstant(value);
+  auto cc = new CharConstant(value);
+  cc->setLocation(this);
+  return cc;
 }
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs)
@@ -716,12 +726,15 @@ bool operator==(const CharConstant& lhs, const CharConstant& rhs)
 
 bool operator<(const CharConstant& lhs, const CharConstant& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.value < rhs.value;
 }
 
 Expression* BoolConstant::copy()
 {
-  return new BoolConstant(value);
+  auto bc = new BoolConstant(value);
+  bc->setLocation(this);
+  return bc;
 }
 
 bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
@@ -731,6 +744,7 @@ bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
 
 bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
 {
+  INTERNAL_ERROR;
   return !lhs.value && rhs.value;
 }
 
@@ -753,6 +767,7 @@ Expression* MapConstant::copy()
   {
     c->values[kv.first->copy()] = kv.second->copy();
   }
+  c->setLocation(this);
   return c;
 }
 
@@ -779,6 +794,7 @@ bool operator==(const MapConstant& lhs, const MapConstant& rhs)
 
 bool operator<(const MapConstant& lhs, const MapConstant& rhs)
 {
+  INTERNAL_ERROR;
   auto& l = lhs.values;
   auto& r = rhs.values;
   auto lhsIt = l.begin();
@@ -826,7 +842,9 @@ UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
 
 Expression* UnionConstant::copy()
 {
-  return new UnionConstant(value->copy(), type, unionType);
+  auto uc = new UnionConstant(value->copy(), type, unionType);
+  uc->setLocation(this);
+  return uc;
 }
 
 bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
@@ -836,6 +854,7 @@ bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
 
 bool operator<(const UnionConstant& lhs, const UnionConstant& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.option < rhs.option)
     return true;
   else if(lhs.option > rhs.option)
@@ -905,6 +924,7 @@ Expression* CompoundLiteral::copy()
     memsCopy.push_back(m->copy());
   CompoundLiteral* c = new CompoundLiteral(memsCopy);
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -924,6 +944,7 @@ bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
 
 bool operator<(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
 {
+  INTERNAL_ERROR;
   auto& l = lhs.members;
   auto& r = rhs.members;
   size_t i;
@@ -1023,6 +1044,7 @@ Expression* Indexed::copy()
 {
   Indexed* c = new Indexed(group->copy(), index->copy());
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1033,6 +1055,7 @@ bool operator==(const Indexed& lhs, const Indexed& rhs)
 
 bool operator<(const Indexed& lhs, const Indexed& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.group < rhs.group ||
     (lhs.group == rhs.group && lhs.index < rhs.index);
 }
@@ -1081,7 +1104,7 @@ void CallExpr::resolveImpl()
         callableType->argTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
     }
-    if(callableType->argTypes[i] != args[i]->type)
+    if(!typesSame(callableType->argTypes[i], args[i]->type))
     {
       args[i] = new Converted(args[i], callableType->argTypes[i]);
     }
@@ -1107,6 +1130,7 @@ Expression* CallExpr::copy()
     argsCopy.push_back(a->copy());
   auto c = new CallExpr(callable->copy(), argsCopy);
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1125,6 +1149,7 @@ bool operator==(const CallExpr& lhs, const CallExpr& rhs)
 
 bool operator<(const CallExpr& lhs, const CallExpr& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.callable < rhs.callable)
     return true;
   else if(lhs.callable > rhs.callable)
@@ -1188,6 +1213,7 @@ Expression* VarExpr::copy()
 {
   auto c = new VarExpr(var);
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1198,6 +1224,7 @@ bool operator==(const VarExpr& lhs, const VarExpr& rhs)
 
 bool operator<(const VarExpr& lhs, const VarExpr& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.var->id < rhs.var->id;
 }
 
@@ -1263,6 +1290,7 @@ Expression* SubroutineExpr::copy()
   else
     c = new SubroutineExpr(exSubr);
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1275,6 +1303,7 @@ bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
 
 bool operator<(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
 {
+  INTERNAL_ERROR;
   enum
   {
     NORMAL,
@@ -1372,6 +1401,7 @@ Expression* StructMem::copy()
   else
     c = new StructMem(base->copy(), member.get<Subroutine*>());
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1389,6 +1419,7 @@ bool operator==(const StructMem& lhs, const StructMem& rhs)
 
 bool operator<(const StructMem& lhs, const StructMem& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.base < rhs.base)
     return true;
   else if(lhs.base > rhs.base)
@@ -1435,12 +1466,13 @@ Expression* NewArray::copy()
     dimsCopy.push_back(d->copy());
   auto c = new NewArray(elem, dimsCopy);
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
 bool operator==(const NewArray& lhs, const NewArray& rhs)
 {
-  if(lhs.type != rhs.type)
+  if(!typesSame(lhs.type, rhs.type))
     return false;
   if(lhs.dims.size() != rhs.dims.size())
     return false;
@@ -1454,6 +1486,7 @@ bool operator==(const NewArray& lhs, const NewArray& rhs)
 
 bool operator<(const NewArray& lhs, const NewArray& rhs)
 {
+  INTERNAL_ERROR;
   //TODO: implement comparison of types
   if(lhs.type < rhs.type)
     return true;
@@ -1501,6 +1534,7 @@ Expression* ArrayLength::copy()
 {
   ArrayLength* c = new ArrayLength(array->copy());
   c->resolve();
+  c->setLocation(this);
   return c;
 }
 
@@ -1511,6 +1545,7 @@ bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
 
 bool operator<(const ArrayLength& lhs, const ArrayLength& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.array < rhs.array;
 }
 
@@ -1593,6 +1628,7 @@ bool operator==(const AsExpr& lhs, const AsExpr& rhs)
 
 bool operator<(const AsExpr& lhs, const AsExpr& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.base < rhs.base)
     return true;
   else if(lhs.base > rhs.base)
@@ -1670,6 +1706,7 @@ bool operator==(const Converted& lhs, const Converted& rhs)
 
 bool operator<(const Converted& lhs, const Converted& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.type < rhs.type)
     return true;
   else if(lhs.type > rhs.type)
@@ -1702,6 +1739,7 @@ bool operator==(const EnumExpr& lhs, const EnumExpr& rhs)
 
 bool operator<(const EnumExpr& lhs, const EnumExpr& rhs)
 {
+  INTERNAL_ERROR;
   if(lhs.type < rhs.type)
     return true;
   else if(lhs.type > rhs.type)
@@ -1736,6 +1774,7 @@ bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs)
 
 bool operator<(const SimpleConstant& lhs, const SimpleConstant& rhs)
 {
+  INTERNAL_ERROR;
   return lhs.st < rhs.st;
 }
 
@@ -2086,6 +2125,7 @@ bool operator==(const Expression& l, const Expression& r)
 
 bool operator<(const Expression& l, const Expression& r)
 {
+  INTERNAL_ERROR;
   const Expression* lhs = &l;
   const Expression* rhs = &r;
   if(lhs->getTypeTag() < rhs->getTypeTag())
