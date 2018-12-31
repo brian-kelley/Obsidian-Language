@@ -43,6 +43,8 @@ struct UnresolvedType;
 struct ExprType;
 struct ElemExprType;
 
+struct Scope;
+struct Expression;
 struct SimpleConstant;
 
 struct Type : public Node
@@ -89,8 +91,23 @@ struct Type : public Node
   }
 };
 
-struct Scope;
-struct Expression;
+/* ********************* */
+/* Common Type utilities */
+/* ********************* */
+
+//If t is an unresolved type, replace it with a fully resolved version
+//(if possible)
+void resolveType(Type*& t);
+
+//Check if the types are semantically equivalent
+bool typesSame(const Type* t1, const Type* t2);
+
+//Remove all alias wrappers around a type
+Type* canonicalize(Type* t);
+
+/* *************** */
+/* Primitive types */
+/* *************** */
 
 namespace Prim
 {
@@ -470,11 +487,7 @@ struct SimpleType : public Type
   SimpleType(string n);
   bool canConvert(Type* other)
   {
-    cout << "Checking if " << other->getName() << " can convert to simple type " << name << '\n';
-    if(other == this)
-      cout << "  Yes, it can.\n";
-    else
-      cout << "  No, it can't.\n";
+    other = canonicalize(other);
     return other == this;
   }
   //for all purposes, this is POD and primitive
@@ -588,16 +601,6 @@ struct ElemExprType : public Type
   bool canConvert(Type* other) {return false;}
   string getName() {return "<unresolved array expr element type>";};
 };
-
-//If t is an unresolved type, replace it with a fully resolved version
-//(if possible)
-void resolveType(Type*& t);
-
-//Check if the types are semantically equivalent
-bool typesSame(const Type* t1, const Type* t2);
-
-//Remove all alias wrappers around a type
-Type* canonicalize(Type* t);
 
 #endif
 

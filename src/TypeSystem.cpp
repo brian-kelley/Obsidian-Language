@@ -513,27 +513,14 @@ void UnionType::resolveImpl()
 
 bool UnionType::canConvert(Type* other)
 {
-  cout << "Attempting to convert " << other->getName() << " to " << getName() << '\n';
   if(typesSame(other, this))
   {
     return true;
   }
-  else
-  {
-    cout << "It's not the same union.\n";
-  }
   for(auto op : options)
   {
-    cout << "  Attempting to convert to option " << op->getName() << '\n';
     if(op->canConvert(other))
-    {
-      cout << "  Success.\n";
       return true;
-    }
-    else
-    {
-      cout << "  Failed.\n";
-    }
   }
   return false;
 }
@@ -584,7 +571,6 @@ string UnionType::getName()
 
 Expression* UnionType::getDefaultValue()
 {
-  cout << "Determining default value for union " << getName() << '\n';
   INTERNAL_ASSERT(resolved);
   if(!defaultVal)
   {
@@ -605,7 +591,6 @@ Expression* UnionType::getDefaultValue()
     defaultVal = new UnionConstant(
         options[defaultType]->getDefaultValue(),
         options[defaultType], this);
-    cout << "Default value is: " << defaultVal << '\n';
   }
   return defaultVal;
 }
@@ -1244,12 +1229,6 @@ SimpleType::SimpleType(string n)
 
 Expression* SimpleType::getDefaultValue()
 {
-  cout << "Getting simple type " << name << " default value.\n";
-  cout << "  Expr: " << val << '\n';
-  if(val->resolved)
-    cout << "  It's ressolved.\n";
-  else
-    cout << "  It's NOT ressolved (bad).\n";
   return val;
 }
 
@@ -1283,7 +1262,6 @@ void resolveType(Type*& t)
   }
   if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
   {
-    cout << "Resolving unresolved type.\n";
     if(unres->t.is<Prim::PrimType>())
     {
       t = primitives[unres->t.get<Prim::PrimType>()];

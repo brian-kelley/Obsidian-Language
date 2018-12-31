@@ -186,20 +186,14 @@ static Expression* convertConstant(Expression* value, Type* type)
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
   type = canonicalize(type);
-  cout << "\n\n\n";
-  cout << "Converting constant " << value << " to type " << type->getName() << '\n';
-  cout << "Note: value's location: " << value->printLocation() << '\n';
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
-    cout << "  Converting to union type.\n";
     for(size_t i = 0; i < unionDst->options.size(); i++)
     {
-      cout << "    Checking for exact match against option " << unionDst->options[i]->getName() << '\n';
       if(typesSame(unionDst->options[i], value->type))
       {
-        cout << "    Yes, using that.\n";
         option = i;
         break;
       }
@@ -208,17 +202,14 @@ static Expression* convertConstant(Expression* value, Type* type)
     {
       for(size_t i = 0; i < unionDst->options.size(); i++)
       {
-        cout << "    Checking for convertible match against option " << unionDst->options[i]->getName() << '\n';
         if(unionDst->options[i]->canConvert(value->type))
         {
-          cout << "    Yes, using that.\n";
           option = i;
           value = convertConstant(value, unionDst->options[i]);
           break;
         }
       }
     }
-    cout << "  Using option " << option << '\n';
     INTERNAL_ASSERT(option >= 0);
     value = new UnionConstant(value, unionDst->options[option], unionDst);
     value->setLocation(loc);

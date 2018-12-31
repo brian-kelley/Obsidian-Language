@@ -1770,7 +1770,6 @@ void resolveExpr(Expression*& expr)
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {
-    cout << ((void*) expr) << '\n';
     expr->resolve();
     return;
   }
@@ -1870,13 +1869,6 @@ void resolveExpr(Expression*& expr)
     }
   }
   base->resolve();
-  cout << "Have base expr: " << base << '\n';
-  cout << "Remaining names: ";
-  for(auto i = nameIter; i < names.size(); i++)
-  {
-    cout << names[i] << ' ';
-  }
-  cout << '\n';
   //base must be resolved (need its type) to continue
   //look up members in searchScope until a new expr can be formed
   while(nameIter < names.size())
@@ -1898,13 +1890,6 @@ void resolveExpr(Expression*& expr)
     Scope* baseSearch = baseStruct->scope;
     while(!validBase && nameIter < names.size())
     {
-      cout << "Searching for " << names[nameIter] << " in scope " << baseSearch->getFullPath() << '\n';
-      cout << "Note: all names in that scope: ";
-      for(auto& n : baseSearch->names)
-      {
-        cout << n.first << ' ';
-      }
-      cout << '\n';
       //before doing name lookup, look in the struct's interface
       auto& iface = baseStruct->interface;
       if(iface.find(names[nameIter]) != iface.end())
