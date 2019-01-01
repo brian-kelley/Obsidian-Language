@@ -16,7 +16,7 @@ UnaryArith::UnaryArith(int o, Expression* e)
 void UnaryArith::resolveImpl()
 {
   resolveExpr(expr);
-  if(op == LNOT && expr->type != primitives[Prim::BOOL])
+  if(op == LNOT && !typesSame(expr->type, primitives[Prim::BOOL]))
   {
     errMsgLoc(this, "! operand must be a bool");
   }
@@ -79,8 +79,8 @@ void BinaryArith::resolveImpl()
     case LOR:
     case LAND:
     {
-      if(ltype != primitives[Prim::BOOL] ||
-         rtype != primitives[Prim::BOOL])
+      if(!typesSame(ltype, primitives[Prim::BOOL]) ||
+         !typesSame(rtype, primitives[Prim::BOOL]))
       {
         errMsgLoc(this, "operands to " << operatorTable[op] << " must be bools.");
       }
@@ -99,11 +99,11 @@ void BinaryArith::resolveImpl()
       }
       //the resulting type is the wider of the two integers, favoring unsigned
       type = promote(ltype, rtype);
-      if(ltype != type)
+      if(!typesSame(ltype, type))
       {
         lhs = new Converted(lhs, type);
       }
-      if(rtype != type)
+      if(!typesSame(rtype, type))
       {
         rhs = new Converted(rhs, type);
       }
@@ -128,11 +128,11 @@ void BinaryArith::resolveImpl()
         {
           errMsgLoc(this, "incompatible array concatenation operands: " << ltype->getName() << " and " << rtype->getName());
         }
-        if(ltype != type)
+        if(!typesSame(ltype, type))
         {
           lhs = new Converted(lhs, type);
         }
-        if(rtype != type)
+        if(!typesSame(rtype, type))
         {
           rhs = new Converted(rhs, type);
         }
@@ -147,7 +147,7 @@ void BinaryArith::resolveImpl()
           errMsgLoc(this, "can't append type " << rtype->getName() << " to " << ltype->getName());
         }
         type = ltype;
-        if(subtype != rtype)
+        if(!typesSame(subtype, rtype))
         {
           rhs = new Converted(rhs, subtype);
         }
@@ -162,7 +162,7 @@ void BinaryArith::resolveImpl()
           errMsgLoc(this, "can't prepend type " << ltype->getName() << " to " << rtype->getName());
         }
         type = rtype;
-        if(subtype != ltype)
+        if(!typesSame(subtype, ltype))
         {
           lhs = new Converted(lhs, subtype);
         }
@@ -181,11 +181,11 @@ void BinaryArith::resolveImpl()
         errMsgLoc(this, "operands to arithmetic operators must be numbers.");
       }
       type = promote(ltype, rtype);
-      if(ltype != type)
+      if(!typesSame(ltype, type))
       {
         lhs = new Converted(lhs, type);
       }
-      if(rtype != type)
+      if(!typesSame(rtype, type))
       {
         rhs = new Converted(rhs, type);
       }
@@ -217,7 +217,7 @@ void BinaryArith::resolveImpl()
         errMsgLoc(this, ltype->getName() <<
             " and " << rtype->getName() << " can't be compared.");
       }
-      if(ltype != rtype)
+      if(!typesSame(ltype, rtype))
       {
         if(ltype->canConvert(rtype))
         {
@@ -558,7 +558,7 @@ bool operator<(const IntConstant& lhs, const IntConstant& rhs)
 Expression* FloatConstant::convert(Type* t)
 {
   //first, just promote to double
-  double val = type == primitives[Prim::FLOAT] ? fp : dp;
+  double val = typesSame(type, primitives[Prim::FLOAT]) ? fp : dp;
   if(auto intType = dynamic_cast<IntegerType*>(t))
   {
     //make sure val fits in a 64-bit integer,
@@ -831,7 +831,7 @@ UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
   option = -1;
   for(size_t i = 0; i < ut->options.size(); i++)
   {
-    if(t == ut->options[i])
+    if(typesSame(t, ut->options[i]))
     {
       option = i;
       break;

@@ -156,7 +156,7 @@ void Assign::resolveImpl()
   {
     errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());
   }
-  if(lvalue->type != rvalue->type)
+  if(!typesSame(lvalue->type, rvalue->type))
   {
     rvalue = new Converted(rvalue, lvalue->type);
     rvalue->resolve();
@@ -197,7 +197,7 @@ void ForC::resolveImpl()
   outer->resolve();
   init->resolve();
   condition->resolve();
-  if(condition->type != primitives[Prim::BOOL])
+  if(!typesSame(condition->type, primitives[Prim::BOOL]))
   {
     errMsgLoc(condition, "C-style for loop condition must be a bool");
   }
@@ -278,7 +278,7 @@ While::While(Block* b, Expression* cond)
 void While::resolveImpl()
 {
   resolveExpr(condition);
-  if(condition->type != primitives[Prim::BOOL])
+  if(!typesSame(condition->type, primitives[Prim::BOOL]))
   {
     errMsgLoc(condition, "while loop condition must be bool");
   }
@@ -382,7 +382,7 @@ void Switch::resolveImpl()
     {
       errMsgLoc(caseVal, "case value type incompatible with switch value type");
     }
-    else if(switched->type != caseVal->type)
+    else if(!typesSame(switched->type, caseVal->type))
     {
       caseVal = new Converted(caseVal, switched->type);
     }
@@ -410,7 +410,7 @@ void Return::resolveImpl()
   }
   //make sure value can be converted to enclosing subroutine's return type
   auto subrRetType = block->subr->type->returnType;
-  if(subrRetType == primitives[Prim::VOID])
+  if(typesSame(subrRetType, primitives[Prim::VOID]))
   {
     if(value)
     {
@@ -421,7 +421,7 @@ void Return::resolveImpl()
   {
     errMsgLoc(this, "returned value of type " << value->type->getName() << " incompatible with subroutine return type " << subrRetType->getName());
   }
-  else if(subrRetType != value->type)
+  else if(!typesSame(subrRetType, value->type))
   {
     value = new Converted(value, subrRetType);
   }
@@ -479,7 +479,7 @@ Assertion::Assertion(Block* b, Expression* a) : Statement(b)
 void Assertion::resolveImpl()
 {
   resolveExpr(asserted);
-  if(asserted->type != primitives[Prim::BOOL])
+  if(!typesSame(asserted->type, primitives[Prim::BOOL]))
   {
     errMsgLoc(this, "asserted value has non-bool type " << asserted->type->getName());
   }
@@ -528,7 +528,7 @@ void Subroutine::resolveImpl()
     //resolving argument variables just resolves their types
     arg->resolve();
   }
-  if(type->returnType == primitives[Prim::VOID] &&
+  if(typesSame(type->returnType, primitives[Prim::VOID]) &&
       (body->stmts.size() == 0 ||
       !dynamic_cast<Return*>(body->stmts.back())))
   {
@@ -547,14 +547,14 @@ void Subroutine::resolveImpl()
     {
       errMsgLoc(this, "main() must be a procedure, not a function");
     }
-    if(type->returnType != primitives[Prim::VOID] &&
-        type->returnType != primitives[Prim::INT])
+    if(!typesSame(type->returnType, primitives[Prim::VOID]) &&
+        !typesSame(type->returnType, primitives[Prim::INT]))
     {
       errMsgLoc(this, "main() must return void or int");
     }
     if(type->argTypes.size() > 1 ||
         (type->argTypes.size() == 1 &&
-         type->argTypes[0] != getArrayType(primitives[Prim::CHAR], 2)))
+         !typesSame(type->argTypes[0], getArrayType(primitives[Prim::CHAR], 2))))
     {
       errMsgLoc(this, "main() must take either no arguments or string[]");
     }

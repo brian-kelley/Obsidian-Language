@@ -186,6 +186,13 @@ static Expression* convertConstant(Expression* value, Type* type)
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
   type = canonicalize(type);
+  cout << "Converting value \"" << value << "\" to type " << type->getName() << '\n';
+  cout << "Note: value's current type is " << value->type->getName() << '\n';
+  if(typesSame(value->type, type))
+  {
+    cout << "Trying to convert a constant, but types are already identical.\n";
+    INTERNAL_ERROR;
+  }
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
@@ -297,7 +304,7 @@ static Expression* convertConstant(Expression* value, Type* type)
     {
       for(size_t i = 0; i < compLit->members.size(); i++)
       {
-        if(compLit->members[i]->type != st->members[i]->type)
+        if(!typesSame(compLit->members[i]->type, st->members[i]->type))
         {
           compLit->members[i] = convertConstant(
               compLit->members[i], st->members[i]->type);
@@ -310,7 +317,7 @@ static Expression* convertConstant(Expression* value, Type* type)
     {
       for(size_t i = 0; i < compLit->members.size(); i++)
       {
-        if(compLit->members[i]->type != tt->members[i])
+        if(!typesSame(compLit->members[i]->type, tt->members[i]))
         {
           compLit->members[i] = convertConstant(
               compLit->members[i], tt->members[i]);
@@ -328,9 +335,9 @@ static Expression* convertConstant(Expression* value, Type* type)
         INTERNAL_ASSERT(kv);
         Expression* key = kv->members[0];
         Expression* val = kv->members[1];
-        if(key->type != mt->key)
+        if(!typesSame(key->type, mt->key))
           key = convertConstant(key, mt->key);
-        if(val->type != mt->value)
+        if(!typesSame(val->type, mt->value))
           val = convertConstant(val, mt->value);
         mc->values[key] = val;
       }
@@ -750,7 +757,7 @@ bool foldExpression(Expression*& expr, bool isLHS)
     update = foldExpression(asExpr->base) || update;
     if(auto uc = dynamic_cast<UnionConstant*>(asExpr->base))
     {
-      if(uc->value->type != asExpr->option)
+      if(!typesSame(uc->value->type, asExpr->option))
       {
         errMsgLoc(asExpr, "known at compile time that union value is not a " << asExpr->option->getName());
       }

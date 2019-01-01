@@ -434,6 +434,7 @@ void StructType::resolveImpl()
 //direct conversion requires other to be the same type
 bool StructType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   StructType* otherStruct = dynamic_cast<StructType*>(other);
   TupleType* otherTuple = dynamic_cast<TupleType*>(other);
   if(otherStruct)
@@ -513,6 +514,7 @@ void UnionType::resolveImpl()
 
 bool UnionType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   if(typesSame(other, this))
   {
     return true;
@@ -632,6 +634,7 @@ void ArrayType::resolveImpl()
 
 bool ArrayType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   auto otherArray = dynamic_cast<ArrayType*>(other);
   auto otherTuple = dynamic_cast<TupleType*>(other);
   auto otherStruct = dynamic_cast<StructType*>(other);
@@ -714,6 +717,7 @@ void TupleType::resolveImpl()
 
 bool TupleType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   TupleType* otherTuple = dynamic_cast<TupleType*>(other);
   StructType* otherStruct = dynamic_cast<StructType*>(other);
   if(otherStruct)
@@ -792,6 +796,7 @@ void MapType::resolveImpl()
 
 bool MapType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   //Maps can convert to this if keys/values can convert
   //Arrays can also convert to this if key of this is integer
   auto otherMap = dynamic_cast<MapType*>(other);
@@ -997,6 +1002,7 @@ void EnumType::addNegativeValue(string n, int64_t sval, Node* location)
 
 bool EnumType::canConvert(Type* other)
 {
+  other = canonicalize(other);
   return other->isInteger();
 }
 
@@ -1195,8 +1201,13 @@ bool CallableType::canConvert(Type* other)
     return false;
   //check that arguments are exactly the same
   //doing at end because more expensive test
-  if(argTypes != ct->argTypes)
+  if(argTypes.size() != ct->argTypes.size())
     return false;
+  for(size_t i = 0; i < argTypes.size(); i++)
+  {
+    if(!typesSame(argTypes[i], ct->argTypes[i]))
+      return false;
+  }
   return true;
 }
 

@@ -700,6 +700,23 @@ namespace Parser
         case TYPE:
         case ENUM:
         case TEST:
+        case VOID:
+        case ERROR:
+        case BOOL:
+        case CHAR:
+        case BYTE:
+        case UBYTE:
+        case SHORT:
+        case USHORT:
+        case INT:
+        case UINT:
+        case LONG:
+        case ULONG:
+        case FLOAT:
+        case DOUBLE:
+        case FUNCTYPE:
+        case PROCTYPE:
+        case STATIC:
           {
             parseScopedDecl(b->scope, semicolon);
             return nullptr;
