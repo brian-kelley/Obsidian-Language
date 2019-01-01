@@ -178,6 +178,9 @@ void findGlobalConstants()
 //conv->value must already be folded and be constant
 static Expression* convertConstant(Expression* value, Type* type)
 {
+  type = canonicalize(type);
+  if(typesSame(value->type, type))
+    return value;
   //For converting union constants, use the underlying value
   if(auto uc = dynamic_cast<UnionConstant*>(value))
   {
@@ -185,14 +188,8 @@ static Expression* convertConstant(Expression* value, Type* type)
   }
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
-  type = canonicalize(type);
   cout << "Converting value \"" << value << "\" to type " << type->getName() << '\n';
   cout << "Note: value's current type is " << value->type->getName() << '\n';
-  if(typesSame(value->type, type))
-  {
-    cout << "Trying to convert a constant, but types are already identical.\n";
-    INTERNAL_ERROR;
-  }
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
