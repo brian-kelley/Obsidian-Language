@@ -193,6 +193,8 @@ namespace IR
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);
     void addForArray(ForArray* fa);
+    void addSwitch(Switch* sw);
+    void addMatch(Match* ma);
   };
 }
 

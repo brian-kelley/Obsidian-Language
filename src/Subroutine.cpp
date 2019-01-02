@@ -338,7 +338,7 @@ Match::Match(Block* b, Expression* m, string varName,
 void Match::resolveImpl()
 {
   resolveExpr(matched);
-  auto ut = dynamic_cast<UnionType*>(matched->type);
+  auto ut = dynamic_cast<UnionType*>(canonicalize(matched->type));
   if(!ut)
   {
     errMsgLoc(matched, "matched expression must be of union type");
@@ -349,7 +349,16 @@ void Match::resolveImpl()
   }
   for(auto t : types)
   {
-    if(find(ut->options.begin(), ut->options.end(), t) == ut->options.end())
+    bool foundInUnion = false;
+    for(auto op : ut->options)
+    {
+      if(typesSame(t, op))
+      {
+        foundInUnion = true;
+        break;
+      }
+    }
+    if(!foundInUnion)
     {
       errMsgLoc(this, "match includes type " << t->getName() << " which is not a member of union " << ut->getName());
     }
@@ -361,13 +370,10 @@ void Match::resolveImpl()
   resolved = true;
 }
 
-Switch::Switch(Block* b, Expression* s, vector<int>& inds, vector<Expression*> vals, int defaultPos, Block* stmtBlock)
+Switch::Switch(Block* b, Expression* s, Block* stmtBlock)
   : Statement(b)
 {
   switched = s;
-  caseValues = vals;
-  caseLabels = inds;
-  defaultPosition = defaultPos;
   block = stmtBlock;
 }
 

@@ -78,7 +78,6 @@ struct Block : public Statement
   Breakable breakable;
   //innermost loop whose body is or contains this
   Loop loop;
-  int statementCount;
 };
 
 struct Assign : public Statement
@@ -182,10 +181,7 @@ struct Match : public Statement
 
 struct Switch : public Statement
 {
-  //caseIndices and defaultPos are the locations of labels within stmts
-  Switch(Block* b, Expression* s,
-      vector<int>& caseIndices, vector<Expression*> caseValues,
-      int defaultPos, Block* block);
+  Switch(Block* b, Expression* s, Block* block);
   void resolveImpl();
   Expression* switched;
   vector<Expression*> caseValues;

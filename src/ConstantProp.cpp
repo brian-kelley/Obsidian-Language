@@ -188,8 +188,6 @@ static Expression* convertConstant(Expression* value, Type* type)
   }
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
-  cout << "Converting value \"" << value << "\" to type " << type->getName() << '\n';
-  cout << "Note: value's current type is " << value->type->getName() << '\n';
   int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
@@ -322,6 +320,20 @@ static Expression* convertConstant(Expression* value, Type* type)
       }
       return compLit;
     }
+    else if(auto at = dynamic_cast<ArrayType*>(type))
+    {
+      //Array lit is just another CompoundLiteral,
+      //but with array type instead of tuple
+      vector<Expression*> elements;
+      for(auto& elem : compLit->members)
+      {
+        elements.push_back(convertConstant(elem, at->subtype));
+      }
+      CompoundLiteral* arrayLit = new CompoundLiteral(elements);
+      arrayLit->resolved = true;
+      arrayLit->type = at;
+      return arrayLit;
+    }
     else if(auto mt = dynamic_cast<MapType*>(type))
     {
       auto mc = new MapConstant(mt);
@@ -343,6 +355,7 @@ static Expression* convertConstant(Expression* value, Type* type)
   }
   //????
   cout << "Failed to convert constant expr \"" << value << "\" to type \"" << type->getName() << "\"\n";
+  cout << "Value's type is " << value->type->getName() << '\n';
   INTERNAL_ERROR;
   return nullptr;
 }

@@ -234,15 +234,13 @@ namespace IR
     {
       stmts.push_back(new AssertionIR(assertion));
     }
-    else if(/*Switch* sw =*/ dynamic_cast<Switch*>(s))
+    else if(Switch* sw = dynamic_cast<Switch*>(s))
     {
-      cout << "Switch isn't supported yet.\n";
-      INTERNAL_ERROR;
+      addSwitch(sw);
     }
-    else if(/*Match* ma =*/ dynamic_cast<Match*>(s))
+    else if(Match* ma = dynamic_cast<Match*>(s))
     {
-      cout << "Match isn't supported yet.\n";
-      INTERNAL_ERROR;
+      addMatch(ma);
     }
     else
     {
@@ -406,6 +404,78 @@ namespace IR
       stmts.push_back(new Jump(topLabels[i]));
       stmts.push_back(bottomLabels[i]);
     }
+  }
+
+  void SubroutineIR::addSwitch(Switch* sw)
+  {
+    auto savedBreak = breakLabel;
+    breakLabel = new Label;
+    size_t numStmts = sw->block->stmts.size();
+    size_t caseIndex = 0;
+    vector<Label*> caseLabels;
+    for(size_t i = 0; i < sw->caseLabels.size(); i++)
+      caseLabels.push_back(new Label);
+    Label* defaultLabel = new Label;
+    cout << "Switch case values:\n";
+    for(size_t i = 0; i < numStmts; i++)
+    {
+      while(caseIndex < sw->caseLabels.size() &&
+          sw->caseLabels[caseIndex] == i)
+      {
+        //add the label
+        stmts.push_back(caseLabels[caseIndex]);
+        Expression* compareExpr = new BinaryArith(
+            sw->switched, CMPEQ, sw->caseValues[caseIndex]);
+        compareExpr->resolve();
+        //this case branches to the next case, or the default
+        Label* branch = nullptr;
+        if(caseIndex == sw->caseLabels.size() - 1)
+          branch = defaultLabel;
+        else
+          branch = caseLabels[caseIndex + 1];
+        stmts.push_back(new CondJump(compareExpr, branch));
+        caseIndex++;
+      }
+      //default is just a label (needs no comparison)
+      if(sw->defaultPosition == i)
+        stmts.push_back(defaultLabel);
+      addStatement(sw->block->stmts[i]);
+    }
+    stmts.push_back(breakLabel);
+    breakLabel = savedBreak;
+  }
+
+  void SubroutineIR::addMatch(Match* ma)
+  {
+    //match is like a switch, except add jump to break after each case
+    Label* endLabel = new Label;
+    size_t numCases = ma->cases.size();
+    vector<Label*> caseLabels;
+    for(size_t i = 0; i < numCases; i++)
+      caseLabels.push_back(new Label);
+    for(size_t i = 0; i < numCases; i++)
+    {
+      stmts.push_back(caseLabels[i]);
+      Expression* compareExpr = new IsExpr(ma->matched, ma->types[i]);
+      compareExpr->resolve();
+      Label* branch = nullptr;
+      if(i == numCases - 1)
+        branch = endLabel;
+      else
+        branch = caseLabels[i + 1];
+      stmts.push_back(new CondJump(compareExpr, branch));
+      //assign the "as" expr to the case variable
+      VarExpr* caseVar = new VarExpr(ma->caseVars[i]);
+      caseVar->resolve();
+      AsExpr* caseVal = new AsExpr(ma->matched, ma->types[i]);
+      caseVal->resolve();
+      stmts.push_back(new AssignIR(caseVar, caseVal));
+      addStatement(ma->cases[i]);
+      //jump to the match end (if not the last case)
+      if(i != numCases - 1)
+        stmts.push_back(new Jump(endLabel));
+    }
+    stmts.push_back(endLabel);
   }
 
   //is target reachable from root?

@@ -343,10 +343,9 @@ namespace Parser
     vector<Type*> argTypes;
     while(!acceptPunct(RPAREN))
     {
+      argTypes.push_back(parseType(s));
       //all arguments must be given names
       argNames.push_back(expectIdent());
-      expectPunct(COLON);
-      argTypes.push_back(parseType(s));
     }
     //Subroutine constructor constructs body
     Subroutine* subr = new Subroutine(s, name, isStatic, pure, retType, argNames, argTypes);
@@ -513,39 +512,39 @@ namespace Parser
     expectPunct(RPAREN);
     expectPunct(LBRACE);
     vector<Statement*> stmts;
-    vector<Expression*> caseValues;
     vector<int> caseIndices;
-    int defaultPos = -1;
     Block* block = new Block(b);
+    Switch* switchStmt = new Switch(b, switched, block);
+    switchStmt->defaultPosition = -1;
+    block->breakable = switchStmt;
     Keyword defaultKW(DEFAULT);
     while(!acceptPunct(RBRACE))
     {
       if(acceptKeyword(CASE))
       {
-        caseValues.push_back(parseExpression(b->scope));
-        caseIndices.push_back(block->statementCount);
+        switchStmt->caseValues.push_back(parseExpression(block->scope));
+        switchStmt->caseLabels.push_back(block->stmts.size());
         expectPunct(COLON);
       }
-      else if(lookAhead()->compareTo(&defaultKW))
+      else if(acceptKeyword(DEFAULT))
       {
-        if(defaultPos >= 0)
+        if(switchStmt->defaultPosition >= 0)
         {
           err("default in switch can only be defined once");
         }
-        accept();
+        switchStmt->defaultPosition = block->stmts.size();
         expectPunct(COLON);
       }
       else
       {
-        block->addStatement(parseStatement(b, true));
+        block->addStatement(parseStatement(block, true));
       }
     }
     //place implicit "default:" after all statements if not explicit
-    if(defaultPos == -1)
+    if(switchStmt->defaultPosition == -1)
     {
-      defaultPos = block->statementCount;
+      switchStmt->defaultPosition = block->stmts.size();
     }
-    Switch* switchStmt = new Switch(b, switched, caseIndices, caseValues, defaultPos, block);
     switchStmt->setLocation(loc);
     return switchStmt;
   }

@@ -183,14 +183,27 @@ int emitStatement(Statement* s)
   {
     root = out.createNode("Switch");
     out.createEdge(root, emitExpression(sw->switched));
-    cout << "TODO\n";
-    INTERNAL_ERROR;
+    //write the block first
+    out.createEdge(root, emitStatement(sw->block));
+    //describe the case labels in a single node
+    Oss desc;
+    for(size_t i = 0; i < sw->caseValues.size(); i++)
+    {
+      desc << sw->caseLabels[i] << ": " << sw->caseValues[i] << '\n';
+    }
+    desc << sw->defaultPosition << ": default\n";
+    out.createEdge(root, out.createNode(desc.str()));
   }
   else if(Match* mat = dynamic_cast<Match*>(s))
   {
-    mat = nullptr;
-    cout << "TODO\n";
-    INTERNAL_ERROR;
+    root = out.createNode("Match");
+    out.createEdge(root, emitExpression(mat->matched));
+    for(size_t i = 0; i < mat->types.size(); i++)
+    {
+      int typeNode = emitType(mat->types[i]);
+      out.createEdge(root, typeNode);
+      out.createEdge(typeNode, emitStatement(mat->cases[i]));
+    }
   }
   else
   {

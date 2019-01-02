@@ -984,26 +984,22 @@ void Indexed::resolveImpl()
     //group's type is a Tuple, whether group is a literal, var or call
     //make sure the index is an IntLit
     auto intIndex = dynamic_cast<IntConstant*>(index);
-    if(intIndex)
-    {
-      uint64_t idx = intIndex->uval;
-      bool outOfBounds = false;
-      if(intIndex->isSigned())
-      {
-        if(intIndex->sval < 0)
-          outOfBounds = true;
-        else
-          idx = intIndex->sval;
-      }
-      if(idx>= tt->members.size())
-        outOfBounds = true;
-      if(outOfBounds)
-        errMsgLoc(this, "tuple subscript out of bounds");
-    }
-    else
-    {
+    if(!intIndex)
       errMsgLoc(this, "tuple subscript must be an integer constant.");
+    uint64_t idx = intIndex->uval;
+    bool outOfBounds = false;
+    if(intIndex->isSigned())
+    {
+      if(intIndex->sval < 0)
+        outOfBounds = true;
+      else
+        idx = intIndex->sval;
     }
+    if(idx >= tt->members.size())
+      outOfBounds = true;
+    if(outOfBounds)
+      errMsgLoc(this, "tuple subscript out of bounds");
+    type = tt->members[idx];
   }
   else if(auto at = dynamic_cast<ArrayType*>(group->type))
   {
@@ -1099,7 +1095,7 @@ void CallExpr::resolveImpl()
     //make sure arg value can be converted to expected type
     if(!callableType->argTypes[i]->canConvert(args[i]->type))
     {
-      errMsg("argument " << i + 1 << " to " << (callableType->ownerStruct ? "" : "static") <<
+      errMsgLoc(args[i], "argument " << i + 1 << " to " <<
         (callableType->pure ? "function" : "procedure") << " has wrong type (expected " <<
         callableType->argTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
@@ -1553,7 +1549,7 @@ void IsExpr::resolveImpl()
 {
   resolveExpr(base);
   resolveType(option);
-  ut = dynamic_cast<UnionType*>(base->type);
+  ut = dynamic_cast<UnionType*>(canonicalize(base->type));
   if(!ut)
   {
     errMsgLoc(this, "is can only be used with a union type");
@@ -1561,7 +1557,7 @@ void IsExpr::resolveImpl()
   //make sure option is actually one of the types in the union
   for(size_t i = 0; i < ut->options.size(); i++)
   {
-    if(ut->options[i] == option)
+    if(typesSame(ut->options[i], option))
     {
       optionIndex = i;
       resolved = true;
@@ -1597,7 +1593,7 @@ void AsExpr::resolveImpl()
 {
   resolveExpr(base);
   resolveType(option);
-  ut = dynamic_cast<UnionType*>(base->type);
+  ut = dynamic_cast<UnionType*>(canonicalize(base->type));
   if(!ut)
   {
     errMsgLoc(this, "as can only be used with a union type");
@@ -1605,7 +1601,7 @@ void AsExpr::resolveImpl()
   //make sure option is actually one of the types in the union
   for(size_t i = 0; i < ut->options.size(); i++)
   {
-    if(ut->options[i] == option)
+    if(typesSame(ut->options[i], option))
     {
       optionIndex = i;
       resolved = true;
