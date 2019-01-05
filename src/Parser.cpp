@@ -170,7 +170,7 @@ namespace Parser
   {
     UnresolvedType* t = new UnresolvedType;
     t->scope = s;
-    t->setLocation(lookAhead());
+    Node* loc = lookAhead();
     t->arrayDims = 0;
     //check for keyword
     if(Keyword* keyword = (Keyword*) accept(KEYWORD))
@@ -283,6 +283,7 @@ namespace Parser
     }
     if(!t)
       return nullptr;
+    t->setLocation(loc);
     Punct lbrack(LBRACKET);
     Punct rbrack(RBRACKET);
     Punct quest(QUESTION);
@@ -301,6 +302,7 @@ namespace Parser
         optionalTypes.push_back(t);
         optionalTypes.push_back(primitives[Prim::VOID]);
         t = new UnresolvedType;
+        t->setLocation(loc);
         t->scope = s;
         t->t = UnresolvedType::Union(optionalTypes);
       }

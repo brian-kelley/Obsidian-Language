@@ -5,8 +5,6 @@ vector<IncludedFile> includes;
 
 string Node::printLocation()
 {
-  Oss oss;
-  oss << sourceFiles[fileID] << ", " << line << ':' << col;
-  return oss.str();
+  return sourceFiles[fileID] + ", " + to_string(line) + ":" + to_string(col);
 }
 

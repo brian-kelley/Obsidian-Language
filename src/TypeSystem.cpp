@@ -13,8 +13,8 @@ using std::sort;
 extern Module* global;
 
 vector<Type*> primitives;
-
 map<string, Type*> primNames;
+
 /*
 vector<StructType*> structs;
 set<ArrayType*, ArrayCompare> arrays;
@@ -73,61 +73,16 @@ void createBuiltinTypes()
   glob->addName(new AliasType("f64", primitives[Prim::DOUBLE], glob));
 }
 
-/*
-Type* getArrayType(Type* elem, int ndims)
-{
-  resolveType(elem);
-  if(ndims == 0)
-    return elem;
-  ArrayType* at = nullptr;
-  if(auto elemArray = dynamic_cast<ArrayType*>(elem))
-  {
-    at = new ArrayType(elemArray->elem, elemArray->dims + ndims);
-  }
-  else
-  {
-    at = new ArrayType(elem, ndims);
-  }
-  at->resolve();
-  auto it = arrays.find(at);
-  if(it == arrays.end())
-  {
-    arrays.insert(at);
-    return at;
-  }
-  delete at;
-  return *it;
-}
-*/
-
 Type* getArrayType(Type* elem, int ndims)
 {
   resolveType(elem);
   if(ndims == 0)
     return elem;
   auto a = new ArrayType(elem, ndims);
+  a->setLocation(elem);
   a->resolve();
   return a;
 }
-
-/*
-Type* getTupleType(vector<Type*>& members)
-{
-  for(auto& mem : members)
-    resolveType(mem);
-  TupleType* newTuple = new TupleType(members);
-  newTuple->resolve();
-  auto it = tuples.find(newTuple);
-  if(it != tuples.end())
-  {
-    delete newTuple;
-    return *it;
-  }
-  //new tuple type, add to set
-  tuples.insert(newTuple);
-  return newTuple;
-}
-*/
 
 Type* getTupleType(vector<Type*>& members)
 {
@@ -139,31 +94,6 @@ Type* getTupleType(vector<Type*>& members)
   t->resolve();
   return t;
 }
-
-/*
-Type* getUnionType(vector<Type*>& options)
-{
-  //only one option: union of one thing is just that thing
-  if(options.size() == 1)
-    return options.front();
-  UnionType* ut = new UnionType(options);
-  ut->resolve();
-  //check if ut is already in the set of all union types
-  auto it = unions.find(ut);
-  if(it == unions.end())
-  {
-    //new union type, so add it to set
-    unions.insert(ut);
-    return ut;
-  }
-  else
-  {
-    //use type that is already in the set
-    delete ut;
-    return *it;
-  }
-}
-*/
 
 Type* getUnionType(vector<Type*>& options)
 {
@@ -177,27 +107,6 @@ Type* getUnionType(vector<Type*>& options)
   return u;
 }
 
-/*
-Type* getMapType(Type* key, Type* value)
-{
-  resolveType(key);
-  resolveType(value);
-  MapType* mt = new MapType(key, value);
-  mt->resolve();
-  auto it = maps.find(mt);
-  if(it == maps.end())
-  {
-    maps.insert(mt);
-    return mt;
-  }
-  else
-  {
-    delete mt;
-    return *it;
-  }
-}
-*/
-
 Type* getMapType(Type* key, Type* value)
 {
   resolveType(key);
@@ -206,31 +115,6 @@ Type* getMapType(Type* key, Type* value)
   mt->resolve();
   return mt;
 }
-
-/*
-Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type*>& argTypes)
-{
-  if(retType == nullptr)
-    return nullptr;
-  for(auto arg : argTypes)
-  {
-    if(arg == nullptr)
-      return nullptr;
-  }
-  auto ct = new CallableType(pure, owner, retType, argTypes);
-  ct->resolve();
-  auto it = callables.find(ct);
-  if(it == callables.end())
-  {
-    callables.insert(ct);
-    return ct;
-  }
-  else
-  {
-    return *it;
-  }
-}
-*/
 
 Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type*>& argTypes)
 {
@@ -302,7 +186,9 @@ Type* maybe(Type* t)
   vector<Type*> options;
   options.push_back(t);
   options.push_back(primitives[Prim::VOID]);
-  return getUnionType(options);
+  auto ut = getUnionType(options);
+  ut->setLocation(t);
+  return ut;
 }
 
 IntegerType* getIntegerType(int bytes, bool isSigned)
@@ -506,9 +392,21 @@ void UnionType::resolveImpl()
   //so for the purposes of resolution need to assume this
   //union can be resolved (in order to avoid false circular dependency)
   resolved = true;
-  for(Type*& mem : options)
+  for(size_t i = 0; i < options.size(); i++)
   {
-    resolveType(mem);
+    resolveType(options[i]);
+    if(!options[i]->resolved)
+    {
+      resolved = false;
+      return;
+    }
+    for(size_t j = 0; j < i; j++)
+    {
+      if(typesSame(options[i], options[j]))
+      {
+        errMsgLoc(this, "union has duplicated type " + options[i]->getName());
+      }
+    }
   }
 }
 
@@ -1266,6 +1164,8 @@ void ElemExprType::resolveImpl()
 
 void resolveType(Type*& t)
 {
+  INTERNAL_ASSERT(t);
+  Node* loc = t;
   if(t->resolved)
   {
     //nothing to do
@@ -1394,6 +1294,7 @@ void resolveType(Type*& t)
   {
     t->resolve();
   }
+  t->setLocation(loc);
   INTERNAL_ASSERT(t->resolved);
 }
 
