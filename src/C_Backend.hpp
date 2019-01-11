@@ -1,11 +1,6 @@
 #ifndef C_GEN_H
 #define C_GEN_H
 
-#include "Common.hpp"
-#include "TypeSystem.hpp"
-#include "Subroutine.hpp"
-#include "Expression.hpp"
-#include "Variable.hpp"
 #include "IR.hpp"
 
 /* C backend memory management:
@@ -18,6 +13,171 @@
 
 namespace C
 {
+  void init();
+
+  struct CType
+  {
+    virtual string getName() = 0;
+    virtual int getKindTag() = 0;
+    virtual bool isVoid() {return false;}
+  };
+
+  struct CPrim : public CType
+  {
+    enum
+    {
+      VOID,
+      BOOL,
+      I8,
+      U8,
+      I16,
+      U16,
+      I32,
+      U32,
+      I64,
+      U64,
+      F32,
+      F64,
+      NUM_TYPES
+    };
+    CPrim(int t) : type(t) {}
+    string getName()
+    {
+      switch(type)
+      {
+        case VOID: return "void";
+        case BOOL: return "bool";
+        case I8:   return "int8_t";
+        case U8:   return "uint8_t";
+        case I16:  return "int16_t";
+        case U16:  return "uint16_t";
+        case I32:  return "int32_t";
+        case U32:  return "uint32_t";
+        case I64:  return "int64_t";
+        case U64:  return "uint64_t";
+        case F32:  return "float";
+        case F64:  return "double";
+        default:;
+      }
+      INTERNAL_ERROR;
+      return "";
+    }
+    int getKindTag()
+    {
+      return 0;
+    }
+    bool isVoid()
+    {
+      return type == VOID;
+    }
+    int type;
+  };
+
+  bool operator==(const CPrim& p1, const CPrim& p2);
+  bool operator<(const CPrim& p1, const CPrim& p2);
+
+  struct CStruct : public CType
+  {
+    CStruct(StructType* st);
+    CStruct(TupleType* tt);
+    vector<CType*> mems;
+    string getName()
+    {
+      return getIdent(id);
+    }
+    int getKindTag()
+    {
+      return 1;
+    }
+    int id;
+  };
+
+  bool operator==(const CStruct& s1, const CStruct& s2);
+  bool operator<(const CStruct& s1, const CStruct& s2);
+
+  struct CArray : public CType
+  {
+    CArray(ArrayType* at);
+    CType* subtype;
+    string getName()
+    {
+      return getIdent(id);
+    }
+    int getKindTag()
+    {
+      return 2;
+    }
+    int id;
+  };
+
+  bool operator==(const CArray& a1, const CArray& a2);
+  bool operator<(const CArray& a1, const CArray& a2);
+
+  struct CUnion : public CType
+  {
+    string getName()
+    {
+      return "Union";
+    }
+    int getKindTag()
+    {
+      return 3;
+    }
+  };
+
+  struct CMap : public CType
+  {
+    CMap(MapType* mt);
+    CType* key;
+    CType* value;
+    string getName()
+    {
+      return getIdent(id);
+    }
+    int id;
+  };
+
+  bool operator==(const CMap& m1, const CMap& m2);
+  bool operator<(const CMap& m1, const CMap& m2);
+
+  struct CCallable : public CType
+  {
+    CCallable(CallableType* ct);
+    CCallable(Subroutine* subr);
+    //both constructors call this
+    void init(CallableType* ct);
+    //the type of the "this" struct (can be null)
+    //in C, a pointer to that type is the 1st real argument
+    CStruct* thisType;
+    CType* returnType;
+    //note: args only includes the types that aren't "void" in C
+    vector<CType*> args;
+    string getName()
+    {
+      return getIdent(id);
+    }
+    int id;
+  };
+
+  bool operator==(const CCallable& c1, const CCallable& c2);
+  bool operator<(const CCallable& c1, const CCallable& c2);
+
+  //Comparator (for std::set) implements operator<
+  struct CTypeCompare
+  {
+    bool operator()(const CType* t1, const CType* t2);
+  };
+
+  struct CTypeEqual
+  {
+    bool operator()(const CType* t1, const CType* t2);
+  };
+
+  //Get a canonical C representation of the type
+  CType* getCType(Type* t);
+  string getTypeName(Type* t);
+  string getTypeName(CType* c);
+
   //Generate C source file to outputStem.c, then run C compiler, and if !keep delete the source file
   void generate(string outputStem, bool keep);
   //add file label and basic libc includes
@@ -51,6 +211,8 @@ namespace C
   void genMain(Subroutine* m);
 
   //Generate a unique integer to be used as C identifier
+  //Convert integer to unique C identifier
+  string getIdent(int i);
   string getIdentifier();
 
   //generate a nicely formatted "section" header in a comment

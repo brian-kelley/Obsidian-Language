@@ -19,6 +19,7 @@ void init()
   initTokens();
   global = new Module("", nullptr);
   createBuiltinTypes();
+  C::init();
 }
 
 void semanticCheck()

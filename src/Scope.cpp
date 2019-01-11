@@ -46,7 +46,7 @@ void Scope::addName(Name n)
   Name prev = findName(n.name);
   if(prev.item)
   {
-    errMsgLoc(n.item, "name " << n.name << " redefined (previous declaration at " << prev.item->printLocation());
+    errMsgLoc(n.item, "name " << n.name << " redefined - previous declaration at " << prev.item->printLocation());
   }
   names[n.name] = n;
 }

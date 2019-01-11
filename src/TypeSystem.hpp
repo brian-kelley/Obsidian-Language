@@ -132,35 +132,6 @@ namespace Prim
 
 extern vector<Type*> primitives;
 
-/*
-struct ArrayCompare
-{
-  bool operator()(const ArrayType* lhs, const ArrayType* rhs) const;
-};
-
-struct TupleCompare
-{
-  bool operator()(const TupleType* lhs, const TupleType* rhs) const;
-};
-
-struct UnionCompare
-{
-  bool operator()(const UnionType* lhs, const UnionType* rhs) const;
-};
-
-struct MapCompare
-{
-  bool operator()(const MapType* lhs, const MapType* rhs) const;
-};
-
-struct CallableType;
-
-struct CallableCompare
-{
-  bool operator()(const CallableType* lhs, const CallableType* rhs) const;
-};
-*/
-
 IntegerType* getIntegerType(int bytes, bool isSigned);
 
 //Recursive function to generate arbitrary-dimension array type
@@ -182,16 +153,6 @@ Type* maybe(Type* t);
 void createBuiltinTypes();
 
 extern map<string, Type*> primNames;
-
-/*
-extern vector<StructType*> structs;
-extern set<ArrayType*, ArrayCompare> arrays;
-extern set<TupleType*, TupleCompare> tuples;
-extern set<UnionType*, UnionCompare> unions;
-extern set<MapType*, MapCompare> maps;
-extern set<CallableType*, CallableCompare> callables;
-extern set<EnumType*> enums;
-*/
 
 struct StructType : public Type
 {

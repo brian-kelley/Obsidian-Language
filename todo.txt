@@ -1,6 +1,14 @@
 ---------------------
       TODO:
 ---------------------
+-IR changes
+  -Expand all expressions into temporaries
+    -Each IR statement has at most 1 call
+  -Do CSE by building "available expressions" in each BB
+    -Replace 
+  -Then run liveness analysis: delete always-dead variables,
+    expressions assigned to them which have no side effects
+  -During codegen, re-use stack space
 
 -Add include keyword
   -only allowed inside a module
