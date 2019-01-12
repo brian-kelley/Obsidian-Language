@@ -56,7 +56,7 @@ struct BoolConstant;
 struct MapConstant;
 struct CompoundLiteral;
 struct UnionConstant;
-struct UnaryConstant;
+struct SimpleConstant;
 //Arithmetic
 struct UnaryArith;
 struct BinaryArith;
@@ -70,7 +70,6 @@ struct CallExpr;
 struct VarExpr;
 struct Converted;
 struct ThisExpr;
-struct ErrorVal;
 struct UnresolvedExpr;
 
 //Assuming expr is a struct type, get the struct scope

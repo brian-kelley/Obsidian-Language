@@ -52,8 +52,10 @@ namespace IR
       while(update)
       {
         update = false;
-        //fold all constants 
-        //this does constant propagation and folding of VarExprs
+        //this does 3 things:
+        //  -determine when variables have constant, known values
+        //  -replace VarExprs with their values, when possible
+        //  -fold arithmetic, conversion and indexing operations on constants
         update = constantPropagation(s.first) || update;
         //update = jumpThreading(s.second) || update;
         update = deadCodeElim(s.second) || update;
@@ -69,9 +71,11 @@ namespace IR
   //(using the call stack to respect nested control structures)
   static Label* breakLabel = nullptr;
   static Label* continueLabel = nullptr;
+  static Block* currentBlock = nullptr;
 
   SubroutineIR::SubroutineIR(Subroutine* s)
   {
+    tempCounter = 0;
     subr = s;
     //create the IR instructions for the whole body
     addStatement(subr->body);
@@ -150,9 +154,11 @@ namespace IR
 
   void SubroutineIR::addStatement(Statement* s)
   {
-    //empty statements allowed in some places (they produce no IR)
+    //empty (null) statements allowed in some places (they produce no IR)
     if(!s)
       return;
+    currentBlock = s->block;
+    //set the current block (for use in expandExpression)
     if(Block* b = dynamic_cast<Block*>(s))
     {
       for(auto stmt : b->stmts)
@@ -162,11 +168,11 @@ namespace IR
     }
     else if(Assign* a = dynamic_cast<Assign*>(s))
     {
-      stmts.push_back(new AssignIR(a->lvalue, a->rvalue));
+      addInstruction(new AssignIR(a->lvalue, a->rvalue));
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
     {
-      stmts.push_back(new CallIR(cs));
+      addInstruction(new CallIR(cs));
     }
     else if(ForC* fc = dynamic_cast<ForC*>(s))
     {
@@ -186,11 +192,11 @@ namespace IR
       Label* bottom = new Label;
       auto savedBreak = breakLabel;
       breakLabel = bottom;
-      stmts.push_back(top);
-      stmts.push_back(new CondJump(w->condition, bottom));
+      addInstruction(top);
+      addInstruction(new CondJump(w->condition, bottom));
       addStatement(w->body);
-      stmts.push_back(new Jump(top));
-      stmts.push_back(bottom);
+      addInstruction(new Jump(top));
+      addInstruction(bottom);
       breakLabel = savedBreak;
     }
     else if(If* i = dynamic_cast<If*>(s))
@@ -199,40 +205,43 @@ namespace IR
       {
         Label* ifEnd = new Label;
         Label* elseEnd = new Label;
-        stmts.push_back(new CondJump(i->condition, ifEnd));
+        addInstruction(new CondJump(i->condition, ifEnd));
         addStatement(i->body);
-        stmts.push_back(new Jump(elseEnd));
-        stmts.push_back(ifEnd);
+        addInstruction(new Jump(elseEnd));
+        addInstruction(ifEnd);
         addStatement(i->elseBody);
-        stmts.push_back(elseEnd);
+        addInstruction(elseEnd);
       }
       else
       {
         Label* ifEnd = new Label;
-        stmts.push_back(new CondJump(i->condition, ifEnd));
+        addInstruction(new CondJump(i->condition, ifEnd));
         addStatement(i->body);
-        stmts.push_back(ifEnd);
+        addInstruction(ifEnd);
       }
     }
     else if(Return* r = dynamic_cast<Return*>(s))
     {
-      stmts.push_back(new ReturnIR(r->value));
+      addInstruction(new ReturnIR(r->value));
     }
     else if(dynamic_cast<Break*>(s))
     {
-      stmts.push_back(new Jump(breakLabel));
+      addInstruction(new Jump(breakLabel));
     }
     else if(dynamic_cast<Continue*>(s))
     {
-      stmts.push_back(new Jump(continueLabel));
+      addInstruction(new Jump(continueLabel));
     }
     else if(Print* p = dynamic_cast<Print*>(s))
     {
-      stmts.push_back(new PrintIR(p));
+      for(auto e : p->exprs)
+      {
+        addInstruction(new PrintIR(e));
+      }
     }
     else if(Assertion* assertion = dynamic_cast<Assertion*>(s))
     {
-      stmts.push_back(new AssertionIR(assertion));
+      addInstruction(new AssertionIR(assertion));
     }
     else if(Switch* sw = dynamic_cast<Switch*>(s))
     {
@@ -247,6 +256,87 @@ namespace IR
       cout << "Need to implement a statement type in IR: " << typeid(s).name() << '\n';
       INTERNAL_ERROR;
     }
+  }
+
+  void SubroutineIR::addInstruction(StatementIR* s)
+  {
+    //here, expand all expressions into pseudo-SSA form
+    if(auto a = dynamic_cast<AssignIR*>(s))
+    {
+      //evaluate RHS, then LHS
+    }
+    else if(auto c = dynamic_cast<CallIR*>(s))
+    {
+    }
+    else if(auto cj = dynamic_cast<CondJump*>(s))
+    {
+    }
+    else if(auto r = dynamic_cast<ReturnIR*>(s))
+    {
+    }
+    else if(auto p = dynamic_cast<PrintIR*>(s))
+    {
+    }
+    else if(auto as = dynamic_cast<AssertionIR*>(s))
+    {
+    }
+    stmts.push_back(s);
+  }
+
+  static VarExpr* generateTemp(Expression* e)
+  {
+    auto v = new Variable(getTempName(), e->type, currentBlock);
+    currentBlock->scope->addName(v);
+    v->resolve();
+    auto ve = new VarExpr(v);
+    ve->resolve();
+    //assign the original expression to the variable
+    stmts.push_back(new AssignIR(ve, e));
+    return ve;
+  }
+
+  Expression* SubroutineIR::expandExpression(Expression* e)
+  {
+    //Expression expansion creates temporary variables (in currentBlock)
+    //to hold results of intermediate expressions.
+    //
+    //Then those intermediates are replaced by VarExprs in the IR
+    //
+    //This provides straightforward common subexpression elimination
+    //and simplifies code generation by having storage for every expr
+    if(auto ua = dynamic_cast<UnaryArith*>(e))
+    {
+      ua->expr = generateTemp(expandExpression(ua->expr));
+    }
+    else if(auto ba = dynamic_cast<BinaryArith*>(e))
+    {
+    }
+    else if(auto ind = dynamic_cast<Indexed*>(e))
+    {
+    }
+    else if(auto al = dynamic_cast<ArrayLength*>(e))
+    {
+    }
+    else if(auto ae = dynamic_cast<AsExpr*>(e))
+    {
+    }
+    else if(auto ie = dynamic_cast<IsExpr*>(e))
+    {
+    }
+    else if(auto ce = dynamic_cast<CallExpr*>(e))
+    {
+    }
+    else if(auto conv = dynamic_cast<Converted*>(e))
+    {
+    }
+    else if(auto uc = dynamic_cast<UnionConstant*>(e))
+    {
+    }
+    else if(auto na = dynamic_cast<NewArray*>(e))
+    {
+    }
+    //all other Expression types don't need to be decomposed
+    return e;
   }
 
   set<Variable*> SubroutineIR::getReads(BasicBlock* bb)
@@ -289,15 +379,15 @@ namespace IR
     Label* bottom = new Label;  //bottom: just after loop (break)
     breakLabel = bottom;
     continueLabel = mid;
-    stmts.push_back(top);
+    addInstruction(top);
     //here the condition is evaluated
     //false: jump to bottom, otherwise continue
-    stmts.push_back(new CondJump(fc->condition, bottom));
+    addInstruction(new CondJump(fc->condition, bottom));
     addStatement(fc->inner);
-    stmts.push_back(mid);
+    addInstruction(mid);
     addStatement(fc->increment);
-    stmts.push_back(new Jump(top));
-    stmts.push_back(bottom);
+    addInstruction(new Jump(top));
+    addInstruction(bottom);
     //restore previous break/continue labels
     breakLabel = savedBreak;
     continueLabel = savedCont;
@@ -313,20 +403,20 @@ namespace IR
     Expression* cond = new BinaryArith(counterExpr, CMPL, fr->end);
     cond->resolve();
     //init
-    stmts.push_back(new AssignIR(counterExpr, fr->begin));
+    addInstruction(new AssignIR(counterExpr, fr->begin));
     auto savedBreak = breakLabel;
     auto savedCont = continueLabel;
     Label* top = new Label;     //just before condition eval
     Label* mid = new Label;     //before increment (continue)
     Label* bottom = new Label;  //just after loop (break)
-    stmts.push_back(top);
+    addInstruction(top);
     //condition eval and possible break
-    stmts.push_back(new CondJump(cond, bottom));
+    addInstruction(new CondJump(cond, bottom));
     addStatement(fr->inner);
-    stmts.push_back(mid);
-    stmts.push_back(new AssignIR(counterExpr, counterP1));
-    stmts.push_back(new Jump(top));
-    stmts.push_back(bottom);
+    addInstruction(mid);
+    addInstruction(new AssignIR(counterExpr, counterP1));
+    addInstruction(new Jump(top));
+    addInstruction(bottom);
     //restore previous break/continue labels
     breakLabel = savedBreak;
     continueLabel = savedCont;
@@ -371,19 +461,19 @@ namespace IR
     {
       //initialize loop i counter with 0
       //convert "int 0" to counter type if needed
-      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i]), zeroLong));
-      stmts.push_back(topLabels[i]);
+      addInstruction(new AssignIR(new VarExpr(fa->counters[i]), zeroLong));
+      addInstruction(topLabels[i]);
       //compare against array dim: if false, break from loop i
       Expression* cond = new BinaryArith(new VarExpr(fa->counters[i]), CMPL, dims[i]);
       cond->resolve();
-      stmts.push_back(new CondJump(cond, bottomLabels[i]));
+      addInstruction(new CondJump(cond, bottomLabels[i]));
     }
     //update iteration variable before executing inner body
     VarExpr* iterVar = new VarExpr(fa->iter);
     iterVar->resolve();
     Indexed* iterValue = new Indexed(subArrays.back(), new VarExpr(fa->counters.back()));
     iterValue->resolve();
-    stmts.push_back(new AssignIR(iterVar, iterValue));
+    addInstruction(new AssignIR(iterVar, iterValue));
     //add user body
     //user break stmts break from whole ForArray
     //user continue just goes to top of innermost
@@ -397,12 +487,12 @@ namespace IR
     //in reverse order, add the loop increment/closing
     for(int i = n - 1; i >= 0; i--)
     {
-      stmts.push_back(midLabels[i]);
+      addInstruction(midLabels[i]);
       Expression* counterIncremented = new BinaryArith(iterVar, PLUS, oneLong);
       counterIncremented->resolve();
-      stmts.push_back(new AssignIR(new VarExpr(fa->counters[i]), counterIncremented));
-      stmts.push_back(new Jump(topLabels[i]));
-      stmts.push_back(bottomLabels[i]);
+      addInstruction(new AssignIR(new VarExpr(fa->counters[i]), counterIncremented));
+      addInstruction(new Jump(topLabels[i]));
+      addInstruction(bottomLabels[i]);
     }
   }
 
@@ -416,14 +506,13 @@ namespace IR
     for(size_t i = 0; i < sw->caseLabels.size(); i++)
       caseLabels.push_back(new Label);
     Label* defaultLabel = new Label;
-    cout << "Switch case values:\n";
     for(size_t i = 0; i < numStmts; i++)
     {
       while(caseIndex < sw->caseLabels.size() &&
           sw->caseLabels[caseIndex] == i)
       {
         //add the label
-        stmts.push_back(caseLabels[caseIndex]);
+        addInstruction(caseLabels[caseIndex]);
         Expression* compareExpr = new BinaryArith(
             sw->switched, CMPEQ, sw->caseValues[caseIndex]);
         compareExpr->resolve();
@@ -433,15 +522,15 @@ namespace IR
           branch = defaultLabel;
         else
           branch = caseLabels[caseIndex + 1];
-        stmts.push_back(new CondJump(compareExpr, branch));
+        addInstruction(new CondJump(compareExpr, branch));
         caseIndex++;
       }
       //default is just a label (needs no comparison)
       if(sw->defaultPosition == i)
-        stmts.push_back(defaultLabel);
+        addInstruction(defaultLabel);
       addStatement(sw->block->stmts[i]);
     }
-    stmts.push_back(breakLabel);
+    addInstruction(breakLabel);
     breakLabel = savedBreak;
   }
 
@@ -455,7 +544,7 @@ namespace IR
       caseLabels.push_back(new Label);
     for(size_t i = 0; i < numCases; i++)
     {
-      stmts.push_back(caseLabels[i]);
+      addInstruction(caseLabels[i]);
       Expression* compareExpr = new IsExpr(ma->matched, ma->types[i]);
       compareExpr->resolve();
       Label* branch = nullptr;
@@ -463,19 +552,19 @@ namespace IR
         branch = endLabel;
       else
         branch = caseLabels[i + 1];
-      stmts.push_back(new CondJump(compareExpr, branch));
+      addInstruction(new CondJump(compareExpr, branch));
       //assign the "as" expr to the case variable
       VarExpr* caseVar = new VarExpr(ma->caseVars[i]);
       caseVar->resolve();
       AsExpr* caseVal = new AsExpr(ma->matched, ma->types[i]);
       caseVal->resolve();
-      stmts.push_back(new AssignIR(caseVar, caseVal));
+      addInstruction(new AssignIR(caseVar, caseVal));
       addStatement(ma->cases[i]);
       //jump to the match end (if not the last case)
       if(i != numCases - 1)
-        stmts.push_back(new Jump(endLabel));
+        addInstruction(new Jump(endLabel));
     }
-    stmts.push_back(endLabel);
+    addInstruction(endLabel);
   }
 
   //is target reachable from root?
@@ -504,6 +593,11 @@ namespace IR
       }
     }
     return false;
+  }
+
+  string getTempName()
+  {
+    return "_temp" + to_string(tempCounter++);
   }
 }
 
@@ -547,14 +641,7 @@ ostream& operator<<(ostream& os, IR::StatementIR* stmt)
   }
   else if(auto p = dynamic_cast<PrintIR*>(stmt))
   {
-    os << "Print(";
-    for(size_t i = 0; i < p->exprs.size(); i++)
-    {
-      os << p->exprs[i];
-      if(i != p->exprs.size() - 1)
-        os << ", ";
-    }
-    os << ')';
+    os << "Print(" << p->expr << ')';
   }
   else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
   {

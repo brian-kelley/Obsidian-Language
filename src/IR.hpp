@@ -136,11 +136,11 @@ namespace IR
 
   struct PrintIR : public StatementIR
   {
-    PrintIR(Print* p) : exprs(p->exprs) {}
-    vector<Expression*> exprs;
+    PrintIR(Expression* e) : expr(e) {}
+    Expression* expr;
     vector<Expression*> getInput()
     {
-      return exprs;
+      return vector<Expression*>(1, expr);
     }
   };
 
@@ -178,6 +178,10 @@ namespace IR
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
+    void addInstruction(StatementIR* s);
+    //Create a new variable that is tied to non-constant expression
+    //Generate IR instructions to compute it (in proper evaluation order)
+    Expression* expandExpression(Expression* e);
     //Remove no-ops and labels, and rebuild the control flow graph
     //(labels are just a convenience for translating AST to IR)
     void buildCFG();
@@ -189,12 +193,14 @@ namespace IR
     map<int, BasicBlock*> blockStarts;
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);
+    string getTempName();
     private:
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);
     void addForArray(ForArray* fa);
     void addSwitch(Switch* sw);
     void addMatch(Match* ma);
+    int tempCounter;
   };
 }
 
