@@ -264,21 +264,29 @@ namespace IR
     if(auto a = dynamic_cast<AssignIR*>(s))
     {
       //evaluate RHS, then LHS
+      a->src = expandExpression(a->src);
+      a->dst = expandExpression(a->dst);
     }
     else if(auto c = dynamic_cast<CallIR*>(s))
     {
+      c->eval = expandExpression(c->eval);
     }
     else if(auto cj = dynamic_cast<CondJump*>(s))
     {
+      cj->cond = expandExpression(cj->cond);
     }
     else if(auto r = dynamic_cast<ReturnIR*>(s))
     {
+      if(r->expr)
+        r->expr = expandExpression(r->expr);
     }
     else if(auto p = dynamic_cast<PrintIR*>(s))
     {
+      p->expr = expandExpression(p->expr);
     }
     else if(auto as = dynamic_cast<AssertionIR*>(s))
     {
+      as->asserted = expandExpression(as->asserted);
     }
     stmts.push_back(s);
   }
@@ -306,36 +314,69 @@ namespace IR
     //and simplifies code generation by having storage for every expr
     if(auto ua = dynamic_cast<UnaryArith*>(e))
     {
-      ua->expr = generateTemp(expandExpression(ua->expr));
+      ua->expr = expandExpression(ua->expr);
+      e = generateTemp(ua);
     }
     else if(auto ba = dynamic_cast<BinaryArith*>(e))
     {
+      ba->lhs = expandExpression(ba->lhs);
+      ba->rhs = expandExpression(ba->rhs);
+      e = generateTemp(ba);
     }
     else if(auto ind = dynamic_cast<Indexed*>(e))
     {
+      ind->group = expandExpression(ind->group);
+      ind->index = expandExpression(ind->index);
+      e = generateTemp(ind);
     }
     else if(auto al = dynamic_cast<ArrayLength*>(e))
     {
+      al->array = expandExpression(al->array);
+      e = generateTemp(al);
     }
     else if(auto ae = dynamic_cast<AsExpr*>(e))
     {
+      ae->base = expandExpression(ae->base);
+      e = generateTemp(ae);
     }
     else if(auto ie = dynamic_cast<IsExpr*>(e))
     {
+      ie->base = expandExpression(ie->base);
+      e = generateTemp(ie);
     }
     else if(auto ce = dynamic_cast<CallExpr*>(e))
     {
+      //expand arguments, in order
+      ce->callable = expandExpression(ce->callable);
+      for(size_t i = 0; i < ce->args.size(); i++)
+      {
+        ce->args[i] = expandExpression(ce->args[i]);
+      }
+      e = generateTemp(ce);
     }
     else if(auto conv = dynamic_cast<Converted*>(e))
     {
+      conv->value = expandExpression(conv->value);
+      e = generateTemp(conv);
     }
     else if(auto uc = dynamic_cast<UnionConstant*>(e))
     {
+      //expand uc's value (it may or may not be a constant)
+      uc->value = expandExpression(uc->value);
+      if(uc->value->constant())
+        e = generateTemp(uc);
     }
     else if(auto na = dynamic_cast<NewArray*>(e))
     {
+      //expand the new array dimensions, but don't store the
+      //NewArray itself in a temporary
+      for(size_t i = 0; i < na->dims.size(); i++)
+      {
+        na->dims[i] = expandExpression(na->dims[i]);
+      }
     }
     //all other Expression types don't need to be decomposed
+    //e.g. variables, constants
     return e;
   }
 
@@ -595,7 +636,7 @@ namespace IR
     return false;
   }
 
-  string getTempName()
+  string SubroutineIR::getTempName()
   {
     return "_temp" + to_string(tempCounter++);
   }

@@ -1,24 +1,50 @@
 ---------------------
       TODO:
 ---------------------
+-Make Expressions know if they have side effects or not
+  -Cannot attempt constant folding on these
+-During constant propagation, use short-circuit evaluation any time
+  a || or && is encountered
+
 -IR changes
+  -Replace CallIR with EvalIR, which
+    evaluates an expression (with side effects) and discards the result
   -Expand all expressions into temporaries
-    -Each IR statement has at most 1 call
-  -Do CSE by building "available expressions" in each BB
-    -Replace 
-  -Then run liveness analysis: delete always-dead variables,
-    expressions assigned to them which have no side effects
-  -During codegen, re-use stack space
+    -Each IR statement has at most 1 call,
+     easy to determine if it has side effects
+    -Record the orignal expressions that are stored in
+     each temporary
+      -Every computation benefitting from CSE is assigned
+        to a temporary
+    -Do a CSE pass:
+      -If any expression is the definition of some temporary,
+        replace the expression with reference to the temporary
+      -Do forward dataflow with the precomputed sets of temporaries/exprs
+      -Implement a hash function for Expression*
+        -Note: BinaryAriths with commutative operator and switched arguments
+          should compare equal
+        -Use unordered_map<Expression*, Variable*, ExprHash, ExprEqual> to
+          efficiently look up available expressions
+    -Do a copy propagation pass:
+      -If the last definition of variable X is just Y,
+        then replace all reads from X with Y
+  -Then run liveness analysis.
+    -Delete all assignments to dead variables
+      -If the definitions have side effects, replace AssignIR with EvalIR
+      -If variables are never alive, remove them from their Scope
+
+-Make sure short-circuit evaluation is implemented in C backend
+
+-DON'T bother combining binary operations with associative operators -
+  the C compiler or LLVM will always be able to handle that
 
 -Add include keyword
-  -only allowed inside a module
   -read source file (if that fails, give informative message)
-  -lex and insert tokens at current position
-  -maintain list of integer file IDs
-    -store these in AST nodes along with line/col
-    -included files should remember where they were included (create a tree)
+  -lex and insert tokens at current position (can use a secondary token stream here)
+  -remember source locations where each included file was included
   -include should be idempotent (doing it again with same file is no-op)
-    -don't even need to read the file after first time, just find path in table
+    -don't even read the file if the path is already in table
+    -note: canonicalize paths
 -Implement external functions in backend
 -Implement generic keyword (see below)
   -generic is just another kind of ScopedDecl (and Name)
@@ -36,6 +62,11 @@
   -#define <identifier> <tokens> works just like C
     -meta-procs provide function-like macros
   -Implicit conversion from string to any AST node type is parsing
+
+  -All meta-decls are resolved immediately after parsing
+  -This triggers lazy resolution of any needed decls in non-meta space
+    -If these decls are located earlier in the code, everything's fine
+    -Otherwise, it's an error (name doesn't exist yet)
 
   -New syntax rules:
   * (any):                #<stmt>: execute meta-stmt or create meta-decl
