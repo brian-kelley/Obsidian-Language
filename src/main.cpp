@@ -1,6 +1,6 @@
 #include "Common.hpp"
 #include "Options.hpp"
-#include "C_Backend.hpp"
+//#include "C_Backend.hpp"
 #include "Token.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
@@ -19,7 +19,7 @@ void init()
   initTokens();
   global = new Module("", nullptr);
   createBuiltinTypes();
-  C::init();
+  //C::init();
 }
 
 void semanticCheck()

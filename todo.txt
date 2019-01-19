@@ -9,6 +9,7 @@
 -IR changes
   -Replace CallIR with EvalIR, which
     evaluates an expression (with side effects) and discards the result
+    -Never make an EvalIR without side effects
   -Expand all expressions into temporaries
     -Each IR statement has at most 1 call,
      easy to determine if it has side effects

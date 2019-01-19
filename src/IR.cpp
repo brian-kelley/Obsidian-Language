@@ -172,7 +172,7 @@ namespace IR
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
     {
-      addInstruction(new CallIR(cs));
+      addInstruction(new EvalIR(cs->eval));
     }
     else if(ForC* fc = dynamic_cast<ForC*>(s))
     {
@@ -267,9 +267,9 @@ namespace IR
       a->src = expandExpression(a->src);
       a->dst = expandExpression(a->dst);
     }
-    else if(auto c = dynamic_cast<CallIR*>(s))
+    else if(auto ev = dynamic_cast<EvalIR*>(s))
     {
-      c->eval = expandExpression(c->eval);
+      expandExpression(ev->eval);
     }
     else if(auto cj = dynamic_cast<CondJump*>(s))
     {
@@ -291,7 +291,7 @@ namespace IR
     stmts.push_back(s);
   }
 
-  static VarExpr* generateTemp(Expression* e)
+  VarExpr* SubroutineIR::generateTemp(Expression* e)
   {
     auto v = new Variable(getTempName(), e->type, currentBlock);
     currentBlock->scope->addName(v);
@@ -319,9 +319,37 @@ namespace IR
     }
     else if(auto ba = dynamic_cast<BinaryArith*>(e))
     {
+      //short-circuit evaluation is implemented here
+      //LHS is always evaluated first
       ba->lhs = expandExpression(ba->lhs);
-      ba->rhs = expandExpression(ba->rhs);
-      e = generateTemp(ba);
+      if(ba->op == LOR)
+      {
+        //make the temp now, with value lhs
+        VarExpr* tmp = generateTemp(ba->lhs);
+        Label* skip = new Label;
+        //if tmp is true, jump to skip (never evaluating rhs)
+        stmts.push_back(new CondJump(tmp, skip));
+        //lhs false, so (lhs || rhs) == rhs
+        Expression* rhs = expandExpression(ba->rhs);
+        stmts.push_back(new AssignIR(tmp, rhs));
+        stmts.push_back(skip);
+      }
+      else if(ba->op == LAND)
+      {
+        VarExpr* tmp = generateTemp(ba->lhs);
+        Label* skip = new Label;
+        Expression* skipCond = new UnaryArith(LNOT, tmp);
+        stmts.push_back(new CondJump(skipCond, skip));
+        //lhs true, so (lhs && rhs) == rhs
+        Expression* rhs = expandExpression(ba->rhs);
+        stmts.push_back(new AssignIR(tmp, rhs));
+        stmts.push_back(skip);
+      }
+      else
+      {
+        ba->rhs = expandExpression(ba->rhs);
+        e = generateTemp(ba);
+      }
     }
     else if(auto ind = dynamic_cast<Indexed*>(e))
     {
@@ -649,16 +677,9 @@ ostream& operator<<(ostream& os, IR::StatementIR* stmt)
   {
     os << ai->dst << " = " << ai->src;
   }
-  else if(auto call = dynamic_cast<CallIR*>(stmt))
+  else if(auto ev = dynamic_cast<EvalIR*>(stmt))
   {
-    os << call->eval->callable << '(';
-    for(size_t i = 0; i < call->eval->args.size(); i++)
-    {
-      os << call->eval->args[i];
-      if(i != call->eval->args.size() - 1)
-        os << ", ";
-    }
-    os << ')';
+    os << "eval: " << ev->eval;
   }
   else if(auto j = dynamic_cast<Jump*>(stmt))
   {

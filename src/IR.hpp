@@ -88,11 +88,11 @@ namespace IR
     }
   };
 
-  struct CallIR : public StatementIR
+  struct EvalIR : public StatementIR
   {
-    CallIR(CallStmt* cs) : eval(cs->eval) {}
+    EvalIR(Expression* e) : eval(e) {}
     //currently this is only used by CallStmts
-    CallExpr* eval;
+    Expression* eval;
     vector<Expression*> getInput()
     {
       return vector<Expression*>(1, eval);
@@ -194,6 +194,7 @@ namespace IR
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);
     string getTempName();
+    VarExpr* generateTemp(Expression* e);
     private:
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);

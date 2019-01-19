@@ -364,12 +364,17 @@ static Expression* convertConstant(Expression* value, Type* type)
 //Check for integer overflow and invalid operations (e.g. x / 0)
 static Expression* evalBinOp(Expression*& lhs, int op, Expression*& rhs)
 {
+  //first, intercept short-circuit evaluation cases (logical AND/OR)
+  //need to fold only the LHS, then replace value immediately if it short-circuits
+  //NOTE: since constant folds never have side effects, this change never
+  //affects program semantics but may allow folding when otherwise impossible
   foldExpression(lhs);
   foldExpression(rhs);
   if(!lhs->constant() || !rhs->constant())
     return nullptr;
   //Comparison operations easy because
-  //all constant Expressions support comparison
+  //all constant Expressions support comparison,
+  //with semantics matching the language
   switch(op)
   {
     case CMPEQ:
@@ -797,14 +802,11 @@ void constantFold(IR::SubroutineIR* subr)
       foldExpression(assign->dst, true);
       foldExpression(assign->src);
     }
-    else if(auto call = dynamic_cast<CallIR*>(stmt))
+    else if(auto ev = dynamic_cast<EvalIR*>(stmt))
     {
       //foldExpression doesn't evaluate calls,
       //so foldExpression will produce another CallExpr
-      Expression* expr = call->eval;
-      foldExpression(expr);
-      INTERNAL_ASSERT(dynamic_cast<CallExpr*>(expr));
-      call->eval = (CallExpr*) expr;
+      foldExpression(ev->eval);
     }
     else if(auto condJump = dynamic_cast<CondJump*>(stmt))
     {
@@ -817,8 +819,7 @@ void constantFold(IR::SubroutineIR* subr)
     }
     else if(auto print = dynamic_cast<PrintIR*>(stmt))
     {
-      for(auto& e : print->exprs)
-        foldExpression(e);
+      foldExpression(print->expr);
     }
     else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
     {
@@ -902,10 +903,10 @@ bool cpApplyStatement(StatementIR* stmt)
     else
       update = bindValue(ai->dst, ai->src) || update;
   }
-  else if(auto ci = dynamic_cast<CallIR*>(stmt))
+  else if(auto ev = dynamic_cast<EvalIR*>(stmt))
   {
     //just apply the side effects of evaluating the call
-    return cpProcessExpression((Expression*&) ci->eval);
+    return cpProcessExpression(ev->eval);
   }
   else if(auto cj = dynamic_cast<CondJump*>(stmt))
   {
@@ -919,8 +920,7 @@ bool cpApplyStatement(StatementIR* stmt)
   }
   else if(auto pi = dynamic_cast<PrintIR*>(stmt))
   {
-    for(auto& p : pi->exprs)
-      update = cpProcessExpression(p) || update;
+    return cpProcessExpression(pi->expr);
   }
   else if(auto asi = dynamic_cast<AssertionIR*>(stmt))
   {

@@ -112,9 +112,9 @@ void determineIndirectReachable()
         addIndirectReachables(a->dst);
         addIndirectReachables(a->src);
       }
-      else if(auto c = dynamic_cast<CallIR*>(stmt))
+      else if(auto ev = dynamic_cast<EvalIR*>(stmt))
       {
-        addIndirectReachables(c->eval);
+        addIndirectReachables(ev->eval);
       }
       else if(auto cj = dynamic_cast<CondJump*>(stmt))
       {
@@ -230,9 +230,9 @@ void buildCallGraph()
         temp = getExprCalls(ai->src);
         node->out.insert(temp.begin(), temp.end());
       }
-      else if(auto ci = dynamic_cast<CallIR*>(stmt))
+      else if(auto ev = dynamic_cast<EvalIR*>(stmt))
       {
-        auto temp = getExprCalls(ci->eval);
+        auto temp = getExprCalls(ev->eval);
         node->out.insert(temp.begin(), temp.end());
       }
       else if(auto cj = dynamic_cast<CondJump*>(stmt))
@@ -250,11 +250,8 @@ void buildCallGraph()
       }
       else if(auto pi = dynamic_cast<PrintIR*>(stmt))
       {
-        for(auto e : pi->exprs)
-        {
-          auto temp = getExprCalls(e);
-          node->out.insert(temp.begin(), temp.end());
-        }
+        auto temp = getExprCalls(pi->expr);
+        node->out.insert(temp.begin(), temp.end());
       }
       else if(auto asi = dynamic_cast<AssertionIR*>(stmt))
       {
