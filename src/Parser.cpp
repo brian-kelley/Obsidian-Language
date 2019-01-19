@@ -345,6 +345,8 @@ namespace Parser
     vector<Type*> argTypes;
     while(!acceptPunct(RPAREN))
     {
+      if(argTypes.size() > 0)
+        expectPunct(COMMA);
       argTypes.push_back(parseType(s));
       //all arguments must be given names
       argNames.push_back(expectIdent());

@@ -1252,9 +1252,15 @@ SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
 void SubroutineExpr::resolveImpl()
 {
   if(subr)
+  {
+    subr->resolve();
     type = subr->type;
+  }
   else if(exSubr)
+  {
+    exSubr->resolve();
     type = exSubr->type;
+  }
   else
     INTERNAL_ERROR;
   if(!thisObject && subr && subr->type->ownerStruct)
