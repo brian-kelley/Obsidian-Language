@@ -12,6 +12,7 @@ extern map<string, int> operatorMap;
 extern vector<char> punctTable;
 extern map<char, int> punctMap;
 extern vector<string> tokTypeTable;
+extern vector<bool> operCommutativeTable;
 
 void initTokens();
 void setOperatorPrec();
@@ -122,9 +123,7 @@ enum
   DOT,
   COMMA,
   DOLLAR,
-  QUESTION,
-  HASH
-};
+  QUESTION, HASH };
 
 enum
 {

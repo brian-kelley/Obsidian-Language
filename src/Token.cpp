@@ -11,6 +11,7 @@ map<char, int> punctMap;
 vector<char> punctTable;
 //enum values => string
 vector<string> tokTypeTable;
+vector<bool> operCommutativeTable;
 
 void initTokens()
 {
@@ -138,6 +139,17 @@ void initTokens()
   {
     punctTable[it.second] = it.first;
   }
+  //set up operator commutativity table
+  operCommutativeTable = vector<bool>(33, false);
+  operCommutativeTable[PLUS] = true;
+  operCommutativeTable[MUL] = true;
+  operCommutativeTable[LOR] = true;
+  operCommutativeTable[BOR] = true;
+  operCommutativeTable[BXOR] = true;
+  operCommutativeTable[LAND] = true;
+  operCommutativeTable[BAND] = true;
+  operCommutativeTable[CMPEQ] = true;
+  operCommutativeTable[CMPNEQ] = true;
 }
 
 void setOperatorPrec()

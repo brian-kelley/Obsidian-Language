@@ -49,18 +49,6 @@ bool operator==(const UnaryArith& lhs, const UnaryArith& rhs)
   return lhs.op == rhs.op && *lhs.expr == *rhs.expr;
 }
 
-bool operator<(const UnaryArith& lhs, const UnaryArith& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.op < rhs.op)
-    return true;
-  else if(lhs.op > rhs.op)
-    return false;
-  else if(*lhs.expr < *rhs.expr)
-    return true;
-  return false;
-}
-
 /***************
  * BinaryArith *
  ***************/
@@ -250,30 +238,17 @@ Expression* BinaryArith::copy()
   return c;
 }
 
-bool operator==(const BinaryArith& lhs, const BinaryArith& rhs)
+bool operator==(const BinaryArith& ba1, const BinaryArith& ba2)
 {
-  if(lhs.op != rhs.op)
+  if(ba1.op != ba2.op)
     return false;
-  if(*lhs.lhs != *rhs.lhs)
-    return false;
-  if(*lhs.rhs != *rhs.rhs)
-    return false;
-  return true;
-}
-
-bool operator<(const BinaryArith& lhs, const BinaryArith& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.op < rhs.op)
+  if(*ba1.lhs == *ba2.lhs && *ba1.rhs == *ba2.rhs)
     return true;
-  else if(lhs.op > rhs.op)
-    return false;
-  else if(*lhs.lhs < *rhs.lhs)
-    return true;
-  else if(*lhs.lhs > *rhs.lhs)
-    return false;
-  else if(*lhs.rhs < *rhs.rhs)
-    return true;
+  if(operCommutativeTable[op])
+  {
+    if(*ba1.lhs == *ba2.rhs && *ba1.rhs == *ba2.lhs)
+      return true;
+  }
   return false;
 }
 
@@ -536,25 +511,6 @@ bool operator==(const IntConstant& lhs, const IntConstant& rhs)
   return lhs.uval == rhs.uval;
 }
 
-bool operator<(const IntConstant& lhs, const IntConstant& rhs)
-{
-  INTERNAL_ERROR;
-  //signed < unsigned, then narrower < wider, then compare values
-  if(lhs.isSigned() && !rhs.isSigned())
-    return true;
-  else if(!lhs.isSigned() && rhs.isSigned())
-    return false;
-  IntegerType* lhsType = (IntegerType*) lhs.type;
-  IntegerType* rhsType = (IntegerType*) rhs.type;
-  if(lhsType->size < rhsType->size)
-    return true;
-  else if(lhsType->size > rhsType->size)
-    return false;
-  if(lhs.isSigned())
-    return lhs.sval < rhs.sval;
-  return lhs.uval < rhs.uval;
-}
-
 Expression* FloatConstant::convert(Type* t)
 {
   //first, just promote to double
@@ -681,19 +637,6 @@ bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
   return lhs.fp == rhs.fp;
 }
 
-bool operator<(const FloatConstant& lhs, const FloatConstant& rhs)
-{
-  INTERNAL_ERROR;
-  //float < double, then compare values
-  if(!lhs.isDoublePrec() && rhs.isDoublePrec())
-    return true;
-  if(lhs.isDoublePrec() && !rhs.isDoublePrec())
-    return false;
-  if(lhs.isDoublePrec())
-    return lhs.dp < rhs.dp;
-  return lhs.fp < rhs.fp;
-}
-
 Expression* StringConstant::copy()
 {
   auto sc = new StringConstant(value);
@@ -704,12 +647,6 @@ Expression* StringConstant::copy()
 bool operator==(const StringConstant& lhs, const StringConstant& rhs)
 {
   return lhs.value == rhs.value;
-}
-
-bool operator<(const StringConstant& lhs, const StringConstant& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.value < rhs.value;
 }
 
 Expression* CharConstant::copy()
@@ -724,12 +661,6 @@ bool operator==(const CharConstant& lhs, const CharConstant& rhs)
   return lhs.value == rhs.value;
 }
 
-bool operator<(const CharConstant& lhs, const CharConstant& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.value < rhs.value;
-}
-
 Expression* BoolConstant::copy()
 {
   auto bc = new BoolConstant(value);
@@ -740,12 +671,6 @@ Expression* BoolConstant::copy()
 bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
 {
   return lhs.value == rhs.value;
-}
-
-bool operator<(const BoolConstant& lhs, const BoolConstant& rhs)
-{
-  INTERNAL_ERROR;
-  return !lhs.value && rhs.value;
 }
 
 bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs) const
@@ -792,35 +717,6 @@ bool operator==(const MapConstant& lhs, const MapConstant& rhs)
   return true;
 }
 
-bool operator<(const MapConstant& lhs, const MapConstant& rhs)
-{
-  INTERNAL_ERROR;
-  auto& l = lhs.values;
-  auto& r = rhs.values;
-  auto lhsIt = l.begin();
-  auto rhsIt = r.begin();
-  while(lhsIt != l.end() &&
-      rhsIt != r.end())
-  {
-    if(lhsIt->first < rhsIt->first)
-      return true;
-    else if(lhsIt->first > rhsIt->first)
-      return false;
-    else if(lhsIt->second < rhsIt->second)
-      return true;
-    else if(lhsIt->second> rhsIt->second)
-      return false;
-    lhsIt++;
-    rhsIt++;
-  }
-  if(lhsIt == l.end())
-  {
-    //lhs is a smaller set
-    return true;
-  }
-  return false;
-}
-
 UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
 {
   INTERNAL_ASSERT(expr->constant());
@@ -850,18 +746,6 @@ Expression* UnionConstant::copy()
 bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
 {
   return lhs.option == rhs.option && lhs.value == rhs.value;
-}
-
-bool operator<(const UnionConstant& lhs, const UnionConstant& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.option < rhs.option)
-    return true;
-  else if(lhs.option > rhs.option)
-    return false;
-  else if(lhs.value < rhs.value)
-    return true;
-  return false;
 }
 
 /*******************
@@ -940,24 +824,6 @@ bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
       return false;
   }
   return true;
-}
-
-bool operator<(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
-{
-  INTERNAL_ERROR;
-  auto& l = lhs.members;
-  auto& r = rhs.members;
-  size_t i;
-  for(i = 0;; i++)
-  {
-    if(i == l.size() || i == r.size())
-      break;
-    if(l[i] < r[i])
-      return true;
-    else if(l[i] > r[i])
-      return false;
-  }
-  return i == l.size() && i != r.size();
 }
 
 /***********
@@ -1049,13 +915,6 @@ bool operator==(const Indexed& lhs, const Indexed& rhs)
   return lhs.group == rhs.group && lhs.index == rhs.index;
 }
 
-bool operator<(const Indexed& lhs, const Indexed& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.group < rhs.group ||
-    (lhs.group == rhs.group && lhs.index < rhs.index);
-}
-
 /************
  * CallExpr *
  ************/
@@ -1143,25 +1002,6 @@ bool operator==(const CallExpr& lhs, const CallExpr& rhs)
   return true;
 }
 
-bool operator<(const CallExpr& lhs, const CallExpr& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.callable < rhs.callable)
-    return true;
-  else if(lhs.callable > rhs.callable)
-    return false;
-  //otherwise the callable is identical, so both have same # arguments
-  INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
-  for(size_t i = 0; i < lhs.args.size(); i++)
-  {
-    if(lhs.args[i] < rhs.args[i])
-      return true;
-    else if(lhs.args[i] > rhs.args[i])
-      return false;
-  }
-  return false;
-}
-
 /***********
  * VarExpr *
  ***********/
@@ -1216,12 +1056,6 @@ Expression* VarExpr::copy()
 bool operator==(const VarExpr& lhs, const VarExpr& rhs)
 {
   return lhs.var == rhs.var;
-}
-
-bool operator<(const VarExpr& lhs, const VarExpr& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.var->id < rhs.var->id;
 }
 
 /******************
@@ -1303,47 +1137,6 @@ bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
     lhs.thisObject == rhs.thisObject;
 }
 
-bool operator<(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
-{
-  INTERNAL_ERROR;
-  enum
-  {
-    NORMAL,
-    MEMBER,
-    EXTERNAL
-  };
-  int lhsKind = NORMAL;
-  if(lhs.thisObject)
-    lhsKind = MEMBER;
-  else if(lhs.exSubr)
-    lhsKind = EXTERNAL;
-  int rhsKind = NORMAL;
-  if(rhs.thisObject)
-    rhsKind = MEMBER;
-  else if(rhs.exSubr)
-    rhsKind = EXTERNAL;
-  if(lhsKind < rhsKind)
-    return true;
-  else if(lhsKind > rhsKind)
-    return false;
-  if(lhsKind == NORMAL)
-    return lhs.subr->id < rhs.subr->id;
-  else if(lhsKind == MEMBER)
-  {
-    if(lhs.subr->id < rhs.subr->id)
-      return true;
-    else if(lhs.subr->id > rhs.subr->id)
-      return false;
-    else if(lhs.thisObject < rhs.thisObject)
-      return true;
-    else if(lhs.thisObject > rhs.thisObject)
-      return false;
-    return false;
-  }
-  else
-    return lhs.exSubr->id < rhs.exSubr->id;
-}
-
 /*************
  * StructMem *
  *************/
@@ -1419,23 +1212,6 @@ bool operator==(const StructMem& lhs, const StructMem& rhs)
     return lhs.member.get<Subroutine*>()->id == rhs.member.get<Subroutine*>()->id;
 }
 
-bool operator<(const StructMem& lhs, const StructMem& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.base < rhs.base)
-    return true;
-  else if(lhs.base > rhs.base)
-    return false;
-  else if(lhs.member.is<Variable*>() && rhs.member.is<Subroutine*>())
-    return true;
-  else if(lhs.member.is<Subroutine*>() && rhs.member.is<Variable*>())
-    return false;
-  else if(lhs.member.is<Variable*>())
-    return lhs.member.get<Variable*>()->id < rhs.member.get<Variable*>()->id;
-  else
-    return lhs.member.get<Subroutine*>()->id < rhs.member.get<Subroutine*>()->id;
-}
-
 /************
  * NewArray *
  ************/
@@ -1486,25 +1262,6 @@ bool operator==(const NewArray& lhs, const NewArray& rhs)
   return true;
 }
 
-bool operator<(const NewArray& lhs, const NewArray& rhs)
-{
-  INTERNAL_ERROR;
-  //TODO: implement comparison of types
-  if(lhs.type < rhs.type)
-    return true;
-  else if(lhs.type > rhs.type)
-    return false;
-  //same types, so just compare the dimensions lexicographically
-  for(size_t i = 0; i < lhs.dims.size(); i++)
-  {
-    if(lhs.dims[i] < rhs.dims[i])
-      return true;
-    else if(lhs.dims[i] > rhs.dims[i])
-      return false;
-  }
-  return false;
-}
-
 /***************
  * ArrayLength *
  ***************/
@@ -1545,12 +1302,6 @@ bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
   return lhs.array == rhs.array;
 }
 
-bool operator<(const ArrayLength& lhs, const ArrayLength& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.array < rhs.array;
-}
-
 void IsExpr::resolveImpl()
 {
   resolveExpr(base);
@@ -1584,17 +1335,6 @@ bool operator==(const IsExpr& lhs, const IsExpr& rhs)
   return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
 }
 
-bool operator<(const IsExpr& lhs, const IsExpr& rhs)
-{
-  if(lhs.base < rhs.base)
-    return true;
-  else if(lhs.base > rhs.base)
-    return false;
-  else if(lhs.optionIndex < rhs.optionIndex)
-    return true;
-  return false;
-}
-
 void AsExpr::resolveImpl()
 {
   resolveExpr(base);
@@ -1626,18 +1366,6 @@ Expression* AsExpr::copy()
 bool operator==(const AsExpr& lhs, const AsExpr& rhs)
 {
   return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
-}
-
-bool operator<(const AsExpr& lhs, const AsExpr& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.base < rhs.base)
-    return true;
-  else if(lhs.base > rhs.base)
-    return false;
-  else if(lhs.optionIndex < rhs.optionIndex)
-    return true;
-  return false;
 }
 
 /************
@@ -1706,18 +1434,6 @@ bool operator==(const Converted& lhs, const Converted& rhs)
   return lhs.type == rhs.type && lhs.value == rhs.value;
 }
 
-bool operator<(const Converted& lhs, const Converted& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.type < rhs.type)
-    return true;
-  else if(lhs.type > rhs.type)
-    return false;
-  else if(lhs.value < rhs.value)
-    return true;
-  return false;
-}
-
 /************
  * EnumExpr *
  ************/
@@ -1739,20 +1455,6 @@ bool operator==(const EnumExpr& lhs, const EnumExpr& rhs)
   return lhs.value == rhs.value;
 }
 
-bool operator<(const EnumExpr& lhs, const EnumExpr& rhs)
-{
-  INTERNAL_ERROR;
-  if(lhs.type < rhs.type)
-    return true;
-  else if(lhs.type > rhs.type)
-    return false;
-  EnumType* en = (EnumType*) lhs.type;
-  if(en->underlying->isSigned)
-    return lhs.value->sval < rhs.value->sval;
-  else
-    return lhs.value->uval < rhs.value->uval;
-}
-
 /******************
  * SimpleConstant *
  ******************/
@@ -1772,12 +1474,6 @@ Expression* SimpleConstant::copy()
 bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs)
 {
   return lhs.st == rhs.st;
-}
-
-bool operator<(const SimpleConstant& lhs, const SimpleConstant& rhs)
-{
-  INTERNAL_ERROR;
-  return lhs.st < rhs.st;
 }
 
 /*************************/
@@ -2120,118 +1816,6 @@ bool operator==(const Expression& l, const Expression& r)
   else
   {
     cout << "Didn't implement comparison for " << typeid(*lhs).name() << '\n';
-    INTERNAL_ERROR;
-  }
-  return false;
-}
-
-bool operator<(const Expression& l, const Expression& r)
-{
-  INTERNAL_ERROR;
-  const Expression* lhs = &l;
-  const Expression* rhs = &r;
-  if(lhs->getTypeTag() < rhs->getTypeTag())
-    return true;
-  else if(lhs->getTypeTag() > rhs->getTypeTag())
-    return false;
-  //now have to compare the individual types of expressions
-  //(know that they are the same type)
-  if(auto icLHS = dynamic_cast<const IntConstant*>(lhs))
-  {
-    auto icRHS = dynamic_cast<const IntConstant*>(rhs);
-    return *icLHS < *icRHS;
-  }
-  else if(auto fcLHS = dynamic_cast<const FloatConstant*>(lhs))
-  {
-    auto fcRHS = dynamic_cast<const FloatConstant*>(rhs);
-    return *fcLHS < *fcRHS;
-  }
-  else if(auto scLHS = dynamic_cast<const StringConstant*>(lhs))
-  {
-    auto scRHS = dynamic_cast<const StringConstant*>(rhs);
-    return *scLHS < *scRHS;
-  }
-  else if(auto ccLHS = dynamic_cast<const CharConstant*>(lhs))
-  {
-    auto ccRHS = dynamic_cast<const CharConstant*>(rhs);
-    return *ccLHS < *ccRHS;
-  }
-  else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
-  {
-    auto bcRHS = dynamic_cast<const BoolConstant*>(rhs);
-    return *bcLHS < *bcRHS;
-  }
-  else if(auto mcLHS = dynamic_cast<const MapConstant*>(lhs))
-  {
-    auto mcRHS = dynamic_cast<const MapConstant*>(rhs);
-    return *mcLHS < *mcRHS;
-  }
-  else if(auto clLHS = dynamic_cast<const CompoundLiteral*>(lhs))
-  {
-    auto clRHS = dynamic_cast<const CompoundLiteral*>(rhs);
-    return *clLHS < *clRHS;
-  }
-  else if(auto ucLHS = dynamic_cast<const UnionConstant*>(lhs))
-  {
-    auto ucRHS = dynamic_cast<const UnionConstant*>(rhs);
-    return *ucLHS < *ucRHS;
-  }
-  else if(auto uaLHS = dynamic_cast<const UnaryArith*>(lhs))
-  {
-    auto uaRHS = dynamic_cast<const UnaryArith*>(rhs);
-    return *uaLHS < *uaRHS;
-  }
-  else if(auto baLHS = dynamic_cast<const BinaryArith*>(lhs))
-  {
-    auto baRHS = dynamic_cast<const BinaryArith*>(rhs);
-    return *baLHS < *baRHS;
-  }
-  else if(auto indLHS = dynamic_cast<const Indexed*>(lhs))
-  {
-    auto indRHS = dynamic_cast<const Indexed*>(rhs);
-    return *indLHS < *indRHS;
-  }
-  else if(auto naLHS = dynamic_cast<const NewArray*>(lhs))
-  {
-    auto naRHS = dynamic_cast<const NewArray*>(rhs);
-    return *naLHS < *naRHS;
-  }
-  else if(auto alLHS = dynamic_cast<const ArrayLength*>(lhs))
-  {
-    auto alRHS = dynamic_cast<const ArrayLength*>(rhs);
-    return *alLHS < *alRHS;
-  }
-  else if(auto asLHS = dynamic_cast<const AsExpr*>(lhs))
-  {
-    auto asRHS = dynamic_cast<const AsExpr*>(rhs);
-    return *asLHS < *asRHS;
-  }
-  else if(auto isLHS = dynamic_cast<const IsExpr*>(lhs))
-  {
-    auto isRHS = dynamic_cast<const IsExpr*>(rhs);
-    return *isLHS < *isRHS;
-  }
-  else if(auto callLHS = dynamic_cast<const CallExpr*>(lhs))
-  {
-    auto callRHS = dynamic_cast<const CallExpr*>(rhs);
-    return *callLHS < *callRHS;
-  }
-  else if(auto varLHS = dynamic_cast<const VarExpr*>(lhs))
-  {
-    auto varRHS = dynamic_cast<const VarExpr*>(rhs);
-    return *varLHS < *varRHS;
-  }
-  else if(auto convLHS = dynamic_cast<const Converted*>(lhs))
-  {
-    auto convRHS = dynamic_cast<const Converted*>(rhs);
-    return *convLHS < *convRHS;
-  }
-  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const SimpleConstant*>(lhs))
-  {
-    return false;
-  }
-  else
-  {
     INTERNAL_ERROR;
   }
   return false;

@@ -168,7 +168,50 @@ namespace IR
     }
     else if(Assign* a = dynamic_cast<Assign*>(s))
     {
-      addInstruction(new AssignIR(a->lvalue, a->rvalue));
+      //Compound assignments are split up so that every
+      //AssignIR modifies exactly one variable.
+      //
+      //Also, the entire RHS is evaluated fully before assignment
+      Block* block = a->block;
+      if(auto compoundLHS = dynamic_cast<CompoundLiteral*>(a->lvalue))
+      {
+        if(auto compoundRHS = dynamic_cast<CompoundLiteral*>(a->rvalue))
+        {
+          //the RHS is also compound so generate multiple assigns
+          for(size_t i = 0; i < compoundLHS->members.size(); i++)
+          {
+            //these subAssigns might expand again, so use addStatement
+            Assign* subAssign = new Assign(block,
+                compoundLHS->members[i], compoundRHS->members[i]);
+            subAssign->resolve();
+            addStatement(subAssign);
+          }
+        }
+        else
+        {
+          //put rhs in a temp, then assign individual elements
+          Variable* temp = new Variable(getTempName(), a->rvalue->type, block);
+          temp->resolve();
+          block->scope->addName(temp);
+          auto tempSave = new Assign(block, new VarExpr(temp), a->rvalue);
+          tempSave->resolve();
+          addStatement(tempSave);
+          VarExpr* tempVar = new VarExpr(temp);
+          //now, assign individual elements
+          for(size_t i = 0; i < compoundLHS->members.size(); i++)
+          {
+            Assign* subAssign = new Assign(block, compoundLHS->members[i],
+                new Indexed(tempVar, new IntConstant((uint64_t) i)));
+            subAssign->resolve();
+            addStatement(subAssign);
+          }
+        }
+      }
+      else
+      {
+        //Simple assignment to single variable/member/indexed
+        addInstruction(new AssignIR(a->lvalue, a->rvalue));
+      }
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
     {
@@ -327,23 +370,26 @@ namespace IR
         //make the temp now, with value lhs
         VarExpr* tmp = generateTemp(ba->lhs);
         Label* skip = new Label;
+        Expression* skipCond = new UnaryArith(LNOT, tmp);
+        skipCond->resolve();
+        stmts.push_back(new CondJump(skipCond, skip));
         //if tmp is true, jump to skip (never evaluating rhs)
-        stmts.push_back(new CondJump(tmp, skip));
         //lhs false, so (lhs || rhs) == rhs
         Expression* rhs = expandExpression(ba->rhs);
         stmts.push_back(new AssignIR(tmp, rhs));
         stmts.push_back(skip);
+        e = tmp;
       }
       else if(ba->op == LAND)
       {
         VarExpr* tmp = generateTemp(ba->lhs);
         Label* skip = new Label;
-        Expression* skipCond = new UnaryArith(LNOT, tmp);
-        stmts.push_back(new CondJump(skipCond, skip));
+        stmts.push_back(new CondJump(tmp, skip));
         //lhs true, so (lhs && rhs) == rhs
         Expression* rhs = expandExpression(ba->rhs);
         stmts.push_back(new AssignIR(tmp, rhs));
         stmts.push_back(skip);
+        e = tmp;
       }
       else
       {

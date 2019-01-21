@@ -14,13 +14,10 @@ struct Expression : public Node
 {
   Expression() : type(nullptr) {}
   virtual void resolveImpl() {}
-  //Find set of read (input) or write (output) variables
   virtual set<Variable*> getReads()
   {
     return set<Variable*>();
   }
-  //getWrites assume this is the LHS
-  //so it's not implemented for RHS-only exprs
   virtual set<Variable*> getWrites()
   {
     return set<Variable*>();
@@ -38,6 +35,16 @@ struct Expression : public Node
   virtual int getConstantSize()
   {
     return 0;
+  }
+  //Can evaluating this expr have side effects?
+  virtual bool hasSideEffects()
+  {
+    return false;
+  }
+  //Is it worth doing CSE on this?
+  virtual bool isComputation()
+  {
+    return false;
   }
   //get a unique tag for this expression type
   //just used for comparing/ordering Expressions
@@ -91,11 +98,18 @@ struct UnaryArith : public Expression
   {
     return 0;
   }
+  bool hasSideEffects()
+  {
+    return expr->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
 };
 
 bool operator==(const UnaryArith& lhs, const UnaryArith& rhs);
-bool operator<(const UnaryArith& lhs, const UnaryArith& rhs);
 
 struct BinaryArith : public Expression
 {
@@ -113,11 +127,22 @@ struct BinaryArith : public Expression
   {
     return 1;
   }
+  bool hasSideEffects()
+  {
+    return lhs->hasSideEffects() || rhs->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
+  bool commutative()
+  {
+    return operCommutativeTable[op];
+  }
   Expression* copy();
 };
 
 bool operator==(const BinaryArith& lhs, const BinaryArith& rhs);
-bool operator<(const BinaryArith& lhs, const BinaryArith& rhs);
 
 struct IntConstant : public Expression
 {
@@ -195,7 +220,6 @@ struct IntConstant : public Expression
 };
 
 bool operator==(const IntConstant& lhs, const IntConstant& rhs);
-bool operator<(const IntConstant& lhs, const IntConstant& rhs);
 
 struct FloatConstant : public Expression
 {
@@ -252,7 +276,6 @@ struct FloatConstant : public Expression
 };
 
 bool operator==(const FloatConstant& lhs, const FloatConstant& rhs);
-bool operator<(const FloatConstant& lhs, const FloatConstant& rhs);
 
 struct StringConstant : public Expression
 {
@@ -291,7 +314,6 @@ struct StringConstant : public Expression
 };
 
 bool operator==(const StringConstant& lhs, const StringConstant& rhs);
-bool operator<(const StringConstant& lhs, const StringConstant& rhs);
 
 struct CharConstant : public Expression
 {
@@ -324,7 +346,6 @@ struct CharConstant : public Expression
 };
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
-bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
 struct BoolConstant : public Expression
 {
@@ -355,7 +376,6 @@ struct BoolConstant : public Expression
 };
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
-bool operator<(const CharConstant& lhs, const CharConstant& rhs);
 
 struct ExprCompare
 {
@@ -394,7 +414,6 @@ struct MapConstant : public Expression
 };
 
 bool operator==(const MapConstant& lhs, const MapConstant& rhs);
-bool operator<(const MapConstant& lhs, const MapConstant& rhs);
 
 //UnionConstant only used in IR/optimization
 //expr->type exactly matches exactly one of ut's options
@@ -421,7 +440,6 @@ struct UnionConstant : public Expression
 };
 
 bool operator==(const UnionConstant& lhs, const UnionConstant& rhs);
-bool operator<(const UnionConstant& lhs, const UnionConstant& rhs);
 
 //it is impossible to determine the type of a CompoundLiteral by itself
 //(CompoundLiteral covers array, struct and tuple literals)
@@ -460,11 +478,28 @@ struct CompoundLiteral : public Expression
   {
     return 9;
   }
+  bool hasSideEffects()
+  {
+    for(auto m : members)
+    {
+      if(m->hasSideEffects())
+        return true;
+    }
+    return false;
+  }
+  bool isComputation()
+  {
+    for(auto m : members)
+    {
+      if(m->isComputation())
+        return true;
+    }
+    return false;
+  }
   Expression* copy();
 };
 
 bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
-bool operator<(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
 
 struct Indexed : public Expression
 {
@@ -484,13 +519,20 @@ struct Indexed : public Expression
   {
     return group->getRootVariable();
   }
+  bool hasSideEffects()
+  {
+    return group->hasSideEffects() || index->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
 
 bool operator==(const Indexed& lhs, const Indexed& rhs);
-bool operator<(const Indexed& lhs, const Indexed& rhs);
 
 struct CallExpr : public Expression
 {
@@ -506,13 +548,31 @@ struct CallExpr : public Expression
   {
     return 11;
   }
+  bool hasSideEffects()
+  {
+    //All procs are assumed to have side effects
+    if(((CallableType*) callable->type)->isProc())
+      return true;
+    //The callable expr itself may also have side effects
+    if(callable->hasSideEffects())
+      return true;
+    for(auto a : args)
+    {
+      if(a->hasSideEffects())
+        return true;
+    }
+    return false;
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   //TODO: do evaluate calls in optimizing mode
   set<Variable*> getReads();
 };
 
 bool operator==(const CallExpr& lhs, const CallExpr& rhs);
-bool operator<(const CallExpr& lhs, const CallExpr& rhs);
 
 struct VarExpr : public Expression
 {
@@ -534,13 +594,16 @@ struct VarExpr : public Expression
   {
     return var;
   }
+  bool hasSideEffects()
+  {
+    return var->isGlobal();
+  }
   Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
 
 bool operator==(const VarExpr& lhs, const VarExpr& rhs);
-bool operator<(const VarExpr& lhs, const VarExpr& rhs);
 
 //Expression to represent constant callable
 //May be standalone, or may be applied to an object
@@ -562,6 +625,12 @@ struct SubroutineExpr : public Expression
   {
     return 13;
   }
+  bool hasSideEffects()
+  {
+    //example, if "a" is a proc,
+    //a().callMember() has side effects
+    return thisObject && thisObject->hasSideEffects();
+  }
   Expression* copy();
   Subroutine* subr;
   ExternalSubroutine* exSubr;
@@ -569,7 +638,6 @@ struct SubroutineExpr : public Expression
 };
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
-bool operator<(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
 
 struct UnresolvedExpr : public Expression
 {
@@ -617,13 +685,16 @@ struct StructMem : public Expression
   {
     return base->getRootVariable();
   }
+  bool hasSideEffects()
+  {
+    return base->hasSideEffects();
+  }
   Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
 };
 
 bool operator==(const StructMem& lhs, const StructMem& rhs);
-bool operator<(const StructMem& lhs, const StructMem& rhs);
 
 struct NewArray : public Expression
 {
@@ -643,7 +714,6 @@ struct NewArray : public Expression
 };
 
 bool operator==(const NewArray& lhs, const NewArray& rhs);
-bool operator<(const NewArray& lhs, const NewArray& rhs);
 
 struct ArrayLength : public Expression
 {
@@ -658,12 +728,19 @@ struct ArrayLength : public Expression
   {
     return 17;
   }
+  bool hasSideEffects()
+  {
+    return array->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   set<Variable*> getReads();
 };
 
 bool operator==(const ArrayLength& lhs, const ArrayLength& rhs);
-bool operator<(const ArrayLength& lhs, const ArrayLength& rhs);
 
 struct IsExpr : public Expression
 {
@@ -688,6 +765,14 @@ struct IsExpr : public Expression
   {
     return 18;
   }
+  bool hasSideEffects()
+  {
+    return base->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   Expression* base;
   UnionType* ut;
@@ -696,7 +781,6 @@ struct IsExpr : public Expression
 };
 
 bool operator==(const IsExpr& lhs, const IsExpr& rhs);
-bool operator<(const IsExpr& lhs, const IsExpr& rhs);
 
 struct AsExpr : public Expression
 {
@@ -721,6 +805,14 @@ struct AsExpr : public Expression
   {
     return 19;
   }
+  bool hasSideEffects()
+  {
+    return base->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   Expression* base;
   UnionType* ut;
@@ -729,7 +821,6 @@ struct AsExpr : public Expression
 };
 
 bool operator==(const AsExpr& lhs, const AsExpr& rhs);
-bool operator<(const AsExpr& lhs, const AsExpr& rhs);
 
 struct ThisExpr : public Expression
 {
@@ -761,12 +852,19 @@ struct Converted : public Expression
   {
     return 21;
   }
+  bool hasSideEffects()
+  {
+    return value->hasSideEffects();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
   Expression* copy();
   set<Variable*> getReads();
 };
 
 bool operator==(const Converted& lhs, const Converted& rhs);
-bool operator<(const Converted& lhs, const Converted& rhs);
 
 struct EnumExpr : public Expression
 {
@@ -788,7 +886,6 @@ struct EnumExpr : public Expression
 };
 
 bool operator==(const EnumExpr& lhs, const EnumExpr& rhs);
-bool operator<(const EnumExpr& lhs, const EnumExpr& rhs);
 
 struct SimpleConstant : public Expression
 {
@@ -810,7 +907,6 @@ struct SimpleConstant : public Expression
 };
 
 bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs);
-bool operator<(const SimpleConstant& lhs, const SimpleConstant& rhs);
 
 void resolveExpr(Expression*& expr);
 
@@ -819,19 +915,6 @@ bool operator==(const Expression& lhs, const Expression& rhs);
 inline bool operator!=(const Expression& lhs, const Expression& rhs)
 {
   return !(lhs == rhs);
-}
-bool operator<(const Expression& lhs, const Expression& rhs);
-inline bool operator>(const Expression& lhs, const Expression& rhs)
-{
-  return rhs < lhs;
-}
-inline bool operator<=(const Expression& lhs, const Expression& rhs)
-{
-  return !(lhs > rhs);
-}
-inline bool operator>=(const Expression& lhs, const Expression& rhs)
-{
-  return !(lhs < rhs);
 }
 
 #endif
