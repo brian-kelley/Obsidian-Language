@@ -167,6 +167,8 @@ namespace IR
     }
     vector<BasicBlock*> in;
     vector<BasicBlock*> out;
+    //Dominator basic blocks
+    vector<bool> dom;
     //statements where BB starts and ends
     int start;
     int end;
@@ -201,6 +203,7 @@ namespace IR
     void addForArray(ForArray* fa);
     void addSwitch(Switch* sw);
     void addMatch(Match* ma);
+    void solveDominators();
     int tempCounter;
   };
 }

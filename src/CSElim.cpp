@@ -97,17 +97,23 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
 //Definitions must match exactly to be kept
 DefSet CSElim::meet(SubroutineIR* subr, int bb)
 {
-  //Generally to keep a definition for v, all preceding
-  //blocks must have definitions for v with identical values.
-  //But if a block precedes itself and has no
-  //definitions for v nor v in the blacklist, don't include it
-  //in the intersection.
   DefSet d;
-  set<Variable*> keepCandidates;
-  for(BasicBlock* in : subr->blocks[bb])
+  auto& defs = d.defs;
+  auto& blacklist = d.blacklist;
+  //Every node can have at most one immediate dominator (if there were > 1,
+  //each would represent a different path into the node so they don't dominate)
+  //
+  //So, start with the imm. dominator's def set if there is one.
+  //
+  //Then intersect defs with those of all incoming blocks (including self)
+  queue<BasicBlock*> processQ;
+  process.push(blocks[0]);
+  vector<bool> queued(blocks.size(), false);
+  queued[0] = true;
+  vector<int> intersectCounting(blocks.size());
+  while(processQ.size())
   {
-    bool selfLoop = in->index == bb;
-    DefSet& inDefs = 
   }
+  return d;
 }
 

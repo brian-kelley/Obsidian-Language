@@ -24,6 +24,8 @@ struct CSElim
     //when their values are completely overwritten in an Assign.
     set<Variable*> blacklist;
   };
+  //All definitions (one per basic block)
+  vector<DefSet> definitions;
   //Check if two AssignIRs define the same value
   bool definitionsMatch(AssignIR* d1, AssignIR* d2);
   //Next 2 functions return true if any updates are made

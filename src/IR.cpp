@@ -150,6 +150,72 @@ namespace IR
       bb->index = i;
       blockStarts[bb->start] = bb;
     }
+    solveDominators();
+  }
+
+  void SubroutineIR::solveDominators()
+  {
+    if(blocks.size() == 0)
+      return;
+    queue<BasicBlock*> processQ;
+    process.push(blocks[0]);
+    vector<bool> queued(blocks.size(), false);
+    queued[0] = true;
+    vector<int> intersectCounting(blocks.size());
+    while(processQ.size())
+    {
+      BasicBlock* process = processQ.front();
+      processQ.pop();
+      auto procInd = process->index;
+      queued[procInd] = false;
+      //need to save dominator set to test if any changes happen
+      //it's a dense bitset so this is cheap
+      auto savedDom = process->dom;
+      //Process includes the intersection of dominator sets
+      //of predecessors. Doesn't apply to entry block.
+      //process's dominator set is about to be recomputed, so clear it
+      for(size_t i = 0; i < blocks.size(); i++)
+      {
+        process->dom[i] = false;
+      }
+      if(procInd != 0)
+      {
+        for(size_t i = 0; i < blocks.size(); i++)
+          intersectCounting[i] = 0;
+        for(auto pred : process->in)
+        {
+          for(size_t i = 0; i < blocks.size(); i++)
+          {
+            if(pred->dom[i])
+              intersectCounting[i]++;
+          }
+        }
+        //If intersectCounting[i] matches # predecessors, i is in the intersection
+        for(size_t i = 0; i < blocks.size(); i++)
+        {
+          if(intersectCounting[i] == process->in.size())
+            process->dom[i] = true;
+        }
+        //finally, blocks always dominate themselves
+        process->dom[procInd] = true;
+        //if any updates happened...
+        if(process->dom != savedDom)
+        {
+          //Need to process all successors.
+          //Don't add blocks to the queue more than once.
+          //Don't need to re-add process even if it precedes itself.
+          for(auto succ : process->out)
+          {
+            auto succInd = succ->index;
+            if(succInd != procInd && !queued[succInd])
+            {
+              queued[succInd] = true;
+              processQ.push(succ);
+            }
+          }
+        }
+      }
+    }
   }
 
   void SubroutineIR::addStatement(Statement* s)
