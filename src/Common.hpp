@@ -116,5 +116,62 @@ void operator+=(vector<T>& lhs, const vector<T>& rhs)
   lhs.insert(rhs.begin(), rhs.end());
 }
 
+//FNV-1a hash (for use with unordered map and set)
+//https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+struct FNV1A
+{
+  FNV1A
+  {
+    state = 14695981039346656037ULL;
+  }
+  //Hash a single object
+  template<typename T>
+  void pump(const T& data)
+  {
+    auto bytes = (unsigned char*) &data;
+    for(size_t i = 0; i < sizeof(T); i++)
+    {
+      pumpByte(bytes[i]);
+    }
+  }
+  //Hash an array
+  template<typename T>
+  void pump(const T* data, size_t n)
+  {
+    auto bytes = (unsigned char*) data;
+    for(size_t i = 0; i < n * sizeof(T); i++)
+    {
+      pumpByte(bytes[i]);
+    }
+  }
+  size_t get()
+  {
+    return state;
+  }
+  private:
+  void pumpByte(unsigned char b)
+  {
+    state = (state ^ b) * 1099511628211ULL;
+  }
+  size_t state;
+};
+
+template<typename T>
+size_t fnv1a(T& data)
+{
+  FNV1A f;
+  f.pump(data);
+  return f.get();
+}
+
+//FNV-1a for contiguous arrays
+template<typename T>
+size_t fnv1a(T* data, size_t n)
+{
+  FNV1A f;
+  f.pump(data, n);
+  return f.get();
+}
+
 #endif
 

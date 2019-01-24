@@ -46,6 +46,9 @@ struct Expression : public Node
   {
     return false;
   }
+  //Hash this expression (for use in unordered map/set)
+  //Only hard requirement: if a == b, then hash(a) == hash(b)
+  virtual size_t hash() = 0;
   //get a unique tag for this expression type
   //just used for comparing/ordering Expressions
   virtual int getTypeTag() const = 0;
@@ -106,6 +109,13 @@ struct UnaryArith : public Expression
   {
     return true;
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(op);
+    f.pump(expr->hash());
+    return f.get();
+  }
   Expression* copy();
 };
 
@@ -138,6 +148,19 @@ struct BinaryArith : public Expression
   bool commutative()
   {
     return operCommutativeTable[op];
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    size_t lhsHash = lhs->hash();
+    size_t rhsHash = rhs->hash();
+    //Make sure that "a op b" and "b op a" hash the same if op is commutative
+    if(operCommutativeTable[op] && lhsHash > rhsHash)
+      swap(lhsHash, rhsHash);
+    f.pump(op);
+    f.pump(lhsHash);
+    f.pump(rhsHash);
+    return f.get();
   }
   Expression* copy();
 };
@@ -212,6 +235,15 @@ struct IntConstant : public Expression
   {
     return ((IntegerType*) type)->isSigned;
   }
+  size_t hash()
+  {
+    //This hash ignores underlying type - exprs
+    //will need to be compared exactly anyway
+    //and false positives are unlikely
+    if(((IntegerType*) type)->isSigned())
+      return fnv1a(sval);
+    return fnv1a(uval);
+  }
   int getTypeTag() const
   {
     return 2;
@@ -250,8 +282,9 @@ struct FloatConstant : public Expression
   }
   bool isDoublePrec() const
   {
-    return primitives[Prim::DOUBLE] == this->type;
+    return typesSame(primitives[Prim::DOUBLE], this->type);
   }
+  Expression* convert(Type* t);
   float fp;
   double dp;
   FloatConstant* binOp(int op, FloatConstant* rhs);
@@ -267,7 +300,12 @@ struct FloatConstant : public Expression
   {
     return ((FloatType*) type)->size;
   }
-  Expression* convert(Type* t);
+  size_t hash()
+  {
+    if(isDoublePrec())
+      return fnv1a(dp);
+    return fnv1a(fp);
+  }
   int getTypeTag() const
   {
     return 3;
@@ -306,6 +344,10 @@ struct StringConstant : public Expression
   {
     return 16 + value.length() + 1;
   }
+  size_t hash()
+  {
+    return fnv1a(value.c_str(), value.length());
+  }
   int getTypeTag() const
   {
     return 4;
@@ -338,6 +380,10 @@ struct CharConstant : public Expression
   {
     return true;
   }
+  size_t hash()
+  {
+    return fnv1a(value);
+  }
   int getTypeTag() const
   {
     return 5;
@@ -367,6 +413,15 @@ struct BoolConstant : public Expression
   int getConstantSize()
   {
     return 1;
+  }
+  size_t hash()
+  {
+    //don't use FNV-1a here since it's way more
+    //expensive than just doing exact comparison
+    if(value)
+      return 0x12345678;
+    else
+      return 0x98765432;
   }
   int getTypeTag() const
   {
@@ -406,6 +461,19 @@ struct MapConstant : public Expression
   {
     return false;
   }
+  size_t hash()
+  {
+    //the order of key-value pairs in values is deterministic,
+    //so use that to hash
+    FNV1A f;
+    f.pump(getTypeTag());
+    for(auto& kv : values)
+    {
+      f.pump(kv.first->hash());
+      f.pump(kv.second->hash());
+    }
+    return f.get();
+  }
   int getTypeTag() const
   {
     return 7;
@@ -432,6 +500,14 @@ struct UnionConstant : public Expression
   int getTypeTag() const
   {
     return 8;
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(option);
+    f.pump(value->hash());
+    return f.get();
   }
   Expression* copy();
   UnionType* unionType;
@@ -487,6 +563,14 @@ struct CompoundLiteral : public Expression
     }
     return false;
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    for(auto m : members)
+      f.pump(m->hash());
+    return f.get();
+  }
   bool isComputation()
   {
     for(auto m : members)
@@ -526,6 +610,14 @@ struct Indexed : public Expression
   bool isComputation()
   {
     return true;
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(group->hash());
+    f.pump(index->hash());
+    return f;
   }
   Expression* copy();
   set<Variable*> getReads();
@@ -567,6 +659,15 @@ struct CallExpr : public Expression
   {
     return true;
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(callable->hash());
+    for(auto a : args)
+      f.pump(a->hash());
+    return f.get();
+  }
   Expression* copy();
   //TODO: do evaluate calls in optimizing mode
   set<Variable*> getReads();
@@ -597,6 +698,11 @@ struct VarExpr : public Expression
   bool hasSideEffects()
   {
     return var->isGlobal();
+  }
+  size_t hash()
+  {
+    //variables are uniquely identifiable by pointer
+    return fnv1a(var);
   }
   Expression* copy();
   set<Variable*> getReads();
@@ -631,6 +737,14 @@ struct SubroutineExpr : public Expression
     //a().callMember() has side effects
     return thisObject && thisObject->hasSideEffects();
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(thisObject);
+    f.pump(subr);
+    f.pump(exSubr);
+    return f.get();
+  }
   Expression* copy();
   Subroutine* subr;
   ExternalSubroutine* exSubr;
@@ -638,33 +752,6 @@ struct SubroutineExpr : public Expression
 };
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
-
-struct UnresolvedExpr : public Expression
-{
-  UnresolvedExpr(string name, Scope* s);
-  UnresolvedExpr(Member* name, Scope* s);
-  UnresolvedExpr(Expression* base, Member* name, Scope* s);
-  Expression* base; //null = no base
-  Member* name;
-  Scope* usage;
-  bool assignable()
-  {
-    return false;
-  }
-  void resolveImpl()
-  {
-    INTERNAL_ERROR;
-  }
-  int getTypeTag() const
-  {
-    return 14;
-  }
-  Expression* copy()
-  {
-    INTERNAL_ERROR;
-    return nullptr;
-  }
-};
 
 struct StructMem : public Expression
 {
@@ -689,6 +776,16 @@ struct StructMem : public Expression
   {
     return base->hasSideEffects();
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(base->hash());
+    if(member.is<Variable*>())
+      f.pump(member.get<Variable*>());
+    else
+      f.pump(member.get<Subroutine*>());
+    return f.get();
+  }
   Expression* copy();
   set<Variable*> getReads();
   set<Variable*> getWrites();
@@ -705,6 +802,15 @@ struct NewArray : public Expression
   bool assignable()
   {
     return false;
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    for(auto d : dims)
+      f.pump(d->hash());
+    //can't hash the type
+    return f.get();
   }
   int getTypeTag() const
   {
@@ -731,6 +837,13 @@ struct ArrayLength : public Expression
   bool hasSideEffects()
   {
     return array->hasSideEffects();
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(array->hash());
+    return f.get();
   }
   bool isComputation()
   {
@@ -760,6 +873,14 @@ struct IsExpr : public Expression
   set<Variable*> getReads()
   {
     return base->getReads();
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(optionIndex);
+    f.pump(base->hash());
+    return f.get();
   }
   int getTypeTag() const
   {
@@ -801,6 +922,14 @@ struct AsExpr : public Expression
   {
     return base->getReads();
   }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(optionIndex);
+    f.pump(base->hash());
+    return f.get();
+  }
   int getTypeTag() const
   {
     return 19;
@@ -836,6 +965,11 @@ struct ThisExpr : public Expression
   {
     return 20;
   }
+  size_t hash()
+  {
+    //all ThisExprs are the same
+    return 0xDEADBEEF;
+  }
   Scope* usage;
   Expression* copy();
 };
@@ -847,6 +981,13 @@ struct Converted : public Expression
   bool assignable()
   {
     return value->assignable();
+  }
+  size_t hash()
+  {
+    FNV1A f;
+    f.pump(getTypeTag());
+    f.pump(value->hash());
+    return f.get();
   }
   int getTypeTag() const
   {
@@ -874,6 +1015,11 @@ struct EnumExpr : public Expression
   {
     return false;
   }
+  size_t hash()
+  {
+    //EnumConstants are names (unique, pointer-identifiable)
+    return fnv1a(value);
+  }
   bool constant()
   {
     return true;
@@ -891,6 +1037,10 @@ struct SimpleConstant : public Expression
 {
   SimpleConstant(SimpleType* s);
   SimpleType* st;
+  size_t hash()
+  {
+    return fnv1a(st);
+  }
   bool assignable()
   {
     return false;
@@ -908,6 +1058,39 @@ struct SimpleConstant : public Expression
 
 bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs);
 
+struct UnresolvedExpr : public Expression
+{
+  UnresolvedExpr(string name, Scope* s);
+  UnresolvedExpr(Member* name, Scope* s);
+  UnresolvedExpr(Expression* base, Member* name, Scope* s);
+  Expression* base; //null = no base
+  Member* name;
+  Scope* usage;
+  bool assignable()
+  {
+    return false;
+  }
+  void resolveImpl()
+  {
+    INTERNAL_ERROR;
+  }
+  int getTypeTag() const
+  {
+    return 14;
+  }
+  size_t hash()
+  {
+    //UnresolvedExpr does not appear in a resolved AST
+    INTERNAL_ERROR;
+    return 0;
+  }
+  Expression* copy()
+  {
+    INTERNAL_ERROR;
+    return nullptr;
+  }
+};
+
 void resolveExpr(Expression*& expr);
 
 //compare expressions by value/semantics (not by pointer)
@@ -916,6 +1099,14 @@ inline bool operator!=(const Expression& lhs, const Expression& rhs)
 {
   return !(lhs == rhs);
 }
+
+struct ExprHash
+{
+  size_t operator()(Expression* e)
+  {
+    return e->hash();
+  }
+};
 
 #endif
 

@@ -2,6 +2,62 @@
 
 using namespace CSE;
 
+bool CSElim::DefSet::insert(Variable* v, AssignIR* a)
+{
+  auto it = d.find(v);
+  if(it == d.end())
+  {
+    d[v] = a;
+    return true;
+  }
+  //Otherwise, replace existing (if different)
+  if(a == d[v])
+    return false;
+  d[v] = a;
+  return true;
+}
+
+bool CSElim::DefSet::intersect(Variable* v, AssignIR* a)
+{
+  auto it = d.find(v);
+  if(it != d.end() &&
+      !definitionsMatch(a, *it))
+  {
+    //definitions for v differ; remove existing.
+    d.erase(it);
+    return true;
+  }
+  //else: either definition matches existing, or there is no
+  //existing def (no change)
+  return false;
+}
+
+bool CSElim::DefSet::invalidate(Variable* v)
+{
+  auto it = d.find(v);
+  if(it != d.end())
+  {
+    d.erase(it);
+    return true;
+  }
+  return false;
+}
+
+bool CSElim::DefSet::defined(Variable* v)
+{
+  return d.find(v) != d.end();
+}
+
+Expression* CSElim::DefSet::getDef(Variable* v)
+{
+  return d[v]->src;
+}
+
+bool operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
+{
+  return std::equal(d1.d.begin(), d1.d.end(), d2.d.begin(), d2.d.end());
+}
+
 void cse(SubroutineIR* subr)
 {
   CSElim csElim(subr);
@@ -59,24 +115,8 @@ bool CSElim::definitionsMatch(AssignIR* def1, AssignIR* def2)
   return *(def1->src) == *(def2->src);
 }
 
-void CSElim::copyProp(Expression*& e, DefSet& defs)
+bool CSElim::replaceExpr(Expression*& e, DefSet& defs)
 {
-  if(auto var = dynamic_cast<VarExpr*>(e))
-  {
-    auto it = defs.find(var);
-    if(it != defs.end())
-    {
-    }
-  }
-  else if(auto ba = dynamic_cast<BinaryArith*>(e))
-  {
-  }
-}
-
-bool CSElim::elimComputation(AssignIR* a, DefSet& defs)
-{
-  //if a's RHS is nontrivial AND has no side effects,
-  //try to find a variable defined with the same value
 }
 
 void CSElim::transfer(AssignIR* a, DefSet& defs)
@@ -88,32 +128,63 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
   auto writeSet = a->dst->getWrites();
   INTERNAL_ASSERT(writeSet.size() == 1);
   Variable* w = *(writeSet.begin());
-  for(auto& def : defs)
   {
+    vector<Variable*> killedDefs;
+    for(auto& d : defs)
+    {
+      Expression* defRHS = d.second->src;
+      auto rhsReads = defRHS->getReads();
+      if(rhsReads.find(w) != rhsReads.end())
+        killedDefs.push_back(d.first);
+    }
+    for(auto k : killedDefs)
+    {
+      defs.erase(defs.find(k));
+    }
+  }
+  //Always kill the old definition of w
+  {
+    auto it = defs.find(w);
+    if(it != defs.end())
+      defs.erase(it);
+  }
+  //If w is fully defined (it alone is the LHS), make a new definition
+  //If w is partially assigned (a member or index) then can't do this
+  if(dynamic_cast<VarExpr*>(a->dst))
+  {
+    defs[w] = a->src;
   }
 }
 
-//Intersect all definition sets of bb's predecessors
-//Definitions must match exactly to be kept
-DefSet CSElim::meet(SubroutineIR* subr, int bb)
+//Get incoming definition set for a given block
+void CSElim::meet(SubroutineIR* subr, BasicBlock* b)
 {
-  DefSet d;
-  auto& defs = d.defs;
-  auto& blacklist = d.blacklist;
-  //Every node can have at most one immediate dominator (if there were > 1,
-  //each would represent a different path into the node so they don't dominate)
-  //
-  //So, start with the imm. dominator's def set if there is one.
-  //
-  //Then intersect defs with those of all incoming blocks (including self)
-  queue<BasicBlock*> processQ;
-  process.push(blocks[0]);
-  vector<bool> queued(blocks.size(), false);
-  queued[0] = true;
-  vector<int> intersectCounting(blocks.size());
-  while(processQ.size())
+  bool update = false;
+  int immDom = -1;
+  for(auto pred : b->in)
   {
+    if(pred != b && b->dom[pred->index])
+    {
+      immDom = pred->index;
+      break;
+    }
   }
-  return d;
+  DefSet& bDefs = definitions[b->index];
+  bDefs.d.clear();
+  //start with immediate dominator's definitions (if there is one)
+  if(immDom >= 0)
+  {
+    bDefs.d = definitions[immDom].d;
+  }
+  //intersect definitions of all predecessors into bDefs
+  //if a pred has no definition, this does nothing
+  for(auto pred : b->in)
+  {
+    for(auto& def : definitions[pred->index].d)
+    {
+      bDefs.intersect(def.first, def.second);
+    }
+  }
+  return bDefs;
 }
 
