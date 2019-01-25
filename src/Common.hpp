@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <stack>
 #include <queue>
@@ -24,6 +25,7 @@
 using std::string;
 using std::vector;
 using std::map;
+using std::unordered_map;
 using std::set;
 using std::stack;
 using std::queue;
@@ -120,7 +122,7 @@ void operator+=(vector<T>& lhs, const vector<T>& rhs)
 //https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 struct FNV1A
 {
-  FNV1A
+  FNV1A()
   {
     state = 14695981039346656037ULL;
   }

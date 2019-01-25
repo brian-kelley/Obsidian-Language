@@ -216,6 +216,13 @@ void BinaryArith::resolveImpl()
           lhs = new Converted(lhs, rtype);
         }
       }
+      //now, both types are identical
+      //check for map relational comparison (the only kind not supported)
+      bool relational = !(op == CMPEQ || op == CMPNEQ);
+      if(relational && lhs->type->isMap())
+      {
+        errMsgLoc(this, "maps can't be compared with the relational operators");
+      }
       break;
     }
     default: INTERNAL_ERROR;
@@ -244,7 +251,7 @@ bool operator==(const BinaryArith& ba1, const BinaryArith& ba2)
     return false;
   if(*ba1.lhs == *ba2.lhs && *ba1.rhs == *ba2.rhs)
     return true;
-  if(operCommutativeTable[op])
+  if(operCommutativeTable[ba1.op])
   {
     if(*ba1.lhs == *ba2.rhs && *ba1.rhs == *ba2.lhs)
       return true;
@@ -673,11 +680,6 @@ bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
   return lhs.value == rhs.value;
 }
 
-bool ExprCompare::operator()(const Expression* lhs, const Expression* rhs) const
-{
-  return *lhs < *rhs;
-}
-
 MapConstant::MapConstant(MapType* mt)
 {
   type = mt;
@@ -702,17 +704,12 @@ bool operator==(const MapConstant& lhs, const MapConstant& rhs)
   auto& r = rhs.values;
   if(l.size() != r.size())
     return false;
-  auto lhsIt = l.begin();
-  auto rhsIt = r.begin();
-  while(lhsIt != l.end())
+  //iterate through lhs elements, look up in rhs
+  for(auto lkv : l)
   {
-    if(lhsIt->first != rhsIt->first ||
-        lhsIt->second != rhsIt->second)
-    {
+    auto it = r.find(lkv.first);
+    if(it == r.end() || *lkv.second != *it->second)
       return false;
-    }
-    lhsIt++;
-    rhsIt++;
   }
   return true;
 }
@@ -1029,6 +1026,11 @@ void VarExpr::resolveImpl()
     }
   }
   resolved = true;
+}
+
+bool VarExpr::readsGlobals()
+{
+  return var->isGlobal();
 }
 
 set<Variable*> VarExpr::getReads()

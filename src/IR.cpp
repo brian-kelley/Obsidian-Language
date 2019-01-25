@@ -158,7 +158,7 @@ namespace IR
     if(blocks.size() == 0)
       return;
     queue<BasicBlock*> processQ;
-    process.push(blocks[0]);
+    processQ.push(blocks[0]);
     vector<bool> queued(blocks.size(), false);
     queued[0] = true;
     vector<int> intersectCounting(blocks.size());

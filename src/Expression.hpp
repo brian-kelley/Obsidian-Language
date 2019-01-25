@@ -6,57 +6,6 @@
 #include "AST.hpp"
 
 struct Expression;
-
-//expr must be resolved
-ostream& operator<<(ostream& os, Expression* expr);
-
-struct Expression : public Node
-{
-  Expression() : type(nullptr) {}
-  virtual void resolveImpl() {}
-  virtual set<Variable*> getReads()
-  {
-    return set<Variable*>();
-  }
-  virtual set<Variable*> getWrites()
-  {
-    return set<Variable*>();
-  }
-  Type* type;
-  //whether this works as an lvalue
-  virtual bool assignable() = 0;
-  //whether this is a compile-time constant
-  virtual bool constant()
-  {
-    return false;
-  }
-  //get the number of bytes required to store the constant
-  //(is 0 for non-constants)
-  virtual int getConstantSize()
-  {
-    return 0;
-  }
-  //Can evaluating this expr have side effects?
-  virtual bool hasSideEffects()
-  {
-    return false;
-  }
-  //Is it worth doing CSE on this?
-  virtual bool isComputation()
-  {
-    return false;
-  }
-  //Hash this expression (for use in unordered map/set)
-  //Only hard requirement: if a == b, then hash(a) == hash(b)
-  virtual size_t hash() = 0;
-  //get a unique tag for this expression type
-  //just used for comparing/ordering Expressions
-  virtual int getTypeTag() const = 0;
-  virtual Variable* getRootVariable() {INTERNAL_ERROR;}
-  //deep copy (must already be resolved)
-  virtual Expression* copy() = 0;
-};
-
 //Subclasses of Expression
 //Constants/literals
 struct IntConstant;
@@ -82,6 +31,101 @@ struct Converted;
 struct ThisExpr;
 struct UnresolvedExpr;
 
+//expr must be resolved
+ostream& operator<<(ostream& os, Expression* expr);
+
+struct Expression : public Node
+{
+  Expression() : type(nullptr) {}
+  virtual void resolveImpl() {}
+  virtual set<Variable*> getReads()
+  {
+    return set<Variable*>();
+  }
+  virtual set<Variable*> getWrites()
+  {
+    return set<Variable*>();
+  }
+  Type* type;
+  //whether this works as an lvalue
+  virtual bool assignable() = 0;
+  //whether this is a compile-time constant
+  virtual bool constant() const
+  {
+    return false;
+  }
+  //get the number of bytes required to store the constant
+  //(is 0 for non-constants)
+  virtual int getConstantSize()
+  {
+    return 0;
+  }
+  //Does this change global state?
+  //(call a proc)
+  virtual bool hasSideEffects()
+  {
+    return false;
+  }
+  //Does this read any globals?
+  //(call a proc or reference global)
+  virtual bool readsGlobals()
+  {
+    return false;
+  }
+  //Is it worth doing CSE on this?
+  virtual bool isComputation()
+  {
+    return false;
+  }
+  //Hash this expression (for use in unordered map/set)
+  //Only hard requirement: if a == b, then hash(a) == hash(b)
+  virtual size_t hash() const = 0;
+  //implementation of operator<, but only supported by
+  //constant expression types (minus MapConstant)
+  virtual bool compareLess(const Expression& rhs) const
+  {
+    INTERNAL_ERROR;
+  }
+  //get a unique tag for this expression type
+  //just used for comparing/ordering Expressions
+  virtual int getTypeTag() const = 0;
+  virtual Variable* getRootVariable() {INTERNAL_ERROR;}
+  //deep copy (must already be resolved)
+  virtual Expression* copy() = 0;
+};
+
+//compare expressions by value/semantics (not by pointer)
+bool operator==(const Expression& lhs, const Expression& rhs);
+inline bool operator!=(const Expression& lhs, const Expression& rhs)
+{
+  return !(lhs == rhs);
+}
+
+struct ExprEqual
+{
+  bool operator()(const Expression* lhs, const Expression* rhs) const
+  {
+    return *lhs == *rhs;
+  }
+};
+
+struct ExprHash
+{
+  size_t operator()(const Expression* e) const
+  {
+    return e->hash();
+  }
+};
+
+//support general relational comparison for expressions, but this is only
+//really implemented for constants (except MapConstant)
+bool operator<(const Expression& lhs, const Expression& rhs)
+{
+  INTERNAL_ASSERT(typesSame(lhs.type, rhs.type));
+  INTERNAL_ASSERT(lhs.constant() && rhs.constant());
+  return lhs.compareLess(rhs);
+}
+
 //Assuming expr is a struct type, get the struct scope
 //Otherwise, display relevant errors
 Scope* scopeForExpr(Expression* expr);
@@ -105,11 +149,15 @@ struct UnaryArith : public Expression
   {
     return expr->hasSideEffects();
   }
+  bool readsGlobals()
+  {
+    return expr->readsGlobals();
+  }
   bool isComputation()
   {
     return true;
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(op);
@@ -141,6 +189,10 @@ struct BinaryArith : public Expression
   {
     return lhs->hasSideEffects() || rhs->hasSideEffects();
   }
+  bool readsGlobals()
+  {
+    return lhs->readsGlobals() || rhs->readsGlobals();
+  }
   bool isComputation()
   {
     return true;
@@ -149,14 +201,14 @@ struct BinaryArith : public Expression
   {
     return operCommutativeTable[op];
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     size_t lhsHash = lhs->hash();
     size_t rhsHash = rhs->hash();
     //Make sure that "a op b" and "b op a" hash the same if op is commutative
     if(operCommutativeTable[op] && lhsHash > rhsHash)
-      swap(lhsHash, rhsHash);
+      std::swap(lhsHash, rhsHash);
     f.pump(op);
     f.pump(lhsHash);
     f.pump(rhsHash);
@@ -223,7 +275,7 @@ struct IntConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
   }
@@ -235,14 +287,22 @@ struct IntConstant : public Expression
   {
     return ((IntegerType*) type)->isSigned;
   }
-  size_t hash()
+  size_t hash() const
   {
     //This hash ignores underlying type - exprs
     //will need to be compared exactly anyway
     //and false positives are unlikely
-    if(((IntegerType*) type)->isSigned())
+    if(((IntegerType*) type)->isSigned)
       return fnv1a(sval);
     return fnv1a(uval);
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    const IntConstant& rhsInt = dynamic_cast<const IntConstant&>(rhs);
+    if(isSigned())
+      return sval < rhsInt.sval;
+    else
+      return uval < rhsInt.uval;
   }
   int getTypeTag() const
   {
@@ -292,15 +352,23 @@ struct FloatConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    const FloatConstant& rhsFloat = dynamic_cast<const FloatConstant&>(rhs);
+    if(isDoublePrec())
+      return dp < rhsFloat.dp;
+    else
+      return fp < rhsFloat.fp;
   }
   int getConstantSize()
   {
     return ((FloatType*) type)->size;
   }
-  size_t hash()
+  size_t hash() const
   {
     if(isDoublePrec())
       return fnv1a(dp);
@@ -336,15 +404,20 @@ struct StringConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    const StringConstant& rhsStr = dynamic_cast<const StringConstant&>(rhs);
+    return value < rhsStr.value;
   }
   int getConstantSize()
   {
     return 16 + value.length() + 1;
   }
-  size_t hash()
+  size_t hash() const
   {
     return fnv1a(value.c_str(), value.length());
   }
@@ -376,11 +449,16 @@ struct CharConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
   }
-  size_t hash()
+  bool compareLess(const Expression& rhs) const
+  {
+    const CharConstant& rhsChar = dynamic_cast<const CharConstant&>(rhs);
+    return value < rhsChar.value;
+  }
+  size_t hash() const
   {
     return fnv1a(value);
   }
@@ -406,7 +484,7 @@ struct BoolConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
   }
@@ -414,7 +492,12 @@ struct BoolConstant : public Expression
   {
     return 1;
   }
-  size_t hash()
+  bool compareLess(const Expression& rhs) const
+  {
+    const BoolConstant& b = dynamic_cast<const BoolConstant&>(rhs);
+    return !value && b.value;
+  }
+  size_t hash() const
   {
     //don't use FNV-1a here since it's way more
     //expensive than just doing exact comparison
@@ -432,18 +515,13 @@ struct BoolConstant : public Expression
 
 bool operator==(const CharConstant& lhs, const CharConstant& rhs);
 
-struct ExprCompare
-{
-  bool operator()(const Expression* lhs, const Expression* rhs) const;
-};
-
 //Map constant: hold set of constant key-value pairs
 //Relies on operator== and operator< for Expressions
 struct MapConstant : public Expression
 {
   MapConstant(MapType* mt);
-  map<Expression*, Expression*, ExprCompare> values;
-  bool constant()
+  unordered_map<Expression*, Expression*, ExprHash, ExprEqual> values;
+  bool constant() const
   {
     return true;
   }
@@ -461,7 +539,7 @@ struct MapConstant : public Expression
   {
     return false;
   }
-  size_t hash()
+  size_t hash() const
   {
     //the order of key-value pairs in values is deterministic,
     //so use that to hash
@@ -493,7 +571,7 @@ struct UnionConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
   }
@@ -501,7 +579,16 @@ struct UnionConstant : public Expression
   {
     return 8;
   }
-  size_t hash()
+  bool compareLess(const Expression& rhs) const
+  {
+    const UnionConstant& u = dynamic_cast<const UnionConstant&>(rhs);
+    if(option < u.option)
+      return true;
+    else if(option > u.option)
+      return false;
+    return value->compareLess(*u.value);
+  }
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -532,7 +619,7 @@ struct CompoundLiteral : public Expression
   bool lvalue;
   set<Variable*> getReads();
   set<Variable*> getWrites();
-  bool constant()
+  bool constant() const
   {
     for(auto m : members)
     {
@@ -563,7 +650,30 @@ struct CompoundLiteral : public Expression
     }
     return false;
   }
-  size_t hash()
+  bool readsGlobals()
+  {
+    for(auto m : members)
+    {
+      if(m->readsGlobals())
+        return true;
+    }
+    return false;
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    const CompoundLiteral& cl = dynamic_cast<const CompoundLiteral&>(rhs);
+    //lex compare
+    size_t n = std::min(members.size(), cl.members.size());
+    for(size_t i = 0; i < n; i++)
+    {
+      if(members[i]->compareLess(*cl.members[i]))
+        return true;
+      else if(*members[i] != *cl.members[i])
+        return false;
+    }
+    return n == members.size();
+  }
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -607,17 +717,21 @@ struct Indexed : public Expression
   {
     return group->hasSideEffects() || index->hasSideEffects();
   }
+  bool readsGlobals()
+  {
+    return group->readsGlobals() || index->readsGlobals();
+  }
   bool isComputation()
   {
     return true;
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
     f.pump(group->hash());
     f.pump(index->hash());
-    return f;
+    return f.get();
   }
   Expression* copy();
   set<Variable*> getReads();
@@ -640,10 +754,14 @@ struct CallExpr : public Expression
   {
     return 11;
   }
+  bool isProc()
+  {
+    return ((CallableType*) callable->type)->isProc();
+  }
   bool hasSideEffects()
   {
     //All procs are assumed to have side effects
-    if(((CallableType*) callable->type)->isProc())
+    if(isProc())
       return true;
     //The callable expr itself may also have side effects
     if(callable->hasSideEffects())
@@ -655,11 +773,25 @@ struct CallExpr : public Expression
     }
     return false;
   }
+  bool readsGlobals()
+  {
+    //All procs are assumed to read globals
+    if(isProc())
+      return true;
+    if(callable->readsGlobals())
+      return true;
+    for(auto a : args)
+    {
+      if(a->readsGlobals())
+        return true;
+    }
+    return false;
+  }
   bool isComputation()
   {
     return true;
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -697,9 +829,10 @@ struct VarExpr : public Expression
   }
   bool hasSideEffects()
   {
-    return var->isGlobal();
+    return false;
   }
-  size_t hash()
+  bool readsGlobals();
+  size_t hash() const
   {
     //variables are uniquely identifiable by pointer
     return fnv1a(var);
@@ -723,7 +856,7 @@ struct SubroutineExpr : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
   }
@@ -737,7 +870,11 @@ struct SubroutineExpr : public Expression
     //a().callMember() has side effects
     return thisObject && thisObject->hasSideEffects();
   }
-  size_t hash()
+  bool readsGlobals()
+  {
+    return thisObject && thisObject->readsGlobals();
+  }
+  size_t hash() const
   {
     FNV1A f;
     f.pump(thisObject);
@@ -776,7 +913,15 @@ struct StructMem : public Expression
   {
     return base->hasSideEffects();
   }
-  size_t hash()
+  bool readsGlobals()
+  {
+    return base->readsGlobals();
+  }
+  bool isComputation()
+  {
+    return true;
+  }
+  size_t hash() const
   {
     FNV1A f;
     f.pump(base->hash());
@@ -803,7 +948,7 @@ struct NewArray : public Expression
   {
     return false;
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -838,7 +983,11 @@ struct ArrayLength : public Expression
   {
     return array->hasSideEffects();
   }
-  size_t hash()
+  bool readsGlobals()
+  {
+    return array->readsGlobals();
+  }
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -874,7 +1023,7 @@ struct IsExpr : public Expression
   {
     return base->getReads();
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -889,6 +1038,10 @@ struct IsExpr : public Expression
   bool hasSideEffects()
   {
     return base->hasSideEffects();
+  }
+  bool readsGlobals()
+  {
+    return base->readsGlobals();
   }
   bool isComputation()
   {
@@ -922,7 +1075,7 @@ struct AsExpr : public Expression
   {
     return base->getReads();
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -937,6 +1090,10 @@ struct AsExpr : public Expression
   bool hasSideEffects()
   {
     return base->hasSideEffects();
+  }
+  bool readsGlobals()
+  {
+    return base->readsGlobals();
   }
   bool isComputation()
   {
@@ -965,7 +1122,10 @@ struct ThisExpr : public Expression
   {
     return 20;
   }
-  size_t hash()
+  //note here: ThisExpr can read/write globals if "this"
+  //is a global, but that can only be done through a proc all on
+  //a global object. So it's safe to assume "this" is  
+  size_t hash() const
   {
     //all ThisExprs are the same
     return 0xDEADBEEF;
@@ -982,7 +1142,7 @@ struct Converted : public Expression
   {
     return value->assignable();
   }
-  size_t hash()
+  size_t hash() const
   {
     FNV1A f;
     f.pump(getTypeTag());
@@ -996,6 +1156,10 @@ struct Converted : public Expression
   bool hasSideEffects()
   {
     return value->hasSideEffects();
+  }
+  bool readsGlobals()
+  {
+    return value->readsGlobals();
   }
   bool isComputation()
   {
@@ -1015,14 +1179,21 @@ struct EnumExpr : public Expression
   {
     return false;
   }
-  size_t hash()
+  size_t hash() const
   {
     //EnumConstants are names (unique, pointer-identifiable)
     return fnv1a(value);
   }
-  bool constant()
+  bool constant() const
   {
     return true;
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    const EnumExpr& e = dynamic_cast<const EnumExpr&>(rhs);
+    if(value->et->underlying->isSigned)
+      return value->sval < e.value->sval;
+    return value->uval < e.value->uval;
   }
   int getTypeTag() const
   {
@@ -1037,7 +1208,7 @@ struct SimpleConstant : public Expression
 {
   SimpleConstant(SimpleType* s);
   SimpleType* st;
-  size_t hash()
+  size_t hash() const
   {
     return fnv1a(st);
   }
@@ -1045,9 +1216,13 @@ struct SimpleConstant : public Expression
   {
     return false;
   }
-  bool constant()
+  bool constant() const
   {
     return true;
+  }
+  bool compareLess(const Expression& rhs) const
+  {
+    return false;
   }
   int getTypeTag() const
   {
@@ -1078,7 +1253,7 @@ struct UnresolvedExpr : public Expression
   {
     return 14;
   }
-  size_t hash()
+  size_t hash() const
   {
     //UnresolvedExpr does not appear in a resolved AST
     INTERNAL_ERROR;
@@ -1092,21 +1267,6 @@ struct UnresolvedExpr : public Expression
 };
 
 void resolveExpr(Expression*& expr);
-
-//compare expressions by value/semantics (not by pointer)
-bool operator==(const Expression& lhs, const Expression& rhs);
-inline bool operator!=(const Expression& lhs, const Expression& rhs)
-{
-  return !(lhs == rhs);
-}
-
-struct ExprHash
-{
-  size_t operator()(Expression* e)
-  {
-    return e->hash();
-  }
-};
 
 #endif
 

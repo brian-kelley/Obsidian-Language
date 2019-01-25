@@ -5,15 +5,17 @@ using namespace CSE;
 bool CSElim::DefSet::insert(Variable* v, AssignIR* a)
 {
   auto it = d.find(v);
-  if(it == d.end())
-  {
-    d[v] = a;
-    return true;
-  }
-  //Otherwise, replace existing (if different)
-  if(a == d[v])
+  if(it != d.end() && *it == a)
     return false;
   d[v] = a;
+  {
+    //Don't overwrite "avail" variables -
+    //older definitions are better for CSE
+    //(stabilizes in fewer iterations)
+    auto it2 = avail.find(a->src);
+    if(it2 == avail.end())
+      avail[a->src] = v;
+  }
   return true;
 }
 
@@ -37,7 +39,9 @@ bool CSElim::DefSet::invalidate(Variable* v)
   auto it = d.find(v);
   if(it != d.end())
   {
+    Expression* def = it->second->src;
     d.erase(it);
+    avail.erase(avail.find(def));
     return true;
   }
   return false;
@@ -53,7 +57,17 @@ Expression* CSElim::DefSet::getDef(Variable* v)
   return d[v]->src;
 }
 
-bool operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
+Variable* CSElim::DefSet::varForExpr(Expression* e)
+{
+  auto it = avail.find(e);
+  if(it != avail.end())
+  {
+    return it->second;
+  }
+  return nullptr;
+}
+
+bool CSElim::operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
 {
   return std::equal(d1.d.begin(), d1.d.end(), d2.d.begin(), d2.d.end());
 }
@@ -65,49 +79,22 @@ void cse(SubroutineIR* subr)
 
 CSElim::CSElim(SubroutineIR* subr)
 {
+  if(blocks.size() == 0)
+    return;
   int numBlocks = subr->blocks.size();
   vector<DefSet> definitions(numBlocks);
-  //Go through each BB and record local definitions
-  //(value of variables at block exit).
-  //While going through the block, do local CSE and copy prop:
-  //if X is read and there is a known definition of X, replace
-  for(int i = 0; i < numBlocks; i++)
+  queue<BasicBlock*> processQ;
+  process.push(blocks[0]);
+  vector<bool> queued(blocks.size(), false);
+  queued[0] = true;
+  vector<int> intersectCounting(blocks.size());
+  while(processQ.size())
   {
-    BasicBlock* block = subr->blocks[i];
-    auto& defs = definitions[i];
-    for(int j = block->start; j < block->end; j++)
-    {
-      //replace all non-write refs to vars whose definitions are vars
-      if(auto assign = dynamic_cast<AssignIR*>(subr->stmts[j]))
-      {
-        //get the variable set that are written by the assign
-        //(in the IR, there should always be exactly 1)
-        auto writes = assign->dst->getWrites();
-        INTERNAL_ASSERT(writes.size() == 1);
-        Variable* written = *(writes.begin());
-        //CSE only deals with local variables
-        if(written->isLocal())
-        {
-          if(VarExpr* varDest = dynamic_cast<VarExpr*>(assign->dst))
-          {
-            defs[written] = assign->dst;
-          }
-          else
-          {
-            //some member or element of written is actually being changed,
-            //forcing the invalidation of the entire previous definition
-            auto it = defs.find(written);
-            if(it != defs.end())
-              defs.remove(it);
-          }
-        }
-      }
-    }
+    BasicBlock* process = processQ.front();
+    processQ.pop();
+    auto procInd = process->index;
+    queued[procInd] = false;
   }
-  //Do dataflow analysis (whole CFG).
-  //Initially, intersect all incoming definition sets and then
-  //replace definitions that change in the block.
-  //Iterate this until all DefSets stabilize.
 }
 
 bool CSElim::definitionsMatch(AssignIR* def1, AssignIR* def2)
@@ -117,6 +104,61 @@ bool CSElim::definitionsMatch(AssignIR* def1, AssignIR* def2)
 
 bool CSElim::replaceExpr(Expression*& e, DefSet& defs)
 {
+  Variable* var = defs.varForExpr(e);
+  if(var)
+  {
+    e = new VarExpr(var);
+    e->resolve();
+    return true;
+  }
+  bool update = false;
+  //otherwise, try all subexpressions
+  if(auto ua = dynamic_cast<UnaryArith*>(e))
+  {
+    update = replaceExpr(ua->expr);
+  }
+  else if(auto ba = dynamic_cast<BinaryArith*>(e))
+  {
+    update = replaceExpr(ba->lhs);
+    update = replaceExpr(ba->rhs) || update;
+  }
+  else if(auto cl = dynamic_cast<CompoundLiteral*>(e))
+  {
+    for(auto& m : cl->members)
+    {
+      update = replaceExpr(m) || update;
+    }
+  }
+  else if(auto ind = dynamic_cast<Indexed*>(e))
+  {
+    update = replaceExpr(ind->group);
+    update = replaceExpr(ind->index) || update;
+  }
+  else if(auto al = dynamic_cast<ArrayLength*>(e))
+  {
+    update = replaceExpr(al->array);
+  }
+  else if(auto as = dynamic_cast<AsExpr*>(e))
+  {
+    update = replaceExpr(as->base);
+  }
+  else if(auto is = dynamic_cast<IsExpr*>(e))
+  {
+    update = replaceExpr(is->base);
+  }
+  else if(auto call = dynamic_cast<CallExpr*>(e))
+  {
+    update = replaceExpr(call->callable);
+    for(auto& a : call->args)
+    {
+      update = replaceExpr(a) || update;
+    }
+  }
+  else if(auto conv = dynamic_cast<Converted*>(e))
+  {
+    update = replaceExpr(conv->value);
+  }
+  return update;
 }
 
 void CSElim::transfer(AssignIR* a, DefSet& defs)
@@ -128,19 +170,20 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
   auto writeSet = a->dst->getWrites();
   INTERNAL_ASSERT(writeSet.size() == 1);
   Variable* w = *(writeSet.begin());
+  //for now, only keeping defs of locals
+  if(!w->isLocal())
+    return;
+  vector<Variable*> killedDefs;
+  for(auto& d : defs)
   {
-    vector<Variable*> killedDefs;
-    for(auto& d : defs)
-    {
-      Expression* defRHS = d.second->src;
-      auto rhsReads = defRHS->getReads();
-      if(rhsReads.find(w) != rhsReads.end())
-        killedDefs.push_back(d.first);
-    }
-    for(auto k : killedDefs)
-    {
-      defs.erase(defs.find(k));
-    }
+    Expression* defRHS = d.second->src;
+    auto rhsReads = defRHS->getReads();
+    if(rhsReads.find(w) != rhsReads.end())
+      killedDefs.push_back(d.first);
+  }
+  for(auto k : killedDefs)
+  {
+    defs.erase(defs.find(k));
   }
   //Always kill the old definition of w
   {
@@ -154,6 +197,10 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
   {
     defs[w] = a->src;
   }
+}
+
+void CSElim::transferSideEffects(DefSet& defs)
+{
 }
 
 //Get incoming definition set for a given block
