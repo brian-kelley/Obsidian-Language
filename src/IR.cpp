@@ -503,8 +503,7 @@ namespace IR
     {
       //expand uc's value (it may or may not be a constant)
       uc->value = expandExpression(uc->value);
-      if(uc->value->constant())
-        e = generateTemp(uc);
+      e = generateTemp(uc);
     }
     else if(auto na = dynamic_cast<NewArray*>(e))
     {

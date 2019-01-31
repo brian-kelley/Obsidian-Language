@@ -2,36 +2,24 @@
 
 using namespace CSE;
 
-bool CSElim::DefSet::insert(Variable* v, AssignIR* a)
+void CSElim::DefSet::insert(Variable* v, AssignIR* a)
 {
-  auto it = d.find(v);
-  if(it != d.end() && *it == a)
-    return false;
   d[v] = a;
-  {
-    //Don't overwrite "avail" variables -
-    //older definitions are better for CSE
-    //(stabilizes in fewer iterations)
-    auto it2 = avail.find(a->src);
-    if(it2 == avail.end())
-      avail[a->src] = v;
-  }
-  return true;
+  //Insert the avail expression entry too, but don't overwrite
+  auto it = avail.find(a->src);
+  if(it == avail.end())
+    avail[a->src] = v;
 }
 
 bool CSElim::DefSet::intersect(Variable* v, AssignIR* a)
 {
   auto it = d.find(v);
   if(it != d.end() &&
-      !definitionsMatch(a, *it))
+      *a->src, *it->src)
   {
     //definitions for v differ; remove existing.
     d.erase(it);
-    return true;
   }
-  //else: either definition matches existing, or there is no
-  //existing def (no change)
-  return false;
 }
 
 bool CSElim::DefSet::invalidate(Variable* v)
@@ -42,9 +30,16 @@ bool CSElim::DefSet::invalidate(Variable* v)
     Expression* def = it->second->src;
     d.erase(it);
     avail.erase(avail.find(def));
-    return true;
+    //check if def is available from another variable
+    for(auto& remain : d)
+    {
+      if(*remain.second->src == *def)
+      {
+        avail[def] = remain.first;
+        break;
+      }
+    }
   }
-  return false;
 }
 
 bool CSElim::DefSet::defined(Variable* v)
@@ -52,24 +47,42 @@ bool CSElim::DefSet::defined(Variable* v)
   return d.find(v) != d.end();
 }
 
+void CSElim::DefSet::clear()
+{
+  d.clear();
+  avail.clear();
+}
+
 Expression* CSElim::DefSet::getDef(Variable* v)
 {
-  return d[v]->src;
+  auto it = d.find(v);
+  if(it == d.end())
+    return nullptr;
+  return it->second->src;
 }
 
 Variable* CSElim::DefSet::varForExpr(Expression* e)
 {
   auto it = avail.find(e);
-  if(it != avail.end())
-  {
-    return it->second;
-  }
-  return nullptr;
+  if(it == avail.end())
+    return nullptr;
+  return it->second;
 }
 
 bool CSElim::operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
 {
-  return std::equal(d1.d.begin(), d1.d.end(), d2.d.begin(), d2.d.end());
+  if(d1.d.size() != d2.d.size())
+    return false;
+  if(d1.avail.size() != d2.avail.size())
+    return false;
+  for(auto& def : d1.d)
+  {
+    auto it2 = d2.d.find(def.first);
+    if(it2 == d2.d.end() || def.second != it2->second)
+      return false;
+  }
+  //don't need to check avail - it's just an inverse mapping
+  return true;
 }
 
 void cse(SubroutineIR* subr)
@@ -78,28 +91,81 @@ void cse(SubroutineIR* subr)
 }
 
 CSElim::CSElim(SubroutineIR* subr)
+  : definitions(subr->blocks.size())
 {
   if(blocks.size() == 0)
     return;
-  int numBlocks = subr->blocks.size();
-  vector<DefSet> definitions(numBlocks);
-  queue<BasicBlock*> processQ;
-  process.push(blocks[0]);
-  vector<bool> queued(blocks.size(), false);
-  queued[0] = true;
-  vector<int> intersectCounting(blocks.size());
-  while(processQ.size())
+  //CSE iterates until the IR fully stabilizes
+  //(all opportunities to eliminate computations are done)
+  bool generalUpdate = false;
+  int passes = 0;
+  do
   {
-    BasicBlock* process = processQ.front();
-    processQ.pop();
-    auto procInd = process->index;
-    queued[procInd] = false;
+    for(auto& defSet : definitions)
+    {
+      defSet.clear();
+    }
+    generalUpdate = false;
+    //First phase: compute the set of definitely-available definitions
+    //at the END of each BB
+    //This process runs until all def sets stabilize.
+    //Changes to one def set require recomputing all successors.
+    //Can't do any replacements yet.
+    queue<BasicBlock*> processQ;
+    process.push(blocks[0]);
+    vector<bool> queued(blocks.size(), false);
+    queued[0] = true;
+    while(processQ.size())
+    {
+      BasicBlock* process = processQ.front();
+      processQ.pop();
+      auto procInd = process->index;
+      queued[procInd] = false;
+      auto& procDefs = definitions[procInd];
+      //Deep copy the def set (need to check for updates)
+      DefSet oldDefs = procDefs;
+      procDefs.clear();
+      //take defs from imm. dom, and intersect other preds
+      meet(subr, process);
+      //apply transfer function for each statement in process
+      for(int i = process->start; i < process->end; i++)
+      {
+        //Exprs with side effects are only allowed as RHS of an assignment, and EvalIR
+        if(auto assign = dynamic_cast<AssignIR*>(subr->stmts[i]))
+        {
+          transfer(assign, procDefs);
+          if(assign->src->hasSideEffects())
+            transferSideEffects(procDefs);
+        }
+        else if(auto eval = dynamic_cast<EvalIR*>(subr->stmts[i]))
+        {
+          //if eval has no side effects, might as well delete it now
+          if(eval->eval->hasSideEffects())
+            transferSideEffects(procDefs);
+          else
+            subr->stmts[i] = Nop::nop;
+        }
+      }
+      if(oldDefs != procDefs)
+      {
+        //mark all successors for processing
+        for(auto succ : process->out)
+        {
+          if(!queued[succ->index])
+          {
+            queued[succ->index] = true;
+            processQ.push(succ);
+          }
+        }
+      }
+    }
+    //now, have up-to-date avail sets
+    //do CSE (sequentially per block)
+    passes++;
   }
-}
-
-bool CSElim::definitionsMatch(AssignIR* def1, AssignIR* def2)
-{
-  return *(def1->src) == *(def2->src);
+  while(generalUpdate);
+  cout << "  Did CSE on " << subr->name << " in " << passes << " passes.\n";
+  int numBlocks = subr->blocks.size();
 }
 
 bool CSElim::replaceExpr(Expression*& e, DefSet& defs)
@@ -107,6 +173,7 @@ bool CSElim::replaceExpr(Expression*& e, DefSet& defs)
   Variable* var = defs.varForExpr(e);
   if(var)
   {
+    //e has already been computed, so replace it
     e = new VarExpr(var);
     e->resolve();
     return true;
@@ -171,8 +238,6 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
   INTERNAL_ASSERT(writeSet.size() == 1);
   Variable* w = *(writeSet.begin());
   //for now, only keeping defs of locals
-  if(!w->isLocal())
-    return;
   vector<Variable*> killedDefs;
   for(auto& d : defs)
   {
@@ -183,30 +248,44 @@ void CSElim::transfer(AssignIR* a, DefSet& defs)
   }
   for(auto k : killedDefs)
   {
-    defs.erase(defs.find(k));
+    defs.invalidate(k);
   }
-  //Always kill the old definition of w
-  {
-    auto it = defs.find(w);
-    if(it != defs.end())
-      defs.erase(it);
-  }
+  //And kill the old definition of w
+  defs.invalidate(w);
   //If w is fully defined (it alone is the LHS), make a new definition
-  //If w is partially assigned (a member or index) then can't do this
+  //If w is partially assigned (only a member or index changing),
+  //then can't store a definition
   if(dynamic_cast<VarExpr*>(a->dst))
   {
-    defs[w] = a->src;
+    defs.insert(w, a->src);
   }
+  return update;
 }
 
-void CSElim::transferSideEffects(DefSet& defs)
+bool CSElim::transferSideEffects(DefSet& defs)
 {
+  //remove all definitions that read or write a global
+  for(auto it = defs.d.begin(); it != defs.d.end();)
+  {
+    Expression* rhs = it->second->src;
+    if(rhs->readsGlobals())
+    {
+      //need to delete this definition,
+      //and corresponding expression-lookup entry (if any)
+      if(avail.find(rhs))
+        avail.erase(rhs);
+      defs.d.erase(it++);
+    }
+    else
+    {
+      it++;
+    }
+  }
 }
 
 //Get incoming definition set for a given block
 void CSElim::meet(SubroutineIR* subr, BasicBlock* b)
 {
-  bool update = false;
   int immDom = -1;
   for(auto pred : b->in)
   {
@@ -217,21 +296,24 @@ void CSElim::meet(SubroutineIR* subr, BasicBlock* b)
     }
   }
   DefSet& bDefs = definitions[b->index];
-  bDefs.d.clear();
-  //start with immediate dominator's definitions (if there is one)
+  //start by inserting immediate dominator's definitions (if there is one)
   if(immDom >= 0)
   {
-    bDefs.d = definitions[immDom].d;
-  }
-  //intersect definitions of all predecessors into bDefs
-  //if a pred has no definition, this does nothing
-  for(auto pred : b->in)
-  {
-    for(auto& def : definitions[pred->index].d)
+    auto& domDefs = definitions[immDom].d;
+    for(auto& d : domDefs)
     {
-      bDefs.intersect(def.first, def.second);
+      bDefs.insert(d.first, d.second);
     }
   }
-  return bDefs;
+  //then intersect definitions of all predecessors into bDefs
+  //if a pred has no definition for a variable, do nothing
+  for(auto pred : b->in)
+  {
+    auto& predDefs = definitions[pred->index].d;
+    for(auto& d : predDefs)
+    {
+      bDefs.intersect(d.first, d.second);
+    }
+  }
 }
 
