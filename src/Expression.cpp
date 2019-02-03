@@ -1702,6 +1702,13 @@ void resolveExpr(Expression*& expr)
   INTERNAL_ASSERT(base->resolved);
 }
 
+bool operator<(const Expression& lhs, const Expression& rhs)
+{
+  INTERNAL_ASSERT(typesSame(lhs.type, rhs.type));
+  INTERNAL_ASSERT(lhs.constant() && rhs.constant());
+  return lhs.compareLess(rhs);
+}
+
 bool operator==(const Expression& l, const Expression& r)
 {
   const Expression* lhs = &l;

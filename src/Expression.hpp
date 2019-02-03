@@ -119,16 +119,7 @@ struct ExprHash
 
 //support general relational comparison for expressions, but this is only
 //really implemented for constants (except MapConstant)
-bool operator<(const Expression& lhs, const Expression& rhs)
-{
-  INTERNAL_ASSERT(typesSame(lhs.type, rhs.type));
-  INTERNAL_ASSERT(lhs.constant() && rhs.constant());
-  return lhs.compareLess(rhs);
-}
-
-//Assuming expr is a struct type, get the struct scope
-//Otherwise, display relevant errors
-Scope* scopeForExpr(Expression* expr);
+bool operator<(const Expression& lhs, const Expression& rhs);
 
 struct UnaryArith : public Expression
 {

@@ -6,6 +6,7 @@
 #include "ConstantProp.hpp"
 #include "DeadCodeElim.hpp"
 #include "JumpThreading.hpp"
+#include "CSElim.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -62,6 +63,7 @@ namespace IR
         update = simplifyCFG(s.second) || update;
         sweeps++;
       }
+      cse(s.second);
       cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
     }
     IRDebug::dumpIR("optimized.dot");

@@ -20,7 +20,7 @@ namespace IR
 {
   struct StatementIR;
   struct AssignIR;
-  struct CallIR;
+  struct EvalIR;
   struct Jump;
   struct CondJump;
   struct Label;

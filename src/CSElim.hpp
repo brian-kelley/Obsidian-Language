@@ -8,12 +8,12 @@
 using IR::SubroutineIR;
 using IR::StatementIR;
 using IR::AssignIR;
+using IR::BasicBlock;
 
 void cse(SubroutineIR* subr);
 
-struct CSElim
+namespace CSElim
 {
-  CSElim(SubroutineIR* subr);
   struct DefSet
   {
     //Update functions return true if changes are made.
@@ -35,18 +35,19 @@ struct CSElim
     //set of expressions that are the definition of some variable
     unordered_map<Expression*, Variable*, ExprHash, ExprEqual> avail;
   };
-  static bool operator==(const DefSet& d1, const DefSet& d2);
-  //All definitions (one per basic block)
-  vector<DefSet> definitions;
   //Attempt to replace e (or a subexpression) with a
   //VarExpr whose current definition is the same.
   //Return true if any changes are made.
   bool replaceExpr(Expression*& e, DefSet& defs);
   //Transfer function: process effects of the assignment
-  bool transfer(AssignIR* a, DefSet& defs);
+  void transfer(AssignIR* a, DefSet& defs);
   //Kill all definitions that read a global 
-  bool transferSideEffects(DefSet& defs);
+  void transferSideEffects(DefSet& defs);
   //Update incoming def set for b (uses "definitions")
-  void meet(SubroutineIR* subr, BasicBlock* b);
+  //Return the new definition set
+  DefSet meet(vector<DefSet>& definitions, SubroutineIR* subr, BasicBlock* b);
 };
+
+bool operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2);
+bool operator!=(const CSElim::DefSet& d1, const CSElim::DefSet& d2);
 
