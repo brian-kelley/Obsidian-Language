@@ -43,30 +43,24 @@ namespace IR
 
   void optimizeIR()
   {
-    IRDebug::dumpIR("unoptimized.dot");
+    IRDebug::dumpIR("IR/0-unoptimized.dot");
     findGlobalConstants();
     for(auto& s : ir)
-    {
       constantFold(s.second);
-      int sweeps = 0;
-      bool update = true;
-      while(update)
-      {
-        update = false;
-        //this does 3 things:
-        //  -determine when variables have constant, known values
-        //  -replace VarExprs with their values, when possible
-        //  -fold arithmetic, conversion and indexing operations on constants
-        update = constantPropagation(s.first) || update;
-        //update = jumpThreading(s.second) || update;
-        update = deadCodeElim(s.second) || update;
-        update = simplifyCFG(s.second) || update;
-        sweeps++;
-      }
+    IRDebug::dumpIR("IR/1-folded.dot");
+    for(auto& s : ir)
+      constantPropagation(s.first);
+    IRDebug::dumpIR("IR/2-propagation.dot");
+    for(auto& s : ir)
+      deadCodeElim(s.second);
+    IRDebug::dumpIR("IR/3-dce.dot");
+    for(auto& s : ir)
+      simplifyCFG(s.second);
+    IRDebug::dumpIR("IR/4-simplified.dot");
+    for(auto& s : ir)
       cse(s.second);
-      cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
-    }
-    IRDebug::dumpIR("optimized.dot");
+    IRDebug::dumpIR("IR/5-optimized.dot");
+    //cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
   }
 
   //addStatement() will save, modify and restore these as needed
@@ -157,13 +151,19 @@ namespace IR
 
   void SubroutineIR::solveDominators()
   {
-    if(blocks.size() == 0)
+    auto n = blocks.size();
+    if(n == 0)
       return;
     queue<BasicBlock*> processQ;
-    processQ.push(blocks[0]);
-    vector<bool> queued(blocks.size(), false);
-    queued[0] = true;
-    vector<int> intersectCounting(blocks.size());
+    //process each block at least once
+    for(size_t i = 0; i < n; i++)
+      processQ.push(blocks[i]);
+    vector<bool> queued(n, true);
+    //make sure dominator sets are allocated in each block
+    for(auto& b : blocks)
+    {
+      b->dom.resize(n);
+    }
     while(processQ.size())
     {
       BasicBlock* process = processQ.front();
@@ -173,32 +173,23 @@ namespace IR
       //need to save dominator set to test if any changes happen
       //it's a dense bitset so this is cheap
       auto savedDom = process->dom;
-      //Process includes the intersection of dominator sets
-      //of predecessors. Doesn't apply to entry block.
-      //process's dominator set is about to be recomputed, so clear it
-      for(size_t i = 0; i < blocks.size(); i++)
+      if(procInd == 0)
       {
-        process->dom[i] = false;
+        //nothing dominates first block except itself
+        for(size_t i = 0; i < n; i++)
+          process->dom[procInd] = false;
+        process->dom[procInd] = true;
       }
-      if(procInd != 0)
+      else
       {
-        for(size_t i = 0; i < blocks.size(); i++)
-          intersectCounting[i] = 0;
+        //intersect dominators of all incoming blocks
+        for(size_t i = 0; i < n; i++)
+          process->dom[i] = true;
         for(auto pred : process->in)
         {
-          for(size_t i = 0; i < blocks.size(); i++)
-          {
-            if(pred->dom[i])
-              intersectCounting[i]++;
-          }
+          for(size_t i = 0; i < n; i++)
+            process->dom[i] = process->dom[i] && pred->dom[i];
         }
-        //If intersectCounting[i] matches # predecessors, i is in the intersection
-        for(size_t i = 0; i < blocks.size(); i++)
-        {
-          if(intersectCounting[i] == process->in.size())
-            process->dom[i] = true;
-        }
-        //finally, blocks always dominate themselves
         process->dom[procInd] = true;
         //if any updates happened...
         if(process->dom != savedDom)
@@ -215,6 +206,17 @@ namespace IR
               processQ.push(succ);
             }
           }
+        }
+      }
+    }
+    cout << "Found dominators in " << subr->name << '\n';
+    for(int i = 0; i < blocks.size(); i++)
+    {
+      for(int j = 0; j < blocks.size(); j++)
+      {
+        if(blocks[i]->dom[j])
+        {
+          cout << "  " << j << " dominates " << i << "\n";
         }
       }
     }
@@ -380,7 +382,7 @@ namespace IR
     }
     else if(auto ev = dynamic_cast<EvalIR*>(s))
     {
-      expandExpression(ev->eval);
+      ev->eval = expandExpression(ev->eval);
     }
     else if(auto cj = dynamic_cast<CondJump*>(s))
     {
@@ -498,8 +500,16 @@ namespace IR
     }
     else if(auto conv = dynamic_cast<Converted*>(e))
     {
-      conv->value = expandExpression(conv->value);
-      e = generateTemp(conv);
+      //Many primitive constants need to be converted to another
+      //type - save a temporary by attempting this now
+      foldExpression(e);
+      //If e is still a Converted, must create a temporary
+      conv = dynamic_cast<Converted*>(e);
+      if(conv)
+      {
+        conv->value = expandExpression(conv->value);
+        e = generateTemp(conv);
+      }
     }
     else if(auto uc = dynamic_cast<UnionConstant*>(e))
     {

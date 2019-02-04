@@ -19,7 +19,6 @@ void constantFold(IR::SubroutineIR* subr);
 //have constant values, and replaces their usage by constants
 bool constantPropagation(Subroutine* subr);
 
-//Internal
 //Try to replace the expression with equivalent constant, if not already constant
 //Requires all dependencies to be constant and
 //the result to be smaller than maxConstantSize

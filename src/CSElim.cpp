@@ -1,10 +1,14 @@
 #include "CSElim.hpp"
+#include "Variable.hpp"
 
 using namespace CSElim;
 using namespace IR;
 
 void cse(SubroutineIR* subr)
 {
+  cout << "==============================\n";
+  cout << "Doing CSE on " << subr->subr->name << '\n';
+  cout << "==============================\n";
   auto numBlocks = subr->blocks.size();
   if(numBlocks == 0)
     return;
@@ -15,6 +19,9 @@ void cse(SubroutineIR* subr)
   int passes = 0;
   do
   {
+    cout << "***********************\n";
+    cout << "Pass #" << passes << '\n';
+    cout << "***********************\n";
     for(auto& defSet : definitions)
     {
       defSet.clear();
@@ -46,6 +53,9 @@ void cse(SubroutineIR* subr)
         //Exprs with side effects are only allowed as RHS of an assignment, and EvalIR
         if(auto assign = dynamic_cast<AssignIR*>(subr->stmts[i]))
         {
+          //check for no-op assignment
+          if(*assign->dst == *assign->src)
+            subr->stmts[i] = nop;
           transfer(assign, procDefs);
           if(assign->src->hasSideEffects())
             transferSideEffects(procDefs);
@@ -71,6 +81,16 @@ void cse(SubroutineIR* subr)
           }
         }
       }
+    }
+    cout << "Final def set at the end of each block:\n";
+    for(auto b : subr->blocks)
+    {
+      cout << b->start << ":" << b->end << "\n";
+      for(auto d : definitions[b->index].d)
+      {
+        cout << d.second << '\n';
+      }
+      cout << '\n';
     }
     //now, have up-to-date avail sets
     //do CSE (sequentially per block)
@@ -98,6 +118,7 @@ void cse(SubroutineIR* subr)
           //can simply compare left and right
           if(*(assign->dst) == *(assign->src))
           {
+            cout << "Deleting no-op assignment of \"" << assign->src << "\" to itself.\n";
             subr->stmts[s] = nop;
             update = true;
           }
@@ -129,6 +150,7 @@ void cse(SubroutineIR* subr)
   cout << "  Did CSE on " << subr->subr->name << " in " << passes << " passes.\n";
   if(update)
     subr->buildCFG();
+  cout << "\n\n\n";
 }
 
 namespace CSElim
@@ -200,6 +222,7 @@ namespace CSElim
     Variable* var = defs.varForExpr(e);
     if(var)
     {
+      cout << "Replacing expr \"" << e << "\" with " << var->name << '\n';
       //e has already been computed, so replace it
       e = new VarExpr(var);
       e->resolve();
@@ -320,6 +343,7 @@ namespace CSElim
         break;
       }
     }
+    cout << "Immediate dominator of block " << b->index << " is " << immDom << '\n';
     DefSet& bDefs = definitions[b->index];
     //start by inserting immediate dominator's definitions (if there is one)
     if(immDom >= 0)
