@@ -104,11 +104,18 @@ void cse(SubroutineIR* subr)
       DefSet localDefs = meet(definitions, subr, b);
       for(int s = b->start; s < b->end; s++)
       {
-        cout << "\n\n[][][][][]  Local definitions available at stmt " << s <<
+        cout << "\n\n****  Local definitions available at stmt " << s <<
           ":\n";
         for(auto& d : localDefs.d)
         {
           cout << "  " << d.second << '\n';
+        }
+        cout << "\n";
+        cout << "\n\n****  Available expressions at stmt " << s <<
+          ":\n";
+        for(auto& a : localDefs.avail)
+        {
+          cout << "  " << a.first << '\n';
         }
         cout << "\n";
         //transfers must be from the original set of expressions
@@ -236,9 +243,29 @@ namespace CSElim
 
   bool replaceExpr(Expression*& e, DefSet& defs)
   {
+    //Don't do anything with constants
+    if(e->constant())
+      return false;
+    if(auto ve = dynamic_cast<VarExpr*>(e))
+    {
+      //Copy propagation
+      cout << "Attempting copy propagation on read from " << ve->var->name << '\n';
+      //if ve->var is currently defined in terms of another variable,
+      //replace with that one
+      if(auto varDef = dynamic_cast<VarExpr*>(defs.getDef(ve->var)))
+      {
+        e = varDef;
+        cout << "Success! replaced with var " << varDef->var->name << " instead.\n";
+        return true;
+      }
+      return false;
+    }
+    //all other kinds of expressions: attempt CSE
+    cout << "Attempting to replace expr " << e << " via CSE.\n";
     Variable* var = defs.varForExpr(e);
     if(var)
     {
+      //Common subexpression elimination
       cout << "Replacing expr \"" << e << "\" with " << var->name << '\n';
       //e has already been computed, so replace it
       e = new VarExpr(var);
@@ -454,7 +481,7 @@ bool operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
     if(it2 == d2.d.end() || def.second != it2->second)
       return false;
   }
-  //don't need to compare avail - it's just an inverse mapping
+  //don't compare avail - it's just an inverse mapping
   return true;
 }
 
