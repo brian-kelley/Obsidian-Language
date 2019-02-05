@@ -82,6 +82,7 @@ void cse(SubroutineIR* subr)
         }
       }
     }
+    /*
     cout << "Final def set at the end of each block:\n";
     for(auto b : subr->blocks)
     {
@@ -92,6 +93,7 @@ void cse(SubroutineIR* subr)
       }
       cout << '\n';
     }
+    */
     //now, have up-to-date avail sets
     //do CSE (sequentially per block)
     //after each statement, do the "transfer"
@@ -102,6 +104,13 @@ void cse(SubroutineIR* subr)
       DefSet localDefs = meet(definitions, subr, b);
       for(int s = b->start; s < b->end; s++)
       {
+        cout << "\n\n[][][][][]  Local definitions available at stmt " << s <<
+          ":\n";
+        for(auto& d : localDefs.d)
+        {
+          cout << "  " << d.second << '\n';
+        }
+        cout << "\n";
         //transfers must be from the original set of expressions
         auto stmt = subr->stmts[s];
         if(auto assign = dynamic_cast<AssignIR*>(stmt))
@@ -168,6 +177,7 @@ namespace CSElim
   {
     d.erase(v);
     avail.erase(a->src);
+    refreshAvail(a->src);
   }
 
   void DefSet::invalidate(Variable* v)
@@ -179,20 +189,27 @@ namespace CSElim
       d.erase(it);
       avail.erase(avail.find(def));
       //check if def is available from another variable
-      for(auto& remain : d)
-      {
-        if(*remain.second->src == *def)
-        {
-          avail[def] = remain.first;
-          break;
-        }
-      }
+      refreshAvail(def);
     }
   }
 
   bool DefSet::defined(Variable* v)
   {
     return d.find(v) != d.end();
+  }
+
+  void DefSet::refreshAvail(Expression* e)
+  {
+    if(avail.find(e) != avail.end())
+      return;
+    for(auto& def : d)
+    {
+      if(*def.second->src == *e)
+      {
+        avail[e] = def.first;
+        return;
+      }
+    }
   }
 
   void DefSet::clear()
@@ -323,6 +340,7 @@ namespace CSElim
         //and corresponding expression-lookup entry (if any)
         defs.avail.erase(rhs);
         defs.d.erase(it++);
+        defs.refreshAvail(rhs);
       }
       else
       {
@@ -334,6 +352,9 @@ namespace CSElim
   //Get incoming definition set for a given block
   DefSet meet(vector<DefSet>& definitions, SubroutineIR* subr, BasicBlock* b)
   {
+    //Always safe to take all definitions at the end of the immediate dominator
+    //Those definitions always reach this block, and redefinitions in intervening
+    //blocks will be handled with an intersection.
     int immDom = -1;
     for(auto pred : b->in)
     {
@@ -343,28 +364,81 @@ namespace CSElim
         break;
       }
     }
-    cout << "Immediate dominator of block " << b->index << " is " << immDom << '\n';
-    DefSet& bDefs = definitions[b->index];
+    DefSet met;
+    //then, take the intersection of all predecessors
+    //-keep a definition if and only if 
     //start by inserting immediate dominator's definitions (if there is one)
     if(immDom >= 0)
     {
       auto& domDefs = definitions[immDom].d;
       for(auto& d : domDefs)
       {
-        bDefs.insert(d.first, d.second);
+        met.insert(d.first, d.second);
       }
     }
-    //then intersect definitions of all predecessors into bDefs
-    //if a pred has no definition for a variable, do nothing
+    //weakly intersect definitions of all predecessors
+    //(remove defs that were in imm dom but whose LHS has a conflicting def)
     for(auto pred : b->in)
     {
+      if(pred->index == immDom)
+        continue;
       auto& predDefs = definitions[pred->index].d;
       for(auto& d : predDefs)
       {
-        bDefs.intersect(d.first, d.second);
+        met.intersect(d.first, d.second);
       }
     }
-    return bDefs;
+    //compute the actual intersection of all precedessors
+    {
+      DefSet intersection;
+      //start with the smallest incoming def set
+      int minDefSize = INT_MAX;
+      int minPred = -1;
+      for(auto p : b->in)
+      {
+        auto nDefs = definitions[p->index].d.size();
+        if(nDefs < minDefSize)
+        {
+          minDefSize = nDefs;
+          minPred = p->index;
+        }
+      }
+      if(minPred >= 0)
+      {
+        intersection = definitions[minPred];
+        //then invalidate all entries that aren't in all other predecessors
+        for(auto p : b->in)
+        {
+          if(p->index == minPred)
+            continue;
+          auto& pDefs = definitions[p->index];
+          for(auto it = intersection.d.begin(); it != intersection.d.end();)
+          {
+            Variable* v = it->first;
+            auto pv = pDefs.getDef(v);
+            Expression* src = it->second->src;
+            if(!pv || (*src != *pv))
+            {
+              intersection.d.erase(it++);
+              auto availIt = intersection.avail.find(src);
+              if(availIt != intersection.avail.end() && intersection.avail[src] == v)
+              {
+                intersection.avail.erase(availIt);
+                intersection.refreshAvail(src);
+              }
+            }
+            else
+              it++;
+          }
+        }
+        //finally, insert the intersected definitions
+        for(auto& d : intersection.d)
+        {
+          met.insert(d.first, d.second);
+        }
+      }
+    }
+    return met;
   }
 }
 

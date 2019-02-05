@@ -24,7 +24,9 @@ namespace CSElim
     //Remove definition for v if it exists
     void invalidate(Variable* v);
     bool defined(Variable* v);
+    //Refresh the avail entry for expression
     //Clear all definitions
+    void refreshAvail(Expression* e);
     void clear();
     //Returns null if no def for v
     Expression* getDef(Variable* v);

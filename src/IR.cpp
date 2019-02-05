@@ -209,17 +209,6 @@ namespace IR
         }
       }
     }
-    cout << "Found dominators in " << subr->name << '\n';
-    for(int i = 0; i < blocks.size(); i++)
-    {
-      for(int j = 0; j < blocks.size(); j++)
-      {
-        if(blocks[i]->dom[j])
-        {
-          cout << "  " << j << " dominates " << i << "\n";
-        }
-      }
-    }
   }
 
   void SubroutineIR::addStatement(Statement* s)
