@@ -1506,6 +1506,13 @@ UnresolvedExpr::UnresolvedExpr(Expression* b, Member* n, Scope* s)
 
 void resolveExpr(Expression*& expr)
 {
+  if(auto defaultVal = dynamic_cast<DefaultValueExpr*>(expr))
+  {
+    resolveType(defaultVal->t);
+    expr = defaultVal->t->getDefaultValue();
+    INTERNAL_ASSERT(expr->resolved);
+    return;
+  }
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {

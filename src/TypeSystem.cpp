@@ -360,7 +360,9 @@ Expression* StructType::getDefaultValue()
   {
     vals.push_back(members[i]->type->getDefaultValue());
   }
-  return new CompoundLiteral(vals);
+  auto cl = new CompoundLiteral(vals);
+  cl->resolve();
+  return cl;
 }
 
 void StructType::dependencies(set<Type*>& types)
@@ -492,7 +494,9 @@ Expression* UnionType::getDefaultValue()
         options[defaultType]->getDefaultValue(),
         options[defaultType], this);
   }
-  return defaultVal;
+  auto uc = defaultVal;
+  uc->resolve();
+  return uc;
 }
 
 /*

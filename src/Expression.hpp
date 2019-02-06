@@ -29,6 +29,7 @@ struct CallExpr;
 struct VarExpr;
 struct Converted;
 struct ThisExpr;
+struct DefaultValueExpr;
 struct UnresolvedExpr;
 
 //expr must be resolved
@@ -894,7 +895,7 @@ struct StructMem : public Expression
   }
   int getTypeTag() const
   {
-    return 15;
+    return 14;
   }
   Variable* getRootVariable()
   {
@@ -950,7 +951,7 @@ struct NewArray : public Expression
   }
   int getTypeTag() const
   {
-    return 16;
+    return 15;
   }
   Expression* copy();
 };
@@ -968,7 +969,7 @@ struct ArrayLength : public Expression
   }
   int getTypeTag() const
   {
-    return 17;
+    return 16;
   }
   bool hasSideEffects()
   {
@@ -1024,7 +1025,7 @@ struct IsExpr : public Expression
   }
   int getTypeTag() const
   {
-    return 18;
+    return 17;
   }
   bool hasSideEffects()
   {
@@ -1076,7 +1077,7 @@ struct AsExpr : public Expression
   }
   int getTypeTag() const
   {
-    return 19;
+    return 18;
   }
   bool hasSideEffects()
   {
@@ -1111,7 +1112,7 @@ struct ThisExpr : public Expression
   }
   int getTypeTag() const
   {
-    return 20;
+    return 19;
   }
   //note here: ThisExpr can read/write globals if "this"
   //is a global, but that can only be done through a proc all on
@@ -1142,7 +1143,7 @@ struct Converted : public Expression
   }
   int getTypeTag() const
   {
-    return 21;
+    return 20;
   }
   bool hasSideEffects()
   {
@@ -1188,7 +1189,7 @@ struct EnumExpr : public Expression
   }
   int getTypeTag() const
   {
-    return 22;
+    return 21;
   }
   Expression* copy();
 };
@@ -1217,12 +1218,40 @@ struct SimpleConstant : public Expression
   }
   int getTypeTag() const
   {
-    return 23;
+    return 22;
   }
   Expression* copy();
 };
 
 bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs);
+
+//DefaultValueExpr is just a placeholder
+//When resolved, it's replaced by type->getDefaultValue()
+struct DefaultValueExpr : public Expression
+{
+  DefaultValueExpr(Type* t_) : t(t_) {}
+  void resolveImpl()
+  {
+    INTERNAL_ERROR;
+  }
+  int getTypeTag() const
+  {
+    return 23;
+  }
+  bool assignable()
+  {
+    return false;
+  }
+  size_t hash() const
+  {
+    return 0;
+  }
+  Expression* copy()
+  {
+    return new DefaultValueExpr(t);
+  }
+  Type* t;
+};
 
 struct UnresolvedExpr : public Expression
 {
@@ -1238,11 +1267,13 @@ struct UnresolvedExpr : public Expression
   }
   void resolveImpl()
   {
+    //Should never be called!
+    //Should instead be replaced inside resolveExpr(...)
     INTERNAL_ERROR;
   }
   int getTypeTag() const
   {
-    return 14;
+    return 24;
   }
   size_t hash() const
   {

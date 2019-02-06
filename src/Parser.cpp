@@ -141,10 +141,17 @@ namespace Parser
         case FUNCTYPE:
         case PROCTYPE:
         case STATIC:
-          parseVarDecl(s);
-          if(semicolon)
-            expectPunct(SEMICOLON);
-          return;
+          {
+            auto varInit = parseVarDecl(s);
+            if(semicolon)
+              expectPunct(SEMICOLON);
+            if(varInit)
+            {
+              //varInit exists, so know scope is a block
+              s->node.get<Block*>()->addStatement(varInit);
+            }
+            return;
+          }
         default:
           err("expected a declaration");
       }
@@ -154,9 +161,14 @@ namespace Parser
         lookAhead()->compareTo(&lparen))
     {
       //variable declaration
-      parseVarDecl(s);
+      auto varInit = parseVarDecl(s);
       if(semicolon)
         expectPunct(SEMICOLON);
+      if(varInit)
+      {
+        //varInit exists, so know scope is a block
+        s->node.get<Block*>()->addStatement(varInit);
+      }
       return;
     }
     else
@@ -433,6 +445,12 @@ namespace Parser
     s->addName(var);
     if(s->node.is<Block*>())
     {
+      //local vars don't store initial value internally
+      //so return a statement that initializes it
+      if(!init)
+      {
+        init = new DefaultValueExpr(var->type);
+      }
       Assign* a = new Assign(s->node.get<Block*>(), new VarExpr(var), init);
       a->setLocation(loc);
       return a;

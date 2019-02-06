@@ -101,3 +101,8 @@ bool deadCodeElim(SubroutineIR* subr)
   return updatePhase1 || updatePhase2;
 }
 
+void deadStoreElim(IR::SubroutineIR* subr)
+{
+  //Compute liveness sets
+}
+

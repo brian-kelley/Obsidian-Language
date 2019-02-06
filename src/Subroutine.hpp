@@ -83,6 +83,8 @@ struct Block : public Statement
 struct Assign : public Statement
 {
   Assign(Block* b, Expression* lhs, Expression* rhs);
+  //Update operators (like +=, &=, etc.)
+  //Internally, is converted to just lhs := lhs <op> rhs
   Assign(Block* b, Expression* lhs, int op, Expression* rhs = nullptr);
   void resolveImpl();
   Expression* lvalue;
