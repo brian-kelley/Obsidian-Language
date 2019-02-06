@@ -742,7 +742,7 @@ Expression* UnionConstant::copy()
 
 bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
 {
-  return lhs.option == rhs.option && lhs.value == rhs.value;
+  return lhs.option == rhs.option && *lhs.value == *rhs.value;
 }
 
 /*******************
@@ -817,7 +817,7 @@ bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
     return false;
   for(size_t i = 0; i < l.size(); i++)
   {
-    if(l[i] != r[i])
+    if(*l[i] != *r[i])
       return false;
   }
   return true;
@@ -909,7 +909,7 @@ Expression* Indexed::copy()
 
 bool operator==(const Indexed& lhs, const Indexed& rhs)
 {
-  return lhs.group == rhs.group && lhs.index == rhs.index;
+  return *lhs.group == *rhs.group && *lhs.index == *rhs.index;
 }
 
 /************
@@ -988,12 +988,12 @@ Expression* CallExpr::copy()
 
 bool operator==(const CallExpr& lhs, const CallExpr& rhs)
 {
-  if(lhs.callable != rhs.callable)
+  if(*lhs.callable != *rhs.callable)
     return false;
   INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
   for(size_t i = 0; i < lhs.args.size(); i++)
   {
-    if(lhs.args[i] != rhs.args[i])
+    if(*lhs.args[i] != *rhs.args[i])
       return false;
   }
   return true;
@@ -1134,9 +1134,15 @@ Expression* SubroutineExpr::copy()
 
 bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
 {
-  return lhs.subr == rhs.subr &&
-    lhs.exSubr == rhs.exSubr &&
-    lhs.thisObject == rhs.thisObject;
+  if(lhs.subr != rhs.subr ||
+    lhs.exSubr != rhs.exSubr)
+    return false;
+  if(lhs.thisObject)
+  {
+    return rhs.thisObject &&
+      *lhs.thisObject == *rhs.thisObject;
+  }
+  return true;
 }
 
 /*************
@@ -1204,7 +1210,7 @@ Expression* StructMem::copy()
 
 bool operator==(const StructMem& lhs, const StructMem& rhs)
 {
-  if(lhs.base != rhs.base)
+  if(*lhs.base != *rhs.base)
     return false;
   if(lhs.member.is<Variable*>() != rhs.member.is<Variable*>())
     return false;
@@ -1258,7 +1264,7 @@ bool operator==(const NewArray& lhs, const NewArray& rhs)
     return false;
   for(size_t i = 0; i < lhs.dims.size(); i++)
   {
-    if(lhs.dims[i] != rhs.dims[i])
+    if(*lhs.dims[i] != *rhs.dims[i])
       return false;
   }
   return true;
@@ -1301,7 +1307,7 @@ Expression* ArrayLength::copy()
 
 bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
 {
-  return lhs.array == rhs.array;
+  return *lhs.array == *rhs.array;
 }
 
 void IsExpr::resolveImpl()
@@ -1334,7 +1340,7 @@ Expression* IsExpr::copy()
 
 bool operator==(const IsExpr& lhs, const IsExpr& rhs)
 {
-  return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
+  return *lhs.base == *rhs.base && lhs.optionIndex == rhs.optionIndex;
 }
 
 void AsExpr::resolveImpl()
@@ -1367,7 +1373,7 @@ Expression* AsExpr::copy()
 
 bool operator==(const AsExpr& lhs, const AsExpr& rhs)
 {
-  return lhs.base == rhs.base && lhs.optionIndex == rhs.optionIndex;
+  return *lhs.base == *rhs.base && lhs.optionIndex == rhs.optionIndex;
 }
 
 /************
@@ -1433,7 +1439,7 @@ Expression* Converted::copy()
 
 bool operator==(const Converted& lhs, const Converted& rhs)
 {
-  return lhs.type == rhs.type && lhs.value == rhs.value;
+  return typesSame(lhs.type, rhs.type) && *lhs.value == *rhs.value;
 }
 
 /************
