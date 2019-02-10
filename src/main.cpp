@@ -59,7 +59,6 @@ int main(int argc, const char** argv)
   TIMEIT("IR/CFG construction", IR::buildIR();)
   //DEBUG_DO(IRDebug::dumpIR("ir.dot");)
   TIMEIT("Optimizing IR", IR::optimizeIR();)
-  Liveness::buildAllLivesets();
   //TIMEIT("C generate & compile", C::generate(op.outputStem, true););
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;

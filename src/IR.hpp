@@ -59,16 +59,9 @@ namespace IR
 
   struct StatementIR
   {
-    //data input/output (for data dependency analysis)
-    virtual vector<Expression*> getInput()
-    {
-      return vector<Expression*>();
-    }
-    virtual vector<Expression*> getOutput()
-    {
-      return vector<Expression*>();
-    }
-    virtual ~StatementIR(){}
+    //get the variables used (read) by the statement (add to set)
+    virtual void getReads(set<Variable*>& vars) {}
+    virtual Variable* getWrite() {return nullptr;}
     //integer position in subroutine
     int intLabel;
   };
@@ -78,13 +71,14 @@ namespace IR
     AssignIR(Expression* d, Expression* s) : dst(d), src(s) {}
     Expression* dst;
     Expression* src;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
-      return vector<Expression*>(1, src);
+      dst->getReads(vars, true);
+      src->getReads(vars, false);
     }
-    vector<Expression*> getOutput()
+    Variable* getWrite()
     {
-      return vector<Expression*>(1, dst);
+      return dst->getWrite();
     }
   };
 
@@ -93,9 +87,9 @@ namespace IR
     EvalIR(Expression* e) : eval(e) {}
     //currently this is only used by CallStmts
     Expression* eval;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
-      return vector<Expression*>(1, eval);
+      eval->getReads(vars, false);
     }
   };
 
@@ -112,9 +106,9 @@ namespace IR
     //false = jump taken, true = not taken (fall through)
     Expression* cond;
     Label* taken;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
-      return vector<Expression*>(1, cond);
+      cond->getReads(vars, false);
     }
   };
 
@@ -125,12 +119,10 @@ namespace IR
     ReturnIR() : expr(nullptr) {}
     ReturnIR(Expression* val) : expr(val) {}
     Expression* expr;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
       if(expr)
-        return vector<Expression*>(1, expr);
-      else
-        return vector<Expression*>();
+        expr->getReads(vars, false);
     }
   };
 
@@ -138,9 +130,9 @@ namespace IR
   {
     PrintIR(Expression* e) : expr(e) {}
     Expression* expr;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
-      return vector<Expression*>(1, expr);
+      expr->getReads(vars, false);
     }
   };
 
@@ -148,9 +140,9 @@ namespace IR
   {
     AssertionIR(Assertion* a) : asserted(a->asserted) {}
     Expression* asserted;
-    vector<Expression*> getInput()
+    void getReads(set<Variable*>& vars)
     {
-      return vector<Expression*>(1, asserted);
+      asserted->getReads(vars, false);
     }
   };
 
@@ -187,8 +179,6 @@ namespace IR
     //Remove no-ops and labels, and rebuild the control flow graph
     //(labels are just a convenience for translating AST to IR)
     void buildCFG();
-    set<Variable*> getReads(BasicBlock* bb);
-    set<Variable*> getWrites(BasicBlock* bb);
     Subroutine* subr;
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;

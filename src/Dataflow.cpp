@@ -5,115 +5,179 @@
 
 using namespace IR;
 
+namespace ReachingDefs
+{
+  vector<ReachingSet> compute(SubroutineIR* subr)
+  {
+    //Reaching defs for each block
+    vector<ReachingSet> rd;
+    auto numBlocks = subr->blocks.size();
+    vector<bool> inQueue(numBlocks, true);
+    queue<int> processQueue;
+    for(size_t i = 0; i < subr->blocks.size(); i++)
+      processQueue.push(i);
+    while(processQueue.size())
+    {
+      int procInd = processQueue.front();
+      processQueue.pop();
+      BasicBlock* process = subr->blocks[procInd];
+      inQueue[procInd] = false;
+      ReachingSet& rs = rd[procInd];
+      //save the previous def set
+      auto old = rs;
+      //clear the real one (recomputing from scratch)
+      rs.clear();
+      //union in all incoming
+      for(auto pred : process->in)
+        meet(rs, rd[pred->index]);
+      //then apply each statements
+      for(int i = process->start; i < process->end; i++)
+      {
+        transfer(rs, subr->stmts[i]);
+      }
+      //if any changes happened, must update successors
+      if(old != rd[procInd])
+      {
+        for(auto succ : process->out)
+        {
+          auto succInd = succ->index;
+          if(!inQueue[succInd])
+          {
+            inQueue[succInd] = true;
+            processQueue.push(succInd);
+          }
+        }
+      }
+    }
+    return rd;
+  }
+
+  void transfer(ReachingSet& r, StatementIR* stmt)
+  {
+    //Only assignments affect reaching defs. It's assumed that
+    //calls with side effects can leave the variable unchanged, so the
+    //definition reaches across in caller.
+    //
+    //Reaching defs are gen'd by assigns
+    //and killed by assigns to the same variable.
+    if(auto assign = dynamic_cast<AssignIR*>(stmt))
+    {
+      //TODO: support killing defs with other kinds of LHS:
+      //struct members, array indices
+      if(dynamic_cast<VarExpr*>(assign->dst))
+      {
+        for(auto it = r.begin(); it != r.end();)
+        {
+          if(*assign->dst == *(*it)->dst)
+          {
+            r.erase(it++);
+            //there will be at most one definition active per variable
+            break;
+          }
+          else
+            it++;
+        }
+      }
+      //no matter what LHS is, always add the new definition
+      r.insert(assign);
+    }
+  }
+
+  void meet(ReachingSet& into, ReachingSet& from)
+  {
+    //Meet is just union, very easy
+    for(auto d : from)
+      into.insert(d);
+  }
+
+  bool operator==(const ReachingSet& r1, const ReachingSet& r2)
+  {
+    if(r1.size() != r2.size())
+      return false;
+    for(auto d : r1)
+    {
+      if(r2.find(d) == r2.end())
+        return false;
+    }
+    return false;
+  }
+}
+
 namespace Liveness
 {
-  map<SubroutineIR*, LiveSet*> liveSets;
-
-  LiveSet::LiveSet(LiveSet* fw, LiveSet* bw)
+  vector<LiveSet> compute(SubroutineIR* subr)
   {
-    for(auto bbLive : fw->live)
+    //Reaching defs for each block
+    vector<LiveSet> rd;
+    auto numBlocks = subr->blocks.size();
+    vector<bool> inQueue(numBlocks, true);
+    queue<int> processQueue;
+    for(int i = subr->blocks.size() - 1; i >= 0; i--)
+      processQueue.push(i);
+    while(processQueue.size())
     {
-      insertVars(bbLive.first, bbLive.second);
-    }
-    for(auto bbLive : fw->live)
-    {
-      insertVars(bbLive.first, bbLive.second);
-    }
-  }
-
-  void LiveSet::insertVars(IR::BasicBlock* bb, set<Variable*> vars)
-  {
-    if(live.find(bb) == live.end())
-    {
-      live[bb] = vars;
-    }
-    else
-    {
-      live[bb].insert(vars.begin(), vars.end());
-    }
-  }
-
-  void LiveSet::intersectVars(IR::BasicBlock* bb, set<Variable*> vars)
-  {
-    set<Variable*> intersect;
-    auto& thisSet = live[bb];
-    std::set_intersection(thisSet.begin(), thisSet.end(),
-        vars.begin(), vars.end(), std::inserter(intersect, intersect.begin()));
-    live[bb] = intersect;
-  }
-
-  void buildAllLivesets()
-  {
-    for(auto s : IR::ir)
-    {
-      auto subr = s.second;
-      LiveSet* forward = new LiveSet;
-      LiveSet* backward = new LiveSet;
-      for(int which = 0; which < 2; which++)
+      int procInd = processQueue.front();
+      processQueue.pop();
+      BasicBlock* process = subr->blocks[procInd];
+      inQueue[procInd] = false;
+      LiveSet& rs = rd[procInd];
+      //save the previous def set
+      auto old = rs;
+      //clear the real one (recomputing from scratch)
+      rs.clear();
+      //union live sets at beginning of all successors
+      for(auto succ : process->out)
+        meet(rs, rd[succ->index]);
+      //then apply each statements (in reverse)
+      for(int i = process->end - 1; i >= process->start; i--)
       {
-        queue<BasicBlock*> toProcess;
-        bool forwardDir = which == 0;
-        LiveSet* current = forwardDir ? forward : backward;
-        //have to visit every BB at least once,
-        //then visit predecessors again after processing
-        for(auto bb : subr->blocks)
+        transfer(rs, subr->stmts[i]);
+      }
+      //if any changes happened, must update predecessors 
+      if(old != rd[procInd])
+      {
+        for(auto pred : process->in)
         {
-          //care about definitions (writes) in forward direction,
-          //and usage (reads) in backward
-          if(forwardDir)
-            current->live[bb] = subr->getWrites(bb);
-          else
-            current->live[bb] = subr->getReads(bb);
-
-        }
-        if(forwardDir)
-        {
-          for(int i = 0; i < subr->blocks.size(); i++)
-            toProcess.push(subr->blocks[i]);
-        }
-        else
-        {
-          for(int i = subr->blocks.size() - 1; i >= 0; i--)
-            toProcess.push(subr->blocks[i]);
-        }
-        while(!toProcess.empty())
-        {
-          BasicBlock* process = toProcess.front();
-          toProcess.pop();
-          size_t oldSize = current->live[process].size();
-          //here "incoming" means predecessor in order of current dataflow direction
-          vector<BasicBlock*>* incoming = forwardDir ? &process->in : &process->out;
-          vector<BasicBlock*>* outgoing = forwardDir ? &process->out : &process->in;
-          for(auto predecessor : *incoming)
+          auto predInd = pred->index;
+          if(!inQueue[predInd])
           {
-            current->insertVars(process, current->live[predecessor]);
-          }
-          if(current->live[process].size() != oldSize)
-          {
-            //made an update, so need to visit all successors again
-            for(auto successor : *outgoing)
-            {
-              toProcess.push(successor);
-            }
+            inQueue[predInd] = true;
+            processQueue.push(predInd);
           }
         }
       }
-      for(auto bb : subr->blocks)
-        forward->intersectVars(bb, backward->live[bb]);
-      liveSets[subr] = forward;
-      //finally, compute argsModified
-      set<Variable*> allModified;
-      for(auto bb : subr->blocks)
-      {
-        auto bbWrites = subr->getWrites(bb);
-        allModified.insert(allModified.begin(), allModified.end());
-      }
-      for(auto arg : s.first->args)
-      {
-        liveSets[subr]->argsModified.push_back(
-            allModified.find(arg) != allModified.end());
-      }
     }
+    return rd;
+  }
+
+  void transfer(LiveSet& r, StatementIR* stmt)
+  {
+    //get the input expressions
+    set<Variable*> read;
+    stmt->getReads(read);
+    for(auto v : read)
+    {
+      r.insert(v);
+    }
+  }
+
+  void meet(LiveSet& into, LiveSet& from)
+  {
+    //Meet is just union, very easy
+    for(auto v : from)
+      into.insert(v);
+  }
+
+  bool operator==(const LiveSet& l1, const LiveSet& l2)
+  {
+    if(l1.size() != l2.size())
+      return false;
+    for(auto v : l1)
+    {
+      if(l2.find(v) == l2.end())
+        return false;
+    }
+    return false;
   }
 }
 

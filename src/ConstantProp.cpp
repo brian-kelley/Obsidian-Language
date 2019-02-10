@@ -156,18 +156,15 @@ void findGlobalConstants()
     auto subr = s.second;
     for(auto stmt : subr->stmts)
     {
-      auto outputs = stmt->getOutput();
-      for(auto out : outputs)
+      set<Variable*> outputs;
+      stmt->getReads(outputs); 
+      for(auto w : outputs)
       {
-        auto writes = out->getWrites();
-        for(auto w : writes)
+        if(w->isGlobal())
         {
-          if(w->isGlobal())
-          {
-            //there is an assignment to w,
-            //so w might not always be a constant
-            globalConstants[w] = ConstantVar(NON_CONSTANT);
-          }
+          //there is an assignment to w,
+          //so w might not always be a constant
+          globalConstants[w] = ConstantVar(NON_CONSTANT);
         }
       }
     }

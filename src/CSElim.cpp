@@ -328,15 +328,14 @@ namespace CSElim
     //modified in a
     //
     //(this includes reads in both lhs and rhs of def)
-    auto writeSet = a->dst->getWrites();
-    INTERNAL_ASSERT(writeSet.size() == 1);
-    Variable* w = *(writeSet.begin());
+    Variable* w = a->dst->getWrite();
     //for now, only keeping defs of locals
     vector<Variable*> killedDefs;
     for(auto& d : defs.d)
     {
       Expression* defRHS = d.second->src;
-      auto rhsReads = defRHS->getReads();
+      set<Variable*> rhsReads;
+      defRHS->getReads(rhsReads, false);
       if(rhsReads.find(w) != rhsReads.end())
         killedDefs.push_back(d.first);
     }

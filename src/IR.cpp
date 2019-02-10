@@ -520,36 +520,6 @@ namespace IR
     return e;
   }
 
-  set<Variable*> SubroutineIR::getReads(BasicBlock* bb)
-  {
-    set<Variable*> reads;
-    for(int i = bb->start; i < bb->end; i++)
-    {
-      auto inputs = stmts[i]->getInput();
-      for(auto input : inputs)
-      {
-        auto exprReads = input->getReads();
-        reads.insert(exprReads.begin(), exprReads.end());
-      }
-    }
-    return reads;
-  }
-
-  set<Variable*> SubroutineIR::getWrites(BasicBlock* bb)
-  {
-    set<Variable*> writes;
-    for(int i = bb->start; i < bb->end; i++)
-    {
-      auto outputs = stmts[i]->getOutput();
-      for(auto output : outputs)
-      {
-        auto exprWrites = output->getWrites();
-        writes.insert(exprWrites.begin(), exprWrites.end());
-      }
-    }
-    return writes;
-  }
-
   void SubroutineIR::addForC(ForC* fc)
   {
     addStatement(fc->init);

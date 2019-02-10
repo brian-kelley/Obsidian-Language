@@ -32,11 +32,6 @@ void UnaryArith::resolveImpl()
   resolved = true;
 }
 
-set<Variable*> UnaryArith::getReads()
-{
-  return expr->getReads();
-}
-
 Expression* UnaryArith::copy()
 {
   auto c = new UnaryArith(op, expr->copy());
@@ -228,14 +223,6 @@ void BinaryArith::resolveImpl()
     default: INTERNAL_ERROR;
   }
   resolved = true;
-}
-
-set<Variable*> BinaryArith::getReads()
-{
-  auto reads = lhs->getReads();
-  auto rhsReads = rhs->getReads();
-  reads.insert(rhsReads.begin(), rhsReads.end());
-  return reads;
 }
 
 Expression* BinaryArith::copy()
@@ -776,28 +763,6 @@ void CompoundLiteral::resolveImpl()
   resolved = true;
 }
 
-set<Variable*> CompoundLiteral::getReads()
-{
-  set<Variable*> reads;
-  for(auto mem : members)
-  {
-    auto memReads = mem->getReads();
-    reads.insert(memReads.begin(), memReads.end());
-  }
-  return reads;
-}
-
-set<Variable*> CompoundLiteral::getWrites()
-{
-  set<Variable*> writes;
-  for(auto mem : members)
-  {
-    auto memWrites = mem->getWrites();
-    writes.insert(memWrites.begin(), memWrites.end());
-  }
-  return writes;
-}
-
 Expression* CompoundLiteral::copy()
 {
   vector<Expression*> memsCopy;
@@ -886,19 +851,6 @@ void Indexed::resolveImpl()
   resolved = true;
 }
 
-set<Variable*> Indexed::getReads()
-{
-  auto reads = group->getReads();
-  auto indexReads = index->getReads();
-  reads.insert(indexReads.begin(), indexReads.end());
-  return reads;
-}
-
-set<Variable*> Indexed::getWrites()
-{
-  return group->getWrites();
-}
-
 Expression* Indexed::copy()
 {
   Indexed* c = new Indexed(group->copy(), index->copy());
@@ -964,17 +916,6 @@ void CallExpr::resolveImpl()
   resolved = true;
 }
 
-set<Variable*> CallExpr::getReads()
-{
-  auto reads = callable->getReads();
-  for(auto arg : args)
-  {
-    auto argReads = arg->getReads();
-    reads.insert(argReads.begin(), argReads.end());
-  }
-  return reads;
-}
-
 Expression* CallExpr::copy()
 {
   vector<Expression*> argsCopy;
@@ -1031,20 +972,6 @@ void VarExpr::resolveImpl()
 bool VarExpr::readsGlobals()
 {
   return var->isGlobal();
-}
-
-set<Variable*> VarExpr::getReads()
-{
-  set<Variable*> reads;
-  reads.insert(var);
-  return reads;
-}
-
-set<Variable*> VarExpr::getWrites()
-{
-  set<Variable*> writes;
-  writes.insert(var);
-  return writes;
 }
 
 Expression* VarExpr::copy()
@@ -1186,16 +1113,6 @@ void StructMem::resolveImpl()
   resolved = true;
 }
 
-set<Variable*> StructMem::getReads()
-{
-  return base->getReads();
-}
-
-set<Variable*> StructMem::getWrites()
-{
-  return base->getWrites();
-}
-
 Expression* StructMem::copy()
 {
   StructMem* c = nullptr;
@@ -1290,11 +1207,6 @@ void ArrayLength::resolveImpl()
   }
   type = primitives[Prim::LONG];
   resolved = true;
-}
-
-set<Variable*> ArrayLength::getReads()
-{
-  return array->getReads();
 }
 
 Expression* ArrayLength::copy()
@@ -1423,11 +1335,6 @@ Converted::Converted(Expression* val, Type* dst)
     errMsgLoc(this, "can't implicitly convert from " << \
         val->type->getName() << " to " << type->getName());
   }
-}
-
-set<Variable*> Converted::getReads()
-{
-  return value->getReads();
 }
 
 Expression* Converted::copy()

@@ -39,14 +39,6 @@ struct Expression : public Node
 {
   Expression() : type(nullptr) {}
   virtual void resolveImpl() {}
-  virtual set<Variable*> getReads()
-  {
-    return set<Variable*>();
-  }
-  virtual set<Variable*> getWrites()
-  {
-    return set<Variable*>();
-  }
   Type* type;
   //whether this works as an lvalue
   virtual bool assignable() = 0;
@@ -60,6 +52,15 @@ struct Expression : public Node
   virtual int getConstantSize()
   {
     return 0;
+  }
+  //Get the variables read and written by evaluating.
+  //If lhs, don't include the "base" variable.
+  virtual void getReads(set<Variable*>& vars, bool lhs) {}
+  //All lvalues have exactly one "base" variable.
+  //Null for all non-lvalues.
+  virtual Variable* getWrite()
+  {
+    return nullptr;
   }
   //Does this change global state?
   //(call a proc)
@@ -132,7 +133,6 @@ struct UnaryArith : public Expression
     return false;
   }
   void resolveImpl();
-  set<Variable*> getReads();
   int getTypeTag() const
   {
     return 0;
@@ -148,6 +148,14 @@ struct UnaryArith : public Expression
   bool isComputation()
   {
     return true;
+  }
+  void getReads(set<Variable*>& vars, bool)
+  {
+    expr->getReads(vars, false);
+  }
+  Variable* getWrite()
+  {
+    return expr->getWrite();
   }
   size_t hash() const
   {
@@ -168,7 +176,6 @@ struct BinaryArith : public Expression
   Expression* lhs;
   Expression* rhs;
   void resolveImpl();
-  set<Variable*> getReads();
   bool assignable()
   {
     return false;
@@ -188,6 +195,11 @@ struct BinaryArith : public Expression
   bool isComputation()
   {
     return true;
+  }
+  void getReads(set<Variable*>& vars, bool)
+  {
+    lhs->getReads(vars, false);
+    rhs->getReads(vars, false);
   }
   bool commutative()
   {
@@ -609,8 +621,6 @@ struct CompoundLiteral : public Expression
   vector<Expression*> members;
   //(set during resolution): is every member an lvalue?
   bool lvalue;
-  set<Variable*> getReads();
-  set<Variable*> getWrites();
   bool constant() const
   {
     for(auto m : members)
@@ -641,6 +651,15 @@ struct CompoundLiteral : public Expression
         return true;
     }
     return false;
+  }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    //IR should never contain assignment to CompoundLiteral
+    INTERNAL_ASSERT(!lhs);
+    for(auto m : members)
+    {
+      m->getReads(vars, false);
+    }
   }
   bool readsGlobals()
   {
@@ -717,6 +736,15 @@ struct Indexed : public Expression
   {
     return true;
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    group->getReads(vars, lhs);
+    index->getReads(vars, false);
+  }
+  Variable* getWrite()
+  {
+    return group->getWrite();
+  }
   size_t hash() const
   {
     FNV1A f;
@@ -726,8 +754,6 @@ struct Indexed : public Expression
     return f.get();
   }
   Expression* copy();
-  set<Variable*> getReads();
-  set<Variable*> getWrites();
 };
 
 bool operator==(const Indexed& lhs, const Indexed& rhs);
@@ -783,6 +809,12 @@ struct CallExpr : public Expression
   {
     return true;
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    callable->getReads(vars, false);
+    for(auto a : args)
+      a->getReads(vars, false);
+  }
   size_t hash() const
   {
     FNV1A f;
@@ -793,8 +825,6 @@ struct CallExpr : public Expression
     return f.get();
   }
   Expression* copy();
-  //TODO: do evaluate calls in optimizing mode
-  set<Variable*> getReads();
 };
 
 bool operator==(const CallExpr& lhs, const CallExpr& rhs);
@@ -823,6 +853,15 @@ struct VarExpr : public Expression
   {
     return false;
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    if(!lhs)
+      vars.insert(var);
+  }
+  Variable* getWrite()
+  {
+    return var;
+  }
   bool readsGlobals();
   size_t hash() const
   {
@@ -830,8 +869,6 @@ struct VarExpr : public Expression
     return fnv1a(var);
   }
   Expression* copy();
-  set<Variable*> getReads();
-  set<Variable*> getWrites();
 };
 
 bool operator==(const VarExpr& lhs, const VarExpr& rhs);
@@ -865,6 +902,11 @@ struct SubroutineExpr : public Expression
   bool readsGlobals()
   {
     return thisObject && thisObject->readsGlobals();
+  }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    if(thisObject)
+      thisObject->getReads(vars, false);
   }
   size_t hash() const
   {
@@ -913,6 +955,14 @@ struct StructMem : public Expression
   {
     return true;
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    base->getReads(vars, lhs);
+  }
+  Variable* getWrite()
+  {
+    return base->getWrite();
+  }
   size_t hash() const
   {
     FNV1A f;
@@ -924,8 +974,6 @@ struct StructMem : public Expression
     return f.get();
   }
   Expression* copy();
-  set<Variable*> getReads();
-  set<Variable*> getWrites();
 };
 
 bool operator==(const StructMem& lhs, const StructMem& rhs);
@@ -979,6 +1027,10 @@ struct ArrayLength : public Expression
   {
     return array->readsGlobals();
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    array->getReads(vars, false);
+  }
   size_t hash() const
   {
     FNV1A f;
@@ -991,7 +1043,6 @@ struct ArrayLength : public Expression
     return true;
   }
   Expression* copy();
-  set<Variable*> getReads();
 };
 
 bool operator==(const ArrayLength& lhs, const ArrayLength& rhs);
@@ -1011,10 +1062,6 @@ struct IsExpr : public Expression
   {
     return false;
   }
-  set<Variable*> getReads()
-  {
-    return base->getReads();
-  }
   size_t hash() const
   {
     FNV1A f;
@@ -1030,6 +1077,10 @@ struct IsExpr : public Expression
   bool hasSideEffects()
   {
     return base->hasSideEffects();
+  }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    base->getReads(vars, lhs);
   }
   bool readsGlobals()
   {
@@ -1063,10 +1114,6 @@ struct AsExpr : public Expression
   {
     return false;
   }
-  set<Variable*> getReads()
-  {
-    return base->getReads();
-  }
   size_t hash() const
   {
     FNV1A f;
@@ -1090,6 +1137,10 @@ struct AsExpr : public Expression
   bool isComputation()
   {
     return true;
+  }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    base->getReads(vars, lhs);
   }
   Expression* copy();
   Expression* base;
@@ -1153,12 +1204,15 @@ struct Converted : public Expression
   {
     return value->readsGlobals();
   }
+  void getReads(set<Variable*>& vars, bool lhs)
+  {
+    value->getReads(vars, false);
+  }
   bool isComputation()
   {
     return true;
   }
   Expression* copy();
-  set<Variable*> getReads();
 };
 
 bool operator==(const Converted& lhs, const Converted& rhs);

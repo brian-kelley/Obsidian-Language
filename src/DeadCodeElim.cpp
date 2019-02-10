@@ -103,6 +103,7 @@ bool deadCodeElim(SubroutineIR* subr)
 
 void deadStoreElim(IR::SubroutineIR* subr)
 {
-  //Compute liveness sets
+  //Compute live sets and reaching definitions
+  
 }
 
