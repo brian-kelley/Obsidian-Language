@@ -13,6 +13,8 @@ bool deadCodeElim(IR::SubroutineIR* subr);
 //(still evaluate RHS if it has side effects).
 //Finally, completely delete local variables that are never alive
 //It only makes sense to run this once, so it doesn't return true for updates.
+//
+//It also completely deletes never-used variables (removes name from scope)
 void deadStoreElim(IR::SubroutineIR* subr);
 
 #endif

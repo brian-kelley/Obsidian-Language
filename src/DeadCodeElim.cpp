@@ -1,4 +1,6 @@
 #include "DeadCodeElim.hpp"
+#include "Dataflow.hpp"
+#include "Variable.hpp"
 
 using namespace IR;
 
@@ -101,9 +103,80 @@ bool deadCodeElim(SubroutineIR* subr)
   return updatePhase1 || updatePhase2;
 }
 
-void deadStoreElim(IR::SubroutineIR* subr)
+void deadStoreElim(SubroutineIR* subr)
 {
-  //Compute live sets and reaching definitions
-  
+  ReachingDefs reaching(subr);
+  int numAssigns = reaching.allAssigns.size();
+  Liveness live(subr);
+  int numVars = live.allVars.size();
+  //Record which defs actually reach a usage (unused defs may be deleted)
+  vector<bool> defsUsed(numAssigns, false);
+  //Within each block, compute live set entry to each stmt (backwards)
+  for(size_t b = 0; b < subr->blocks.size(); b++)
+  {
+    //compute the live and reaching sets at the beginning of each statement
+    BasicBlock* block = subr->blocks[b];
+    //First phase: delete assignments modifying dead variables.
+    {
+      LiveSet stmtLive(numVars, false);
+      for(auto succ : block->out)
+      {
+        unionMeet(stmtLive, live.live[succ->index]);
+      }
+      for(int i = block->end - 1; i >= block->start; i--)
+      {
+        live.transfer(stmtLive, subr->stmts[i]);
+        if(auto assign = dynamic_cast<AssignIR*>(subr->stmts[i]))
+        {
+          Variable* v = assign->dst->getWrite();
+          if(!live.isLive(stmtLive, v))
+          {
+            cout << "Deleted dead store: " << subr->stmts[i] << '\n';
+            if(assign->src->hasSideEffects())
+              subr->stmts[i] = new EvalIR(assign->src);
+            else
+              subr->stmts[i] = nop;
+          }
+        }
+      }
+    }
+    //Second phase: for every usage of V, flag defs of V reaching usage.
+    {
+      ReachingSet stmtReach(numAssigns, false);
+      for(auto pred : block->in)
+        unionMeet(stmtReach, reaching.reaching[pred->index]);
+      for(int i = block->start; i < block->end; i++)
+      {
+        reaching.transfer(stmtReach, subr->stmts[i]);
+        set<Variable*> used;
+        subr->stmts[i]->getReads(used);
+        for(int j = 0; j < numAssigns; j++)
+        {
+          //(optimization) test as few defs as possible
+          if(!defsUsed[j] && stmtReach[j])
+          {
+            Variable* defWrite = reaching.allAssigns[j]->dst->getWrite();
+            if(used.find(defWrite) != used.end())
+              defsUsed[j] = true;
+          }
+        }
+      }
+    }
+  }
+  //Finally, remove all unused assignments to locals.
+  for(int i = 0; i < numAssigns; i++)
+  {
+    AssignIR* assign = reaching.allAssigns[i];
+    if(!defsUsed[i] && assign->dst->getWrite()->isLocal())
+    {
+      cout << "Deleted unused assignment: " << subr->stmts[assign->intLabel] << '\n';
+      if(assign->src->hasSideEffects())
+        subr->stmts[assign->intLabel] = new EvalIR(assign->src);
+      else
+        subr->stmts[assign->intLabel] = nop;
+    }
+  }
+  //Delete nops and rebuild CFG
+  subr->buildCFG();
 }
 

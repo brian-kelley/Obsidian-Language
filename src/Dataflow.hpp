@@ -15,24 +15,36 @@ using IR::AssignIR;
 //
 //Reaching defs = forward dataflow, meet operator is union.
 //Locally, defs are both generated and killed by new defs of the same var.
-namespace ReachingDefs
+typedef vector<bool> ReachingSet;
+
+struct ReachingDefs
 {
-  typedef set<AssignIR*> ReachingSet;
-  vector<ReachingSet> compute(SubroutineIR* subr);
+  ReachingDefs(SubroutineIR* subr);
   void transfer(ReachingSet& r, StatementIR* stmt);
-  void meet(ReachingSet& into, ReachingSet& from);
-  bool operator==(const ReachingSet& r1, const ReachingSet& r2);
-}
+  //Table of all assignments and corresponding indices in reaching[k]
+  unordered_map<AssignIR*, int> assignTable;
+  //Reaching-def set for each block
+  vector<AssignIR*> allAssigns;
+  vector<ReachingSet> reaching;
+};
+
+typedef vector<bool> LiveSet;
 
 //A variable is live before and including its last use.
-namespace Liveness
+struct Liveness
 {
-  typedef set<Variable*> LiveSet;
-  vector<LiveSet> compute(SubroutineIR* subr);
+  Liveness(SubroutineIR* subr);
   void transfer(LiveSet& r, StatementIR* stmt);
-  void meet(LiveSet& into, LiveSet& from);
-  bool operator==(const LiveSet& l1, const LiveSet& l2);
-}
+  bool isLive(LiveSet& l, Variable* v);
+  //Tables of all local variables
+  vector<Variable*> allVars;
+  unordered_map<Variable*, int> varTable;
+  //Live sets at the beginning of each 
+  vector<LiveSet> live;
+};
+
+//Bitwise union (or) operation - for both liveness and reaching
+void unionMeet(vector<bool>& into, vector<bool>& from);
 
 #endif
 

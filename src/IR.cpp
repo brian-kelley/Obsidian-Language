@@ -59,7 +59,10 @@ namespace IR
     IRDebug::dumpIR("IR/4-simplified.dot");
     for(auto& s : ir)
       cse(s.second);
-    IRDebug::dumpIR("IR/5-optimized.dot");
+    IRDebug::dumpIR("IR/5-cse.dot");
+    for(auto& s : ir)
+      deadStoreElim(s.second);
+    IRDebug::dumpIR("IR/6-optimized.dot");
     //cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
   }
 
