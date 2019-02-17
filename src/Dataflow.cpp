@@ -141,19 +141,6 @@ Liveness::Liveness(SubroutineIR* subr)
       }
     }
   }
-  cout << "\n\n\n ?????????????????\n";
-  for(size_t i = 0; i < subr->blocks.size(); i++)
-  {
-    cout << "Live set at entry to block " << i << ":\n";
-    for(auto v : subr->vars)
-    {
-      if(isLive(live[i], v))
-      {
-        cout << v->name << '\n';
-      }
-    }
-  }
-  cout << "\n\n";
 }
 
 bool Liveness::isLive(LiveSet& l, Variable* v)

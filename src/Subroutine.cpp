@@ -534,6 +534,9 @@ void Subroutine::resolveImpl()
     //resolving argument variables just resolves their types
     arg->resolve();
   }
+  //pretend this is resolved, so that recursive calls can resolve
+  //(the type and args are resolved, so CallExprs can resolve successfully)
+  resolved = true;
   if(typesSame(type->returnType, primitives[Prim::VOID]) &&
       (body->stmts.size() == 0 ||
       !dynamic_cast<Return*>(body->stmts.back())))
@@ -566,7 +569,6 @@ void Subroutine::resolveImpl()
     }
     programHasMain = true;
   }
-  resolved = true;
 }
 
 ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vector<Type*>& argTypes, vector<string>& argN, string& code)

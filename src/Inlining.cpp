@@ -27,8 +27,6 @@ struct Inliner
     {
       INTERNAL_ASSERT(!thisValue->hasSideEffects());
     }
-    cout << "*** Inlining call to " << subr->name <<
-      " at " << call->printLocation() << '\n';
     //Make a mirror of each local variable in the inlined subroutine
     //These are added to the IR's variable table but not any AST scope
     for(auto v : subrIR->vars)
@@ -36,7 +34,6 @@ struct Inliner
       Variable* mirror = new Variable(
           v->name + "_inlined" + to_string(inlineCounter) + "__", v->type);
       mirror->resolve();
-      cout << "Created mirror variable " << mirror->name << " for " << v->name << '\n';
       varTranslation[v] = mirror;
       into->vars.insert(mirror);
     }
@@ -160,7 +157,6 @@ struct Inliner
       if(it != varTranslation.end())
       {
         e = new VarExpr(it->second);
-        cout << "Replaced " << it->first->name << " with " << it->second->name << '\n';
       }
     }
     else if(auto conv = dynamic_cast<Converted*>(expr))

@@ -108,16 +108,7 @@ void deadStoreElim(SubroutineIR* subr)
   ReachingDefs reaching(subr);
   int numAssigns = reaching.allAssigns.size();
   Liveness live(subr);
-  cout << "\n\n**** PROCESSING " << subr->subr->name << "\n";
-  cout << "DEAD VARS AT START:\n";
   int numVars = live.allVars.size();
-  for(int i = 0; i < numVars; i++)
-  {
-    if(!live.live[0][i])
-    {
-      cout << "  " << live.allVars[i]->name << '\n';
-    }
-  }
   //Record which defs actually reach a usage (unused defs may be deleted)
   vector<bool> defsUsed(numAssigns, false);
   //Within each block, compute live set entry to each stmt (backwards)

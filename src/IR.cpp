@@ -60,31 +60,12 @@ namespace IR
     IRDebug::dumpIR("IR/4-simplified.dot");
     for(auto& s : ir)
       cse(s.second);
-
-    cout << "\n\n\n<><><><> AFTER PHASE 4\n";
-    for(auto& s : ir)
-    {
-      for(auto v : s.second->vars)
-      {
-        cout << "Subr " << s.first->name << " has local " << v->name << '\n';
-      }
-    }
-
     IRDebug::dumpIR("IR/5-cse.dot");
     for(auto& s : ir)
       deadStoreElim(s.second);
-
-    cout << "\n\n\n<><><><> AFTER PHASE 5\n";
-    for(auto& s : ir)
-    {
-      for(auto v : s.second->vars)
-      {
-        cout << "Subr " << s.first->name << " has local " << v->name << '\n';
-      }
-    }
-
     IRDebug::dumpIR("IR/6-deadstore.dot");
     //inline every EvalIR
+    /*
     for(auto& s : ir)
     {
       bool update = true;
@@ -102,6 +83,7 @@ namespace IR
         }
       }
     }
+    */
     IRDebug::dumpIR("IR/7-inlined.dot");
     //cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
   }
@@ -132,7 +114,6 @@ namespace IR
         if(n.second.kind == Name::VARIABLE)
         {
           Variable* v = (Variable*) n.second.item;
-          cout << "Subroutine " << s->name << " has local/param var " << v->name << '\n';
           vars.insert(v);
         }
       }

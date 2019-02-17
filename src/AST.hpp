@@ -58,7 +58,9 @@ struct Node
       return;
     if(resolving)
     {
-      errMsgLoc(this, "Circular definition in program");
+      cout << "Circular definition at " << printLocation() << "!\n";
+      INTERNAL_ERROR;
+      //errMsgLoc(this, "Circular definition in program");
     }
     resolving = true;
     resolveImpl();
