@@ -38,8 +38,7 @@ ReachingDefs::ReachingDefs(SubroutineIR* subr)
     auto old = rs;
     //clear the real one (recomputing from scratch)
     for(int i = 0; i < numAssigns; i++)
-      rs[i] = 0;
-    rs.clear();
+      rs[i] = false;
     //union in all incoming
     for(auto pred : process->in)
       unionMeet(rs, reaching[pred->index]);
@@ -94,35 +93,16 @@ Liveness::Liveness(SubroutineIR* subr)
 {
   //collect a list of all local vars (including parameters)
   //DFS through scopes
-  {
-    stack<Scope*> search;
-    search.push(subr->subr->scope);
-    while(search.size())
-    {
-      Scope* process = search.top();
-      search.pop();
-      for(auto& n : process->names)
-      {
-        if(n.second.kind == Name::VARIABLE)
-        {
-          allVars.push_back((Variable*) n.second.item);
-        }
-      }
-      for(auto child : process->children)
-      {
-        if(child->node.is<Block*>() || child->node.is<Module*>())
-          search.push(child);
-      }
-    }
-    for(size_t i = 0; i < allVars.size(); i++)
-    {
-      varTable[allVars[i]] = i;
-    }
-  }
   //Reaching defs for each block
   auto numBlocks = subr->blocks.size();
+  for(auto v : subr->vars)
+  {
+    varTable[v] = allVars.size();
+    allVars.push_back(v);
+  }
+  auto numVars = allVars.size();
   for(int i = 0; i < numBlocks; i++)
-    live.emplace_back(allVars.size(), false);
+    live.emplace_back(numVars, false);
   vector<bool> inQueue(numBlocks, true);
   queue<int> processQueue;
   for(int i = subr->blocks.size() - 1; i >= 0; i--)
@@ -135,9 +115,10 @@ Liveness::Liveness(SubroutineIR* subr)
     inQueue[procInd] = false;
     LiveSet& rs = live[procInd];
     //save the previous def set
-    auto old = rs;
+    LiveSet old = rs;
     //clear the real one (recomputing from scratch)
-    rs.clear();
+    for(int i = 0; i < numVars; i++)
+      rs[i] = false;
     //union live sets at beginning of all successors
     for(auto succ : process->out)
       unionMeet(rs, live[succ->index]);
@@ -160,6 +141,19 @@ Liveness::Liveness(SubroutineIR* subr)
       }
     }
   }
+  cout << "\n\n\n ?????????????????\n";
+  for(size_t i = 0; i < subr->blocks.size(); i++)
+  {
+    cout << "Live set at entry to block " << i << ":\n";
+    for(auto v : subr->vars)
+    {
+      if(isLive(live[i], v))
+      {
+        cout << v->name << '\n';
+      }
+    }
+  }
+  cout << "\n\n";
 }
 
 bool Liveness::isLive(LiveSet& l, Variable* v)
@@ -188,6 +182,11 @@ void Liveness::transfer(LiveSet& r, StatementIR* stmt)
 
 void unionMeet(vector<bool>& into, vector<bool>& from)
 {
+  if(into.size() != from.size())
+  {
+    cout << "Trying to meet set of size " << from.size() << " into " << into.size() << '\n';
+    INTERNAL_ERROR;
+  }
   for(size_t i = 0; i < into.size(); i++)
   {
     into[i] = into[i] || from[i];

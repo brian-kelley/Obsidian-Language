@@ -125,7 +125,7 @@ map<Variable*, ConstantVar> globalConstants;
 void findGlobalConstants()
 {
   //before the first pass, assume all globals are non-constant
-  for(auto v : allVars)
+  for(auto v : allGlobals)
   {
     if(v->isGlobal())
     {

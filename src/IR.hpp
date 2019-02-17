@@ -117,6 +117,7 @@ namespace IR
   struct AssertionIR : public StatementIR
   {
     AssertionIR(Assertion* a) : asserted(a->asserted) {}
+    AssertionIR(Expression* a) : asserted(a) {}
     Expression* asserted;
     void getReads(set<Variable*>& vars)
     {
@@ -160,6 +161,9 @@ namespace IR
     Subroutine* subr;
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
+    //All local variables (including parameters).
+    //Dead store elimination can remove unused variables (but not parameters)
+    set<Variable*> vars;
     map<int, BasicBlock*> blockStarts;
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);

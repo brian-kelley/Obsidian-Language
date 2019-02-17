@@ -202,9 +202,11 @@ vector<Token*> lex(string code, int file)
       }
       int identEnd = cs.iter;
       string ident = code.substr(identStart, identEnd - identStart);
-      if(ident[ident.length() - 1] == '_')
+      if(ident.length() > 2 &&
+          ident[ident.length() - 1] == '_' &&
+          ident[ident.length() - 2] == '_')
       {
-        cs.err("identifier can't end with an underscore.");
+        cs.err("identifier can't end with two underscores.");
       }
       //check if keyword
       auto kwIter = keywordMap.find(ident);

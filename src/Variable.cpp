@@ -3,7 +3,7 @@
 
 static int nextVarID = 0;
 
-vector<Variable*> allVars;
+vector<Variable*> allGlobals;
 
 Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic, bool compose)
 {
@@ -20,12 +20,13 @@ Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic,
     owner->composed.push_back(compose);
   }
   id = nextVarID++;
-  allVars.push_back(this);
+  if(isGlobal())
+    allGlobals.push_back(this);
 }
 
 Variable::Variable(string n, Type* t, Block* b)
 {
-  scope = b->scope;
+  scope = b ? b->scope : nullptr;
   name = n;
   type = t;
   //initial values in local variables are handled separately,
@@ -33,7 +34,6 @@ Variable::Variable(string n, Type* t, Block* b)
   initial = nullptr;
   owner = nullptr;
   id = nextVarID++;
-  allVars.push_back(this);
 }
 
 void Variable::resolveImpl()
@@ -66,6 +66,11 @@ bool Variable::isGlobal()
 bool Variable::isLocal()
 {
   return scope->node.is<Block*>();
+}
+
+bool Variable::isLocalOrParameter()
+{
+  return isLocal() || isParameter();
 }
 
 bool Variable::isMember()

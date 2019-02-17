@@ -25,6 +25,7 @@ add_executable (onyx
   src/JumpThreading.cpp
   src/DeadCodeElim.cpp
   src/CSElim.cpp
+  src/Inlining.cpp
   src/Dotfile.cpp
   src/BuiltIn.cpp
   src/main.cpp

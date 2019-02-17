@@ -6,9 +6,6 @@ using namespace IR;
 
 void cse(SubroutineIR* subr)
 {
-  cout << "==============================\n";
-  cout << "Doing CSE on " << subr->subr->name << '\n';
-  cout << "==============================\n";
   auto numBlocks = subr->blocks.size();
   if(numBlocks == 0)
     return;
@@ -19,9 +16,6 @@ void cse(SubroutineIR* subr)
   int passes = 0;
   do
   {
-    cout << "***********************\n";
-    cout << "Pass #" << passes << '\n';
-    cout << "***********************\n";
     for(auto& defSet : definitions)
     {
       defSet.clear();
@@ -82,18 +76,6 @@ void cse(SubroutineIR* subr)
         }
       }
     }
-    /*
-    cout << "Final def set at the end of each block:\n";
-    for(auto b : subr->blocks)
-    {
-      cout << b->start << ":" << b->end << "\n";
-      for(auto d : definitions[b->index].d)
-      {
-        cout << d.second << '\n';
-      }
-      cout << '\n';
-    }
-    */
     //now, have up-to-date avail sets
     //do CSE (sequentially per block)
     //after each statement, do the "transfer"
@@ -104,20 +86,6 @@ void cse(SubroutineIR* subr)
       DefSet localDefs = meet(definitions, subr, b);
       for(int s = b->start; s < b->end; s++)
       {
-        cout << "\n\n****  Local definitions available at stmt " << s <<
-          ":\n";
-        for(auto& d : localDefs.d)
-        {
-          cout << "  " << d.second << '\n';
-        }
-        cout << "\n";
-        cout << "\n\n****  Available expressions at stmt " << s <<
-          ":\n";
-        for(auto& a : localDefs.avail)
-        {
-          cout << "  " << a.first << '\n';
-        }
-        cout << "\n";
         //transfers must be from the original set of expressions
         auto stmt = subr->stmts[s];
         if(auto assign = dynamic_cast<AssignIR*>(stmt))
@@ -134,7 +102,6 @@ void cse(SubroutineIR* subr)
           //can simply compare left and right
           if(*(assign->dst) == *(assign->src))
           {
-            cout << "Deleting no-op assignment of \"" << assign->src << "\" to itself.\n";
             subr->stmts[s] = nop;
             update = true;
           }
@@ -163,10 +130,8 @@ void cse(SubroutineIR* subr)
     passes++;
   }
   while(update);
-  cout << "  Did CSE on " << subr->subr->name << " in " << passes << " passes.\n";
   if(update)
     subr->buildCFG();
-  cout << "\n\n\n";
 }
 
 namespace CSElim
@@ -249,24 +214,20 @@ namespace CSElim
     if(auto ve = dynamic_cast<VarExpr*>(e))
     {
       //Copy propagation
-      cout << "Attempting copy propagation on read from " << ve->var->name << '\n';
       //if ve->var is currently defined in terms of another variable,
       //replace with that one
       if(auto varDef = dynamic_cast<VarExpr*>(defs.getDef(ve->var)))
       {
         e = varDef;
-        cout << "Success! replaced with var " << varDef->var->name << " instead.\n";
         return true;
       }
       return false;
     }
     //all other kinds of expressions: attempt CSE
-    cout << "Attempting to replace expr " << e << " via CSE.\n";
     Variable* var = defs.varForExpr(e);
     if(var)
     {
       //Common subexpression elimination
-      cout << "Replacing expr \"" << e << "\" with " << var->name << '\n';
       //e has already been computed, so replace it
       e = new VarExpr(var);
       e->resolve();

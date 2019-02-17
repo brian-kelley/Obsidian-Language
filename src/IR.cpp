@@ -7,6 +7,7 @@
 #include "DeadCodeElim.hpp"
 #include "JumpThreading.hpp"
 #include "CSElim.hpp"
+#include "Inlining.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -59,10 +60,49 @@ namespace IR
     IRDebug::dumpIR("IR/4-simplified.dot");
     for(auto& s : ir)
       cse(s.second);
+
+    cout << "\n\n\n<><><><> AFTER PHASE 4\n";
+    for(auto& s : ir)
+    {
+      for(auto v : s.second->vars)
+      {
+        cout << "Subr " << s.first->name << " has local " << v->name << '\n';
+      }
+    }
+
     IRDebug::dumpIR("IR/5-cse.dot");
     for(auto& s : ir)
       deadStoreElim(s.second);
-    IRDebug::dumpIR("IR/6-optimized.dot");
+
+    cout << "\n\n\n<><><><> AFTER PHASE 5\n";
+    for(auto& s : ir)
+    {
+      for(auto v : s.second->vars)
+      {
+        cout << "Subr " << s.first->name << " has local " << v->name << '\n';
+      }
+    }
+
+    IRDebug::dumpIR("IR/6-deadstore.dot");
+    //inline every EvalIR
+    for(auto& s : ir)
+    {
+      bool update = true;
+      while(update)
+      {
+        update = false;
+        for(auto stmt : s.second->stmts)
+        {
+          if(auto eval = dynamic_cast<EvalIR*>(stmt))
+          {
+            inlineCall(s.second, eval);
+            update = true;
+            break;
+          }
+        }
+      }
+    }
+    IRDebug::dumpIR("IR/7-inlined.dot");
     //cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
   }
 
@@ -80,6 +120,28 @@ namespace IR
     addStatement(subr->body);
     for(size_t i = 0; i < stmts.size(); i++)
       stmts[i]->intLabel = i;
+    //DFS through scopes to list all variables
+    stack<Scope*> search;
+    search.push(s->scope);
+    while(search.size())
+    {
+      Scope* process = search.top();
+      search.pop();
+      for(auto& n : process->names)
+      {
+        if(n.second.kind == Name::VARIABLE)
+        {
+          Variable* v = (Variable*) n.second.item;
+          cout << "Subroutine " << s->name << " has local/param var " << v->name << '\n';
+          vars.insert(v);
+        }
+      }
+      for(auto child : process->children)
+      {
+        if(child->node.is<Block*>() || child->node.is<Module*>())
+          search.push(child);
+      }
+    }
     buildCFG();
   }
 
@@ -374,7 +436,28 @@ namespace IR
     }
     else if(auto ev = dynamic_cast<EvalIR*>(s))
     {
-      ev->eval = expandExpression(ev->eval);
+      if(!ev->eval->hasSideEffects())
+      {
+        //do nothing
+        return;
+      }
+      auto call = dynamic_cast<CallExpr*>(ev->eval);
+      //procedure calls should be the only exprs with side effects
+      INTERNAL_ASSERT(call);
+      //expand the callable and each arg, but don't assign return value
+      //to a temp
+      Expression* callable = expandExpression(call->callable);
+      vector<Expression*> args;
+      for(size_t i = 0; i < call->args.size(); i++)
+      {
+        args.push_back(expandExpression(call->args[i]));
+      }
+      call->callable = callable;
+      for(size_t i = 0; i < args.size(); i++)
+      {
+        call->args[i] = args[i];
+      }
+      //then add s
     }
     else if(auto cj = dynamic_cast<CondJump*>(s))
     {
@@ -751,7 +834,8 @@ namespace IR
 
   string SubroutineIR::getTempName()
   {
-    return "_temp" + to_string(tempCounter++);
+    //identifiers can't end with "__", so this can't conflict
+    return "t" + to_string(tempCounter++) + "__";
   }
 }
 
@@ -764,7 +848,7 @@ ostream& operator<<(ostream& os, IR::StatementIR* stmt)
   }
   else if(auto ev = dynamic_cast<EvalIR*>(stmt))
   {
-    os << "eval: " << ev->eval;
+    os << ev->eval;
   }
   else if(auto j = dynamic_cast<Jump*>(stmt))
   {

@@ -108,7 +108,16 @@ void deadStoreElim(SubroutineIR* subr)
   ReachingDefs reaching(subr);
   int numAssigns = reaching.allAssigns.size();
   Liveness live(subr);
+  cout << "\n\n**** PROCESSING " << subr->subr->name << "\n";
+  cout << "DEAD VARS AT START:\n";
   int numVars = live.allVars.size();
+  for(int i = 0; i < numVars; i++)
+  {
+    if(!live.live[0][i])
+    {
+      cout << "  " << live.allVars[i]->name << '\n';
+    }
+  }
   //Record which defs actually reach a usage (unused defs may be deleted)
   vector<bool> defsUsed(numAssigns, false);
   //Within each block, compute live set entry to each stmt (backwards)
@@ -131,7 +140,6 @@ void deadStoreElim(SubroutineIR* subr)
           Variable* v = assign->dst->getWrite();
           if(!live.isLive(stmtLive, v))
           {
-            cout << "Deleted dead store: " << subr->stmts[i] << '\n';
             if(assign->src->hasSideEffects())
               subr->stmts[i] = new EvalIR(assign->src);
             else
@@ -163,18 +171,24 @@ void deadStoreElim(SubroutineIR* subr)
       }
     }
   }
-  //Finally, remove all unused assignments to locals.
+  //Remove all unused assignments to locals.
   for(int i = 0; i < numAssigns; i++)
   {
     AssignIR* assign = reaching.allAssigns[i];
-    if(!defsUsed[i] && assign->dst->getWrite()->isLocal())
+    if(!defsUsed[i] && assign->dst->getWrite()->isLocalOrParameter())
     {
-      cout << "Deleted unused assignment: " << subr->stmts[assign->intLabel] << '\n';
       if(assign->src->hasSideEffects())
         subr->stmts[assign->intLabel] = new EvalIR(assign->src);
       else
         subr->stmts[assign->intLabel] = nop;
     }
+  }
+  //Delete completely unused variables (those which are not live at entry)
+  for(int i = 0; i < numVars; i++)
+  {
+    //isLocal() is false for parameters
+    if(!live.live[0][i] && live.allVars[i]->isLocal())
+      subr->vars.erase(live.allVars[i]);
   }
   //Delete nops and rebuild CFG
   subr->buildCFG();

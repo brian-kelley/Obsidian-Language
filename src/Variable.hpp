@@ -16,17 +16,20 @@ namespace TypeSystem
 
 struct Variable;
 
-extern vector<Variable*> allVars;
+extern vector<Variable*> allGlobals;
 
 struct Variable : public Node
 {
   //ctor for global/static/member variables and arguments
   Variable(Scope* s, string name, Type* t, Expression* init, bool isStatic, bool compose = false);
-  //ctor for local variables
-  Variable(string name, Type* t, Block* b);
+  //ctor for local variables.
+  //Locals declared in AST always belong to a block, but
+  //locals created during optimization don't (null block, scope)
+  Variable(string name, Type* t, Block* b = nullptr);
   bool isParameter();
-  bool isGlobal();
   bool isLocal();
+  bool isLocalOrParameter();
+  bool isGlobal();
   bool isMember();
   //this resolve() just resolves type
   void resolveImpl();
