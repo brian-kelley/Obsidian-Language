@@ -5,6 +5,7 @@
 #include "Subroutine.hpp"
 #include "Expression.hpp"
 #include "Variable.hpp"
+#include "SourceFile.hpp"
 #include <exception>
 #include <limits>
 
@@ -42,9 +43,9 @@ extern Module* global;
     expectPunct(COMMA); \
   }
 
-void parseProgram()
+void parseProgram(string mainSourcePath)
 {
-  Parser::Stream mainStream;
+  Parser::Stream mainStream(getSourceFile(nullptr, mainSourcePath));
   while(!mainStream.accept(PastEOF::inst))
   {
     mainStream.parseScopedDecl(global->scope, true);
@@ -53,8 +54,6 @@ void parseProgram()
 
 namespace Parser
 {
-  vector<Token*> tokens;
-
   void Stream::parseModule(Scope* s)
   {
     Node* loc = lookAhead();
@@ -86,10 +85,43 @@ namespace Parser
 
   void Stream::parseScopedDecl(Scope* s, bool semicolon)
   {
+    Node* loc = lookAhead();
     Punct colon(COLON);
     Punct lparen(LPAREN);
     Oper composeOperator(BXOR);
-    if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
+    if(acceptPunct(HASH))
+    {
+      string id = expectIdent();
+      if(id == "include")
+      {
+        if(!s->isNestedModule())
+        {
+          errMsgLoc(loc, "can only #include files in a module or submodule.\n");
+        }
+        expectPunct(LPAREN);
+        StrLit* str = (StrLit*) expect(STRING_LITERAL);
+        expectPunct(RPAREN);
+        expectPunct(SEMICOLON);
+        SourceFile* includedFile = getSourceFile(loc, str->val);
+        Module* module = s->node.get<Module*>();
+        if(!module->hasInclude(includedFile))
+        {
+          module->included.insert(includedFile);
+          Stream subStream(includedFile);
+          //parse scoped decls until EOF of the included file
+          while(!subStream.accept(PastEOF::inst))
+          {
+            subStream.parseScopedDecl(module->scope, true);
+          }
+        }
+        return;
+      }
+      else
+      {
+        errMsgLoc(loc, "TODO: undefined meta-statement.\n");
+      }
+    }
+    else if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
       switch(kw->kw)
       {
@@ -153,7 +185,7 @@ namespace Parser
             return;
           }
         default:
-          err("expected a declaration");
+          errMsgLoc(loc, "expected a declaration");
       }
     }
     else if(lookAhead()->type == IDENTIFIER ||
@@ -173,7 +205,7 @@ namespace Parser
     }
     else
     {
-      err("Expected decl but got " + lookAhead()->getStr() + '\n');
+      errMsgLoc(loc, "expected decl but got " + lookAhead()->getStr() + '\n');
       INTERNAL_ERROR;
     }
   }
@@ -1233,13 +1265,13 @@ namespace Parser
   Token* Stream::lookAhead(int n)
   {
     int index = pos + n;
-    if(index >= tokens.size())
+    if(index >= tokens->size())
     {
       return &PastEOF::inst;
     }
     else
     {
-      return tokens[index];
+      return (*tokens)[index];
     }
   }
 
@@ -1262,20 +1294,23 @@ namespace Parser
     }
   }
 
-  Stream::Stream()
+  Stream::Stream(SourceFile* file)
   {
     pos = 0;
     emitErrors = true;
+    tokens = &file->tokens;
   }
   Stream::Stream(const Stream& s)
   {
     pos = s.pos;
     emitErrors = s.emitErrors;
+    tokens = s.tokens;
   }
   Stream& Stream::operator=(const Stream& s)
   {
     pos = s.pos;
     emitErrors = s.emitErrors;
+    tokens = s.tokens;
     return *this;
   }
   bool Stream::operator==(const Stream& s)

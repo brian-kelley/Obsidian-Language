@@ -123,7 +123,9 @@ enum
   DOT,
   COMMA,
   DOLLAR,
-  QUESTION, HASH };
+  QUESTION,
+  HASH
+};
 
 enum
 {

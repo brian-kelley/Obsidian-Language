@@ -1,10 +1,8 @@
 #include "AST.hpp"
-
-vector<string> sourceFiles;
-vector<IncludedFile> includes;
+#include "SourceFile.hpp"
 
 string Node::printLocation()
 {
-  return sourceFiles[fileID] + ", " + to_string(line) + ":" + to_string(col);
+  return sourceFileFromID(fileID)->path + ", " + to_string(line) + ":" + to_string(col);
 }
 

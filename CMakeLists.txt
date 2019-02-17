@@ -8,6 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -std=c++11 -Wall -Wshadow -ferror-limit=2")
 add_executable (onyx
   src/Common.cpp
+  src/SourceFile.cpp
   src/Token.cpp
   src/Lexer.cpp
   src/Parser.cpp

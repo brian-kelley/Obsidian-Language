@@ -2,6 +2,7 @@
 #include "TypeSystem.hpp"
 #include "Variable.hpp"
 #include "Subroutine.hpp"
+#include "SourceFile.hpp"
 
 bool Name::inScope(Scope* s)
 {
@@ -43,7 +44,7 @@ Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e)
 
 void Scope::addName(Name n)
 {
-  Name prev = findName(n.name);
+  Name prev = lookup(n.name);
   if(prev.item)
   {
     errMsgLoc(n.item, "name " << n.name << " redefined - previous declaration at " << prev.item->printLocation());
@@ -287,6 +288,11 @@ bool Scope::contains(Scope* other)
   return false;
 }
 
+bool Scope::isNestedModule()
+{
+  return node.is<Module*>() && (!parent || parent->isNestedModule());
+}
+
 Module::Module(string n, Scope* s)
 {
   name = n;
@@ -296,5 +302,10 @@ Module::Module(string n, Scope* s)
 void Module::resolveImpl()
 {
   resolved = scope->resolveAll();
+}
+
+bool Module::hasInclude(SourceFile* sf)
+{
+  return included.find(sf) != included.end();
 }
 

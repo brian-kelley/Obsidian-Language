@@ -15,15 +15,20 @@ struct ExternalSubroutine;
 struct Variable;
 struct Block;
 struct Member;
+struct SourceFile;
 
 struct Module : public Node
 {
   //name is "" for global scope
   Module(string n, Scope* s);
+  bool hasInclude(SourceFile* sf);
   void resolveImpl();
+  //table of files that have been included in this module
   string name;
   //scope->node == this
   Scope* scope;
+  //set of all files included in this module
+  set<SourceFile*> included;
 };
 
 extern Module* global;
@@ -74,7 +79,7 @@ struct Scope
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
   Name findName(Member* mem);
-  //try to find name in this scope or a parent scope
+  //try to find name in this scope or any parent scope
   Name findName(string name);
   //try to find name in this scope only
   Name lookup(string name);
@@ -107,6 +112,8 @@ struct Scope
   Scope* getFunctionContext();
   //does this contain other?
   bool contains(Scope* other);
+  //is this a module or submodule in global scope?
+  bool isNestedModule();
   //all types that can represent a Scope in the AST
   //using this variant instead of having these types inherit Scope
   variant<Module*, StructType*, Subroutine*, Block*, EnumType*> node;

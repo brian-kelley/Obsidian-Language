@@ -28,27 +28,16 @@ struct Type;
 struct StructType;
 
 //Parse the whole program into the global AST
-void parseProgram();
+void parseProgram(string mainSourcePath);
 
 namespace Parser
 {
-  //The full token stream
-  extern vector<Token*> tokens;
-
-  /*
-  string emitBuffer;
-  //execute the meta-statement starting at offset start in code stream
-  void metaStatement(size_t start);
-  void emit(string source);
-  void emit(ParseNode* nonterm);
-  void emit(Token* tok);
-  */
-
   struct Stream
   {
-    Stream();
+    Stream(SourceFile* file);
     Stream(const Stream& s);
     size_t pos;
+    vector<Token*>* tokens;
     bool emitErrors;
     Stream& operator=(const Stream& other);
     bool operator==(const Stream& s);

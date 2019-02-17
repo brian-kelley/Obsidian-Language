@@ -1,5 +1,6 @@
 #include "Common.hpp"
 #include "AST.hpp"
+#include "SourceFile.hpp"
 
 string loadFile(string filename)
 {
@@ -12,9 +13,8 @@ string loadFile(string filename)
   size_t size = ftell(f);
   rewind(f);
   string text;
-  text.resize(size + 1);
+  text.resize(size);
   fread((void*) text.c_str(), 1, size, f);
-  text[size] = '\n';
   fclose(f);
   return text;
 }
@@ -44,6 +44,11 @@ bool runCommand(string command, bool silenced)
     command += " &> /dev/null";
   }
   return system(command.c_str()) == 0;
+}
+
+string getSourceName(int id)
+{
+  return sourceFileFromID(id)->path;
 }
 
 string generateChar(char ch)

@@ -40,19 +40,14 @@ int main(int argc, const char** argv)
     puts("Error: no input files.");
     return EXIT_FAILURE;
   }
-  sourceFiles.push_back(op.input);
   //init creates the builtin declarations
   init();
   //all program code: prepend builtin code to source file
   //string code = getBuiltins() + loadFile(op.input);
-  string code = loadFile(op.input);
-  DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
+  //DEBUG_DO(cout << "Compiling " << code.size() << " bytes of source code, including builtins\n";);
   //Lexing
-  //empty "includes" is for root file (no other file is including it)
-  includes.emplace_back();
-  TIMEIT("Lexing", Parser::tokens = lex(code, 0););
   //Parse the global/root module
-  TIMEIT("Parsing", parseProgram(););
+  TIMEIT("Parsing", parseProgram(op.input););
   //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->resolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
@@ -63,9 +58,11 @@ int main(int argc, const char** argv)
   //Code generation
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
-  int lines = PastEOF::inst.line;
+  //int lines = PastEOF::inst.line;
+  /*
   cout << "Processed " << lines << " lines (" << lines / elapsed;
   cout << " lines/s, or " << code.length() / (elapsed * 1000000) << " MB/s)\n";
+  */
   return 0;
 }
 
