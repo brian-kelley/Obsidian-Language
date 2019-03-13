@@ -158,10 +158,19 @@ struct FNV1A
 };
 
 template<typename T>
-size_t fnv1a(T& data)
+size_t fnv1a(T&& data)
 {
   FNV1A f;
   f.pump(data);
+  return f.get();
+}
+
+//FNV-1a for pointer
+template<typename T>
+size_t fnv1a(T* ptr)
+{
+  FNV1A f;
+  f.pump<T*>(ptr);
   return f.get();
 }
 

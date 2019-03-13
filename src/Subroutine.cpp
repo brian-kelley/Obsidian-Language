@@ -7,9 +7,6 @@ using std::find;
 static int nextSubrID = 0;
 static int nextExSubrID = 0;
 
-vector<Subroutine*> allSubrs;
-vector<ExternalSubroutine*> allExSubrs;
-
 bool programHasMain = false;
 extern Module* global;
 
@@ -492,34 +489,34 @@ void Assertion::resolveImpl()
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes)
+Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure,
+    Type* returnType, vector<string>& paramNames, vector<Type*>& paramTypes)
 {
   name = n;
   scope = new Scope(enclosing, this);
   auto enclosingStruct = enclosing->getMemberContext();
   if(enclosingStruct && !isStatic)
   {
-    type = new CallableType(pure, enclosingStruct, returnType, argTypes);
+    type = new CallableType(pure, enclosingStruct, returnType, paramTypes);
     owner = enclosingStruct;
   }
   else
   {
-    type = new CallableType(pure, returnType, argTypes);
+    type = new CallableType(pure, returnType, paramTypes);
   }
-  //create argument variables
-  if(argNames.size() != argTypes.size())
+  //create parameter variables
+  if(paramNames.size() != paramTypes.size())
   {
     INTERNAL_ERROR;
   }
-  for(size_t i = 0; i < argNames.size(); i++)
+  for(size_t i = 0; i < paramNames.size(); i++)
   {
-    Variable* v = new Variable(scope, argNames[i], argTypes[i], nullptr, true);
-    args.push_back(v);
+    Variable* v = new Variable(scope, paramNames[i], paramTypes[i], nullptr, true);
+    params.push_back(v);
     scope->addName(v);
   }
   body = new Block(this);
   id = nextSubrID++;
-  allSubrs.push_back(this);
 }
 
 void Subroutine::resolveImpl()
@@ -529,13 +526,13 @@ void Subroutine::resolveImpl()
     errMsgLoc(this, "can't declare procedure in block scope");
   }
   type->resolve();
-  for(auto arg : args)
+  for(auto param : params)
   {
-    //resolving argument variables just resolves their types
-    arg->resolve();
+    //resolving the param variables just resolves their types
+    param->resolve();
   }
   //pretend this is resolved, so that recursive calls can resolve
-  //(the type and args are resolved, so CallExprs can resolve successfully)
+  //(the type and params are resolved, so CallExprs can resolve successfully)
   resolved = true;
   if(typesSame(type->returnType, primitives[Prim::VOID]) &&
       (body->stmts.size() == 0 ||
@@ -561,27 +558,34 @@ void Subroutine::resolveImpl()
     {
       errMsgLoc(this, "main() must return void or int");
     }
-    if(type->argTypes.size() > 1 ||
-        (type->argTypes.size() == 1 &&
-         !typesSame(type->argTypes[0], getArrayType(primitives[Prim::CHAR], 2))))
+    if(type->paramTypes.size() > 1 ||
+        (type->paramTypes.size() == 1 &&
+         !typesSame(type->paramTypes[0], getArrayType(primitives[Prim::CHAR], 2))))
     {
-      errMsgLoc(this, "main() must take either no arguments or string[]");
+      errMsgLoc(this, "main() must have either no parameters or just string[]");
     }
     programHasMain = true;
   }
 }
 
-ExternalSubroutine::ExternalSubroutine(Scope* s, string n, Type* returnType, vector<Type*>& argTypes, vector<string>& argN, string& code)
+ExternalSubroutine::ExternalSubroutine(
+    Scope* s,
+    string n,
+    Type* returnType,
+    vector<Type*>& pTypes,
+    vector<string>& pNames,
+    vector<bool>& borrow,
+    string& code)
 {
   //all ExternalSubroutines are procedures, since it is assumed that
   //all C functions may have side effects
-  type = new CallableType(false, returnType, argTypes);
+  type = new CallableType(false, returnType, pTypes);
   name = n;
   c = code;
   scope = s;
-  argNames = argN;
+  paramNames = pNames;
+  paramBorrowed = borrow;
   id = nextExSubrID++;
-  allExSubrs.push_back(this);
 }
 
 void ExternalSubroutine::resolveImpl()

@@ -25,6 +25,7 @@ add_executable (onyx
   src/ConstantProp.cpp
   src/JumpThreading.cpp
   src/DeadCodeElim.cpp
+  src/Memory.cpp
   src/CSElim.cpp
   src/Inlining.cpp
   src/Dotfile.cpp
@@ -35,4 +36,3 @@ add_executable (onyx
   src/IRDebug.cpp
 )
 
-#src/C_Backend.cpp

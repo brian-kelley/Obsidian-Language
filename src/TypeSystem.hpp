@@ -58,6 +58,7 @@ struct Type : public Node
   //so resolveImpl is only implemented for types where self-membership is
   //not allowed
   virtual void resolveImpl() {}
+  //Semantic information
   virtual bool isArray()    {return false;}
   virtual bool isStruct()   {return false;}
   virtual bool isUnion()    {return false;}
@@ -75,6 +76,8 @@ struct Type : public Node
   virtual bool isPrimitive(){return false;}
   virtual bool isAlias()    {return false;}
   virtual bool isSimple()   {return false;}
+  virtual bool isRecursive() {return false;}
+  virtual size_t hash() const = 0;
   //Get a constant expression representing the "default"
   //or uninitialized value for the type, usable for constant folding etc.
   virtual Expression* getDefaultValue()
@@ -141,7 +144,7 @@ Type* getArrayType(Type* elem, int ndims);
 Type* getTupleType(vector<Type*>& members);
 Type* getUnionType(vector<Type*>& options);
 Type* getMapType(Type* key, Type* value);
-Type* getSubroutineType(StructType* owner, bool pure, Type* returnValue, vector<Type*>& argTypes);
+Type* getSubroutineType(StructType* owner, bool pure, Type* returnValue, vector<Type*>& paramTypes);
 
 //If lhs and rhs are both numbers, return the best type for the result
 //If either is not a number, NULL
@@ -180,6 +183,11 @@ struct StructType : public Type
     Variable* member; //the composed member, or NULL for this
     variant<Subroutine*, Variable*> callable;
   };
+  size_t hash() const
+  {
+    //structs are pointer-unique
+    return fnv1a(this);
+  }
   map<string, IfaceMember> interface;
   void resolveImpl();
   Expression* getDefaultValue();
@@ -193,9 +201,30 @@ struct UnionType : public Type
   vector<Type*> options;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
+  bool isRecursive() {return recursive;}
   string getName();
   void dependencies(set<Type*>& types);
+  size_t hash() const
+  {
+    if(recursive)
+      return fnv1a(this);
+    FNV1A f;
+    for(auto t : options)
+    {
+      f.pump(t->hash());
+    }
+    return f.get();
+  }
+  //defaultVal is precomputed unlike all other types,
+  //since it can be somewhat expensive to compute for
+  //deeply recursive unions
   Expression* defaultVal;
+  //Does the union possibly contain itself?
+  //If yes, it will be stored as a void* with tag.
+  //If no, it will be stored as C union with tag.
+  //  No indirection to access, and no heap storage.
+  //  All on stack/static, so much faster, simpler to manage.
+  bool recursive;
   //Lazily create and return defaultVal
   Expression* getDefaultValue();
 };
@@ -220,6 +249,13 @@ struct ArrayType : public Type
       name += "[]";
     }
     return name;
+  }
+  size_t hash() const
+  {
+    FNV1A f;
+    f.pump(dims);
+    f.pump(elem->hash());
+    return f.get();
   }
   Expression* getDefaultValue();
 };
@@ -248,6 +284,13 @@ struct TupleType : public Type
     name += ")";
     return name;
   }
+  size_t hash() const
+  {
+    FNV1A f;
+    for(auto m : members)
+      f.pump(m->hash());
+    return f.get();
+  }
   Expression* getDefaultValue();
 };
 
@@ -266,6 +309,13 @@ struct MapType : public Type
     name += value->getName();
     name += ")";
     return name;
+  }
+  size_t hash() const
+  {
+    FNV1A f;
+    f.pump(3 * key->hash());
+    f.pump(value->hash());
+    return f.get();
   }
   bool canConvert(Type* other);
   void resolveImpl();
@@ -307,6 +357,10 @@ struct AliasType : public Type
   Expression* getDefaultValue()
   {
     return actual->getDefaultValue();
+  }
+  size_t hash() const
+  {
+    return actual->hash();
   }
 };
 
@@ -369,6 +423,10 @@ struct EnumType : public Type
   {
     return name;
   }
+  size_t hash() const
+  {
+    return fnv1a(this);
+  }
 };
 
 struct IntegerType : public Type
@@ -389,6 +447,13 @@ struct IntegerType : public Type
   {
     return name;
   }
+  size_t hash() const
+  {
+    FNV1A f;
+    f.pump(size);
+    f.pump(isSigned);
+    return f.get();
+  }
   Expression* getDefaultValue();
 };
 
@@ -405,6 +470,12 @@ struct FloatType : public Type
   string getName()
   {
     return name;
+  }
+  size_t hash() const
+  {
+    FNV1A f;
+    f.pump(size);
+    return f.get();
   }
   Expression* getDefaultValue();
 };
@@ -424,6 +495,10 @@ struct CharType : public Type
   {
     return "char";
   }
+  size_t hash() const
+  {
+    return fnv1a((char) 1);
+  }
   Expression* getDefaultValue();
 };
 
@@ -439,6 +514,10 @@ struct BoolType : public Type
   string getName()
   {
     return "bool";
+  }
+  size_t hash() const
+  {
+    return fnv1a((char) 2);
   }
   Expression* getDefaultValue();
 };
@@ -458,6 +537,10 @@ struct SimpleType : public Type
   {
     return name;
   }
+  size_t hash() const
+  {
+    return fnv1a(this);
+  }
   Expression* getDefaultValue();
   SimpleConstant* val;
   string name;
@@ -466,14 +549,14 @@ struct SimpleType : public Type
 struct CallableType : public Type
 {
   //constructor for non-member callables
-  CallableType(bool isPure, Type* returnType, vector<Type*>& args);
+  CallableType(bool isPure, Type* returnType, vector<Type*>& params);
   //constructor for members
-  CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& args);
+  CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& params);
   virtual void resolveImpl();
   string getName();
   StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
-  vector<Type*> argTypes;
+  vector<Type*> paramTypes;
   bool pure;            //true for functions, false for procedures
   bool isCallable()
   {
@@ -491,12 +574,24 @@ struct CallableType : public Type
   //all funcs can be procs
   //ownerStructs must match exactly
   //all terminating procedures can be used in place of nonterminating ones
-  //argument and owner types must match exactly (except nonmember -> member)
+  //parameter and owner types must match exactly (except nonmember -> member)
   bool canConvert(Type* other);
   Expression* getDefaultValue()
   {
     INTERNAL_ERROR;
     return nullptr;
+  }
+  size_t hash() const
+  {
+    FNV1A f;
+    f.pump(pure);
+    f.pump(returnType->hash());
+    f.pump(ownerStruct);
+    for(auto p : paramTypes)
+    {
+      f.pump(p->hash());
+    }
+    return f.get();
   }
 };
 
@@ -539,6 +634,7 @@ struct UnresolvedType : public Type
   //UnresolvedType can never be resolved; it is replaced by something else
   bool canConvert(Type* other) {return false;}
   virtual string getName() {return "<UNKNOWN TYPE>";}
+  size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
 //The type of an unresolved expression
@@ -550,6 +646,7 @@ struct ExprType : public Type
   Expression* expr;
   bool canConvert(Type* other) {return false;}
   string getName() {return "<unresolved expression type>";};
+  size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
 //Used by for-over-array to create an iteration variable at parse time
@@ -561,20 +658,26 @@ struct ElemExprType : public Type
   Expression* arr;
   bool canConvert(Type* other) {return false;}
   string getName() {return "<unresolved array expr element type>";};
+  size_t hash() const {INTERNAL_ERROR; return 0;}
+};
+
+struct TypeEqual
+{
+  bool operator()(const Type* t1, const Type* t2) const
+  {
+    if(t1 == t2)
+      return true;
+    return typesSame(t1, t2);
+  }
+};
+
+struct TypeHash
+{
+  size_t operator()(const Type* t) const
+  {
+    return t->hash();
+  }
 };
 
 #endif
-
-//All supported type conversions:
-//  (case 1) -All primitives can be converted to each other trivially
-//    -floats/doubles truncated to integer as in C
-//    -ints converted to each other as in C
-//    -char treated as integer
-//    -any number converted to bool with nonzero being true
-//  (case 2) -Out = struct: in = struct or tuple
-//  (case 3) -Out = array: in = struct, tuple or array
-//  (case 4) -Out = map: in = map, array, or tuple
-//    -in = (key' : value'): key' must convert to key and value' to value
-//    -in = (key, value)[]: use key-value pairs directly
-//  (case 2) -Out = tuple: in = struct or tuple
 

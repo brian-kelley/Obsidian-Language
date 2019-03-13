@@ -39,9 +39,18 @@ Expression* UnaryArith::copy()
   return c;
 }
 
-bool operator==(const UnaryArith& lhs, const UnaryArith& rhs)
+bool UnaryArith::operator==(const Expression& erhs) const
 {
-  return lhs.op == rhs.op && *lhs.expr == *rhs.expr;
+  auto rhs = dynamic_cast<const UnaryArith*>(&erhs);
+  if(!rhs)
+    return false;
+  return op == rhs->op && *expr == *rhs->expr;
+}
+
+ostream& UnaryArith::print(ostream& os)
+{
+  os << operatorTable[op] << expr;
+  return os;
 }
 
 /***************
@@ -232,23 +241,33 @@ Expression* BinaryArith::copy()
   return c;
 }
 
-bool operator==(const BinaryArith& ba1, const BinaryArith& ba2)
+bool BinaryArith::operator==(const Expression& eother) const
 {
-  if(ba1.op != ba2.op)
+  auto other = dynamic_cast<const BinaryArith*>(&eother);
+  if(!other)
     return false;
-  if(*ba1.lhs == *ba2.lhs && *ba1.rhs == *ba2.rhs)
+  if(op != other->op)
+    return false;
+  if(*lhs == *other->lhs && *rhs == *other->rhs)
     return true;
-  if(operCommutativeTable[ba1.op])
+  if(operCommutativeTable[op])
   {
-    if(*ba1.lhs == *ba2.rhs && *ba1.rhs == *ba2.lhs)
+    if(*lhs == *other->rhs && *rhs == *other->lhs)
       return true;
   }
   return false;
 }
 
-/**********************
- * Primitive Literals *
- **********************/
+ostream& BinaryArith::print(ostream& os)
+{
+  os << '(' << lhs << ' ' << operatorTable[op];
+  os << ' ' << rhs << ')';
+  return os;
+}
+
+/***************
+ * IntConstant *
+ ***************/
 
 Expression* IntConstant::convert(Type* t)
 {
@@ -494,16 +513,30 @@ Expression* IntConstant::copy()
   return c;
 }
 
-bool operator==(const IntConstant& lhs, const IntConstant& rhs)
+bool IntConstant::operator==(const Expression& erhs) const
 {
-  IntegerType* lhsType = (IntegerType*) lhs.type;
-  IntegerType* rhsType = (IntegerType*) rhs.type;
-  if(!typesSame(lhsType, rhsType))
+  auto rhs = dynamic_cast<const IntConstant*>(&erhs);
+  if(!rhs)
     return false;
-  if(lhs.isSigned())
-    return lhs.sval == rhs.sval;
-  return lhs.uval == rhs.uval;
+  if(!typesSame(type, rhs->type))
+    return false;
+  if(isSigned())
+    return sval == rhs->sval;
+  return uval == rhs->uval;
 }
+
+ostream& IntConstant::print(ostream& os)
+{
+  if(isSigned())
+    os << sval;
+  else
+    os << uval;
+  return os;
+}
+
+/*****************
+ * FloatConstant *
+ *****************/
 
 Expression* FloatConstant::convert(Type* t)
 {
@@ -622,14 +655,30 @@ Expression* FloatConstant::copy()
   return c;
 }
 
-bool operator==(const FloatConstant& lhs, const FloatConstant& rhs)
+bool FloatConstant::operator==(const Expression& erhs) const
 {
-  if(!typesSame(lhs.type, rhs.type))
+  auto rhs = dynamic_cast<const FloatConstant*>(&erhs);
+  if(!rhs)
     return false;
-  if(lhs.isDoublePrec())
-    return lhs.dp == rhs.dp;
-  return lhs.fp == rhs.fp;
+  if(!typesSame(type, rhs->type))
+    return false;
+  if(isDoublePrec())
+    return dp == rhs->dp;
+  return fp == rhs->fp;
 }
+
+ostream& FloatConstant::print(ostream& os)
+{
+  if(isDoublePrec())
+    os << dp;
+  else
+    os << fp;
+  return os;
+}
+
+/******************
+ * StringConstant *
+ ******************/
 
 Expression* StringConstant::copy()
 {
@@ -638,9 +687,12 @@ Expression* StringConstant::copy()
   return sc;
 }
 
-bool operator==(const StringConstant& lhs, const StringConstant& rhs)
+bool StringConstant::operator==(const Expression& erhs) const
 {
-  return lhs.value == rhs.value;
+  auto rhs = dynamic_cast<const StringConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  return value == rhs->value;
 }
 
 Expression* CharConstant::copy()
@@ -650,10 +702,38 @@ Expression* CharConstant::copy()
   return cc;
 }
 
-bool operator==(const CharConstant& lhs, const CharConstant& rhs)
+ostream& StringConstant::print(ostream& os)
 {
-  return lhs.value == rhs.value;
+  os << generateCharDotfile('"');
+  for(size_t i = 0; i < value.size(); i++)
+  {
+    os << generateCharDotfile(value[i]);
+  }
+  os << generateCharDotfile('"');
+  return os;
 }
+
+/****************
+ * CharConstant *
+ ****************/
+
+bool CharConstant::operator==(const Expression& erhs) const
+{
+  auto rhs = dynamic_cast<const CharConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  return value == rhs->value;
+}
+
+ostream& CharConstant::print(ostream& os)
+{
+  os << generateCharDotfile('\'') << generateCharDotfile(value) << generateCharDotfile('\'');
+  return os;
+}
+
+/****************
+ * BoolConstant *
+ ****************/
 
 Expression* BoolConstant::copy()
 {
@@ -662,10 +742,23 @@ Expression* BoolConstant::copy()
   return bc;
 }
 
-bool operator==(const BoolConstant& lhs, const BoolConstant& rhs)
+bool BoolConstant::operator==(const Expression& erhs) const
 {
-  return lhs.value == rhs.value;
+  auto rhs = dynamic_cast<const BoolConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  return value == rhs->value;
 }
+
+ostream& BoolConstant::print(ostream& os)
+{
+  os << (value ? "true" : "false");
+  return os;
+}
+
+/***************
+ * MapConstant *
+ ***************/
 
 MapConstant::MapConstant(MapType* mt)
 {
@@ -685,10 +778,13 @@ Expression* MapConstant::copy()
   return c;
 }
 
-bool operator==(const MapConstant& lhs, const MapConstant& rhs)
+bool MapConstant::operator==(const Expression& erhs) const
 {
-  auto& l = lhs.values;
-  auto& r = rhs.values;
+  auto rhs = dynamic_cast<const MapConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  auto& l = values;
+  auto& r = rhs->values;
   if(l.size() != r.size())
     return false;
   //iterate through lhs elements, look up in rhs
@@ -700,6 +796,25 @@ bool operator==(const MapConstant& lhs, const MapConstant& rhs)
   }
   return true;
 }
+
+ostream& MapConstant::print(ostream& os)
+{
+  os << '[';
+  for(auto it = values.begin(); it != values.end(); it++)
+  {
+    if(it != values.begin())
+    {
+      os << ", ";
+    }
+    os << '{' << it->first << ", " << it->second << '}';
+  }
+  os << ']';
+  return os;
+}
+
+/*****************
+ * UnionConstant *
+ *****************/
 
 UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
 {
@@ -727,9 +842,21 @@ Expression* UnionConstant::copy()
   return uc;
 }
 
-bool operator==(const UnionConstant& lhs, const UnionConstant& rhs)
+bool UnionConstant::operator==(const Expression& erhs) const
 {
-  return lhs.option == rhs.option && *lhs.value == *rhs.value;
+  auto rhs = dynamic_cast<const UnionConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  return option == rhs->option && *value == *rhs->value;
+}
+
+ostream& UnionConstant::print(ostream& os)
+{
+  if(value->type->isSimple())
+    os << value;
+  else
+    os << value->type->getName() << ": " << value;
+  return os;
 }
 
 /*******************
@@ -774,10 +901,13 @@ Expression* CompoundLiteral::copy()
   return c;
 }
 
-bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
+bool CompoundLiteral::operator==(const Expression& erhs) const
 {
-  auto& l = lhs.members;
-  auto& r = rhs.members;
+  auto rhs = dynamic_cast<const CompoundLiteral*>(&erhs);
+  if(!rhs)
+    return false;
+  auto& l = members;
+  auto& r = rhs->members;
   if(l.size() != r.size())
     return false;
   for(size_t i = 0; i < l.size(); i++)
@@ -786,6 +916,34 @@ bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs)
       return false;
   }
   return true;
+}
+
+ostream& CompoundLiteral::print(ostream& os)
+{
+  if(constant() && type == getArrayType(primitives[Prim::CHAR], 1))
+  {
+    //it's a string, so just print it as a string literal
+    os << generateCharDotfile('"');
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      auto scc = dynamic_cast<CharConstant*>(members[i]);
+      INTERNAL_ASSERT(scc);
+      os << generateCharDotfile(scc->value);
+    }
+    os << generateCharDotfile('"');
+  }
+  else
+  {
+    os << '[';
+    for(size_t i = 0; i < members.size(); i++)
+    {
+      os << members[i];
+      if(i != members.size() - 1)
+        os << ", ";
+    }
+    os << ']';
+  }
+  return os;
 }
 
 /***********
@@ -859,9 +1017,18 @@ Expression* Indexed::copy()
   return c;
 }
 
-bool operator==(const Indexed& lhs, const Indexed& rhs)
+bool Indexed::operator==(const Expression& erhs) const
 {
-  return *lhs.group == *rhs.group && *lhs.index == *rhs.index;
+  auto rhs = dynamic_cast<const Indexed*>(&erhs);
+  if(!rhs)
+    return false;
+  return *group == *rhs->group && *index == *rhs->index;
+}
+
+ostream& Indexed::print(ostream& os)
+{
+  os << group << '[' << index << ']';
+  return os;
 }
 
 /************
@@ -888,29 +1055,29 @@ void CallExpr::resolveImpl()
     resolveExpr(args[i]);
   }
   //make sure number of arguments matches
-  if(callableType->argTypes.size() != args.size())
+  if(callableType->paramTypes.size() != args.size())
   {
     errMsgLoc(this, "in call to " <<
         (callableType->ownerStruct ? "" : "static") <<
         (callableType->pure ? "function" : "procedure") <<
         ", expected " <<
-        callableType->argTypes.size() <<
+        callableType->paramTypes.size() <<
         " arguments but " <<
         args.size() << " were provided");
   }
   for(size_t i = 0; i < args.size(); i++)
   {
     //make sure arg value can be converted to expected type
-    if(!callableType->argTypes[i]->canConvert(args[i]->type))
+    if(!callableType->paramTypes[i]->canConvert(args[i]->type))
     {
       errMsgLoc(args[i], "argument " << i + 1 << " to " <<
         (callableType->pure ? "function" : "procedure") << " has wrong type (expected " <<
-        callableType->argTypes[i]->getName() << " but got " <<
+        callableType->paramTypes[i]->getName() << " but got " <<
         (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
     }
-    if(!typesSame(callableType->argTypes[i], args[i]->type))
+    if(!typesSame(callableType->paramTypes[i], args[i]->type))
     {
-      args[i] = new Converted(args[i], callableType->argTypes[i]);
+      args[i] = new Converted(args[i], callableType->paramTypes[i]);
     }
   }
   resolved = true;
@@ -927,17 +1094,33 @@ Expression* CallExpr::copy()
   return c;
 }
 
-bool operator==(const CallExpr& lhs, const CallExpr& rhs)
+bool CallExpr::operator==(const Expression& erhs) const
 {
-  if(*lhs.callable != *rhs.callable)
+  auto rhs = dynamic_cast<const CallExpr*>(&erhs);
+  if(!rhs)
     return false;
-  INTERNAL_ASSERT(lhs.args.size() == rhs.args.size());
-  for(size_t i = 0; i < lhs.args.size(); i++)
+  if(*callable != *rhs->callable)
+    return false;
+  INTERNAL_ASSERT(args.size() == rhs->args.size());
+  for(size_t i = 0; i < args.size(); i++)
   {
-    if(*lhs.args[i] != *rhs.args[i])
+    if(*args[i] != *rhs->args[i])
       return false;
   }
   return true;
+}
+
+ostream& CallExpr::print(ostream& os)
+{
+  os << callable << '(';
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    os << args[i];
+    if(i != args.size() - 1)
+      os << ", ";
+  }
+  os << ')';
+  return os;
 }
 
 /***********
@@ -982,9 +1165,18 @@ Expression* VarExpr::copy()
   return c;
 }
 
-bool operator==(const VarExpr& lhs, const VarExpr& rhs)
+bool VarExpr::operator==(const Expression& erhs) const
 {
-  return lhs.var == rhs.var;
+  auto rhs = dynamic_cast<const VarExpr*>(&erhs);
+  if(!rhs)
+    return false;
+  return var == rhs->var;
+}
+
+ostream& VarExpr::print(ostream& os)
+{
+  os << var->name;
+  return os;
 }
 
 /******************
@@ -1059,17 +1251,33 @@ Expression* SubroutineExpr::copy()
   return c;
 }
 
-bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs)
+bool SubroutineExpr::operator==(const Expression& erhs) const
 {
-  if(lhs.subr != rhs.subr ||
-    lhs.exSubr != rhs.exSubr)
+  auto rhs = dynamic_cast<const SubroutineExpr*>(&erhs);
+  if(!rhs)
     return false;
-  if(lhs.thisObject)
+  if(subr != rhs->subr ||
+    exSubr != rhs->exSubr)
+    return false;
+  if(thisObject)
   {
-    return rhs.thisObject &&
-      *lhs.thisObject == *rhs.thisObject;
+    return rhs->thisObject &&
+      *thisObject == *rhs->thisObject;
   }
   return true;
+}
+
+ostream& SubroutineExpr::print(ostream& os)
+{
+  if(subr)
+  {
+    if(thisObject)
+      os << thisObject << '.';
+    os << subr->name;
+  }
+  else
+    os << exSubr->name;
+  return os;
 }
 
 /*************
@@ -1125,16 +1333,29 @@ Expression* StructMem::copy()
   return c;
 }
 
-bool operator==(const StructMem& lhs, const StructMem& rhs)
+bool StructMem::operator==(const Expression& erhs) const
 {
-  if(*lhs.base != *rhs.base)
+  auto rhs = dynamic_cast<const StructMem*>(&erhs);
+  if(!rhs)
     return false;
-  if(lhs.member.is<Variable*>() != rhs.member.is<Variable*>())
+  if(*base != *rhs->base)
     return false;
-  if(lhs.member.is<Variable*>())
-    return lhs.member.get<Variable*>()->id == rhs.member.get<Variable*>()->id;
+  if(member.is<Variable*>() != rhs->member.is<Variable*>())
+    return false;
+  if(member.is<Variable*>())
+    return member.get<Variable*>()->id == rhs->member.get<Variable*>()->id;
   else
-    return lhs.member.get<Subroutine*>()->id == rhs.member.get<Subroutine*>()->id;
+    return member.get<Subroutine*>()->id == rhs->member.get<Subroutine*>()->id;
+}
+
+ostream& StructMem::print(ostream& os)
+{
+  os << base << '.';
+  if(member.is<Variable*>())
+    os << member.get<Variable*>()->name;
+  else
+    os << member.get<Subroutine*>()->name;
+  return os;
 }
 
 /************
@@ -1173,18 +1394,31 @@ Expression* NewArray::copy()
   return c;
 }
 
-bool operator==(const NewArray& lhs, const NewArray& rhs)
+bool NewArray::operator==(const Expression& erhs) const
 {
-  if(!typesSame(lhs.type, rhs.type))
+  auto rhs = dynamic_cast<const NewArray*>(&erhs);
+  if(!rhs)
     return false;
-  if(lhs.dims.size() != rhs.dims.size())
+  if(!typesSame(type, rhs->type))
     return false;
-  for(size_t i = 0; i < lhs.dims.size(); i++)
+  if(dims.size() != rhs->dims.size())
+    return false;
+  for(size_t i = 0; i < dims.size(); i++)
   {
-    if(*lhs.dims[i] != *rhs.dims[i])
+    if(*dims[i] != *rhs->dims[i])
       return false;
   }
   return true;
+}
+
+ostream& NewArray::print(ostream& os)
+{
+  os << "array " << elem->getName();
+  for(auto dim : dims)
+  {
+    os << '[' << dim << ']';
+  }
+  return os;
 }
 
 /***************
@@ -1217,10 +1451,23 @@ Expression* ArrayLength::copy()
   return c;
 }
 
-bool operator==(const ArrayLength& lhs, const ArrayLength& rhs)
+bool ArrayLength::operator==(const Expression& erhs) const
 {
-  return *lhs.array == *rhs.array;
+  auto rhs = dynamic_cast<const ArrayLength*>(&erhs);
+  if(!rhs)
+    return false;
+  return *array == *rhs->array;
 }
+
+ostream& ArrayLength::print(ostream& os)
+{
+  os << '(' << array << ").len";
+  return os;
+}
+
+/**********
+ * IsExpr *
+ **********/
 
 void IsExpr::resolveImpl()
 {
@@ -1250,10 +1497,23 @@ Expression* IsExpr::copy()
   return c;
 }
 
-bool operator==(const IsExpr& lhs, const IsExpr& rhs)
+bool IsExpr::operator==(const Expression& erhs) const
 {
-  return *lhs.base == *rhs.base && lhs.optionIndex == rhs.optionIndex;
+  auto rhs = dynamic_cast<const IsExpr*>(&erhs);
+  if(!rhs)
+    return false;
+  return *base == *rhs->base && optionIndex == rhs->optionIndex;
 }
+
+ostream& IsExpr::print(ostream& os)
+{
+  os << '(' << base << " is " << option->getName() << ')';
+  return os;
+}
+
+/**********
+ * AsExpr *
+ **********/
 
 void AsExpr::resolveImpl()
 {
@@ -1283,9 +1543,18 @@ Expression* AsExpr::copy()
   return c;
 }
 
-bool operator==(const AsExpr& lhs, const AsExpr& rhs)
+bool AsExpr::operator==(const Expression& erhs) const
 {
-  return *lhs.base == *rhs.base && lhs.optionIndex == rhs.optionIndex;
+  auto rhs = dynamic_cast<const AsExpr*>(&erhs);
+  if(!rhs)
+    return false;
+  return *base == *rhs->base && optionIndex == rhs->optionIndex;
+}
+
+ostream& AsExpr::print(ostream& os)
+{
+  os << '(' << base << " as " << option->getName() << ')';
+  return os;
 }
 
 /************
@@ -1313,6 +1582,12 @@ void ThisExpr::resolveImpl()
 Expression* ThisExpr::copy()
 {
   return this;
+}
+
+ostream& ThisExpr::print(ostream& os)
+{
+  os << "this";
+  return os;
 }
 
 /*************
@@ -1344,9 +1619,19 @@ Expression* Converted::copy()
   return c;
 }
 
-bool operator==(const Converted& lhs, const Converted& rhs)
+bool Converted::operator==(const Expression& erhs) const
 {
-  return typesSame(lhs.type, rhs.type) && *lhs.value == *rhs.value;
+  auto rhs = dynamic_cast<const Converted*>(&erhs);
+  if(!rhs)
+    return false;
+  return typesSame(type, rhs->type) && *value == *rhs->value;
+}
+
+ostream& Converted::print(ostream& os)
+{
+  os << '(' << type->getName();
+  os << ") (" << value << ')';
+  return os;
 }
 
 /************
@@ -1365,9 +1650,18 @@ Expression* EnumExpr::copy()
   return this;
 }
 
-bool operator==(const EnumExpr& lhs, const EnumExpr& rhs)
+bool EnumExpr::operator==(const Expression& erhs) const
 {
-  return lhs.value == rhs.value;
+  auto rhs = dynamic_cast<const EnumExpr*>(&erhs);
+  if(!rhs)
+    return false;
+  return value == rhs->value;
+}
+
+ostream& EnumExpr::print(ostream& os)
+{
+  os << value->name;
+  return os;
 }
 
 /******************
@@ -1386,9 +1680,23 @@ Expression* SimpleConstant::copy()
   return new SimpleConstant(st);
 }
 
-bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs)
+bool SimpleConstant::operator==(const Expression& erhs) const
 {
-  return lhs.st == rhs.st;
+  auto rhs = dynamic_cast<const SimpleConstant*>(&erhs);
+  if(!rhs)
+    return false;
+  return st == rhs->st;
+}
+
+ostream& SimpleConstant::print(ostream& os)
+{
+  os << st->name;
+  return os;
+}
+
+size_t SimpleConstant::hash() const
+{
+  return fnv1a(st);
 }
 
 /*************************/
@@ -1620,295 +1928,5 @@ void resolveExpr(Expression*& expr)
   base->setLocation(expr);
   expr = base;
   INTERNAL_ASSERT(base->resolved);
-}
-
-bool operator<(const Expression& lhs, const Expression& rhs)
-{
-  INTERNAL_ASSERT(typesSame(lhs.type, rhs.type));
-  INTERNAL_ASSERT(lhs.constant() && rhs.constant());
-  return lhs.compareLess(rhs);
-}
-
-bool operator==(const Expression& l, const Expression& r)
-{
-  const Expression* lhs = &l;
-  const Expression* rhs = &r;
-  if(lhs->getTypeTag() != rhs->getTypeTag())
-    return false;
-  //now have to compare the individual types of expressions
-  //(know that they are the same type)
-  if(auto icLHS = dynamic_cast<const IntConstant*>(lhs))
-  {
-    auto icRHS = dynamic_cast<const IntConstant*>(rhs);
-    return *icLHS == *icRHS;
-  }
-  else if(auto fcLHS = dynamic_cast<const FloatConstant*>(lhs))
-  {
-    auto fcRHS = dynamic_cast<const FloatConstant*>(rhs);
-    return *fcLHS == *fcRHS;
-  }
-  else if(auto scLHS = dynamic_cast<const StringConstant*>(lhs))
-  {
-    auto scRHS = dynamic_cast<const StringConstant*>(rhs);
-    return *scLHS == *scRHS;
-  }
-  else if(auto ccLHS = dynamic_cast<const CharConstant*>(lhs))
-  {
-    auto ccRHS = dynamic_cast<const CharConstant*>(rhs);
-    return *ccLHS == *ccRHS;
-  }
-  else if(auto bcLHS = dynamic_cast<const BoolConstant*>(lhs))
-  {
-    auto bcRHS = dynamic_cast<const BoolConstant*>(rhs);
-    return *bcLHS == *bcRHS;
-  }
-  else if(auto mcLHS = dynamic_cast<const MapConstant*>(lhs))
-  {
-    auto mcRHS = dynamic_cast<const MapConstant*>(rhs);
-    return *mcLHS == *mcRHS;
-  }
-  else if(auto clLHS = dynamic_cast<const CompoundLiteral*>(lhs))
-  {
-    auto clRHS = dynamic_cast<const CompoundLiteral*>(rhs);
-    return *clLHS == *clRHS;
-  }
-  else if(auto ucLHS = dynamic_cast<const UnionConstant*>(lhs))
-  {
-    auto ucRHS = dynamic_cast<const UnionConstant*>(rhs);
-    return *ucLHS == *ucRHS;
-  }
-  else if(auto uaLHS = dynamic_cast<const UnaryArith*>(lhs))
-  {
-    auto uaRHS = dynamic_cast<const UnaryArith*>(rhs);
-    return *uaLHS == *uaRHS;
-  }
-  else if(auto baLHS = dynamic_cast<const BinaryArith*>(lhs))
-  {
-    auto baRHS = dynamic_cast<const BinaryArith*>(rhs);
-    return *baLHS == *baRHS;
-  }
-  else if(auto indLHS = dynamic_cast<const Indexed*>(lhs))
-  {
-    auto indRHS = dynamic_cast<const Indexed*>(rhs);
-    return *indLHS == *indRHS;
-  }
-  else if(auto naLHS = dynamic_cast<const NewArray*>(lhs))
-  {
-    auto naRHS = dynamic_cast<const NewArray*>(rhs);
-    return *naLHS == *naRHS;
-  }
-  else if(auto alLHS = dynamic_cast<const ArrayLength*>(lhs))
-  {
-    auto alRHS = dynamic_cast<const ArrayLength*>(rhs);
-    return *alLHS == *alRHS;
-  }
-  else if(auto asLHS = dynamic_cast<const AsExpr*>(lhs))
-  {
-    auto asRHS = dynamic_cast<const AsExpr*>(rhs);
-    return *asLHS == *asRHS;
-  }
-  else if(auto isLHS = dynamic_cast<const IsExpr*>(lhs))
-  {
-    auto isRHS = dynamic_cast<const IsExpr*>(rhs);
-    return *isLHS == *isRHS;
-  }
-  else if(auto callLHS = dynamic_cast<const CallExpr*>(lhs))
-  {
-    auto callRHS = dynamic_cast<const CallExpr*>(rhs);
-    return *callLHS == *callRHS;
-  }
-  else if(auto varLHS = dynamic_cast<const VarExpr*>(lhs))
-  {
-    auto varRHS = dynamic_cast<const VarExpr*>(rhs);
-    return *varLHS == *varRHS;
-  }
-  else if(auto convLHS = dynamic_cast<const Converted*>(lhs))
-  {
-    auto convRHS = dynamic_cast<const Converted*>(rhs);
-    return *convLHS == *convRHS;
-  }
-  else if(dynamic_cast<const ThisExpr*>(lhs) || dynamic_cast<const SimpleConstant*>(lhs))
-  {
-    //in all contexts, these exprs have only one possible value
-    return true;
-  }
-  else if(auto subrLHS = dynamic_cast<const SubroutineExpr*>(lhs))
-  {
-    auto subrRHS = dynamic_cast<const SubroutineExpr*>(rhs);
-    return *subrLHS == *subrRHS;
-  }
-  else if(auto smLHS = dynamic_cast<const StructMem*>(lhs))
-  {
-    auto smRHS = dynamic_cast<const StructMem*>(rhs);
-    return *smLHS == *smRHS;
-  }
-  else
-  {
-    cout << "Didn't implement comparison for " << typeid(*lhs).name() << '\n';
-    INTERNAL_ERROR;
-  }
-  return false;
-}
-
-ostream& operator<<(ostream& os, Expression* e)
-{
-  INTERNAL_ASSERT(e->resolved);
-  if(UnaryArith* ua = dynamic_cast<UnaryArith*>(e))
-  {
-    os << operatorTable[ua->op] << ua->expr;
-  }
-  else if(BinaryArith* ba = dynamic_cast<BinaryArith*>(e))
-  {
-    os << '(' << ba->lhs << ' ' << operatorTable[ba->op] << ' ' << ba->rhs << ')';
-  }
-  else if(IntConstant* ic = dynamic_cast<IntConstant*>(e))
-  {
-    if(ic->isSigned())
-      os << ic->sval;
-    else
-      os << ic->uval;
-  }
-  else if(FloatConstant* fc = dynamic_cast<FloatConstant*>(e))
-  {
-    if(fc->isDoublePrec())
-      os << fc->dp;
-    else
-      os << fc->fp;
-  }
-  else if(StringConstant* sc = dynamic_cast<StringConstant*>(e))
-  {
-    os << generateCharDotfile('"');
-    for(size_t i = 0; i < sc->value.size(); i++)
-    {
-      os << generateCharDotfile(sc->value[i]);
-    }
-    os << generateCharDotfile('"');
-  }
-  else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
-  {
-    os << generateCharDotfile('\'') << generateCharDotfile(cc->value) << generateCharDotfile('\'');
-  }
-  else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
-  {
-    os << (bc->value ? "true" : "false");
-  }
-  else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
-  {
-    if(compLit->constant() && compLit->type == getArrayType(primitives[Prim::CHAR], 1))
-    {
-      //it's a string, so just print it as a string literal
-      os << generateCharDotfile('"');
-      for(size_t i = 0; i < compLit->members.size(); i++)
-      {
-        auto scc = dynamic_cast<CharConstant*>(compLit->members[i]);
-        INTERNAL_ASSERT(scc);
-        os << generateCharDotfile(scc->value);
-      }
-      os << generateCharDotfile('"');
-    }
-    else
-    {
-      os << '[';
-      for(size_t i = 0; i < compLit->members.size(); i++)
-      {
-        os << compLit->members[i];
-        if(i != compLit->members.size() - 1)
-          os << ", ";
-      }
-      os << ']';
-    }
-  }
-  else if(MapConstant* mc = dynamic_cast<MapConstant*>(e))
-  {
-    os << '[';
-    for(auto it = mc->values.begin(); it != mc->values.end(); it++)
-    {
-      if(it != mc->values.begin())
-      {
-        os << ", ";
-      }
-      os << '{' << it->first << ", " << it->second << '}';
-    }
-    os << ']';
-  }
-  else if(UnionConstant* uc = dynamic_cast<UnionConstant*>(e))
-  {
-    if(uc->value->type->isSimple())
-      os << uc->value;
-    else
-      os << uc->value->type->getName() << ": " << uc->value;
-  }
-  else if(Indexed* in = dynamic_cast<Indexed*>(e))
-  {
-    os << in->group << '[' << in->index << ']';
-  }
-  else if(CallExpr* call = dynamic_cast<CallExpr*>(e))
-  {
-    os << call->callable << '(';
-    for(size_t i = 0; i < call->args.size(); i++)
-    {
-      os << call->args[i];
-      if(i != call->args.size() - 1)
-        os << ", ";
-    }
-    os << ')';
-  }
-  else if(auto sm = dynamic_cast<StructMem*>(e))
-  {
-    os << sm->base << '.';
-    if(sm->member.is<Variable*>())
-      os << sm->member.get<Variable*>()->name;
-    else
-      os << sm->member.get<Subroutine*>()->name;
-  }
-  else if(auto se = dynamic_cast<SubroutineExpr*>(e))
-  {
-    if(se->subr)
-    {
-      if(se->thisObject)
-        os << se->thisObject << '.';
-      os << se->subr->name;
-    }
-    else
-      os << se->exSubr->name;
-  }
-  else if(VarExpr* ve = dynamic_cast<VarExpr*>(e))
-  {
-    os << ve->var->name;
-  }
-  else if(NewArray* na = dynamic_cast<NewArray*>(e))
-  {
-    os << "array " << na->elem->getName();
-    for(auto dim : na->dims)
-    {
-      os << '[' << dim << ']';
-    }
-  }
-  else if(Converted* c = dynamic_cast<Converted*>(e))
-  {
-    os << '(' << c->type->getName();
-    os << ") (" << c->value << ')';
-  }
-  else if(IsExpr* ie = dynamic_cast<IsExpr*>(e))
-  {
-    os << '(' << ie->base << " is " << ie->option->getName() << ')';
-  }
-  else if(AsExpr* ae = dynamic_cast<AsExpr*>(e))
-  {
-    os << '(' << ae->base << " as " << ae->option->getName() << ')';
-  }
-  else if(ArrayLength* al = dynamic_cast<ArrayLength*>(e))
-  {
-    os << '(' << al->array << ").len";
-  }
-  else if(dynamic_cast<ThisExpr*>(e))
-  {
-    os << "this";
-  }
-  else if(auto sic = dynamic_cast<SimpleConstant*>(e))
-  {
-    os << sic->st->name;
-  }
-  return os;
 }
 

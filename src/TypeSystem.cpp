@@ -15,16 +15,6 @@ extern Module* global;
 vector<Type*> primitives;
 map<string, Type*> primNames;
 
-/*
-vector<StructType*> structs;
-set<ArrayType*, ArrayCompare> arrays;
-set<TupleType*, TupleCompare> tuples;
-set<UnionType*, UnionCompare> unions;
-set<MapType*, MapCompare> maps;
-set<CallableType*, CallableCompare> callables;
-set<EnumType*> enums;
-*/
-
 void createBuiltinTypes()
 {
   primitives.resize(14);
@@ -410,6 +400,21 @@ void UnionType::resolveImpl()
       }
     }
   }
+  //fully resolved: now determine whether this is recursive
+  recursive = false;
+  for(size_t i = 0; i < options.size(); i++)
+  {
+    set<Type*> opDeps;
+    options[i]->dependencies(opDeps);
+    if(opDeps.find(this) != opDeps.end())
+    {
+      //option i does not contain this union, so it's a suitable
+      //default value
+      recursive = true;
+      break;
+    }
+  }
+  cout << "Union " << getName() << " IS " << ((recursive) ? "" : "NOT ") << " recursive.\n";
 }
 
 bool UnionType::canConvert(Type* other)
@@ -493,19 +498,10 @@ Expression* UnionType::getDefaultValue()
     defaultVal = new UnionConstant(
         options[defaultType]->getDefaultValue(),
         options[defaultType], this);
+    defaultVal->resolve();
   }
-  auto uc = defaultVal;
-  uc->resolve();
-  return uc;
+  return defaultVal;
 }
-
-/*
-bool UnionCompare::operator()(const UnionType* lhs, const UnionType* rhs) const
-{
-  return lexicographical_compare(lhs->options.begin(), lhs->options.end(),
-      rhs->options.begin(), rhs->options.end());
-}
-*/
 
 /**************/
 /* Array Type */
@@ -580,17 +576,6 @@ void ArrayType::dependencies(set<Type*>& types)
   types.insert(this);
   elem->dependencies(types);
 }
-
-/*
-bool ArrayCompare::operator()(const ArrayType* lhs, const ArrayType* rhs) const
-{
-  if(lhs->elem < rhs->elem)
-    return true;
-  else if(lhs->elem == rhs->elem && lhs->dims < rhs->dims)
-    return true;
-  return false;
-}
-*/
 
 /**************/
 /* Tuple Type */
@@ -675,14 +660,6 @@ void TupleType::dependencies(set<Type*>& types)
   }
 }
 
-/*
-bool TupleCompare::operator()(const TupleType* lhs, const TupleType* rhs) const
-{
-  return lexicographical_compare(lhs->members.begin(), lhs->members.end(),
-      rhs->members.begin(), rhs->members.end());
-}
-*/
-
 /************/
 /* Map Type */
 /************/
@@ -725,13 +702,6 @@ void MapType::dependencies(set<Type*>& types)
   key->dependencies(types);
   value->dependencies(types);
 }
-
-/*
-bool MapCompare::operator()(const MapType* lhs, const MapType* rhs) const
-{
-  return (lhs->key < rhs->key) || (lhs->key == rhs->key && lhs->value < rhs->value);
-}
-*/
 
 /**************/
 /* Alias Type */
@@ -1035,19 +1005,19 @@ Expression* BoolType::getDefaultValue()
 /* Callable Type */
 /*****************/
 
-CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& args)
+CallableType::CallableType(bool isPure, Type* retType, vector<Type*>& params)
 {
   pure = isPure;
   returnType = retType;
-  argTypes = args;
+  paramTypes = params;
   ownerStruct = nullptr;
 }
 
-CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector<Type*>& args)
+CallableType::CallableType(bool isPure, StructType* owner, Type* retType, vector<Type*>& params)
 {
   pure = isPure;
   returnType = retType;
-  argTypes = args;
+  paramTypes = params;
   ownerStruct = owner;
 }
 
@@ -1057,9 +1027,9 @@ void CallableType::resolveImpl()
   //so temporarily pretend it is resolved to avoid circular dependency error
   resolved = true;
   resolveType(returnType);
-  for(Type*& arg : argTypes)
+  for(Type*& param : paramTypes)
   {
-    resolveType(arg);
+    resolveType(param);
   }
   //just leave resolved = true
 }
@@ -1073,10 +1043,10 @@ string CallableType::getName()
     oss << "proc ";
   oss << returnType->getName();
   oss << "(";
-  for(size_t i = 0; i < argTypes.size(); i++)
+  for(size_t i = 0; i < paramTypes.size(); i++)
   {
-    oss << argTypes[i]->getName();
-    if(i < argTypes.size() - 1)
+    oss << paramTypes[i]->getName();
+    if(i < paramTypes.size() - 1)
     {
       oss << ", ";
     }
@@ -1103,35 +1073,15 @@ bool CallableType::canConvert(Type* other)
     return false;
   //check that arguments are exactly the same
   //doing at end because more expensive test
-  if(argTypes.size() != ct->argTypes.size())
+  if(paramTypes.size() != ct->paramTypes.size())
     return false;
-  for(size_t i = 0; i < argTypes.size(); i++)
+  for(size_t i = 0; i < paramTypes.size(); i++)
   {
-    if(!typesSame(argTypes[i], ct->argTypes[i]))
+    if(!typesSame(paramTypes[i], ct->paramTypes[i]))
       return false;
   }
   return true;
 }
-
-/*
-bool CallableCompare::operator()(const CallableType* lhs, const CallableType* rhs) const
-{
-  //an arbitrary way to order all possible callables (is lhs < rhs?)
-  if(!lhs->pure && rhs->pure)
-    return true;
-  if(lhs->returnType < rhs->returnType)
-    return true;
-  else if(lhs->returnType > rhs->returnType)
-    return false;
-  if(lhs->ownerStruct < rhs->ownerStruct)
-    return true;
-  else if(lhs->ownerStruct > rhs->ownerStruct)
-    return false;
-  return lexicographical_compare(
-      lhs->argTypes.begin(), lhs->argTypes.end(),
-      rhs->argTypes.begin(), rhs->argTypes.end());
-}
-*/
 
 SimpleType::SimpleType(string n)
 {
@@ -1382,13 +1332,13 @@ static bool typesSameImpl(const Type* t1, const Type* t2,
       return false;
     if(c1->ownerStruct != c2->ownerStruct)
       return false;
-    if(c1->argTypes.size() != c2->argTypes.size())
+    if(c1->paramTypes.size() != c2->paramTypes.size())
       return false;
     if(!typesSameImpl(c1->returnType, c2->returnType, assume))
       return false;
-    for(size_t i = 0; i < c1->argTypes.size(); i++)
+    for(size_t i = 0; i < c1->paramTypes.size(); i++)
     {
-      if(!typesSameImpl(c1->argTypes[i], c2->argTypes[i], assume))
+      if(!typesSameImpl(c1->paramTypes[i], c2->paramTypes[i], assume))
         return false;
     }
     return true;

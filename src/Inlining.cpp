@@ -41,7 +41,7 @@ struct Inliner
     //assign argument values to parameters mirrors
     for(size_t i = 0; i < call->args.size(); i++)
     {
-      VarExpr* origParam = new VarExpr(subr->args[i]);
+      VarExpr* origParam = new VarExpr(subr->params[i]);
       origParam->resolve();
       newStmts.push_back(new AssignIR(translateExpr(origParam), call->args[i]));
     }

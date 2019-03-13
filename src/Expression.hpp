@@ -6,6 +6,9 @@
 #include "AST.hpp"
 
 struct Expression;
+/**********************/
+/* Parsed Expressions */
+/**********************/
 //Subclasses of Expression
 //Constants/literals
 struct IntConstant;
@@ -29,11 +32,12 @@ struct CallExpr;
 struct VarExpr;
 struct Converted;
 struct ThisExpr;
+
+/*******************************/
+/* Placeholders for Resolution */
+/*******************************/
 struct DefaultValueExpr;
 struct UnresolvedExpr;
-
-//expr must be resolved
-ostream& operator<<(ostream& os, Expression* expr);
 
 struct Expression : public Node
 {
@@ -48,9 +52,9 @@ struct Expression : public Node
     return false;
   }
   //get the number of bytes required to store the constant
-  //(is 0 for non-constants)
   virtual int getConstantSize()
   {
+    INTERNAL_ERROR;
     return 0;
   }
   //Get the variables read and written by evaluating.
@@ -74,7 +78,7 @@ struct Expression : public Node
   {
     return false;
   }
-  //Is it worth doing CSE on this?
+  //Is it worth doing CSE to avoid computing this?
   virtual bool isComputation()
   {
     return false;
@@ -82,31 +86,49 @@ struct Expression : public Node
   //Hash this expression (for use in unordered map/set)
   //Only hard requirement: if a == b, then hash(a) == hash(b)
   virtual size_t hash() const = 0;
-  //implementation of operator<, but only supported by
-  //constant expression types (minus MapConstant)
-  virtual bool compareLess(const Expression& rhs) const
+  virtual bool operator==(const Expression& rhs) const = 0;
+  bool operator!=(const Expression& rhs) const
+  {
+    return !(*this == rhs);
+  }
+  //Precondition: constant() && rhs.constant()
+  //Only to be used for folding relational binary ops.
+  //Only implemented for expressions which can be constant,
+  //except MapConstant
+  virtual bool operator<(const Expression& rhs) const
   {
     INTERNAL_ERROR;
+    return false;
   }
-  //get a unique tag for this expression type
-  //just used for comparing/ordering Expressions
-  virtual int getTypeTag() const = 0;
+  bool operator>(const Expression& rhs) const
+  {
+    return rhs < *this;
+  }
+  bool operator<=(const Expression& rhs) const
+  {
+    return !(rhs < *this);
+  }
+  bool operator>=(const Expression& rhs) const
+  {
+    return !(*this < rhs);
+  }
   virtual Variable* getRootVariable() {INTERNAL_ERROR;}
   //deep copy (must already be resolved)
   virtual Expression* copy() = 0;
+  virtual ostream& print(ostream& os) = 0;
 };
 
-//compare expressions by value/semantics (not by pointer)
-bool operator==(const Expression& lhs, const Expression& rhs);
-inline bool operator!=(const Expression& lhs, const Expression& rhs)
+inline ostream& operator<<(ostream& os, Expression* expr)
 {
-  return !(lhs == rhs);
+  return expr->print(os);
 }
 
 struct ExprEqual
 {
   bool operator()(const Expression* lhs, const Expression* rhs) const
   {
+    if(lhs == rhs)
+      return true;
     return *lhs == *rhs;
   }
 };
@@ -119,10 +141,6 @@ struct ExprHash
   }
 };
 
-//support general relational comparison for expressions, but this is only
-//really implemented for constants (except MapConstant)
-bool operator<(const Expression& lhs, const Expression& rhs);
-
 struct UnaryArith : public Expression
 {
   UnaryArith(int op, Expression* expr);
@@ -133,10 +151,6 @@ struct UnaryArith : public Expression
     return false;
   }
   void resolveImpl();
-  int getTypeTag() const
-  {
-    return 0;
-  }
   bool hasSideEffects()
   {
     return expr->hasSideEffects();
@@ -164,10 +178,10 @@ struct UnaryArith : public Expression
     f.pump(expr->hash());
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
+  ostream& print(ostream& os);
   Expression* copy();
 };
-
-bool operator==(const UnaryArith& lhs, const UnaryArith& rhs);
 
 struct BinaryArith : public Expression
 {
@@ -179,10 +193,6 @@ struct BinaryArith : public Expression
   bool assignable()
   {
     return false;
-  }
-  int getTypeTag() const
-  {
-    return 1;
   }
   bool hasSideEffects()
   {
@@ -210,7 +220,8 @@ struct BinaryArith : public Expression
     FNV1A f;
     size_t lhsHash = lhs->hash();
     size_t rhsHash = rhs->hash();
-    //Make sure that "a op b" and "b op a" hash the same if op is commutative
+    //Make sure that "a op b" and "b op a" hash the same if op is commutative-
+    //operator== says these are identical
     if(operCommutativeTable[op] && lhsHash > rhsHash)
       std::swap(lhsHash, rhsHash);
     f.pump(op);
@@ -218,10 +229,10 @@ struct BinaryArith : public Expression
     f.pump(rhsHash);
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const BinaryArith& lhs, const BinaryArith& rhs);
 
 struct IntConstant : public Expression
 {
@@ -300,7 +311,7 @@ struct IntConstant : public Expression
       return fnv1a(sval);
     return fnv1a(uval);
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const IntConstant& rhsInt = dynamic_cast<const IntConstant&>(rhs);
     if(isSigned())
@@ -308,14 +319,10 @@ struct IntConstant : public Expression
     else
       return uval < rhsInt.uval;
   }
-  int getTypeTag() const
-  {
-    return 2;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const IntConstant& lhs, const IntConstant& rhs);
 
 struct FloatConstant : public Expression
 {
@@ -360,7 +367,7 @@ struct FloatConstant : public Expression
   {
     return true;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const FloatConstant& rhsFloat = dynamic_cast<const FloatConstant&>(rhs);
     if(isDoublePrec())
@@ -378,14 +385,10 @@ struct FloatConstant : public Expression
       return fnv1a(dp);
     return fnv1a(fp);
   }
-  int getTypeTag() const
-  {
-    return 3;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const FloatConstant& lhs, const FloatConstant& rhs);
 
 struct StringConstant : public Expression
 {
@@ -412,7 +415,7 @@ struct StringConstant : public Expression
   {
     return true;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const StringConstant& rhsStr = dynamic_cast<const StringConstant&>(rhs);
     return value < rhsStr.value;
@@ -425,14 +428,10 @@ struct StringConstant : public Expression
   {
     return fnv1a(value.c_str(), value.length());
   }
-  int getTypeTag() const
-  {
-    return 4;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const StringConstant& lhs, const StringConstant& rhs);
 
 struct CharConstant : public Expression
 {
@@ -457,7 +456,7 @@ struct CharConstant : public Expression
   {
     return true;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const CharConstant& rhsChar = dynamic_cast<const CharConstant&>(rhs);
     return value < rhsChar.value;
@@ -466,14 +465,10 @@ struct CharConstant : public Expression
   {
     return fnv1a(value);
   }
-  int getTypeTag() const
-  {
-    return 5;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const CharConstant& lhs, const CharConstant& rhs);
 
 struct BoolConstant : public Expression
 {
@@ -496,28 +491,23 @@ struct BoolConstant : public Expression
   {
     return 1;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const BoolConstant& b = dynamic_cast<const BoolConstant&>(rhs);
     return !value && b.value;
   }
   size_t hash() const
   {
-    //don't use FNV-1a here since it's way more
-    //expensive than just doing exact comparison
+    //don't use FNV-1a here since there are only 2 possible values
     if(value)
-      return 0x12345678;
+      return 0x123456789ABCDEF0ULL;
     else
-      return 0x98765432;
+      return ~0x123456789ABCDEF0ULL;
   }
-  int getTypeTag() const
-  {
-    return 6;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const CharConstant& lhs, const CharConstant& rhs);
 
 //Map constant: hold set of constant key-value pairs
 //Relies on operator== and operator< for Expressions
@@ -545,25 +535,22 @@ struct MapConstant : public Expression
   }
   size_t hash() const
   {
-    //the order of key-value pairs in values is deterministic,
-    //so use that to hash
-    FNV1A f;
-    f.pump(getTypeTag());
+    //the order of key-value pairs in values is NOT deterministic,
+    //so use XOR to combine hashes of each key-value pair
+    size_t h = 0;
     for(auto& kv : values)
     {
+      FNV1A f;
       f.pump(kv.first->hash());
       f.pump(kv.second->hash());
+      h ^= f.get();
     }
-    return f.get();
+    return h;
   }
-  int getTypeTag() const
-  {
-    return 7;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const MapConstant& lhs, const MapConstant& rhs);
 
 //UnionConstant only used in IR/optimization
 //expr->type exactly matches exactly one of ut's options
@@ -579,34 +566,29 @@ struct UnionConstant : public Expression
   {
     return true;
   }
-  int getTypeTag() const
-  {
-    return 8;
-  }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const UnionConstant& u = dynamic_cast<const UnionConstant&>(rhs);
     if(option < u.option)
       return true;
     else if(option > u.option)
       return false;
-    return value->compareLess(*u.value);
+    return *value < *u.value;
   }
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
     f.pump(option);
     f.pump(value->hash());
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
   UnionType* unionType;
   Expression* value;
   int option;
 };
-
-bool operator==(const UnionConstant& lhs, const UnionConstant& rhs);
 
 //it is impossible to determine the type of a CompoundLiteral by itself
 //(CompoundLiteral covers array, struct and tuple literals)
@@ -639,10 +621,6 @@ struct CompoundLiteral : public Expression
     }
     return total;
   }
-  int getTypeTag() const
-  {
-    return 9;
-  }
   bool hasSideEffects()
   {
     for(auto m : members)
@@ -670,14 +648,14 @@ struct CompoundLiteral : public Expression
     }
     return false;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const CompoundLiteral& cl = dynamic_cast<const CompoundLiteral&>(rhs);
     //lex compare
     size_t n = std::min(members.size(), cl.members.size());
     for(size_t i = 0; i < n; i++)
     {
-      if(members[i]->compareLess(*cl.members[i]))
+      if(*members[i] < *cl.members[i])
         return true;
       else if(*members[i] != *cl.members[i])
         return false;
@@ -687,9 +665,8 @@ struct CompoundLiteral : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
     for(auto m : members)
-      f.pump(m->hash());
+      f.pump(31 * m->hash());
     return f.get();
   }
   bool isComputation()
@@ -701,10 +678,10 @@ struct CompoundLiteral : public Expression
     }
     return false;
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const CompoundLiteral& lhs, const CompoundLiteral& rhs);
 
 struct Indexed : public Expression
 {
@@ -715,10 +692,6 @@ struct Indexed : public Expression
   bool assignable()
   {
     return group->assignable();
-  }
-  int getTypeTag() const
-  {
-    return 10;
   }
   Variable* getRootVariable()
   {
@@ -748,15 +721,14 @@ struct Indexed : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
-    f.pump(group->hash());
+    f.pump(7 * group->hash());
     f.pump(index->hash());
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const Indexed& lhs, const Indexed& rhs);
 
 struct CallExpr : public Expression
 {
@@ -767,10 +739,6 @@ struct CallExpr : public Expression
   bool assignable()
   {
     return false;
-  }
-  int getTypeTag() const
-  {
-    return 11;
   }
   bool isProc()
   {
@@ -818,16 +786,15 @@ struct CallExpr : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
     f.pump(callable->hash());
     for(auto a : args)
       f.pump(a->hash());
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const CallExpr& lhs, const CallExpr& rhs);
 
 struct VarExpr : public Expression
 {
@@ -840,10 +807,6 @@ struct VarExpr : public Expression
   {
     //all variables are lvalues
     return true;
-  }
-  int getTypeTag() const
-  {
-    return 12;
   }
   Variable* getRootVariable()
   {
@@ -868,10 +831,10 @@ struct VarExpr : public Expression
     //variables are uniquely identifiable by pointer
     return fnv1a(var);
   }
+  bool operator==(const Expression& erhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const VarExpr& lhs, const VarExpr& rhs);
 
 //Expression to represent constant callable
 //May be standalone, or may be applied to an object
@@ -888,10 +851,6 @@ struct SubroutineExpr : public Expression
   bool constant() const
   {
     return true;
-  }
-  int getTypeTag() const
-  {
-    return 13;
   }
   bool hasSideEffects()
   {
@@ -916,13 +875,13 @@ struct SubroutineExpr : public Expression
     f.pump(exSubr);
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
   Subroutine* subr;
   ExternalSubroutine* exSubr;
   Expression* thisObject; //null for static/extern
 };
-
-bool operator==(const SubroutineExpr& lhs, const SubroutineExpr& rhs);
 
 struct StructMem : public Expression
 {
@@ -934,10 +893,6 @@ struct StructMem : public Expression
   bool assignable()
   {
     return base->assignable() && member.is<Variable*>();
-  }
-  int getTypeTag() const
-  {
-    return 14;
   }
   Variable* getRootVariable()
   {
@@ -973,10 +928,10 @@ struct StructMem : public Expression
       f.pump(member.get<Subroutine*>());
     return f.get();
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const StructMem& lhs, const StructMem& rhs);
 
 struct NewArray : public Expression
 {
@@ -991,20 +946,15 @@ struct NewArray : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
-    for(auto d : dims)
-      f.pump(d->hash());
+    for(size_t i = 0; i < dims.size(); i++)
+      f.pump((i + 1) * dims[i]->hash());
     //can't hash the type
     return f.get();
   }
-  int getTypeTag() const
-  {
-    return 15;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const NewArray& lhs, const NewArray& rhs);
 
 struct ArrayLength : public Expression
 {
@@ -1014,10 +964,6 @@ struct ArrayLength : public Expression
   bool assignable()
   {
     return false;
-  }
-  int getTypeTag() const
-  {
-    return 16;
   }
   bool hasSideEffects()
   {
@@ -1034,18 +980,17 @@ struct ArrayLength : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
-    f.pump(array->hash());
+    f.pump(5 * array->hash());
     return f.get();
   }
   bool isComputation()
   {
     return true;
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const ArrayLength& lhs, const ArrayLength& rhs);
 
 struct IsExpr : public Expression
 {
@@ -1065,14 +1010,9 @@ struct IsExpr : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
     f.pump(optionIndex);
-    f.pump(base->hash());
+    f.pump(13 * base->hash());
     return f.get();
-  }
-  int getTypeTag() const
-  {
-    return 17;
   }
   bool hasSideEffects()
   {
@@ -1090,14 +1030,14 @@ struct IsExpr : public Expression
   {
     return true;
   }
+  bool operator==(const Expression& rhs) const;
+  ostream& print(ostream& os);
   Expression* copy();
   Expression* base;
   UnionType* ut;
   int optionIndex;
   Type* option;
 };
-
-bool operator==(const IsExpr& lhs, const IsExpr& rhs);
 
 struct AsExpr : public Expression
 {
@@ -1117,14 +1057,9 @@ struct AsExpr : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
     f.pump(optionIndex);
-    f.pump(base->hash());
+    f.pump(17 * base->hash());
     return f.get();
-  }
-  int getTypeTag() const
-  {
-    return 18;
   }
   bool hasSideEffects()
   {
@@ -1142,14 +1077,14 @@ struct AsExpr : public Expression
   {
     base->getReads(vars, lhs);
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
   Expression* base;
   UnionType* ut;
   int optionIndex;
   Type* option;
 };
-
-bool operator==(const AsExpr& lhs, const AsExpr& rhs);
 
 struct ThisExpr : public Expression
 {
@@ -1161,10 +1096,6 @@ struct ThisExpr : public Expression
   {
     return true;
   }
-  int getTypeTag() const
-  {
-    return 19;
-  }
   //note here: ThisExpr can read/write globals if "this"
   //is a global, but that can only be done through a proc all on
   //a global object. So it's safe to assume "this" is  
@@ -1173,8 +1104,14 @@ struct ThisExpr : public Expression
     //all ThisExprs are the same
     return 0xDEADBEEF;
   }
+  bool operator==(const Expression& rhs) const
+  {
+    //in any context, "this" always refers to the same thing
+    return dynamic_cast<const ThisExpr*>(&rhs);
+  }
   Scope* usage;
   Expression* copy();
+  ostream& print(ostream& os);
 };
 
 struct Converted : public Expression
@@ -1188,13 +1125,8 @@ struct Converted : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(getTypeTag());
-    f.pump(value->hash());
+    f.pump(23 * value->hash());
     return f.get();
-  }
-  int getTypeTag() const
-  {
-    return 20;
   }
   bool hasSideEffects()
   {
@@ -1212,10 +1144,10 @@ struct Converted : public Expression
   {
     return true;
   }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const Converted& lhs, const Converted& rhs);
 
 struct EnumExpr : public Expression
 {
@@ -1234,30 +1166,22 @@ struct EnumExpr : public Expression
   {
     return true;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     const EnumExpr& e = dynamic_cast<const EnumExpr&>(rhs);
     if(value->et->underlying->isSigned)
       return value->sval < e.value->sval;
     return value->uval < e.value->uval;
   }
-  int getTypeTag() const
-  {
-    return 21;
-  }
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const EnumExpr& lhs, const EnumExpr& rhs);
 
 struct SimpleConstant : public Expression
 {
   SimpleConstant(SimpleType* s);
   SimpleType* st;
-  size_t hash() const
-  {
-    return fnv1a(st);
-  }
   bool assignable()
   {
     return false;
@@ -1266,18 +1190,15 @@ struct SimpleConstant : public Expression
   {
     return true;
   }
-  bool compareLess(const Expression& rhs) const
+  bool operator<(const Expression& rhs) const
   {
     return false;
   }
-  int getTypeTag() const
-  {
-    return 22;
-  }
+  size_t hash() const;
+  bool operator==(const Expression& rhs) const;
   Expression* copy();
+  ostream& print(ostream& os);
 };
-
-bool operator==(const SimpleConstant& lhs, const SimpleConstant& rhs);
 
 //DefaultValueExpr is just a placeholder
 //When resolved, it's replaced by type->getDefaultValue()
@@ -1287,10 +1208,6 @@ struct DefaultValueExpr : public Expression
   void resolveImpl()
   {
     INTERNAL_ERROR;
-  }
-  int getTypeTag() const
-  {
-    return 23;
   }
   bool assignable()
   {
@@ -1304,6 +1221,16 @@ struct DefaultValueExpr : public Expression
   {
     return new DefaultValueExpr(t);
   }
+  bool operator==(const Expression&) const
+  {
+    INTERNAL_ERROR;
+    return false;
+  }
+  ostream& print(ostream& os)
+  {
+    INTERNAL_ERROR;
+    return os;
+  }
   Type* t;
 };
 
@@ -1312,9 +1239,6 @@ struct UnresolvedExpr : public Expression
   UnresolvedExpr(string name, Scope* s);
   UnresolvedExpr(Member* name, Scope* s);
   UnresolvedExpr(Expression* base, Member* name, Scope* s);
-  Expression* base; //null = no base
-  Member* name;
-  Scope* usage;
   bool assignable()
   {
     return false;
@@ -1325,14 +1249,9 @@ struct UnresolvedExpr : public Expression
     //Should instead be replaced inside resolveExpr(...)
     INTERNAL_ERROR;
   }
-  int getTypeTag() const
-  {
-    return 24;
-  }
   size_t hash() const
   {
     //UnresolvedExpr does not appear in a resolved AST
-    INTERNAL_ERROR;
     return 0;
   }
   Expression* copy()
@@ -1340,6 +1259,19 @@ struct UnresolvedExpr : public Expression
     INTERNAL_ERROR;
     return nullptr;
   }
+  ostream& print(ostream& os)
+  {
+    INTERNAL_ERROR;
+    return os;
+  }
+  bool operator==(const Expression&) const
+  {
+    INTERNAL_ERROR;
+    return false;
+  }
+  Expression* base; //null = no base
+  Member* name;
+  Scope* usage;
 };
 
 void resolveExpr(Expression*& expr);

@@ -15,7 +15,6 @@
 struct Subroutine;
 struct Expression;
 
-
 namespace IR
 {
   struct StatementIR;

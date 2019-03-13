@@ -114,6 +114,23 @@ struct Scope
   bool contains(Scope* other);
   //is this a module or submodule in global scope?
   bool isNestedModule();
+  //Visit each scope (DFS) in the program
+  template<typename F>
+  static void walk(F f)
+  {
+    vector<Scope*> visit;
+    visit.push_back(global->scope);
+    while(visit.size())
+    {
+      Scope* s = visit.back();
+      f(s);
+      visit.pop_back();
+      for(auto child : s->children)
+      {
+        visit.push_back(child);
+      }
+    }
+  }
   //all types that can represent a Scope in the AST
   //using this variant instead of having these types inherit Scope
   variant<Module*, StructType*, Subroutine*, Block*, EnumType*> node;

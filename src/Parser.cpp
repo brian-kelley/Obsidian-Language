@@ -409,16 +409,17 @@ namespace Parser
     Type* retType = parseType(s);
     string name = expectIdent();
     expectPunct(LPAREN);
-    vector<string> argNames;
-    vector<Type*> argTypes;
+    vector<string> paramNames;
+    vector<Type*> paramTypes;
+    vector<bool> borrow;
     while(!acceptPunct(RPAREN))
     {
-      argNames.push_back(expectIdent());
-      expectPunct(COLON);
-      argTypes.push_back(parseType(s));
+      borrow.push_back(acceptKeyword(CONST));
+      paramTypes.push_back(parseType(s));
+      paramNames.push_back(expectIdent());
     }
     string& code = ((StrLit*) expect(STRING_LITERAL))->val;
-    ExternalSubroutine* es = new ExternalSubroutine(s, name, retType, argTypes, argNames, code);
+    ExternalSubroutine* es = new ExternalSubroutine(s, name, retType, paramTypes, paramNames, borrow, code);
     es->setLocation(loc);
     s->addName(es);
   }

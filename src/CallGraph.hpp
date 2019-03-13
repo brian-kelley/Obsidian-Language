@@ -8,20 +8,20 @@ struct Callable
 {
   Callable()
   {
-    subr = nullptr;
-    exSubr = nullptr;
+    s = nullptr;
   }
-  Callable(Subroutine* s) : subr(s), exSubr(nullptr) {}
-  Callable(ExternalSubroutine* es) : subr(nullptr), exSubr(es) {}
-  Callable(const Callable& other) : subr(other.subr), exSubr(other.exSubr) {}
-  CallableType* type() const
+  Callable(Subroutine* su) : s(su) {}
+  Callable(ExternalSubroutine* es) : s(es) {}
+  Callable(const Callable& other) : s(other.s) {}
+  CallableType* getType() const
   {
-    if(subr)
+    if(auto subr = dynamic_cast<Subroutine*>(s))
       return subr->type;
-    return exSubr->type;
+    else
+      return dynamic_cast<ExternalSubroutine*>(s)->type;
   }
-  Subroutine* subr;
-  ExternalSubroutine* exSubr;
+  //Dynamic cast to either Subroutine or ExternalSubroutine
+  Node* s;
 };
 
 bool operator==(const Callable& lhs, const Callable& rhs);
@@ -34,31 +34,38 @@ bool operator<(const Callable& lhs, const Callable& rhs);
 //program (including variable initializers)
 struct CGNode
 {
-  set<Callable> out;
-  Callable c;
+  Callable c; //the [external] subroutine
+  set<Callable> outDirect;
+  set<CallableType*> outIndirect;
 };
 
 struct CallGraph
 {
-  map<Callable, CGNode*> nodes;
+  map<Callable, CGNode> nodes;
+  void addNode(Callable c);
+  void addEdge(Subroutine* s, CallableType* indirect);
+  void addEdge(Subroutine* s, Callable direct);
+  void addEdge(ExternalSubroutine* s, CallableType* indirect);
 };
 
 extern CallGraph callGraph;
 
+//Sets up callGraph using the current IR.
 void buildCallGraph();
 
-//internal
+//(Internal - never call from outside)
 
-//find the global set of Callables which can be found in expressions,
-//except those which are the callable of a CallExpr
-//
-//these may be the target of an indirect call somewhere
+//Find the global set of Callables which can be found in expressions
+//BESIDES CallExprs. These are all assumed to be possible values of
+//any callable expr of their type.
 void determineIndirectReachable();
 
-//(used by determineIndirectReachable)
-//get the set of callable constants found in an expression which
-//could eventually be assigned as a first-class function and called
-set<Callable> getExpressionCallables(Expression* e);
+//Get the set of callable constants found in an expression.
+//They are stored in an internal table.
+void gatherIndirectCallables(Expression* e);
+//Add a callable to the internal table
+//(can be looked up by CallableType)
+void registerIndirectCallable(Callable c);
 
 #endif
 

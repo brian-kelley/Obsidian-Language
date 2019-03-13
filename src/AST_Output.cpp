@@ -410,11 +410,11 @@ int emitAlias(AliasType* a)
 int emitSubroutine(Subroutine* s)
 {
   int root = out.createNode("Subroutine " + s->name);
-  int args = out.createNode("Args");
-  out.createEdge(root, args);
-  for(auto arg : s->args)
+  int params = out.createNode("Parameters");
+  out.createEdge(root, params);
+  for(auto p : s->params)
   {
-    out.createEdge(root, emitVariable(arg));
+    out.createEdge(root, emitVariable(p));
   }
   out.createEdge(root, emitStatement(s->body));
   return root;
@@ -425,9 +425,9 @@ int emitExternSubroutine(ExternalSubroutine* s)
   int root = out.createNode("External subroutine " + s->name);
   int args = out.createNode("Args");
   out.createEdge(root, args);
-  for(size_t i = 0; i < s->type->argTypes.size(); i++)
+  for(size_t i = 0; i < s->type->paramTypes.size(); i++)
   {
-    out.createEdge(args, out.createNode(s->type->argTypes[i]->getName() + ' ' + s->argNames[i]));
+    out.createEdge(args, out.createNode(s->type->paramTypes[i]->getName() + ' ' + s->paramNames[i]));
   }
   out.createEdge(root, out.createNode(s->c));
   return root;

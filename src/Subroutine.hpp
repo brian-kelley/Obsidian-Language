@@ -45,9 +45,6 @@ struct Match;
 struct Subroutine;
 struct ExternalSubroutine;
 
-extern vector<Subroutine*> allSubrs;
-extern vector<ExternalSubroutine*> allExSubrs;
-
 struct Test;
 
 //Loop (anything that can have continue statement)
@@ -238,13 +235,13 @@ struct Subroutine : public Node
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
-  Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& argNames, vector<Type*>& argTypes);
+  Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& paramNames, vector<Type*>& paramTypes);
   void resolveImpl();
   string name;
   //the full type of this subroutine
   CallableType* type;
   //Local variables in subroutine scope representing arguments, in order
-  vector<Variable*> args;
+  vector<Variable*> params;
   //constructor sets owner to innermost struct if there is one and isStatic is false
   //otherwise NULL
   StructType* owner;
@@ -256,14 +253,16 @@ struct Subroutine : public Node
 
 struct ExternalSubroutine : public Node
 {
-  ExternalSubroutine(Scope* s, string name, Type* returnType, vector<Type*>& argTypes, vector<string>& argNames, string& code);
+  ExternalSubroutine(Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   string name;
   void resolveImpl();
   CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
   Scope* scope;
-  vector<string> argNames;
+  vector<string> paramNames;
+  //How each argument is passed
+  vector<bool> paramBorrowed;
   int id;
 };
 
