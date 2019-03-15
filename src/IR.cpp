@@ -8,6 +8,7 @@
 #include "JumpThreading.hpp"
 #include "CSElim.hpp"
 #include "Inlining.hpp"
+#include "CallGraph.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -16,30 +17,72 @@ IR::Nop* nop = new IR::Nop;
 
 namespace IR
 {
-  map<Subroutine*, SubroutineIR*> ir;
+  /* *************************** */
+  /* Full Program Representation */
+  /* *************************** */
+
+  SubroutineIR* mainIR;
+  vector<SubroutineIR*> ir;
+  vector<ExternalSubroutine*> externIR;
+  vector<Variable*> allGlobals;
+
+  /* *************** */
+  /* Statement Types */
+  /* *************** */
+
+  CallIR::CallIR(CallExpr* c, VarExpr* tempReturn)
+  {
+  }
+
+  ostream& CallIR::print(ostream& os) const
+  {
+    if(output)
+    {
+      os << output->var->name << " = ";
+    }
+    os << origCallable << "(";
+    for(size_t i = 0; i < args.size(); i++)
+    {
+      os << args[i];
+      if(i == args.size() - 1)
+        os << ", ";
+    }
+    os << ")";
+    return os;
+  }
+
+  /* *************** */
+  /* IR Construction */
+  /* *************** */
 
   //walk the AST and build independent IR for each subroutine
   void buildIR()
   {
-    stack<Scope*> searchStack;
-    searchStack.push(global->scope);
-    while(!searchStack.empty())
+    Scope::walk([&](Scope* scope)
     {
-      Scope* scope = searchStack.top();
-      searchStack.pop();
       for(auto& name : scope->names)
       {
         if(name.second.kind == Name::SUBROUTINE)
         {
           Subroutine* subr = (Subroutine*) name.second.item;
-          ir[subr] = new SubroutineIR(subr);
+          ir.push_back(new SubroutineIR(subr));
+          if(scope == global->scope && subr->name == "main")
+          {
+            mainIR = ir.back();
+          }
+        }
+        else if(name.second.kind == Name::EXTERN_SUBR)
+        {
+          externIR.push_back((ExternalSubroutine*) name.second.item);
+        }
+        else if(name.second.kind == Name::VARIABLE)
+        {
+          Variable* var = (Variable*) name.second.item;
+          allGlobals.push_back(var);
         }
       }
-      for(auto child : scope->children)
-      {
-        searchStack.push(child);
-      }
-    }
+    });
+    INTERNAL_ASSERT(mainIR);
   }
 
   void optimizeIR()
@@ -47,45 +90,27 @@ namespace IR
     IRDebug::dumpIR("IR/0-unoptimized.dot");
     findGlobalConstants();
     for(auto& s : ir)
-      constantFold(s.second);
+      constantFold(s);
     IRDebug::dumpIR("IR/1-folded.dot");
     for(auto& s : ir)
-      constantPropagation(s.first);
+      constantPropagation(s);
     IRDebug::dumpIR("IR/2-propagation.dot");
     for(auto& s : ir)
-      deadCodeElim(s.second);
+      deadCodeElim(s);
+    unusedSubrElim();
+    callGraph.dump("IR/call-graph.dot");
+    unusedGlobalElim();
     IRDebug::dumpIR("IR/3-dce.dot");
     for(auto& s : ir)
-      simplifyCFG(s.second);
+      simplifyCFG(s);
     IRDebug::dumpIR("IR/4-simplified.dot");
     for(auto& s : ir)
-      cse(s.second);
+      cse(s);
     IRDebug::dumpIR("IR/5-cse.dot");
     for(auto& s : ir)
-      deadStoreElim(s.second);
+      deadStoreElim(s);
     IRDebug::dumpIR("IR/6-deadstore.dot");
-    //inline every EvalIR
-    /*
-    for(auto& s : ir)
-    {
-      bool update = true;
-      while(update)
-      {
-        update = false;
-        for(auto stmt : s.second->stmts)
-        {
-          if(auto eval = dynamic_cast<EvalIR*>(stmt))
-          {
-            inlineCall(s.second, eval);
-            update = true;
-            break;
-          }
-        }
-      }
-    }
-    */
     IRDebug::dumpIR("IR/7-inlined.dot");
-    //cout << "Subroutine " << s.first->name << " optimized in " << sweeps << " passes.\n";
   }
 
   //addStatement() will save, modify and restore these as needed
@@ -96,6 +121,7 @@ namespace IR
 
   SubroutineIR::SubroutineIR(Subroutine* s)
   {
+    Node::setLocation(s);
     tempCounter = 0;
     subr = s;
     //create the IR instructions for the whole body
@@ -114,7 +140,7 @@ namespace IR
         if(n.second.kind == Name::VARIABLE)
         {
           Variable* v = (Variable*) n.second.item;
-          vars.insert(v);
+          vars.push_back(v);
         }
       }
       for(auto child : process->children)
@@ -820,53 +846,7 @@ namespace IR
   }
 }
 
-ostream& operator<<(ostream& os, IR::StatementIR* stmt)
+ostream& operator<<(ostream& os, const IR::StatementIR* stmt)
 {
-  using namespace IR;
-  if(auto ai = dynamic_cast<AssignIR*>(stmt))
-  {
-    os << ai->dst << " = " << ai->src;
-  }
-  else if(auto ev = dynamic_cast<EvalIR*>(stmt))
-  {
-    os << ev->eval;
-  }
-  else if(auto j = dynamic_cast<Jump*>(stmt))
-  {
-    os << "Goto " << j->dst->intLabel;
-  }
-  else if(auto cj = dynamic_cast<CondJump*>(stmt))
-  {
-    //false condition means branch taken,
-    //true means fall through!
-    os << "If " << cj->cond << " goto " << stmt->intLabel + 1 << " else " << cj->taken->intLabel;
-  }
-  else if(auto label = dynamic_cast<Label*>(stmt))
-  {
-    os << "Label " << label->intLabel;
-  }
-  else if(auto ret = dynamic_cast<ReturnIR*>(stmt))
-  {
-    os << "Return";
-    if(ret->expr)
-      os << ' ' << ret->expr;
-  }
-  else if(auto p = dynamic_cast<PrintIR*>(stmt))
-  {
-    os << "Print(" << p->expr << ')';
-  }
-  else if(auto assertion = dynamic_cast<AssertionIR*>(stmt))
-  {
-    os << "Assert " << assertion->asserted;
-  }
-  else if(dynamic_cast<Nop*>(stmt))
-  {
-    os << "No-op";
-  }
-  else
-  {
-    INTERNAL_ERROR;
-  }
-  return os;
+  return stmt->print(os);
 }
-

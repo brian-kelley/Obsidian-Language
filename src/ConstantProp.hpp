@@ -17,7 +17,7 @@ void constantFold(IR::SubroutineIR* subr);
 
 //constantPropagation determines when variables
 //have constant values, and replaces their usage by constants
-bool constantPropagation(Subroutine* subr);
+bool constantPropagation(IR::SubroutineIR* subr);
 
 //Try to replace the expression with equivalent constant, if not already constant
 //Requires all dependencies to be constant and
@@ -87,7 +87,6 @@ struct LocalConstantTable
   //Construct initial table, with all variables undefined at every BB
   LocalConstantTable(Subroutine* subr);
   map<Variable*, int> varTable;
-  vector<Variable*> locals;
   bool update(Variable* var, ConstantVar replace);
   bool update(int varIndex, ConstantVar replace);
   bool meetUpdate(int varIndex, int destBlock, ConstantVar incoming);

@@ -32,13 +32,13 @@ void CallGraph::addNode(Callable c)
     nodes[c] = CGNode();
 }
 
-void CallGraph::addEdge(Subroutine* s, CallableType* indirect)
+void CallGraph::addEdge(IR::SubroutineIR* s, CallableType* indirect)
 {
   addNode(Callable(s));
   nodes[Callable(s)].outIndirect.insert(indirect);
 }
 
-void CallGraph::addEdge(Subroutine* s, Callable direct)
+void CallGraph::addEdge(IR::SubroutineIR* s, Callable direct)
 {
   addNode(Callable(s));
   nodes[Callable(s)].outDirect.insert(direct);
@@ -56,9 +56,9 @@ void determineIndirectReachable()
   //be reachable through an indirect call, they MUST
   //appear somewhere as an expression (so find all such
   //SubroutineExprs)
-  for(auto& s : IR::ir)
+  for(auto& s : ir)
   {
-    for(auto& stmt : s.second->stmts)
+    for(auto& stmt : s->stmts)
     {
       //note: only need to check the statement types that
       //let expressions get assigned to a variable/parameter (only place
@@ -160,16 +160,15 @@ void registerIndirectCallable(Callable c)
   }
 }
 
-void buildCallGraph()
+void CallGraph::rebuild()
 {
+  nodes.clear();
   determineIndirectReachable();
   //First, create all the CG nodes for normal subroutines.
   //This includes outgoing edges for regular direct calls,
   //and all possible indirect calls
-  for(auto& s : IR::ir)
+  for(auto& subrIR : ir)
   {
-    auto subr = s.first;
-    auto subrIR = s.second;
     //for each statement, find call instructions
     for(auto stmt : subrIR->stmts)
     {
@@ -224,5 +223,12 @@ void buildCallGraph()
       }
     }
   });
+}
+
+void CallGraph::dump(string path)
+{
+  Dotfile dot("Global Call Graph");
+  //create the first node, for main
+  dot.write(path);
 }
 

@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.0)
 #set(CMAKE_CXX_COMPILER clang++)
 project (Onyx-Lang)
 include_directories(src/variadic-variant)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow -ferror-limit=2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -std=c++11 -Wall -Wshadow -ferror-limit=2")
 add_executable (onyx

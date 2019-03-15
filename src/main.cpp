@@ -25,7 +25,7 @@ void init()
 void semanticCheck()
 {
   global->resolve();
-  if(!programHasMain)
+  if(!mainSubr)
   {
     errMsg("Program requires main procedure to be defined");
   }

@@ -1,6 +1,7 @@
 #include "DeadCodeElim.hpp"
 #include "Dataflow.hpp"
 #include "Variable.hpp"
+#include "CallGraph.hpp"
 
 using namespace IR;
 
@@ -183,5 +184,135 @@ void deadStoreElim(SubroutineIR* subr)
   }
   //Delete nops and rebuild CFG
   subr->buildCFG();
+}
+
+void unusedSubrElim()
+{
+  callGraph.rebuild();
+  unordered_set<Callable> reachable;
+  unordered_set<CallableType*> reachableIndirect;
+  vector<Callable> visitStack;
+  visitStack.push_back(Callable(mainSubr));
+  while(visitStack.size())
+  {
+    Callable process = visitStack.back();
+    visitStack.pop_back();
+    auto& node = callGraph.nodes[process];
+    for(Callable direct : node.outDirect)
+    {
+      if(reachable.find(direct) == reachable.end())
+      {
+        visitStack.push_back(direct);
+        reachable.insert(direct);
+      }
+    }
+    for(CallableType* indirect : node.outIndirect)
+    {
+      if(reachableIndirect.find(indirect) == reachableIndirect.end())
+      {
+        reachableIndirect.insert(indirect);
+        //note: indirectReachables is computed with the CallGraph,
+        //contains sets of possibly indirectly-called subroutines
+        //for a given CallableType
+        auto& r = indirectReachables[indirect];
+        for(auto c : r)
+        {
+          if(reachable.find(c) == reachable.end())
+          {
+            visitStack.push_back(c);
+            reachable.insert(c);
+          }
+        }
+      }
+    }
+  }
+  //finally, delete IR for all unreachable subroutines
+  for(auto it = ir.begin(); it != ir.end();)
+  {
+    auto subr = it->first;
+    if(reachable.find(Callable(subr)) == reachable.end())
+    {
+      cout << "Eliminated unreachable subroutine " << subr->name << '\n';
+      ir.erase(it++);
+    }
+    else
+      it++;
+  }
+  for(auto it = externIR.begin(); it != externIR.end();)
+  {
+    if(reachable.find(Callable(*it)) == reachable.end())
+    {
+      cout << "Eliminated unreachable external subroutine " << (*it)->name << '\n';
+      externIR.erase(it++);
+    }
+    else
+      it++;
+  }
+  //now, rebuild the call graph
+  callGraph.rebuild();
+}
+
+void unusedGlobalElim()
+{
+  //Make a list of all global (static/module-scope) vars
+  //then track their usage (read)
+  unordered_set<Variable*> usedGlobals;
+  for(auto& s : ir)
+  {
+    set<Variable*> locallyUsed;
+    auto subrIR = s.second;
+    for(auto stmt : subrIR->stmts)
+    {
+      stmt->getReads(locallyUsed);
+    }
+    for(auto used : locallyUsed)
+    {
+      if(used->isGlobal())
+      {
+        usedGlobals.insert(used);
+      }
+    }
+  }
+  //now, delete each assignment modifying an unused global
+  //(only assignments matter for this)
+  for(auto& s : ir)
+  {
+    auto subrIR = s.second;
+    for(size_t i = 0; i < subrIR->stmts; i++)
+    {
+      if(auto assign = dynamic_cast<AssignIR*>(subr->stmts[i]))
+      {
+        auto wv = assign->dst->getWrite();
+        if(wv->isGlobal() && usedGlobals.find(wv) == usedGlobals.end())
+        {
+          subrIR->stmts[i] = nop;
+        }
+      }
+    }
+  }
+  //finally, walk the scope tree and delete unused global var decls
+  Scope::walk([&] (Scope* s)
+  {
+    //globals can be declared in Module and StructType only
+    if(s->node.is<Module*>() || s->node.is<StructType*>())
+    {
+      for(auto it = s->names.begin(); it != s->names.end();)
+      {
+        auto& name = it->second;
+        bool removed = false;
+        if(name.kind == Name::VARIABLE)
+        {
+          Variable* var = (Variable*) name.item;
+          if(var->isGlobal() && usedGlobals.find(var) == usedGlobals.end())
+          {
+            s->names.erase(it++);
+            removed = true;
+          }
+        }
+        if(!removed)
+          it++;
+      }
+    }
+  });
 }
 

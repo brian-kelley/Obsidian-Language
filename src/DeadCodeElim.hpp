@@ -17,5 +17,8 @@ bool deadCodeElim(IR::SubroutineIR* subr);
 //It also completely deletes never-used variables (removes name from scope)
 void deadStoreElim(IR::SubroutineIR* subr);
 
+void unusedSubrElim();
+void unusedGlobalElim();
+
 #endif
 

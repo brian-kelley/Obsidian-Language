@@ -19,7 +19,7 @@ namespace IR
 {
   struct StatementIR;
   struct AssignIR;
-  struct EvalIR;
+  struct CallIR;
   struct Jump;
   struct CondJump;
   struct Label;
@@ -29,7 +29,10 @@ namespace IR
   struct BasicBlock;
   struct SubroutineIR;
 
-  extern map<Subroutine*, SubroutineIR*> ir;
+  extern SubroutineIR* mainIR;
+  extern vector<SubroutineIR*> ir;
+  extern vector<ExternalSubroutine*> externIR;
+  extern vector<Variable*> allGlobals;
   //construct all (un-optimized) IR and CFGs from AST
   void buildIR();
   void optimizeIR();
@@ -39,6 +42,7 @@ namespace IR
     //get the variables used (read) by the statement (add to set)
     virtual void getReads(set<Variable*>& vars) {}
     virtual Variable* getWrite() {return nullptr;}
+    virtual ostream& print(ostream& os) const = 0;
     //integer position in subroutine
     int intLabel;
   };
@@ -57,16 +61,53 @@ namespace IR
     {
       return dst->getWrite();
     }
+    ostream& print(ostream& os) const
+    {
+      os << dst << " = " << src;
+      return os;
+    }
   };
 
-  struct EvalIR : public StatementIR
+  struct CallIR : public StatementIR
   {
-    EvalIR(Expression* e) : eval(e) {}
-    //currently this is only used by CallStmts
-    Expression* eval;
+    CallIR(CallExpr* c, VarExpr* tempReturn = nullptr);
+    Expression* origCallable;
+    //Optional: "this" expression
+    Expression* thisExpr;
+    variant<SubroutineIR*, ExternalSubroutine*, Expression*> callable;
+    bool isDirect()
+    {
+      return callable.is<Expression*>();
+    }
+    bool isMethod()
+    {
+      return thisExpr;
+    }
+    vector<Expression*> args;
+    bool argBorrowed(int index);
+    //Optional: variable where return value is stored
+    VarExpr* output;
     void getReads(set<Variable*>& vars)
     {
-      eval->getReads(vars, false);
+      for(auto arg : args)
+      {
+        arg->getReads(vars, false);
+      }
+    }
+    Variable* getWrite()
+    {
+      //this may be null, but that's fine
+      return output->var;
+    }
+    ostream& print(ostream& os) const;
+  };
+
+  struct Label : public StatementIR
+  {
+    ostream& print(ostream& os) const
+    {
+      os << intLabel << ":";
+      return os;
     }
   };
 
@@ -74,6 +115,11 @@ namespace IR
   {
     Jump(Label* l) : dst(l) {}
     Label* dst;
+    ostream& print(ostream& os) const
+    {
+      os << "Goto " << dst->intLabel;
+      return os;
+    }
   };
 
   struct CondJump : public StatementIR
@@ -87,9 +133,13 @@ namespace IR
     {
       cond->getReads(vars, false);
     }
+    ostream& print(ostream& os) const
+    {
+      os << "If " << cond << " goto ";
+      os << (intLabel + 1) << " else " << taken->intLabel;
+      return os;
+    }
   };
-
-  struct Label : public StatementIR {};
 
   struct ReturnIR : public StatementIR
   {
@@ -101,6 +151,13 @@ namespace IR
       if(expr)
         expr->getReads(vars, false);
     }
+    ostream& print(ostream& os) const
+    {
+      os << "Return";
+      if(expr)
+        os << ' ' << expr;
+      return os;
+    }
   };
 
   struct PrintIR : public StatementIR
@@ -110,6 +167,11 @@ namespace IR
     void getReads(set<Variable*>& vars)
     {
       expr->getReads(vars, false);
+    }
+    ostream& print(ostream& os) const
+    {
+      os << "Print " << expr;
+      return os;
     }
   };
 
@@ -122,9 +184,21 @@ namespace IR
     {
       asserted->getReads(vars, false);
     }
+    ostream& print(ostream& os) const
+    {
+      os << "Assert " << asserted;
+      return os;
+    }
   };
 
-  struct Nop : public StatementIR {};
+  struct Nop : public StatementIR
+  {
+    ostream& print(ostream& os) const
+    {
+      os << "<no-op>";
+      return os;
+    }
+  };
 
   struct BasicBlock
   {
@@ -146,7 +220,7 @@ namespace IR
     int index;
   };
 
-  struct SubroutineIR
+  struct SubroutineIR : public Node
   {
     SubroutineIR(Subroutine* s);
     void addStatement(Statement* s);
@@ -161,8 +235,9 @@ namespace IR
     vector<StatementIR*> stmts;
     vector<BasicBlock*> blocks;
     //All local variables (including parameters).
-    //Dead store elimination can remove unused variables (but not parameters)
-    set<Variable*> vars;
+    //Dead store elimination can delete unused variables from this,
+    //but parameters are never eliminated (even if unused)
+    vector<Variable*> vars;
     map<int, BasicBlock*> blockStarts;
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);
@@ -181,7 +256,7 @@ namespace IR
 
 extern IR::Nop* nop;
 
-ostream& operator<<(ostream& os, IR::StatementIR* stmt);
+ostream& operator<<(ostream& os, const IR::StatementIR* stmt);
 
 #endif
 

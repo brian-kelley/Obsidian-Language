@@ -10,19 +10,31 @@ struct Callable
   {
     s = nullptr;
   }
-  Callable(Subroutine* su) : s(su) {}
+  Callable(IR::SubroutineIR* su) : s(su) {}
   Callable(ExternalSubroutine* es) : s(es) {}
   Callable(const Callable& other) : s(other.s) {}
   CallableType* getType() const
   {
-    if(auto subr = dynamic_cast<Subroutine*>(s))
-      return subr->type;
-    else
-      return dynamic_cast<ExternalSubroutine*>(s)->type;
+    auto subrIR = dynamic_cast<IR::SubroutineIR*>(s);
+    if(subrIR)
+      return subrIR->subr->type;
+    return dynamic_cast<ExternalSubroutine*>(s)->type;
   }
   //Dynamic cast to either Subroutine or ExternalSubroutine
   Node* s;
 };
+
+namespace std
+{
+  template<>
+  struct hash<Callable>
+  {
+    size_t operator()(const Callable& c) const
+    {
+      return fnv1a(c.s);
+    }
+  };
+}
 
 bool operator==(const Callable& lhs, const Callable& rhs);
 bool operator<(const Callable& lhs, const Callable& rhs);
@@ -34,24 +46,24 @@ bool operator<(const Callable& lhs, const Callable& rhs);
 //program (including variable initializers)
 struct CGNode
 {
-  Callable c; //the [external] subroutine
   set<Callable> outDirect;
   set<CallableType*> outIndirect;
 };
 
 struct CallGraph
 {
+  void rebuild();
   map<Callable, CGNode> nodes;
   void addNode(Callable c);
-  void addEdge(Subroutine* s, CallableType* indirect);
-  void addEdge(Subroutine* s, Callable direct);
+  void addEdge(IR::SubroutineIR* s, CallableType* indirect);
+  void addEdge(IR::SubroutineIR* s, Callable direct);
   void addEdge(ExternalSubroutine* s, CallableType* indirect);
+  void dump(string path);
 };
 
 extern CallGraph callGraph;
-
-//Sets up callGraph using the current IR.
-void buildCallGraph();
+extern unordered_map<CallableType*, set<Callable>,
+  TypeHash, TypeEqual> indirectReachables;
 
 //(Internal - never call from outside)
 

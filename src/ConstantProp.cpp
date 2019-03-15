@@ -16,38 +16,17 @@ const int maxConstantSize = 512;
 //replace VarExprs with constants
 bool foldLocals = false;
 
-LocalConstantTable::LocalConstantTable(Subroutine* subr)
+LocalConstantTable::LocalConstantTable(SubroutineIR* subr)
 {
-  //dfs through block scopes to find all local vars
-  //note: parameters are not included
-  stack<Scope*> search;
-  search.push(subr->body->scope);
-  while(!search.empty())
+  for(size_t i = 0; i < subr->vars.size(); i++)
   {
-    auto process = search.top();
-    search.pop();
-    for(auto& name : process->names)
-    {
-      if(name.second.kind == Name::VARIABLE)
-      {
-        Variable* var = (Variable*) name.second.item;
-        varTable[var] = locals.size();
-        locals.push_back(var);
-      }
-    }
-    for(auto child : process->children)
-    {
-      if(child->node.is<Block*>())
-      {
-        search.push(child);
-      }
-    }
+    varTable[subr->vars[i]] = i;
   }
   //now know how many variables there are,
   //so create the constant table with right size
-  for(size_t i = 0; i < IR::ir[subr]->blocks.size(); i++)
+  for(size_t i = 0; i < subr->blocks.size(); i++)
   {
-    constants.emplace_back(locals.size(), ConstantVar(UNDEFINED_VAL));
+    constants.emplace_back(varTable.size(), ConstantVar(UNDEFINED_VAL));
   }
 }
 
@@ -127,13 +106,10 @@ void findGlobalConstants()
   //before the first pass, assume all globals are non-constant
   for(auto v : allGlobals)
   {
-    if(v->isGlobal())
-    {
-      if(v->initial->constant())
-        globalConstants[v] = ConstantVar(v->initial);
-      else
-        globalConstants[v] = ConstantVar(NON_CONSTANT);
-    }
+    if(v->initial->constant())
+      globalConstants[v] = ConstantVar(v->initial);
+    else
+      globalConstants[v] = ConstantVar(NON_CONSTANT);
   }
   bool update = true;
   while(update)
@@ -151,19 +127,18 @@ void findGlobalConstants()
       }
     }
   }
-  for(auto& s : IR::ir)
+  for(auto& subr : ir)
   {
-    auto subr = s.second;
     for(auto stmt : subr->stmts)
     {
-      set<Variable*> outputs;
-      stmt->getReads(outputs); 
-      for(auto w : outputs)
+      //only assignments matter here
+      if(auto assign = dynamic_cast<AssignIR*>(stmt))
       {
+        auto w = assign->dst->getWrite();
         if(w->isGlobal())
         {
-          //there is an assignment to w,
-          //so w might not always be a constant
+          //TODO: check if the new value is actually a mismatch -
+          //if it's the same, can keep w as a constant
           globalConstants[w] = ConstantVar(NON_CONSTANT);
         }
       }
@@ -785,7 +760,7 @@ bool foldExpression(Expression*& expr, bool isLHS)
   return update;
 }
 
-void constantFold(IR::SubroutineIR* subr)
+void constantFold(SubroutineIR* subr)
 {
   foldLocals = false;
   //every expression (including parts of an assignment LHS)
@@ -1005,13 +980,13 @@ bool cpProcessExpression(Expression*& expr, bool isLHS)
   return update;
 }
 
-bool constantPropagation(Subroutine* subr)
+bool constantPropagation(SubroutineIR* subrIR)
 {
   bool anyUpdate = false;
-  auto subrIR = IR::ir[subr];
+  auto subr = subrIR->subr;
   if(subrIR->blocks.size() == 0)
     return false;
-  localConstants = new LocalConstantTable(subr);
+  localConstants = new LocalConstantTable(subrIR);
   queue<int> processQueue;
   //all blocks will be processed at least once
   processQueue.push(0);
@@ -1134,7 +1109,7 @@ bool operator==(const ConstantVar& lhs, const ConstantVar& rhs)
     return false;
   if(lhs.val.is<Expression*>())
   {
-    return *(lhs.val.get<Expression*>()) == *(rhs.val.get<Expression*>());
+    return *lhs.val.get<Expression*>() == *rhs.val.get<Expression*>();
   }
   return true;
 }

@@ -13,25 +13,22 @@ void IRDebug::dumpIR(string filename)
   //subroutines with same name
   int counter = 0;
   Dotfile dotGraph("IR");
-  for(auto& subrPair : IR::ir)
+  for(auto& subrIR : ir)
   {
-    SubroutineIR* subr = subrPair.second;
-    Oss nameOss;
-    nameOss << subrPair.first->name << "_" << counter++ << "__";
     map<BasicBlock*, int> nodes;
-    for(auto bb : subr->blocks)
+    for(auto bb : subrIR->blocks)
     {
       Oss bbStream;
       if(bb == subr->blocks.front())
-        bbStream << "// Subroutine " << subrPair.first->name << "\\n";
+        bbStream << "// Subroutine " << subrIR->subr->name << "\\n";
       bbStream << "// Basic Block " << bb->start << ":" << bb->end << "\\n";
       for(int stmt = bb->start; stmt < bb->end; stmt++)
       {
-        bbStream << subr->stmts[stmt] << "\\n";
+        bbStream << subrIR->stmts[stmt] << "\\n";
       }
       nodes[bb] = dotGraph.createNode(bbStream.str());
     }
-    for(auto bb : subr->blocks)
+    for(auto bb : subrIR->blocks)
     {
       for(auto outgoing : bb->out)
       {

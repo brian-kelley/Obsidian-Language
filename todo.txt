@@ -1,6 +1,12 @@
 ---------------------
       TODO:
 ---------------------
+-All optimizations should only work on the IR and shouldn't need the AST
+  -Constant Propagation still reads local variable list from AST,
+   even though the IR has this!
+  -CallGraph should only use the IR; IR subroutines must know their own type for this
+  -Remove the Subroutine -> SubroutineIR mapping; replace with a vector of SubroutineIR
+
 -Metaprogramming:
   -Put '#' before any pseudo-statement (scoped decls and regular statements)
     -A scoped decl after # must be variable or subroutine

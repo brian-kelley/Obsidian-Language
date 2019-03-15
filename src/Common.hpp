@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <stack>
 #include <queue>
@@ -25,6 +26,7 @@ using std::string;
 using std::vector;
 using std::map;
 using std::unordered_map;
+using std::unordered_set;
 using std::set;
 using std::stack;
 using std::queue;
@@ -109,7 +111,6 @@ vector<T> operator+(const vector<T>& lhs, const vector<T>& rhs)
   cat.insert(rhs.begin(), rhs.end());
   return cat;
 }
-
 template<typename T>
 void operator+=(vector<T>& lhs, const vector<T>& rhs)
 {
@@ -181,6 +182,23 @@ size_t fnv1a(T* data, size_t n)
   FNV1A f;
   f.pump(data, n);
   return f.get();
+}
+
+template<typename T>
+void quickRemove(vector<T>& vec, size_t i)
+{
+  if(i != vec.size() - 1)
+  {
+    //overwrite the deleted element
+    vec[i] = vec[vec.size() - 1];
+  }
+  vec.pop_back();
+}
+
+template<typename T, typename F>
+void removeIf(vector<T>& vec, F f)
+{
+  std::remove_if(vec.begin(), vec.end(), f);
 }
 
 #endif

@@ -11,7 +11,7 @@
 // Subroutine: middle-end structures for program behavior and control flow //
 /***************************************************************************/
 
-extern bool programHasMain;
+extern Subroutine* mainSubr;
 
 struct Statement : public Node
 {

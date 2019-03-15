@@ -7,7 +7,7 @@ using std::find;
 static int nextSubrID = 0;
 static int nextExSubrID = 0;
 
-bool programHasMain = false;
+Subroutine* mainSubr = nullptr;
 extern Module* global;
 
 vector<Test*> Test::tests;
@@ -564,7 +564,7 @@ void Subroutine::resolveImpl()
     {
       errMsgLoc(this, "main() must have either no parameters or just string[]");
     }
-    programHasMain = true;
+    mainSubr = this;
   }
 }
 
