@@ -38,7 +38,7 @@ bool bindValue(Expression* lhs, Expression* rhs);
 struct UndefinedVal {};
 struct NonConstant {};
 
-enum ConstPropKind
+enum CPValueKind
 {
   UNDEFINED_VAL,
   NON_CONSTANT
@@ -46,19 +46,19 @@ enum ConstPropKind
 
 //A constant var can either be "nonconstant" or some constant value
 //(undefined values are impossible)
-struct ConstantVar
+struct CPValue
 {
-  ConstantVar()
+  CPValue()
   {
     val = UndefinedVal();
   }
-  ConstantVar(const ConstantVar& other)
+  CPValue(const CPValue& other)
   {
     val = other.val;
   }
-  ConstantVar(ConstPropKind cpk)
+  CPValue(CPValueKind kind)
   {
-    switch(cpk)
+    switch(kind)
     {
       case UNDEFINED_VAL:
         val = UndefinedVal();
@@ -67,46 +67,46 @@ struct ConstantVar
         val = NonConstant();
     }
   }
-  ConstantVar(Expression* e)
+  CPValue(Expression* e)
   {
     val = e;
   }
   variant<UndefinedVal, NonConstant, Expression*> val;
 };
 
-bool operator==(const ConstantVar& lhs, const ConstantVar& rhs);
-inline bool operator!=(const ConstantVar& lhs, const ConstantVar& rhs)
+bool operator==(const CPValue& lhs, const CPValue& rhs);
+inline bool operator!=(const CPValue& lhs, const CPValue& rhs)
 {
   return !(lhs == rhs);
 }
-ostream& operator<<(ostream& os, const ConstantVar& cv);
+ostream& operator<<(ostream& os, const CPValue& cv);
 
 //LocalConstantTable efficiently tracks all constants for whole subroutine
 struct LocalConstantTable
 {
   //Construct initial table, with all variables undefined at every BB
-  LocalConstantTable(Subroutine* subr);
+  LocalConstantTable(IR::SubroutineIR* subr);
   map<Variable*, int> varTable;
-  bool update(Variable* var, ConstantVar replace);
-  bool update(int varIndex, ConstantVar replace);
-  bool meetUpdate(int varIndex, int destBlock, ConstantVar incoming);
+  bool update(Variable* var, CPValue replace);
+  bool update(int varIndex, CPValue replace);
+  bool meetUpdate(int varIndex, int destBlock, CPValue incoming);
   //return current status of the variable
-  ConstantVar& getStatus(Variable* var);
+  CPValue& getStatus(Variable* var);
   //inner list corresponds to variables
   //outer list corresponds to basic blocks
-  vector<vector<ConstantVar>> constants;
+  vector<vector<CPValue>> constants;
 };
 
-//Meet operator for ConstantVar (for dataflow analysis)
+//Meet operator for CPValue (for dataflow analysis)
 //Is associative/commutative
 //c/d = constant, x = nonconstant, ? = undefined
 //meet(c, c) = c
 //meet(c, d) = x
 //meet(x, _) = x
 //meet(?, _) = _
-ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs);
+CPValue constantMeet(CPValue& lhs, CPValue& rhs);
 
-extern map<Variable*, ConstantVar> globalConstants;
+extern map<Variable*, CPValue> globalConstants;
 
 #endif
 

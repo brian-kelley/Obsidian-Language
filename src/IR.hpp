@@ -70,11 +70,11 @@ namespace IR
 
   struct CallIR : public StatementIR
   {
-    CallIR(CallExpr* c);
+    CallIR(CallExpr* c, SubroutineIR* subr);
     Expression* origCallable;
-    CallableType* calledType;
+    CallableType* callableType;
     //Optional: "this" expression
-    Expression* thisExpr;
+    Expression* thisObject;
     variant<SubroutineIR*, ExternalSubroutine*, Expression*> callable;
     bool isDirect()
     {
@@ -82,7 +82,7 @@ namespace IR
     }
     bool isMethod()
     {
-      return thisExpr;
+      return thisObject;
     }
     vector<Expression*> args;
     bool argBorrowed(int index);
@@ -94,14 +94,20 @@ namespace IR
     VarExpr* output;
     void getReads(set<Variable*>& vars)
     {
+      if(callable.is<Expression*>())
+      {
+        callable.get<Expression*>()->getReads(vars, false);
+      }
       for(auto arg : args)
       {
         arg->getReads(vars, false);
       }
+      //output is always a VarExpr so it has no reads
     }
     Variable* getWrite()
     {
-      //this may be null, but that's fine
+      //Output is the only direct write.
+      //It may be null (void), but that's fine
       return output->var;
     }
     ostream& print(ostream& os) const;
@@ -227,7 +233,10 @@ namespace IR
 
   struct SubroutineIR : public Node
   {
+    //Set subr, but don't add instructions yet
     SubroutineIR(Subroutine* s);
+    //Actually add the instructions and build CFG
+    void build();
     void addStatement(Statement* s);
     void addInstruction(StatementIR* s);
     //Create a new variable that is tied to non-constant expression
@@ -252,7 +261,7 @@ namespace IR
     string getTempName();
     //This version just creates a temporary variable.
     //Name is auto generated, but otherwise just a regular var.
-    VarExpr* generateTemp();
+    VarExpr* generateTemp(Type* t);
     VarExpr* generateTemp(Expression* e);
     private:
     void addForC(ForC* fc);

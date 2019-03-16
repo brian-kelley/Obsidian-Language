@@ -7,17 +7,6 @@
 #include "Scope.hpp"
 #include "Expression.hpp"
 
-struct Scope;
-
-namespace TypeSystem
-{
-  struct Type;
-}
-
-struct Variable;
-
-extern vector<Variable*> allGlobals;
-
 struct Variable : public Node
 {
   //ctor for global/static/member variables and arguments
@@ -41,8 +30,8 @@ struct Variable : public Node
   //the initial value of this variable/member, instead of the default "0"
   //for locals, this is left NULL since the initial assignment is a statement
   Expression* initial;
-  //Each variable gets a unique ID (used for comparing expressions)
-  //Comparing pointers is OK for ==, but this way is deterministic
+  //Each variable gets a unique ID when it is parsed.
+  //This allows the IR to know the exact order in which globals are initialized.
   int id;
 };
 

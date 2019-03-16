@@ -9,6 +9,7 @@
 #include "CSElim.hpp"
 #include "Inlining.hpp"
 #include "CallGraph.hpp"
+#include "Memory.hpp"
 #include <algorithm>
 
 extern Module* global;
@@ -30,49 +31,48 @@ namespace IR
   /* IR Statement Types */
   /* ****************** */
 
-  CallIR::CallIR(CallExpr* c);
+  CallIR::CallIR(CallExpr* c, SubroutineIR* subr)
   {
     origCallable = c->callable;
-    calledType = (CallableType*) origCallable->type;
+    callableType = (CallableType*) origCallable->type;
     //if the callable's type contains a "thisObject" type,
     //the call needs a "this" expression
-    thisExpr = nullptr;
+    thisObject = nullptr;
     SubroutineExpr* subExpr = dynamic_cast<SubroutineExpr*>(origCallable);
-    if(calledType->ownerStruct)
+    if(callableType->ownerStruct)
     {
       if(subExpr)
-        thisExpr = expandExpression(subExpr->thisObject);
+        thisObject = subr->expandExpression(subExpr->thisObject);
       else
       {
         //indirect method call - callable must be a StructMem
         StructMem* sm = dynamic_cast<StructMem*>(origCallable);
         INTERNAL_ASSERT(sm);
-        thisExpr = expandExpression(sm->base);
+        thisObject = subr->expandExpression(sm->base);
       }
     }
     //now, set up "callable"
     if(subExpr)
     {
       if(subExpr->subr)
-        callable = subExpr->subr;
+        callable = subExpr->subr->subrIR;
       else if(subExpr)
         callable = subExpr->exSubr;
     }
     else
     {
       //some indirect call - use whole callable
-      callable = expandExpression(origCallable);
+      callable = subr->expandExpression(origCallable);
     }
     //expand each argument
     for(auto a : c->args)
     {
-      args.push_back(expandExpression(a));
+      args.push_back(subr->expandExpression(a));
     }
-    //finally, if there is a return value, create a temporary
-    if(calledType->returnType->isVoid())
-      output = generateTemp();
-    else
-      output = nullptr;
+    //finally create a temporary to hold the return value
+    //OK if the type is "void", since it's just a special
+    //case of SimpleType. Doesn't actually use storage.
+    output = subr->generateTemp(callableType->returnType);
   }
 
   bool CallIR::argBorrowed(int index)
@@ -92,7 +92,7 @@ namespace IR
       return es->paramBorrowed[index];
     }
     else
-      return Memory::indirectParamBorrowable(calledType, index);
+      return Memory::indirectParamBorrowable(callableType, index);
   }
 
   ostream& CallIR::print(ostream& os) const
@@ -126,7 +126,9 @@ namespace IR
         if(name.second.kind == Name::SUBROUTINE)
         {
           Subroutine* subr = (Subroutine*) name.second.item;
-          ir.push_back(new SubroutineIR(subr));
+          SubroutineIR* subrIR = new SubroutineIR(subr);
+          ir.push_back(subrIR);
+          subr->subrIR = subrIR;
           if(scope == global->scope && subr->name == "main")
           {
             mainIR = ir.back();
@@ -144,6 +146,25 @@ namespace IR
       }
     });
     INTERNAL_ASSERT(mainIR);
+    //sort allGlobals by variable ID, so that they are in exact order of initialization.
+    //global initial values may have side effects!
+    std::sort(allGlobals.begin(), allGlobals.end(),
+      [](const Variable* v1, const Variable* v2)
+      {
+        return v1->id < v2->id;
+      });
+    //main is special - first need to add statements that initialize global variables.
+    //This is beneficial because constant prop, CSE, etc. will be applied to globals.
+    for(auto glob : allGlobals)
+    {
+      //addInstruction() expands the RHS as necessary.
+      mainIR->addInstruction(new AssignIR(new VarExpr(glob), glob->initial));
+    }
+    //now translate statements from the AST to IR, and build all CFGs
+    for(auto& subrIR : ir)
+    {
+      subrIR->build();
+    }
   }
 
   void optimizeIR()
@@ -183,8 +204,12 @@ namespace IR
   SubroutineIR::SubroutineIR(Subroutine* s)
   {
     Node::setLocation(s);
-    tempCounter = 0;
     subr = s;
+  }
+
+  void SubroutineIR::build()
+  {
+    tempCounter = 0;
     //create the IR instructions for the whole body
     addStatement(subr->body);
     for(size_t i = 0; i < stmts.size(); i++)
@@ -192,8 +217,13 @@ namespace IR
     //DFS through scopes to list all variables
     //(only want to include variables in modules/blocks, so
     //can't use Scope::walk here)
+    for(auto param : subr->params)
+    {
+      params.push_back(param);
+      vars.push_back(param);
+    }
     stack<Scope*> search;
-    search.push(s->scope);
+    search.push(subr->body->scope);
     while(search.size())
     {
       Scope* process = search.top();
@@ -529,9 +559,9 @@ namespace IR
     stmts.push_back(s);
   }
 
-  VarExpr* SubroutineIR::generateTemp()
+  VarExpr* SubroutineIR::generateTemp(Type* t)
   {
-    auto v = new Variable(getTempName(), e->type, currentBlock);
+    auto v = new Variable(getTempName(), t, currentBlock);
     v->resolve();
     vars.push_back(v);
     auto ve = new VarExpr(v);
@@ -541,7 +571,7 @@ namespace IR
 
   VarExpr* SubroutineIR::generateTemp(Expression* e)
   {
-    VarExpr* ve = generateTemp();
+    VarExpr* ve = generateTemp(e->type);
     //assign the original expression to the variable
     stmts.push_back(new AssignIR(ve, e));
     return ve;
@@ -623,7 +653,7 @@ namespace IR
     {
       //CallIR's constructor handles all necessary expansion,
       //and creates the temporary for return value.
-      CallIR* ci = new CallIR(ce);
+      CallIR* ci = new CallIR(ce, this);
       e = ci->output;
     }
     else if(auto conv = dynamic_cast<Converted*>(e))

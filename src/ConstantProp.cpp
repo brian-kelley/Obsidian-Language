@@ -7,7 +7,7 @@ using namespace IR;
 //Max number of bytes in constant expressions
 //(higher value increases compiler memory usage and code size,
 //but gives more opportunities for constant folding)
-const int maxConstantSize = 512;
+const int maxConstantSize = 1024;
 
 //whether the local constant table currently contains correct,
 //up-to-date constant information
@@ -26,7 +26,7 @@ LocalConstantTable::LocalConstantTable(SubroutineIR* subr)
   //so create the constant table with right size
   for(size_t i = 0; i < subr->blocks.size(); i++)
   {
-    constants.emplace_back(varTable.size(), ConstantVar(UNDEFINED_VAL));
+    constants.emplace_back(varTable.size(), CPValue(UNDEFINED_VAL));
   }
 }
 
@@ -35,14 +35,14 @@ LocalConstantTable* localConstants = nullptr;
 //The current basic block being processed in constant propagation
 int currentBB;
 
-bool LocalConstantTable::update(Variable* var, ConstantVar replace)
+bool LocalConstantTable::update(Variable* var, CPValue replace)
 {
   return update(varTable[var], replace);
 }
 
-bool LocalConstantTable::update(int varIndex, ConstantVar replace)
+bool LocalConstantTable::update(int varIndex, CPValue replace)
 {
-  ConstantVar& prev = constants[currentBB][varIndex];
+  CPValue& prev = constants[currentBB][varIndex];
   if(prev != replace)
   {
     constants[currentBB][varIndex] = replace;
@@ -51,10 +51,10 @@ bool LocalConstantTable::update(int varIndex, ConstantVar replace)
   return false;
 }
 
-bool LocalConstantTable::meetUpdate(int varIndex, int destBlock, ConstantVar incoming)
+bool LocalConstantTable::meetUpdate(int varIndex, int destBlock, CPValue incoming)
 {
-  ConstantVar& prev = constants[destBlock][varIndex];
-  ConstantVar met = constantMeet(prev, incoming);
+  CPValue& prev = constants[destBlock][varIndex];
+  CPValue met = constantMeet(prev, incoming);
   if(prev != met)
   {
     constants[destBlock][varIndex] = met;
@@ -63,16 +63,16 @@ bool LocalConstantTable::meetUpdate(int varIndex, int destBlock, ConstantVar inc
   return false;
 }
 
-ConstantVar& LocalConstantTable::getStatus(Variable* var)
+CPValue& LocalConstantTable::getStatus(Variable* var)
 {
   return constants[currentBB][varTable[var]];
 }
 
-//Join operator for "ConstantVar" (used by dataflow analysis).
+//Join operator for "CPValue" (used by dataflow analysis).
 //associative/commutative
 //
 //Since undefined values are impossible, there is no need for a "top" value
-ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs)
+CPValue constantMeet(CPValue& lhs, CPValue& rhs)
 {
   //meet(c, c) = c
   //meet(c, d) = x
@@ -83,13 +83,13 @@ ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs)
     Expression* l = lhs.val.get<Expression*>();
     Expression* r = rhs.val.get<Expression*>();
     if(*l != *r)
-      return ConstantVar(NON_CONSTANT);
+      return CPValue(NON_CONSTANT);
     else
-      return ConstantVar(l);
+      return CPValue(l);
   }
   else if(lhs.val.is<NonConstant>() || rhs.val.is<NonConstant>())
   {
-    return ConstantVar(NON_CONSTANT);
+    return CPValue(NON_CONSTANT);
   }
   else if(lhs.val.is<UndefinedVal>())
   {
@@ -99,7 +99,7 @@ ConstantVar constantMeet(ConstantVar& lhs, ConstantVar& rhs)
   return lhs;
 }
 
-map<Variable*, ConstantVar> globalConstants;
+map<Variable*, CPValue> globalConstants;
 
 void findGlobalConstants()
 {
@@ -107,9 +107,9 @@ void findGlobalConstants()
   for(auto v : allGlobals)
   {
     if(v->initial->constant())
-      globalConstants[v] = ConstantVar(v->initial);
+      globalConstants[v] = CPValue(v->initial);
     else
-      globalConstants[v] = ConstantVar(NON_CONSTANT);
+      globalConstants[v] = CPValue(NON_CONSTANT);
   }
   bool update = true;
   while(update)
@@ -123,7 +123,7 @@ void findGlobalConstants()
       if(changed && globVar->initial->constant())
       {
         update = true;
-        glob.second = ConstantVar(globVar->initial);
+        glob.second = CPValue(globVar->initial);
       }
     }
   }
@@ -139,7 +139,7 @@ void findGlobalConstants()
         {
           //TODO: check if the new value is actually a mismatch -
           //if it's the same, can keep w as a constant
-          globalConstants[w] = ConstantVar(NON_CONSTANT);
+          globalConstants[w] = CPValue(NON_CONSTANT);
         }
       }
     }
@@ -774,11 +774,20 @@ void constantFold(SubroutineIR* subr)
       foldExpression(assign->dst, true);
       foldExpression(assign->src);
     }
-    else if(auto ev = dynamic_cast<EvalIR*>(stmt))
+    else if(auto ci = dynamic_cast<CallIR*>(stmt))
     {
-      //foldExpression doesn't evaluate calls,
-      //so foldExpression will produce another CallExpr
-      foldExpression(ev->eval);
+      if(ci->thisObject)
+      {
+        foldExpression(ci->thisObject);
+      }
+      if(ci->callable.is<Expression*>())
+      {
+        foldExpression(ci->callable.get<Expression*>());
+      }
+      for(auto& a : ci->args)
+      {
+        foldExpression(a);
+      }
     }
     else if(auto condJump = dynamic_cast<CondJump*>(stmt))
     {
@@ -815,10 +824,10 @@ bool bindValue(Expression* lhs, Expression* rhs)
       int varIndex = localConstants->varTable[ve->var];
       if(rhs && rhs->constant())
       {
-        return localConstants->update(varIndex, ConstantVar(rhs));
+        return localConstants->update(varIndex, CPValue(rhs));
       }
       else
-        return localConstants->update(varIndex, ConstantVar(NON_CONSTANT));
+        return localConstants->update(varIndex, CPValue(NON_CONSTANT));
     }
   }
   else if(auto in = dynamic_cast<Indexed*>(lhs))
@@ -875,9 +884,12 @@ bool cpApplyStatement(StatementIR* stmt)
     else
       update = bindValue(ai->dst, ai->src) || update;
   }
-  else if(auto ev = dynamic_cast<EvalIR*>(stmt))
+  else if(auto ci = dynamic_cast<CallIR*>(stmt))
   {
-    //just apply the side effects of evaluating the call
+    //The output variable is marked non-constant,
+    //and if the call is a procedure then all
+    //constant globals must be marked non-constant
+
     return cpProcessExpression(ev->eval);
   }
   else if(auto cj = dynamic_cast<CondJump*>(stmt))
@@ -925,7 +937,7 @@ bool cpProcessExpression(Expression*& expr, bool isLHS)
         Variable* root = sm->getRootVariable();
         if(root->isLocal())
         {
-          if(localConstants->update(root, ConstantVar(NON_CONSTANT)))
+          if(localConstants->update(root, CPValue(NON_CONSTANT)))
             update = true;
         }
       }
@@ -1009,7 +1021,7 @@ bool constantPropagation(SubroutineIR* subrIR)
     //  -Go through statements in BB, updating var statuses
     //  -Meet new outgoing var statuses with those of all outgoing blocks
     //  -If any var status changes in an outgoing block, put it in queue
-    vector<ConstantVar> savedConstants = localConstants->constants[process];
+    vector<CPValue> savedConstants = localConstants->constants[process];
     bool update = false;
     blocksInQueue[process] = false;
     currentBB = process;
@@ -1103,7 +1115,7 @@ bool constantPropagation(SubroutineIR* subrIR)
   return anyUpdate;
 }
 
-bool operator==(const ConstantVar& lhs, const ConstantVar& rhs)
+bool operator==(const CPValue& lhs, const CPValue& rhs)
 {
   if(lhs.val.which() != rhs.val.which())
     return false;
@@ -1114,7 +1126,7 @@ bool operator==(const ConstantVar& lhs, const ConstantVar& rhs)
   return true;
 }
 
-ostream& operator<<(ostream& os, const ConstantVar& cv)
+ostream& operator<<(ostream& os, const CPValue& cv)
 {
   if(cv.val.is<UndefinedVal>())
     os << "<UNDEFINED>";

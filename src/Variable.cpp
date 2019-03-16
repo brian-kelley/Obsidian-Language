@@ -3,8 +3,6 @@
 
 static int nextVarID = 0;
 
-vector<Variable*> allGlobals;
-
 Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic, bool compose)
 {
   scope = s;
@@ -20,8 +18,6 @@ Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic,
     owner->composed.push_back(compose);
   }
   id = nextVarID++;
-  if(isGlobal())
-    allGlobals.push_back(this);
 }
 
 Variable::Variable(string n, Type* t, Block* b)

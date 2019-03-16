@@ -33,6 +33,8 @@ struct VarExpr;
 struct Converted;
 struct ThisExpr;
 
+//SubroutineExpr stores a pointer
+
 /*******************************/
 /* Placeholders for Resolution */
 /*******************************/

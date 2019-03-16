@@ -11,6 +11,11 @@
 // Subroutine: middle-end structures for program behavior and control flow //
 /***************************************************************************/
 
+namespace IR
+{
+  struct SubroutineIR;
+}
+
 extern Subroutine* mainSubr;
 
 struct Statement : public Node
@@ -248,6 +253,7 @@ struct Subroutine : public Node
   Block* body;
   //scope->node is this
   Scope* scope;
+  IR::SubroutineIR* subrIR;
   int id;
 };
 
