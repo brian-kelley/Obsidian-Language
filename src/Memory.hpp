@@ -43,32 +43,12 @@ using IR::StatementIR;
 namespace Memory
 {
   //Is the parameter modified inside its subroutine body?
-  bool parameterModified(Variable* p);
+  bool subrParamBorrowable(Variable* p);
+  bool indirectParamBorrowable(CallableType* ct, int index);
 
-  /*
-struct Management
-{
-
-  //"Optimal" memory sharing is computed using forward dataflow.
-  //Store the memory resource ID for each var.
-  //Memory resources here are just identified by an integer, since
-  //the details of managing them will not be done until codegen.
-  //
-  //Initialize by giving each variable a unique ID.
-  //Go through 
-
-  struct ReachingDefs
+  struct Management
   {
-    ReachingDefs(SubroutineIR* subr);
-    void transfer(ReachingSet& r, StatementIR* stmt);
-    //Table of all assignments and corresponding indices in reaching[k]
-    unordered_map<AssignIR*, int> assignTable;
-    //Reaching-def set for each block
-    vector<AssignIR*> allAssigns;
-    vector<ReachingSet> reaching;
   };
-};
-*/
 }
 
 #endif

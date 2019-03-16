@@ -26,12 +26,73 @@ namespace IR
   vector<ExternalSubroutine*> externIR;
   vector<Variable*> allGlobals;
 
-  /* *************** */
-  /* Statement Types */
-  /* *************** */
+  /* ****************** */
+  /* IR Statement Types */
+  /* ****************** */
 
-  CallIR::CallIR(CallExpr* c, VarExpr* tempReturn)
+  CallIR::CallIR(CallExpr* c);
   {
+    origCallable = c->callable;
+    calledType = (CallableType*) origCallable->type;
+    //if the callable's type contains a "thisObject" type,
+    //the call needs a "this" expression
+    thisExpr = nullptr;
+    SubroutineExpr* subExpr = dynamic_cast<SubroutineExpr*>(origCallable);
+    if(calledType->ownerStruct)
+    {
+      if(subExpr)
+        thisExpr = expandExpression(subExpr->thisObject);
+      else
+      {
+        //indirect method call - callable must be a StructMem
+        StructMem* sm = dynamic_cast<StructMem*>(origCallable);
+        INTERNAL_ASSERT(sm);
+        thisExpr = expandExpression(sm->base);
+      }
+    }
+    //now, set up "callable"
+    if(subExpr)
+    {
+      if(subExpr->subr)
+        callable = subExpr->subr;
+      else if(subExpr)
+        callable = subExpr->exSubr;
+    }
+    else
+    {
+      //some indirect call - use whole callable
+      callable = expandExpression(origCallable);
+    }
+    //expand each argument
+    for(auto a : c->args)
+    {
+      args.push_back(expandExpression(a));
+    }
+    //finally, if there is a return value, create a temporary
+    if(calledType->returnType->isVoid())
+      output = generateTemp();
+    else
+      output = nullptr;
+  }
+
+  bool CallIR::argBorrowed(int index)
+  {
+    INTERNAL_ASSERT(index >= 0);
+    INTERNAL_ASSERT(index < args.size());
+    if(callable.is<SubroutineIR*>())
+    {
+      SubroutineIR* subr = callable.get<SubroutineIR*>();
+      //Memory management subsystem has already computed this
+      return Memory::subrParamBorrowable(subr->params[index]);
+    }
+    else if(callable.is<ExternalSubroutine*>())
+    {
+      //ExternalSubroutine already knows which params are borrowed
+      ExternalSubroutine* es = callable.get<ExternalSubroutine*>();
+      return es->paramBorrowed[index];
+    }
+    else
+      return Memory::indirectParamBorrowable(calledType, index);
   }
 
   ostream& CallIR::print(ostream& os) const
@@ -129,6 +190,8 @@ namespace IR
     for(size_t i = 0; i < stmts.size(); i++)
       stmts[i]->intLabel = i;
     //DFS through scopes to list all variables
+    //(only want to include variables in modules/blocks, so
+    //can't use Scope::walk here)
     stack<Scope*> search;
     search.push(s->scope);
     while(search.size())
@@ -346,7 +409,12 @@ namespace IR
     }
     else if(CallStmt* cs = dynamic_cast<CallStmt*>(s))
     {
-      addInstruction(new EvalIR(cs->eval));
+      //Only calls with side effects need to be evaluated
+      if(cs->eval->hasSideEffects())
+      {
+        //just evaluate the call
+        expandExpression(cs->eval);
+      }
     }
     else if(ForC* fc = dynamic_cast<ForC*>(s))
     {
@@ -441,31 +509,6 @@ namespace IR
       a->src = expandExpression(a->src);
       a->dst = expandExpression(a->dst);
     }
-    else if(auto ev = dynamic_cast<EvalIR*>(s))
-    {
-      if(!ev->eval->hasSideEffects())
-      {
-        //do nothing
-        return;
-      }
-      auto call = dynamic_cast<CallExpr*>(ev->eval);
-      //procedure calls should be the only exprs with side effects
-      INTERNAL_ASSERT(call);
-      //expand the callable and each arg, but don't assign return value
-      //to a temp
-      Expression* callable = expandExpression(call->callable);
-      vector<Expression*> args;
-      for(size_t i = 0; i < call->args.size(); i++)
-      {
-        args.push_back(expandExpression(call->args[i]));
-      }
-      call->callable = callable;
-      for(size_t i = 0; i < args.size(); i++)
-      {
-        call->args[i] = args[i];
-      }
-      //then add s
-    }
     else if(auto cj = dynamic_cast<CondJump*>(s))
     {
       cj->cond = expandExpression(cj->cond);
@@ -486,13 +529,19 @@ namespace IR
     stmts.push_back(s);
   }
 
-  VarExpr* SubroutineIR::generateTemp(Expression* e)
+  VarExpr* SubroutineIR::generateTemp()
   {
     auto v = new Variable(getTempName(), e->type, currentBlock);
-    currentBlock->scope->addName(v);
     v->resolve();
+    vars.push_back(v);
     auto ve = new VarExpr(v);
     ve->resolve();
+    return ve;
+  }
+
+  VarExpr* SubroutineIR::generateTemp(Expression* e)
+  {
+    VarExpr* ve = generateTemp();
     //assign the original expression to the variable
     stmts.push_back(new AssignIR(ve, e));
     return ve;
@@ -572,13 +621,10 @@ namespace IR
     }
     else if(auto ce = dynamic_cast<CallExpr*>(e))
     {
-      //expand arguments, in order
-      ce->callable = expandExpression(ce->callable);
-      for(size_t i = 0; i < ce->args.size(); i++)
-      {
-        ce->args[i] = expandExpression(ce->args[i]);
-      }
-      e = generateTemp(ce);
+      //CallIR's constructor handles all necessary expansion,
+      //and creates the temporary for return value.
+      CallIR* ci = new CallIR(ce);
+      e = ci->output;
     }
     else if(auto conv = dynamic_cast<Converted*>(e))
     {
@@ -608,8 +654,12 @@ namespace IR
         na->dims[i] = expandExpression(na->dims[i]);
       }
     }
-    //all other Expression types don't need to be decomposed
-    //e.g. variables, constants
+    else if(auto sm = dynamic_cast<StructMem*>(e))
+    {
+      sm->base = expandExpression(sm->base);
+    }
+    //All other Expression types don't need to be decomposed
+    //e.g. variables, constants.
     return e;
   }
 

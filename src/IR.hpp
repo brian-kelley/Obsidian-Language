@@ -70,8 +70,9 @@ namespace IR
 
   struct CallIR : public StatementIR
   {
-    CallIR(CallExpr* c, VarExpr* tempReturn = nullptr);
+    CallIR(CallExpr* c);
     Expression* origCallable;
+    CallableType* calledType;
     //Optional: "this" expression
     Expression* thisExpr;
     variant<SubroutineIR*, ExternalSubroutine*, Expression*> callable;
@@ -85,7 +86,11 @@ namespace IR
     }
     vector<Expression*> args;
     bool argBorrowed(int index);
-    //Optional: variable where return value is stored
+    //If call returns a value, ctor creates a temp.
+    //Otherwise, this is left null.
+    //If the return value is assigned to any lvalue,
+    //the next instruction is just an assign from this temp
+    //to the lvalue.
     VarExpr* output;
     void getReads(set<Variable*>& vars)
     {
@@ -236,12 +241,18 @@ namespace IR
     vector<BasicBlock*> blocks;
     //All local variables (including parameters).
     //Dead store elimination can delete unused variables from this,
-    //but parameters are never eliminated (even if unused)
+    //but parameters are never eliminated (even if unused).
+    //
     vector<Variable*> vars;
+    //params is a subset of vars - but order of params matters
+    vector<Variable*> params;
     map<int, BasicBlock*> blockStarts;
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);
     string getTempName();
+    //This version just creates a temporary variable.
+    //Name is auto generated, but otherwise just a regular var.
+    VarExpr* generateTemp();
     VarExpr* generateTemp(Expression* e);
     private:
     void addForC(ForC* fc);
