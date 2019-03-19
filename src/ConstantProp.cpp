@@ -4,6 +4,79 @@
 
 using namespace IR;
 
+/* ******************************** */
+/* Constant Propagation Value Types */
+/* ******************************** */
+
+CPValue* CPValue::meet(CPValue* other)
+{
+  if(auto vk = dynamic_cast<ValueKnown*>(other))
+    return meetValue(vk);
+  else if(auto uk = dynamic_cast<UnionKindKnown*>(other))
+    return meetUnionKind(uk);
+  else if(auto mk = dynamic_cast<MemberKnown*>(other))
+    return meetMemberKnown(mk);
+  else if(auto lk = dynamic_cast<ArrayLengthKnown*>(other))
+    return meetArrayLenKnown(lk);
+  else if(dynamic_cast<UndefinedValue*>(other))
+    return this;
+  else if(auto nc = dynamic_cast<NonconstantValue*>(other))
+    return nc;
+  else
+    INTERNAL_ERROR;
+  return nullptr;
+}
+
+/* ********** */
+/* ValueKnown */
+/* ********** */
+
+CPValue* ValueKnown::meetValue(ValueKnown* vk)
+{
+  //if the values match, can return this
+  if(*value == *vk->value)
+    return this;
+  //check for array constant (CompoundLiteral), with same dimensions
+  ArrayType* arrayType = dynamic_cast<ArrayType*>(value->type);
+  auto a1 = dynamic_cast<CompoundLiteral*>(value);
+  auto a2 = dynamic_cast<CompoundLiteral*>(vk->value);
+  if(at && a1 && a2)
+  {
+    //Make a list of the provably matching dimensions
+    //Know that a1, a2 have the same number of dimensions,
+    //since they are different values for the same var.
+    vector<size_t> matching;
+    for(int i = 0; i < arrayType->dims; i++)
+    {
+      //in order of a1, a2 to match in dimensions up to and including i,
+      //they must both be rectangular up to and including i.
+
+    }
+    if(matching > 0)
+    {
+      //can retain at least some information about the dimensions
+      return new ArrayLengthKnown(matching);
+    }
+  }
+  //check for union constants with same type
+  auto u1 = dynamic_cast<UnionConstant*>(value);
+  auto u2 = dynamic_cast<UnionConstant*>(vk->value);
+  //can't do anything
+  return new NonconstantValue;
+}
+CPValue* ValueKnown::eetUnionKind(UnionKindKnown* uk)
+{
+  return uk->meetValue(this);
+}
+CPValue* ValueKnown::eetMemberKnown(MemberKnown* mk)
+{
+  return mk->meetValue(this);
+}
+CPValue* ValueKnown::eetArrayLenKnown(ArrayLengthKnown* lk)
+{
+  return lk->meetValue(this);
+}
+
 //Max number of bytes in constant expressions
 //(higher value increases compiler memory usage and code size,
 //but gives more opportunities for constant folding)
@@ -97,53 +170,6 @@ CPValue constantMeet(CPValue& lhs, CPValue& rhs)
   }
   //otherwise, rhs is undefined, so just take whatever lhs is
   return lhs;
-}
-
-map<Variable*, CPValue> globalConstants;
-
-void findGlobalConstants()
-{
-  //before the first pass, assume all globals are non-constant
-  for(auto v : allGlobals)
-  {
-    if(v->initial->constant())
-      globalConstants[v] = CPValue(v->initial);
-    else
-      globalConstants[v] = CPValue(NON_CONSTANT);
-  }
-  bool update = true;
-  while(update)
-  {
-    update = false;
-    for(auto& glob : globalConstants)
-    {
-      Variable* globVar = glob.first;
-      //fold globVar's initial value (if possible)
-      bool changed = foldExpression(globVar->initial);
-      if(changed && globVar->initial->constant())
-      {
-        update = true;
-        glob.second = CPValue(globVar->initial);
-      }
-    }
-  }
-  for(auto& subr : ir)
-  {
-    for(auto stmt : subr->stmts)
-    {
-      //only assignments matter here
-      if(auto assign = dynamic_cast<AssignIR*>(stmt))
-      {
-        auto w = assign->dst->getWrite();
-        if(w->isGlobal())
-        {
-          //TODO: check if the new value is actually a mismatch -
-          //if it's the same, can keep w as a constant
-          globalConstants[w] = CPValue(NON_CONSTANT);
-        }
-      }
-    }
-  }
 }
 
 //Convert a constant expression to another type
@@ -494,17 +520,7 @@ bool foldExpression(Expression*& expr, bool isLHS)
     {
       return false;
     }
-    if(ve->var->isGlobal())
-    {
-      //check the global constant table
-      auto& cv = globalConstants[ve->var];
-      if(cv.val.is<Expression*>())
-      {
-        expr = cv.val.get<Expression*>();
-        update = true;
-      }
-    }
-    else if(ve->var->isLocal() && foldLocals)
+    if(ve->var->isLocal() && foldLocals)
     {
       //look up the variable in local constant table
       auto& status = localConstants->getStatus(ve->var);

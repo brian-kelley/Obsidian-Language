@@ -199,6 +199,7 @@ struct UnionType : public Type
   UnionType(vector<Type*> types);
   void resolveImpl();
   vector<Type*> options;
+  vector<size_t> optionHashes;
   bool canConvert(Type* other);
   bool isUnion() {return true;}
   bool isRecursive() {return recursive;}
@@ -215,6 +216,7 @@ struct UnionType : public Type
     }
     return f.get();
   }
+  int getTypeIndex(Type* option);
   //defaultVal is precomputed unlike all other types,
   //since it can be somewhat expensive to compute for
   //deeply recursive unions

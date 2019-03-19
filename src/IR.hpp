@@ -61,6 +61,11 @@ namespace IR
     {
       return dst->getWrite();
     }
+    //Does this assignment completely overwrite the existing value?
+    bool isTotal()
+    {
+      return dynamic_cast<VarExpr*>(dst);
+    }
     ostream& print(ostream& os) const
     {
       os << dst << " = " << src;

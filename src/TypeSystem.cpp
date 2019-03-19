@@ -414,7 +414,9 @@ void UnionType::resolveImpl()
       break;
     }
   }
-  cout << "Union " << getName() << " IS " << ((recursive) ? "" : "NOT ") << " recursive.\n";
+  //finally, can safely precompute hashes of each option type
+  for(auto op : options)
+    optionHashes.push_back(op->hash());
 }
 
 bool UnionType::canConvert(Type* other)
@@ -501,6 +503,18 @@ Expression* UnionType::getDefaultValue()
     defaultVal->resolve();
   }
   return defaultVal;
+}
+
+int UnionType::getTypeIndex(Type* t)
+{
+  size_t thash = t->hash();
+  for(size_t i = 0; i < options.size(); i++)
+  {
+    if(optionHashes[i] == thash && typesSame(options[i], t))
+      return i;
+  }
+  INTERNAL_ERROR;
+  return -1;
 }
 
 /**************/

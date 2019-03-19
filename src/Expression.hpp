@@ -592,8 +592,9 @@ struct UnionConstant : public Expression
   int option;
 };
 
-//it is impossible to determine the type of a CompoundLiteral by itself
-//(CompoundLiteral covers array, struct and tuple literals)
+//CompoundLiteral represents array, struct and tuple literals and constants.
+//Its type (by default) is a tuple of the types of each element; this
+//implicitly converts to array, struct and other tuples (elementwise).
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(vector<Expression*>& mems);
