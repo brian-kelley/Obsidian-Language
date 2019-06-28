@@ -4,6 +4,45 @@
 
 using namespace IR;
 
+vector<int> getLeading(CompoundLiteral* arr, int ndims)
+{
+  const int INIT = -1;
+  const int UNKNOWN = -1;
+  vector<int> dims(ndims, INIT);
+  //Depth-first search over the value tree, updating dims array at each element.
+  //If the dims value at current depth level is UNKNOWN, don't bother searching deeper.
+  stack<CompoundLiteral*> stk;
+  stack<int> depth;
+  stk.push(arr);
+  depth.push(0);
+  while(!stk.empty())
+  {
+    CompoundLiteral* process = stk.top();
+    stk.pop();
+    int d = depth.top();
+    depth.pop();
+    if(dims[d] == INIT)
+      dims[d] = process->members.size();
+    else if(dims[d] != process->members.size())
+      dims[d] = UNKNOWN;
+    if(dims[d] != UNKNOWN && d != dims.size() - 1)
+    {
+      for(auto m : process->members)
+      {
+        auto cl = dynamic_cast<CompoundLiteral*>(m);
+        //Non-leaf array constant elements should all be compound literals!
+        INTERNAL_ASSERT(cl);
+        stk.push(cl);
+        depth.push(d + 1);
+      }
+    }
+  }
+  //Trim down dimensions that are NOT constant
+  while(dims.size() && dims.back() == UNKNOWN)
+    dims.pop_back();
+  return dims;
+}
+
 /* ******************************** */
 /* Constant Propagation Value Types */
 /* ******************************** */
@@ -38,49 +77,146 @@ CPValue* ValueKnown::meetValue(ValueKnown* vk)
     return this;
   //check for array constant (CompoundLiteral), with same dimensions
   ArrayType* arrayType = dynamic_cast<ArrayType*>(value->type);
-  auto a1 = dynamic_cast<CompoundLiteral*>(value);
-  auto a2 = dynamic_cast<CompoundLiteral*>(vk->value);
-  if(at && a1 && a2)
+  auto cl1 = dynamic_cast<CompoundLiteral*>(value);
+  auto cl2 = dynamic_cast<CompoundLiteral*>(vk->value);
+  if(at && cl1 && cl2)
   {
     //Make a list of the provably matching dimensions
     //Know that a1, a2 have the same number of dimensions,
     //since they are different values for the same var.
-    vector<size_t> matching;
-    for(int i = 0; i < arrayType->dims; i++)
+    auto a1Dims = RectangularDims::getLeading(cl1, arrayType->ndims);
+    auto a2Dims = RectangularDims::getLeading(cl2, arrayType->ndims);
+    for(int i = a1Dims.size() - 1; i >= 0; i--)
     {
-      //in order of a1, a2 to match in dimensions up to and including i,
-      //they must both be rectangular up to and including i.
-
+      if(a1Dims[i] == RectangularDims::UNKNOWN ||
+          a1Dims[i] != a2Dims[i])
+      {
+        a1Dims.pop_back();
+      }
     }
-    if(matching > 0)
+    if(a1Dims.size() > 0)
     {
-      //can retain at least some information about the dimensions
+      //can retain some information about the dimensions
       return new ArrayLengthKnown(matching);
     }
+    //otherwise, can't retain anything
+    return new NonconstantValue;
   }
   //check for union constants with same type
   auto u1 = dynamic_cast<UnionConstant*>(value);
   auto u2 = dynamic_cast<UnionConstant*>(vk->value);
-  //can't do anything
+  if(u1 && u2)
+  {
+    auto ut = u1->unionType;
+    //Check if u1, u2 have the same underlying type
+    if(u1->option == u2->option)
+    {
+      return new UnionKindKnown(ut, u1->value->type);
+    }
+    else if(ut->options.size() > 2)
+    {
+      //still know some constraints on the type
+      UnionKindKnown* ukk = new UnionKindKnown(ut);
+      ukk->optionsPossible[u1->option] = true;
+      ukk->optionsPossible[u2->option] = true;
+      return ukk;
+    }
+    return new NonconstantValue;
+  }
+  //check for struct/tuple constants with members in common
+  if(!at && cl1 && cl2)
+  {
+    MemberKnown* mk = new MemberKnown(cl1, cl2);
+    if(mk->containsInformation())
+      return mk;
+    return new NonconstantValue;
+  }
+  //can't do anything else
   return new NonconstantValue;
 }
-CPValue* ValueKnown::eetUnionKind(UnionKindKnown* uk)
+CPValue* ValueKnown::meetUnionKind(UnionKindKnown* uk)
 {
   return uk->meetValue(this);
 }
-CPValue* ValueKnown::eetMemberKnown(MemberKnown* mk)
+CPValue* ValueKnown::meetMemberKnown(MemberKnown* mk)
 {
   return mk->meetValue(this);
 }
-CPValue* ValueKnown::eetArrayLenKnown(ArrayLengthKnown* lk)
+CPValue* ValueKnown::meetArrayLenKnown(ArrayLengthKnown* lk)
 {
   return lk->meetValue(this);
 }
 
+/* ************** */
+/* UnionKindKnown */
+/* ************** */
+
+UnionKindKnown::UnionKindKnown(UnionType* u, Type* t)
+{
+  ut = u;
+  optionsPossible = vector<bool>(ut->options.size(), false);
+  optionsPossible[u->getTypeIndex(t)] = true;
+}
+UnionKindKnown::UnionKindKnown(UnionType* u)
+{
+  ut = u;
+  optionsPossible = vector<bool>(ut->options.size(), false);
+}
+bool apply(Expression*& expr)
+{
+}
+CPValue* UnionKindKnown::meetValue(ValueKnown* vk)
+{
+  if(auto UnionConstant* uc = dynamic_cast<UnionConstant*>(vk->value))
+  {
+    if(optionsPossible[uc->option])
+      return this;
+    else
+    {
+      auto ut = uc->unionType;
+      //need to add a new type to the list of possible types,
+      //but only retain the UnionKindKnown if at least one type is
+      //definitely not possible
+      UnionKindKnown* ukk = new UnionKindKnown(ut);
+      for(size_t i = 0; i < ut->options.size(); i++)
+      {
+        ukk->optionsPossible[i] = optionsPossible[i];
+      }
+      ukk->optionsPossible[uc->option] = true;
+      bool anyExcluded = false;
+      for(size_t i = 0; i < ut->options.size(); i++)
+      {
+        if(!ukk->optionsPossible[i])
+        {
+          anyExcluded = true;
+          break;
+        }
+      }
+      if(anyExcluded)
+        return ukk;
+      delete ukk;
+    }
+  }
+  return new NonconstantValue;
+}
+CPValue* UnionKindKnown::meetUnionKind(UnionKindKnown* uk)
+{
+  //Meet with another UnionKindKnown: merge possible types
+  
+}
+CPValue* UnionKindKnown::meetMemberKnown(MemberKnown* mk)
+{
+  return new NonconstantValue;
+}
+CPValue* UnionKindKnown::meetArrayLenKnown(ArrayLengthKnown* lk)
+{
+  return new NonconstantValue;
+}
+
 //Max number of bytes in constant expressions
-//(higher value increases compiler memory usage and code size,
+//(higher value increases compiler memory usage,
 //but gives more opportunities for constant folding)
-const int maxConstantSize = 1024;
+const int maxConstantSize = 256;
 
 //whether the local constant table currently contains correct,
 //up-to-date constant information

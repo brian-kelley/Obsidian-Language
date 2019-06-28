@@ -3,113 +3,56 @@
 
 #include "IR.hpp"
 
-struct ValueKnown;
-struct UnionKindKnown;
-struct MemberKnown;
-struct ArrayLengthKnown;
-struct UndefinedValue;
-struct NonconstantValue;
+struct CompoundValue;
 
-//CPValue represents some information
-//about a variable's value. This can
-//be used to maximize the opportunities
-//for constant propagation.
-//
-//The Dragon Book rules of constant prop still apply:
-//if c,d are constants (c != d), x = nonconstant, ? = undefined:
-//meet(c, c) = c
-//meet(x, _) = x
-//meet(?, _) = _
-//
-//But, if c,d have information in common, meet(c, d) might not be x
 struct CPValue
 {
-  //meet() dynamic-casts other and dispatches
-  //to one of the other meetXYZ() functions
+  //Intersect in with this.
+  virtual CPValue* meet(CPValue* in);
+  //Given that this describes information known about v,
+  //replace occurences of v in e with constants.
+  virtual void apply(Variable* v, Expression* e);
+};
+
+struct UnknownValue : public CPValue
+{
   CPValue* meet(CPValue* other);
-  //Use information about var's value to expand
-  //or simplify expr (return true if changes happen)
-  virtual bool apply(Expression*& expr) = 0;
-protected:
-  //Implementations of different cases for meet().
-  //If this has greater information than the type passed in,
-  //just calls the commutation: other->meet(this)
-  //(this saves on code)
-  virtual CPValue* meetValue(ValueKnown* vk) = 0;
-  virtual CPValue* meetUnionKind(UnionKindKnown* uk) = 0;
-  virtual CPValue* meetMemberKnown(MemberKnown* mk) = 0;
-  virtual CPValue* meetArrayLenKnown(ArrayLengthKnown* lk) = 0;
+  void apply(Variable* v, Expression* e);
 };
 
-struct ValueKnown : public CPValue
-{
-  ValueKnown(Expression* v) : value(v) {}
-  bool apply(Expression*& expr);
-  CPValue* meetValue(ValueKnown* vk);
-  CPValue* meetUnionKind(UnionKindKnown* uk);
-  CPValue* meetMemberKnown(MemberKnown* mk);
-  CPValue* meetArrayLenKnown(ArrayLengthKnown* lk);
-  Expression* value;
-};
-
-//When the current active type of a union is known.
-//Can simplify "as", "is"
-struct UnionKindKnown : public CPValue
-{
-  //Constructor for when only a single type is possible.
-  UnionKindKnown(UnionType* ut, Type* t);
-  //Constructor for general case, and manually mark types possible
-  UnionKindKnown(UnionType* ut);
-  bool apply(Expression*& expr);
-  CPValue* meetValue(ValueKnown* vk);
-  CPValue* meetUnionKind(UnionKindKnown* uk);
-  CPValue* meetMemberKnown(MemberKnown* mk);
-  CPValue* meetArrayLenKnown(ArrayLengthKnown* lk);
-  UnionType* ut;
-  //Represent the complete set of options which are possible
-  //If even one option type T is known to be impossible,
-  //"x is T" can be replaced with "false".
-  vector<bool> optionsPossible;
-};
-
-//For when some specific member(s) of a tuple or struct are known.
-struct MemberKnown : public CPValue
-{
-  bool apply(Expression*& expr);
-  vector<CPValue*> members;
-};
-
-//When the dimension(s) of an array are known.
-//If a multidimensional array, attempts to track all dimensions.
-//If e.g. dim 0 is known but dim 1 isn't, then all dims >= 1 are unknown.
-//Can replace "x.len", "x[i].len", etc.
-struct ArrayLengthKnown : public CPValue
-{
-  ArrayLengthKnown(vector<size_t>& d) : dimsKnown(d.size()), dims(d) {}
-  bool apply(Expression*& expr);
-  int dimsKnown;
-  vector<size_t> dims;
-};
-
-//For uninitialized variables.
-//At entry to subroutine, all locals (non parameters)
-//are undefined.
 struct UndefinedValue : public CPValue
 {
   CPValue* meet(CPValue* other);
-  bool apply(Expression*& expr);
+  void apply(Variable* v, Expression* e);
 };
 
-//For variables whose values are completely unknown
-struct NonconstantValue : public CVPalue
+//Represents a fixed-size compound value where status of each
+//element is merged separately.
+//
+//Used for arrays (data + dimensions),
+//structs/tuples (each member separately),
+//and unions (data + tag).
+//
+//Array data is tracked all-or-nothing so that
+//memory usage bounds are easy to enforce. If element 0
+//is a constant but element 1 isn't, the whole thing is unknown.
+//Constant array values 
+struct CompoundValue : public CPValue
 {
   CPValue* meet(CPValue* other);
-  bool apply(Expression*&)
-  {
-    //Can't do anything
-    return false;
-  }
+  void apply(Variable* v, Expression* e);
+  vector<CPValue*> values;
 };
+
+//Represents when the whole value is known as a constant
+struct ValueKnown : public CPValue
+{
+  CPValue* meet(CPValue* other);
+  void apply(Variable* v, Expression* e);
+  Expression* value;
+};
+
+vector<int> getLeading(CompoundLiteral* arr, int ndims);
 
 //Constant folding evaluates as many expressions as possible,
 //replacing them with constants
@@ -140,42 +83,6 @@ bool bindValue(Expression* lhs, Expression* rhs);
 
 struct UndefinedVal {};
 struct NonConstant {};
-
-enum CPValueKind
-{
-  UNDEFINED_VAL,
-  NON_CONSTANT
-};
-
-//A constant var can either be "nonconstant" or some constant value
-//(undefined values are impossible)
-struct CPValue
-{
-  CPValue()
-  {
-    val = UndefinedVal();
-  }
-  CPValue(const CPValue& other)
-  {
-    val = other.val;
-  }
-  CPValue(CPValueKind kind)
-  {
-    switch(kind)
-    {
-      case UNDEFINED_VAL:
-        val = UndefinedVal();
-        break;
-      case NON_CONSTANT:
-        val = NonConstant();
-    }
-  }
-  CPValue(Expression* e)
-  {
-    val = e;
-  }
-  variant<UndefinedVal, NonConstant, Expression*> val;
-};
 
 bool operator==(const CPValue& lhs, const CPValue& rhs);
 inline bool operator!=(const CPValue& lhs, const CPValue& rhs)

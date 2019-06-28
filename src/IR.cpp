@@ -170,7 +170,6 @@ namespace IR
   void optimizeIR()
   {
     IRDebug::dumpIR("IR/0-unoptimized.dot");
-    findGlobalConstants();
     for(auto& s : ir)
       constantFold(s);
     IRDebug::dumpIR("IR/1-folded.dot");
