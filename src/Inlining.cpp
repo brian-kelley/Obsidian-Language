@@ -9,6 +9,7 @@ using namespace IR;
 //unique placeholder var names can be generated
 static int inlineCounter = 0;
 
+/*
 struct Inliner
 {
   //Inline call into into_ at stmt index pos.
@@ -18,10 +19,9 @@ struct Inliner
   {
     SubroutineExpr* callable = dynamic_cast<SubroutineExpr*>(call->callable);
     INTERNAL_ASSERT(callable);
-    auto subr = callable->subr;
+    auto subr = callable->subr->subrIR;
     //can't inline external (C) subroutines
     INTERNAL_ASSERT(subr);
-    auto subrIR = IR::ir[subr];
     thisValue = callable->thisObject;
     if(thisValue)
     {
@@ -29,13 +29,13 @@ struct Inliner
     }
     //Make a mirror of each local variable in the inlined subroutine
     //These are added to the IR's variable table but not any AST scope
-    for(auto v : subrIR->vars)
+    for(auto v : subr->vars)
     {
       Variable* mirror = new Variable(
           v->name + "_inlined" + to_string(inlineCounter) + "__", v->type);
       mirror->resolve();
       varTranslation[v] = mirror;
-      into->vars.insert(mirror);
+      into->vars.push_back(mirror);
     }
     vector<StatementIR*> newStmts;
     //assign argument values to parameters mirrors
@@ -45,7 +45,7 @@ struct Inliner
       origParam->resolve();
       newStmts.push_back(new AssignIR(translateExpr(origParam), call->args[i]));
     }
-    for(auto stmt : subrIR->stmts)
+    for(auto stmt : subr->stmts)
     {
       translateStmt(newStmts, stmt);
     }
@@ -63,9 +63,15 @@ struct Inliner
       newStmts.push_back(new AssignIR(
             translateExpr(a->dst), translateExpr(a->src)));
     }
-    else if(auto e = dynamic_cast<EvalIR*>(stmt))
+    else if(auto call = dynamic_cast<CallIR*>(stmt))
     {
-      newStmts.push_back(new EvalIR(translateExpr(e->eval)));
+      CallIR* translated = new CallIR(call);
+      translated->origCallable = translateExpr(translated->origCallable);
+      if (translated->thisObject)
+        translated->thisObject = translateExpr(translated->thisObject);
+      if (translated->callable.is<Expression*>())
+        translated->callable = translateExpr(translated->callable.get<Expression*>());
+      newStmts.push_back(translated);
     }
     else if(auto l = dynamic_cast<Label*>(stmt))
     {
@@ -199,9 +205,11 @@ struct Inliner
   //L-value where return value will be stored
   Expression* ret;
 };
+*/
 
 void inlineCall(SubroutineIR* subr, AssignIR* assign)
 {
+  /*
   Expression* returnSink = assign->dst;
   auto call = dynamic_cast<CallExpr*>(assign->src);
   INTERNAL_ASSERT(call);
@@ -209,14 +217,17 @@ void inlineCall(SubroutineIR* subr, AssignIR* assign)
   //delete the original assignment
   subr->stmts[insertPoint] = nop;
   Inliner inliner(call, subr, insertPoint, returnSink);
+  */
 }
  
 void inlineCall(SubroutineIR* subr, EvalIR* eval)
 {
+  /*
   auto call = dynamic_cast<CallExpr*>(eval->eval);
   INTERNAL_ASSERT(call);
   int insertPoint = eval->intLabel;
   subr->stmts[insertPoint] = nop;
   Inliner inliner(call, subr, insertPoint, nullptr);
+  */
 }
  

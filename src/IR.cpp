@@ -22,7 +22,7 @@ namespace IR
   /* Full Program Representation */
   /* *************************** */
 
-  SubroutineIR* mainIR;
+	SubroutineIR* mainIR;
   vector<SubroutineIR*> ir;
   vector<ExternalSubroutine*> externIR;
   vector<Variable*> allGlobals;
@@ -75,6 +75,53 @@ namespace IR
     output = subr->generateTemp(callableType->returnType);
   }
 
+  CallIR::CallIR(CallExpr* c)
+  {
+    origCallable = c->callable;
+    callableType = (CallableType*) origCallable->type;
+    thisObject = nullptr;
+    SubroutineExpr* subExpr = dynamic_cast<SubroutineExpr*>(origCallable);
+    if(callableType->ownerStruct)
+    {
+      if(subExpr)
+        thisObject = subExpr->thisObject;
+      else
+      {
+        //indirect method call - callable must be a StructMem
+        StructMem* sm = dynamic_cast<StructMem*>(origCallable);
+        INTERNAL_ASSERT(sm);
+        thisObject = sm->base;
+      }
+    }
+    //now, set up "callable"
+    if(subExpr)
+    {
+      if(subExpr->subr)
+        callable = subExpr->subr->subrIR;
+      else if(subExpr)
+        callable = subExpr->exSubr;
+    }
+    else
+    {
+      //some indirect call - use whole callable
+      callable = origCallable;
+    }
+    args = c->args;
+    //finally create a temporary to hold the return value
+    output = nullptr;
+  }
+
+  CallIR::CallIR(CallIR* ci)
+  {
+    origCallable = ci->origCallable;
+    callableType = ci->callableType;
+    thisObject = ci->thisObject;
+    callable = ci->callable;
+    args = ci->args;
+    output = ci->output;
+  }
+
+  /*
   bool CallIR::argBorrowed(int index)
   {
     INTERNAL_ASSERT(index >= 0);
@@ -94,6 +141,7 @@ namespace IR
     else
       return Memory::indirectParamBorrowable(callableType, index);
   }
+  */
 
   ostream& CallIR::print(ostream& os) const
   {
@@ -169,18 +217,20 @@ namespace IR
 
   void optimizeIR()
   {
+    /*
     IRDebug::dumpIR("IR/0-unoptimized.dot");
     for(auto& s : ir)
       constantFold(s);
     IRDebug::dumpIR("IR/1-folded.dot");
     for(auto& s : ir)
       constantPropagation(s);
+      */
     IRDebug::dumpIR("IR/2-propagation.dot");
     for(auto& s : ir)
       deadCodeElim(s);
-    unusedSubrElim();
+    //unusedSubrElim();
     callGraph.dump("IR/call-graph.dot");
-    unusedGlobalElim();
+    //unusedGlobalElim();
     IRDebug::dumpIR("IR/3-dce.dot");
     for(auto& s : ir)
       simplifyCFG(s);
@@ -188,8 +238,10 @@ namespace IR
     for(auto& s : ir)
       cse(s);
     IRDebug::dumpIR("IR/5-cse.dot");
+    /*
     for(auto& s : ir)
       deadStoreElim(s);
+    */
     IRDebug::dumpIR("IR/6-deadstore.dot");
     IRDebug::dumpIR("IR/7-inlined.dot");
   }
@@ -204,6 +256,7 @@ namespace IR
   {
     Node::setLocation(s);
     subr = s;
+    name = s->name;
   }
 
   void SubroutineIR::build()
@@ -659,7 +712,7 @@ namespace IR
     {
       //Many primitive constants need to be converted to another
       //type - save a temporary by attempting this now
-      foldExpression(e);
+      //foldExpression(e);
       //If e is still a Converted, must create a temporary
       conv = dynamic_cast<Converted*>(e);
       if(conv)

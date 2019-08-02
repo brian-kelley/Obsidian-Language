@@ -5,3 +5,5 @@ xcodebuild/
 */*.swp
 */*.swo
 .DS_Store
+.vs
+CMakeSettings.json

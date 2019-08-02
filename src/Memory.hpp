@@ -43,8 +43,8 @@ using IR::StatementIR;
 namespace Memory
 {
   //Is the parameter modified inside its subroutine body?
-  bool subrParamBorrowable(Variable* p);
-  bool indirectParamBorrowable(CallableType* ct, int index);
+  //bool subrParamBorrowable(Variable* p);
+  //bool indirectParamBorrowable(CallableType* ct, int index);
 
   struct Management
   {

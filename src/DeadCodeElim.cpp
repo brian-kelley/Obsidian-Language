@@ -104,6 +104,7 @@ bool deadCodeElim(SubroutineIR* subr)
   return updatePhase1 || updatePhase2;
 }
 
+/*
 void deadStoreElim(SubroutineIR* subr)
 {
   ReachingDefs reaching(subr);
@@ -132,8 +133,12 @@ void deadStoreElim(SubroutineIR* subr)
           Variable* v = assign->dst->getWrite();
           if(!live.isLive(stmtLive, v))
           {
-            if(assign->src->hasSideEffects())
-              subr->stmts[i] = new EvalIR(assign->src);
+            if (assign->src->hasSideEffects())
+            {
+              auto call = dynamic_cast<CallExpr*>(assign->src);
+              INTERNAL_ASSERT(call);
+              subr->stmts[i] = new CallIR(call);
+            }
             else
               subr->stmts[i] = nop;
           }
@@ -170,7 +175,7 @@ void deadStoreElim(SubroutineIR* subr)
     if(!defsUsed[i] && assign->dst->getWrite()->isLocalOrParameter())
     {
       if(assign->src->hasSideEffects())
-        subr->stmts[assign->intLabel] = new EvalIR(assign->src);
+        subr->stmts[assign->intLabel] = new CallIR(assign->src);
       else
         subr->stmts[assign->intLabel] = nop;
     }
@@ -315,4 +320,5 @@ void unusedGlobalElim()
     }
   });
 }
+*/
 

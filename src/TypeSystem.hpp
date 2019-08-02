@@ -374,7 +374,7 @@ struct EnumConstant : public Node
     name = n;
     fitsS64 = true;
     fitsU64 = true;
-    if(u > numeric_limits<int64_t>::max())
+    if(u > (uint64_t) numeric_limits<int64_t>::max())
     {
       fitsS64 = false;
     }

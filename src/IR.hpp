@@ -75,12 +75,24 @@ namespace IR
 
   struct CallIR : public StatementIR
   {
+    //Generate a call instruction (expanding this, callable and args)
     CallIR(CallExpr* c, SubroutineIR* subr);
+    //Generate a call, where exprs are already expanded, and return val is discarded
+    CallIR(CallExpr* c);
+    //Copy
+    CallIR(CallIR* ci);
     Expression* origCallable;
     CallableType* callableType;
     //Optional: "this" expression
     Expression* thisObject;
     variant<SubroutineIR*, ExternalSubroutine*, Expression*> callable;
+    vector<Expression*> args;
+    //If call returns a value, ctor creates a temp.
+    //Otherwise, this is left null.
+    //If the return value is assigned to any lvalue,
+    //the next instruction is just an assign from this temp
+    //to the lvalue.
+    VarExpr* output;
     bool isDirect()
     {
       return callable.is<Expression*>();
@@ -89,14 +101,7 @@ namespace IR
     {
       return thisObject;
     }
-    vector<Expression*> args;
     bool argBorrowed(int index);
-    //If call returns a value, ctor creates a temp.
-    //Otherwise, this is left null.
-    //If the return value is assigned to any lvalue,
-    //the next instruction is just an assign from this temp
-    //to the lvalue.
-    VarExpr* output;
     void getReads(set<Variable*>& vars)
     {
       if(callable.is<Expression*>())
@@ -263,11 +268,13 @@ namespace IR
     map<int, BasicBlock*> blockStarts;
     //is one BB reachable from another?
     bool reachable(BasicBlock* root, BasicBlock* target);
+    //Get an identifier that can't conflict with anything else
     string getTempName();
     //This version just creates a temporary variable.
     //Name is auto generated, but otherwise just a regular var.
     VarExpr* generateTemp(Type* t);
     VarExpr* generateTemp(Expression* e);
+    string name;
     private:
     void addForC(ForC* fc);
     void addForRange(ForRange* fr);

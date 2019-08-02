@@ -6,6 +6,7 @@ using namespace IR;
 
 void cse(SubroutineIR* subr)
 {
+  /*
   auto numBlocks = subr->blocks.size();
   if(numBlocks == 0)
     return;
@@ -54,10 +55,10 @@ void cse(SubroutineIR* subr)
           if(assign->src->hasSideEffects())
             transferSideEffects(procDefs);
         }
-        else if(auto eval = dynamic_cast<EvalIR*>(subr->stmts[i]))
+        else if(auto call = dynamic_cast<CallIR*>(subr->stmts[i]))
         {
-          //if eval has no side effects, might as well delete it now
-          if(eval->eval->hasSideEffects())
+          //if evaluating call has no side effects, can just delete it now
+          if(call->callableType->isProc())
             transferSideEffects(procDefs);
           else
             subr->stmts[i] = nop;
@@ -110,7 +111,7 @@ void cse(SubroutineIR* subr)
         }
         else if(auto cj = dynamic_cast<CondJump*>(stmt))
           update = replaceExpr(cj->cond, localDefs) || update;
-        else if(auto ev = dynamic_cast<EvalIR*>(stmt))
+        else if(auto call = dynamic_cast<CallIR*>(stmt))
         {
           update = replaceExpr(ev->eval, localDefs) || update;
           if(ev->eval->hasSideEffects())
@@ -132,8 +133,10 @@ void cse(SubroutineIR* subr)
   while(update);
   if(update)
     subr->buildCFG();
+    */
 }
 
+/*
 namespace CSElim
 {
   void DefSet::insert(Variable* v, AssignIR* a)
@@ -449,4 +452,5 @@ bool operator!=(const CSElim::DefSet& d1, const CSElim::DefSet& d2)
 {
   return !(d1 == d2);
 }
+*/
 

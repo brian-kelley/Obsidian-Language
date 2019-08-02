@@ -3,6 +3,8 @@
 
 #include "IR.hpp"
 
+/*
+
 struct CompoundValue;
 
 struct CPValue
@@ -114,5 +116,6 @@ struct LocalConstantTable
 //meet(?, _) = _
 CPValue constantMeet(CPValue lhs, CPValue rhs);
 
+*/
 #endif
 
