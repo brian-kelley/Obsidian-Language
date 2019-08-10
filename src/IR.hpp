@@ -71,6 +71,10 @@ namespace IR
   {
   };
 
+  struct Unknown : public Value
+  {
+  };
+
   struct Ref : public Value
   {
     Var* var;
@@ -103,7 +107,29 @@ namespace IR
     {
       return false;
     }
+    //Index within function
+    int index;
   };
+
+  struct BasicBlock
+  {
+    vector<BasicBlock*> in;
+    vector<BasicBlock*> out;
+    int begin;
+    int end;
+  };
+
+  struct Func
+  {
+    vector<Instruction*> instr;
+    vector<BasicBlock*> blocks;
+  };
+
+  struct Nop : public Instruction
+  {
+  };
+
+  extern static Nop* nop;
 
   struct Copy : public Instruction
   {
@@ -184,6 +210,19 @@ namespace IR
     Value* in1;
     Value* in2;
     BinOp op;
+  };
+  
+  //Control flow
+  struct Label : public Instruction
+  {
+  };
+  
+  struct Jump : public Instruction
+  {
+  };
+
+  struct CondJump : public Instruction
+  {
   };
 }
 
