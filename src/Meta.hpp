@@ -4,8 +4,6 @@
 #include "Common.hpp"
 #include "Parser.hpp"
 
-//Type system and interpreter for Onyx meta-language
-
 /*
   -need to have all parser symbols as data types
   -emit keyword: emit(thing) inserts thing into normal program text

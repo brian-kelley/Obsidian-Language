@@ -11,6 +11,11 @@ namespace IR
     bool ownsMemory;
   };
 
+  struct PointerType : public Datatype
+  {
+    Datatype* t;
+  };
+
   enum struct IntType
   {
     u8,
@@ -55,35 +60,38 @@ namespace IR
     Datatype* type;
   };
 
-  /*
-    Instruction types:
-      -Copy
-      -Convert
-      -UnArith
-      -BinArith
-      -DirectCall
-      -IndirectCall
-      -Malloc
-      -Free
-  */
-
   struct Value
   {
+    virtual bool modifiable() = 0;
+    Datatype* type;
   };
 
+  //Unknown is only used in constant propagation,
+  //representing when nothing is known about a value
   struct Unknown : public Value
   {
   };
 
+  //A read/write reference to a variable
   struct Ref : public Value
   {
     Var* var;
   };
 
+  //Reference to a member of a fixed-size structure
+  //(so idx is always known at compile-time)
   struct Member : public Value
   {
     Value* root;
     int idx; 
+  };
+
+  //Index into an arbitrary-sized array, with
+  //a runtime index
+  struct Index : public Value
+  {
+    Value* ptr;
+    Value* idx;
   };
 
   struct IntVal : public Value
@@ -131,12 +139,25 @@ namespace IR
 
   extern static Nop* nop;
 
+  //Shallow copy a value
+  struct Assign : public Instruction
+  {
+    Value* src;
+    Value* dst;
+  };
+
+  //Deep copy a value.
+  //If src/dst are PointerType, then dst is
+  //allocated to fit the size of src and then elements
+  //are copied. If src is a compound data type,
+  //all heap blocks owned are copied in this way.
   struct Copy : public Instruction
   {
     Value* src;
     Value* dst;
   };
 
+  //Deep copy a value, while changing its type
   struct Convert : public Instruction
   {
     Value* src;
@@ -156,6 +177,9 @@ namespace IR
     vector<Value*> args;
   };
 
+  //Malloc allocates a heap block.
+  //Either a single element (n = NULL, used for unions),
+  //or for a contiguous array.
   struct Malloc : public Instruction
   {
     Value* n;
@@ -219,10 +243,14 @@ namespace IR
   
   struct Jump : public Instruction
   {
+    Label* target;
   };
 
   struct CondJump : public Instruction
   {
+    Value* cond;
+    //True = fall through, false = goto falseTarget 
+    Label* falseTarget;
   };
 }
 

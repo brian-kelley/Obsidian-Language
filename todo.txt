@@ -1,9 +1,25 @@
 ---------------------
       TODO:
 ---------------------
+FRONTEND
+-Add function overloading
+  -Scope "subroutine" names should be a set of overloads,
+    which are matched during call resolution
+
+-AST interpreter for core language (prerequisite)
+-extern functions:
+  -for libc functions, compiler calls directly
+  -otherwise, load the functions from dynamic library
+
+-Metaprogramming!
+  -Implement "# StatementOrDecl" pattern to execute statements
+    at parse time, and create meta-declarations
+  -Implement all AST nodes as types
+
+BACKEND
 -IR rewrite:
   -Remove "print" and "assert" as instructions - make them FFI calls
-  -Create parallel, simplified type system like LLVM has
+  -Create parallel, simplified type system just like Clang/LLVM
 -All optimizations should work on the IR, without the AST
 
 -Metaprogramming:
@@ -23,20 +39,19 @@
     -If these decls are located earlier in the code, everything's fine
     -Otherwise, it's an error (name doesn't exist yet)
 
-  -New syntax rules:
-  * (any):                #<stmt>: execute meta-stmt or create meta-decl
-  * (stmt in meta-subr):  @<expr>: evaluate expr at compile time, expr must be string, and output lex(expr) to code stream
-  * (stmt in meta-subr):  $<expr>: evaluate expr at compile time, and output it to code
-  * $> <expr> and @> <expr> append tokens to end of code, not current position
-      * for values, create equivalent literal (ALL values can be represented as primitive or compound literals)
-      * for AST elements, unparse back to tokens
+  -Meta built-in types and functions:
+    -Have capitalized names be types representing AST nodes
+    e.g. StringLit, For, Type, etc.
+    -Have lowercase names be functions that take a string
+    and parse it into an AST node
 
-  //Example: do10(b) generates a loop that runs b 10 times
-  #proc void do10(Block b)
-  {
-    @"for i : 0,10";
-    $b;
-  }
+Example:
+    Type t = type("float[][]");
+
+  -New syntax rules:
+  * (anywhere):     #<stmt>: execute meta-stmt or create meta-decl
+  * (in meta-stmt): $<expr>: evaluate expr, unparse and output to code stream where the meta-stmt appeared
+  * Save "@" for potential later use in metaprogramming...
 
   //This is a fully functional "include",
   //although real compiler should have #include

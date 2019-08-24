@@ -701,7 +701,7 @@ namespace Parser
 
   Statement* Stream::parseStatementOrDecl(Block* b, bool semicolon)
   {
-    Token* next = lookAhead(0);
+    Token* next = lookAhead();
     if(next->type == IDENTIFIER)
     {
       Stream s1(*this);

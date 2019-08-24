@@ -89,6 +89,18 @@ namespace Parser
     void parseBlock(Block* b);
     void parseTest(Scope* s);
     Type* parseType(Scope* s);
+
+    //Metaprogramming
+    //Starting at offset from current stream position,
+    //parse and substitute #<stmt>
+    void processMetaStmt(int offset);
+  };
+}
+
+//Utils
+ostream& operator<<(ostream& os, const Member& mem);
+
+#endif
   };
 }
 

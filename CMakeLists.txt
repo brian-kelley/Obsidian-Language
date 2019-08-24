@@ -8,17 +8,14 @@ if (WIN32)
 elseif (UNIX)
 	set(CMAKE_C_COMPILER clang)
 	set(CMAKE_CXX_COMPILER clang++)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow -ferror-limit=2")
 endif()
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow -ferror-limit=2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std=c++11")
 
 project (Onyx-Lang)
 
 add_executable (onyx
   src/Common.cpp
-  src/SourceFile.cpp
-  src/Token.cpp
+  src/SourceFile.cpp src/Token.cpp
   src/Lexer.cpp
   src/Parser.cpp
   src/AST.cpp
@@ -29,6 +26,7 @@ add_executable (onyx
   src/Scope.cpp
   src/Subroutine.cpp
   src/IR.cpp
+  src/AstToIR.cpp
   src/Dataflow.cpp
   src/CallGraph.cpp
   src/ConstantProp.cpp

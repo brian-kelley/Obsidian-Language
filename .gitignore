@@ -7,3 +7,4 @@ xcodebuild/
 .DS_Store
 .vs
 CMakeSettings.json
+compile_commands.json
