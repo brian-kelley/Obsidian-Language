@@ -92,6 +92,7 @@ struct Type : public Node
   {
     types.insert(this);
   }
+  virtual size_t getCanonicalSize() = 0;
 };
 
 /* ********************* */
@@ -192,6 +193,13 @@ struct StructType : public Type
   void resolveImpl();
   Expression* getDefaultValue();
   void dependencies(set<Type*>& types);
+  size_t getCanonicalSize() 
+  {
+    size_t s = 0;
+    for(auto m : members)
+      s += m->type->getCanonicalSize();
+    return s;
+  }
 };
 
 struct UnionType : public Type
@@ -229,6 +237,11 @@ struct UnionType : public Type
   bool recursive;
   //Lazily create and return defaultVal
   Expression* getDefaultValue();
+  size_t getCanonicalSize() 
+  {
+    //Store an 8-byte pointer to the underlying value, and a 4-byte tag
+    return 12;
+  }
 };
 
 struct ArrayType : public Type
@@ -260,6 +273,11 @@ struct ArrayType : public Type
     return f.get();
   }
   Expression* getDefaultValue();
+  size_t getCanonicalSize() 
+  {
+    //Store an 8-byte data pointer and 4-byte size
+    return 12;
+  }
 };
 
 struct TupleType : public Type
@@ -292,6 +310,13 @@ struct TupleType : public Type
     for(auto m : members)
       f.pump(m->hash());
     return f.get();
+  }
+  size_t getCanonicalSize() 
+  {
+    size_t s = 0;
+    for(auto m : members)
+      s += m->getCanonicalSize();
+    return s;
   }
   Expression* getDefaultValue();
 };

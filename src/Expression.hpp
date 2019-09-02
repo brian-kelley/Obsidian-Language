@@ -279,6 +279,20 @@ struct IntConstant : public Expression
     type = primitives[Prim::ULONG];
     resolved = true;
   }
+  IntConstant(int64_t val, Type* t)
+  {
+    uval = val;
+    sval = val;
+    type = t;
+    resolved = true;
+  }
+  IntConstant(uint64_t val, Type* t)
+  {
+    uval = val;
+    sval = val;
+    type = t;
+    resolved = true;
+  }
   //Attempt to convert to int/float/enum type
   //Make sure the conversion is valid and show error
   //if this fails

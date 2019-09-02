@@ -22,7 +22,6 @@ struct Statement : public Node
 {
   //ctor for statements that don't belong to any block (e.g. subroutine bodies)
   Statement() : block(nullptr) {}
-  //normal ctor: automatically set index within parent block
   Statement(Block* b) : block(b) {}
   Block* block;
   virtual void resolveImpl() {}
@@ -177,10 +176,10 @@ struct Match : public Statement
       vector<Type*>& types,
       vector<Block*>& blocks);
   void resolveImpl();
-  Expression* matched;              //the given expression (must be a union)
-  vector<Type*> types;  //each type must be an option of matched->type
-  vector<Block*> cases;             //correspond 1-1 with types
-  vector<Variable*> caseVars;       //correspond 1-1 with cases
+  Expression* matched;         //the given expression (must be a union)
+  vector<Type*> types;         //each type must be an option of matched->type
+  vector<Block*> cases;        //correspond 1-1 with types
+  vector<Variable*> caseVars;  //correspond 1-1 with cases
 };
 
 struct Switch : public Statement
