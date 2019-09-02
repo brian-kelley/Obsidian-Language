@@ -70,8 +70,7 @@ enum
   STATIC,
   ARRAY,
   EXTERN,
-  CONST,
-  EMIT
+  CONST
 };
 
 enum

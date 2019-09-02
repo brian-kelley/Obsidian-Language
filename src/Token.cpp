@@ -65,7 +65,6 @@ void initTokens()
   SET_KEY("array", ARRAY);
   SET_KEY("extern", EXTERN);
   SET_KEY("const", CONST);
-  SET_KEY("emit", EMIT);
   keywordTable.resize(keywordMap.size());
   for(auto& it : keywordMap)
   {

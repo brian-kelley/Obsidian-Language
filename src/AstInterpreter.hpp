@@ -15,6 +15,7 @@ struct StackFrame
   //If a var is referenced before first initialization,
   //it was used before declaration.
   map<Variable*, Expression*> locals;
+  Expression* thisExpr;
 };
 
 struct Interpreter
