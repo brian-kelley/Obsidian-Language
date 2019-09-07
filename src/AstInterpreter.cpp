@@ -1,10 +1,5 @@
 #include "AstInterpreter.hpp"
 
-StackFrame::StackFrame()
-{
-  rv = nullptr;
-}
-
 Interpreter::Interpreter(Subroutine* subr, vector<Expression*> args)
 {
   returning = false;
@@ -16,17 +11,16 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
   returning = false;
   //push stack frame
   frames.emplace_back();
-  Frame& current = frames.back();
+  StackFrame& current = frames.back();
   current.thisExpr = thisExpr;
   //Execute statements in linear sequence.
   //If a return is encountered, execute() returns and
   //the return value will be placed in the frame rv
-  for(auto s : subr->stmts)
+  for(auto s : subr->body->stmts)
   {
     execute(s);
-    if(current->returning)
+    if(returning)
     {
-      Expression* rv = current.rv;
       frames.pop_back();
       return rv;
     }
@@ -45,6 +39,7 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
 Expression* Interpreter::callExtern(ExternalSubroutine* exSubr, vector<Expression*> args)
 {
   //TODO: lazily load correct dynamic library, put arguments in correct binary format, and call
+  return nullptr;
 }
 
 void Interpreter::execute(Statement* stmt)
@@ -53,16 +48,45 @@ void Interpreter::execute(Statement* stmt)
     return;
   if(auto assign = dynamic_cast<Assign*>(stmt))
   {
+    Expression* rvalue = evaluate(assign->rvalue);
+    //Make sure that rvalue is not pointing to a persistent lvalue
+    if(!rvalue->constant())
+      rvalue = rvalue->copy();
     if(auto va = dynamic_cast<VarExpr*>(assign->lvalue))
-      assignVar(va->var, evaluate(assign->rvalue);
-    else
-      assignVar(evaluate(assign->lvalue), evaluate(assign->rvalue));
+      assignVar(va->var, rvalue);
+    else if(auto indexed = dynamic_cast<Indexed*>(assign->lvalue))
+    {
+      //bounds check array/tuple index
+      if(auto arr = dynamic_cast<CompoundLiteral*>(indexed->group))
+      {
+        long index;
+        IntConstant* indexExpr = dynamic_cast<IntConstant*>(indexed->index);
+        INTERNAL_ASSERT(indexExpr);
+        if(indexExpr->isSigned())
+          index = indexExpr->sval;
+        else
+          index = indexExpr->uval;
+        if(index < 0 || index >= (long) arr->members.size())
+          errMsgLoc(indexed, "array index " << index << " out of bounds [0, " << arr->members.size() << ")\n");
+        //can assign the value directly
+        arr->members[index] = rvalue;
+      }
+      else if(auto map = dynamic_cast<MapConstant*>(indexed->group))
+        map->values[indexed->index] = rvalue;
+      else
+        INTERNAL_ERROR;
+    }
+    else if(auto structMem = dynamic_cast<StructMem*>(assign->lvalue))
+    {
+      //Have evaluated the 
+      (assign->lvalue) = rvalue;
+    }
   }
   else if(auto block = dynamic_cast<Block*>(stmt))
   {
-    for(auto stmt : block->stmts)
+    for(auto bstmt : block->stmts)
     {
-      execute(stmt);
+      execute(bstmt);
       if(breaking || continuing || returning)
         return;
     }
@@ -110,9 +134,9 @@ void Interpreter::execute(Statement* stmt)
     cond->resolve();
     while(true)
     {
-      BoolConstant* cond = dynamic_cast<BoolConstant*>(evaluate(cond));
-      INTERNAL_ASSERT(cond);
-      if(!cond->value)
+      BoolConstant* condVal = dynamic_cast<BoolConstant*>(evaluate(cond));
+      INTERNAL_ASSERT(condVal);
+      if(!condVal->value)
         break;
       execute(fc->inner);
       if(breaking)
@@ -299,6 +323,210 @@ void Interpreter::execute(Statement* stmt)
   {
     INTERNAL_ERROR;
   }
+}
+
+CompoundLiteral* Interpreter::createArray(uint64_t* dims, int ndims, Type* elem, Expression* fillVal)
+{
+  vector<Expression*> elems;
+  for(uint64_t i = 0; i < dims[0]; i++)
+  {
+    if(ndims == 1)
+    {
+      elems.push_back(fillVal);
+    }
+    else
+    {
+      elems.push_back(createArray(&dims[1], ndims - 1, elem));
+    }
+  }
+  CompoundLiteral* cl = new CompoundLiteral(elems);
+  cl->type = getArrayType(elem, ndims);
+  cl->resolved = true;
+  return cl;
+}
+
+Expression* Interpreter::convertConstant(Expression* value, Type* type)
+{
+  type = canonicalize(type);
+  if(typesSame(value->type, type))
+    return value;
+  //For converting union constants, use the underlying value
+  if(auto uc = dynamic_cast<UnionConstant*>(value))
+  {
+    value = uc->value;
+  }
+  Node* loc = value;
+  INTERNAL_ASSERT(value->constant());
+  int option = -1;
+  auto structDst = dynamic_cast<StructType*>(type);
+  if(auto unionDst = dynamic_cast<UnionType*>(type))
+  {
+    for(size_t i = 0; i < unionDst->options.size(); i++)
+    {
+      if(typesSame(unionDst->options[i], value->type))
+      {
+        option = i;
+        break;
+      }
+    }
+    if(option < 0)
+    {
+      for(size_t i = 0; i < unionDst->options.size(); i++)
+      {
+        if(unionDst->options[i]->canConvert(value->type))
+        {
+          option = i;
+          value = convertConstant(value, unionDst->options[i]);
+          break;
+        }
+      }
+    }
+    INTERNAL_ASSERT(option >= 0);
+    value = new UnionConstant(value, unionDst->options[option], unionDst);
+    value->setLocation(loc);
+    return value;
+  }
+  else if(structDst && structDst->members.size() == 1 &&
+      !dynamic_cast<CompoundLiteral*>(value))
+  {
+    //Single-member struct is equivalent to the member
+    vector<Expression*> mem(1, value);
+    auto cl = new CompoundLiteral(mem);
+    cl->resolve();
+    cl->setLocation(loc);
+    return cl;
+  }
+  else if(structDst)
+  {
+    auto clRHS = dynamic_cast<CompoundLiteral*>(value);
+    INTERNAL_ASSERT(clRHS);
+    //just need to convert the elements in a
+    //CompoundLiteral to match struct member types 
+    vector<Expression*> mems;
+    for(size_t i = 0; i < clRHS->members.size(); i++)
+    {
+      mems.push_back(convertConstant(clRHS->members[i], structDst->members[i]->type));
+    }
+    clRHS->setLocation(value);
+    clRHS->resolve();
+    clRHS->setLocation(loc);
+    return clRHS;
+  }
+  else if(auto intConst = dynamic_cast<IntConstant*>(value))
+  {
+    //do the conversion which tests for overflow and enum membership
+    value = intConst->convert(type);
+    value->setLocation(loc);
+    return value;
+  }
+  else if(auto charConst = dynamic_cast<CharConstant*>(value))
+  {
+    //char is equivalent to an 8-bit unsigned for purposes of value conversion
+    value = new IntConstant((uint64_t) charConst->value);
+    value->setLocation(loc);
+    return value;
+  }
+  else if(auto floatConst = dynamic_cast<FloatConstant*>(value))
+  {
+    value = floatConst->convert(type);
+    value->setLocation(loc);
+    return value;
+  }
+  else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
+  {
+    if(enumConst->value->fitsS64)
+    {
+      //make a signed temporary int constant, then convert that
+      //(this can't possible lose information)
+      IntConstant asInt(enumConst->value->sval);
+      asInt.setLocation(loc);
+      return asInt.convert(type);
+    }
+    else
+    {
+      IntConstant asInt(enumConst->value->uval);
+      asInt.setLocation(loc);
+      return asInt.convert(type);
+    }
+  }
+  //array/struct/tuple constants can be converted implicitly
+  //to each other (all use CompoundLiteral) but individual
+  //members (primitives) may need conversion
+  else if(auto compLit = dynamic_cast<CompoundLiteral*>(value))
+  {
+    //attempt to fold all elements (can't proceed unless every
+    //one is a constant)
+    bool allConstant = true;
+    for(auto& mem : compLit->members)
+    {
+      foldExpression(mem);
+      allConstant = allConstant && mem->constant();
+    }
+    if(!allConstant)
+      return compLit;
+    if(auto st = dynamic_cast<StructType*>(type))
+    {
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        if(!typesSame(compLit->members[i]->type, st->members[i]->type))
+        {
+          compLit->members[i] = convertConstant(
+              compLit->members[i], st->members[i]->type);
+        }
+        //else: don't need to convert member
+      }
+      return compLit;
+    }
+    else if(auto tt = dynamic_cast<TupleType*>(type))
+    {
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        if(!typesSame(compLit->members[i]->type, tt->members[i]))
+        {
+          compLit->members[i] = convertConstant(
+              compLit->members[i], tt->members[i]);
+        }
+      }
+      return compLit;
+    }
+    else if(auto at = dynamic_cast<ArrayType*>(type))
+    {
+      //Array lit is just another CompoundLiteral,
+      //but with array type instead of tuple
+      vector<Expression*> elements;
+      for(auto& elem : compLit->members)
+      {
+        elements.push_back(convertConstant(elem, at->subtype));
+      }
+      CompoundLiteral* arrayLit = new CompoundLiteral(elements);
+      arrayLit->resolved = true;
+      arrayLit->type = at;
+      return arrayLit;
+    }
+    else if(auto mt = dynamic_cast<MapType*>(type))
+    {
+      auto mc = new MapConstant(mt);
+      //add each key/value pair to the map
+      for(size_t i = 0; i < compLit->members.size(); i++)
+      {
+        auto kv = dynamic_cast<CompoundLiteral*>(compLit->members[i]);
+        INTERNAL_ASSERT(kv);
+        Expression* key = kv->members[0];
+        Expression* val = kv->members[1];
+        if(!typesSame(key->type, mt->key))
+          key = convertConstant(key, mt->key);
+        if(!typesSame(val->type, mt->value))
+          val = convertConstant(val, mt->value);
+        mc->values[key] = val;
+      }
+      return mc;
+    }
+  }
+  //????
+  cout << "Failed to convert constant expr \"" << value << "\" to type \"" << type->getName() << "\"\n";
+  cout << "Value's type is " << value->type->getName() << '\n';
+  INTERNAL_ERROR;
+  return nullptr;
 }
 
 Expression* Interpreter::evaluate(Expression* e)
@@ -551,10 +779,23 @@ Expression* Interpreter::evaluate(Expression* e)
       //Member subroutine - return a SubroutineExpr
       return new SubroutineExpr(base, sm->member.get<Subroutine*>());
     }
+    INTERNAL_ERROR;
     return nullptr;
   }
   else if(auto na = dynamic_cast<NewArray*>(e))
   {
+    vector<uint64_t> dims;
+    for(auto d : na->dims)
+    {
+      IntConstant* ic = dynamic_cast<IntConstant*>(d);
+      INTERNAL_ASSERT(ic);
+      if(ic->isSigned())
+        dims.push_back(ic->sval);
+      else
+        dims.push_back(ic->uval);
+    }
+    Type* elem = ((ArrayType*) na->type)->elem;
+    return createArray(dims.data(), na->dims.size(), elem, elem->getDefaultValue());
   }
   else if(auto al = dynamic_cast<ArrayLength*>(e))
   {
@@ -590,12 +831,14 @@ Expression* Interpreter::evaluate(Expression* e)
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
-  }
-  else if(auto ee = dynamic_cast<EnumExpr*>(e))
-  {
+    return convertConstant(evaluate(conv->value), conv->type);
   }
   INTERNAL_ERROR;
   return nullptr;
+}
+
+Expression*& Interpreter::evaluateLVal(Expression* e)
+{
 }
 
 void Interpreter::assignVar(Variable* v, Expression* e)

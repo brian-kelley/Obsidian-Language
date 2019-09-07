@@ -101,11 +101,4 @@ namespace Parser
 ostream& operator<<(ostream& os, const Member& mem);
 
 #endif
-  };
-}
-
-//Utils
-ostream& operator<<(ostream& os, const Member& mem);
-
-#endif
 

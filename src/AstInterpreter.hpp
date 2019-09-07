@@ -8,7 +8,6 @@
 
 struct StackFrame
 {
-  StackFrame();
   //Local variables are lazily added
   //to this when initialized.
   //
@@ -24,14 +23,17 @@ struct Interpreter
   Interpreter(Subroutine* subr, vector<Expression*> args);
   //thisExpr is a reference, not a value!
   //Any modifications to it through a method apply to the original, not a copy.
-  void callSubr(Subroutine* subr, vector<Expression*> args, Expression* thisExpr = nullptr);
-  void callExtern(ExternalSubroutine* exSubr, vector<Expression*> args);
+  Expression* callSubr(Subroutine* subr, vector<Expression*> args, Expression* thisExpr = nullptr);
+  Expression* callExtern(ExternalSubroutine* exSubr, vector<Expression*> args);
   void execute(Statement* stmt);
   Expression* evaluate(Expression* e);
+  Expression*& evaluateLVal(Expression* e);
+  CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem);
+  Expression* convertConstant(Expression* value, Type* type);
   void assignVar(Variable* v, Expression* e);
   Expression* readVar(Variable* v);
   //frames.back is the top of the call stack
-  vector<StackFrame*> frames;
+  vector<StackFrame> frames;
   map<Variable*, Expression*> globals;
   //Is the topmost function returning?
   bool returning;

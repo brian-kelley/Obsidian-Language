@@ -96,7 +96,7 @@ namespace IR
 
   struct IntVal : public Value
   {
-    u64 val;  //static-cast to actual type
+    uint64_t val;  //static-cast to actual type
   };
 
   struct FloatVal : public Value
@@ -137,7 +137,7 @@ namespace IR
   {
   };
 
-  extern static Nop* nop;
+  //extern static Nop* nop;
 
   //Shallow copy a value
   struct Assign : public Instruction

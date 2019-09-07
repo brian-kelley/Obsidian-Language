@@ -14,22 +14,23 @@
 
 extern Module* global;
 
+/*
 IR::Nop* nop = new IR::Nop;
 
 namespace IR
 {
-  /* *************************** */
-  /* Full Program Representation */
-  /* *************************** */
+  // *************************** //
+  // Full Program Representation //
+  // *************************** //
 
 	SubroutineIR* mainIR;
   vector<SubroutineIR*> ir;
   vector<ExternalSubroutine*> externIR;
   vector<Variable*> allGlobals;
 
-  /* ****************** */
-  /* IR Statement Types */
-  /* ****************** */
+  // ****************** //
+  // IR Statement Types //
+  // ****************** //
 
   CallIR::CallIR(CallExpr* c, SubroutineIR* subr)
   {
@@ -121,7 +122,6 @@ namespace IR
     output = ci->output;
   }
 
-  /*
   bool CallIR::argBorrowed(int index)
   {
     INTERNAL_ASSERT(index >= 0);
@@ -141,7 +141,6 @@ namespace IR
     else
       return Memory::indirectParamBorrowable(callableType, index);
   }
-  */
 
   ostream& CallIR::print(ostream& os) const
   {
@@ -160,9 +159,9 @@ namespace IR
     return os;
   }
 
-  /* *************** */
-  /* IR Construction */
-  /* *************** */
+  // *************** //
+  // IR Construction //
+  // *************** //
 
   //walk the AST and build independent IR for each subroutine
   void buildIR()
@@ -217,14 +216,12 @@ namespace IR
 
   void optimizeIR()
   {
-    /*
     IRDebug::dumpIR("IR/0-unoptimized.dot");
     for(auto& s : ir)
       constantFold(s);
     IRDebug::dumpIR("IR/1-folded.dot");
     for(auto& s : ir)
       constantPropagation(s);
-      */
     IRDebug::dumpIR("IR/2-propagation.dot");
     for(auto& s : ir)
       deadCodeElim(s);
@@ -238,10 +235,8 @@ namespace IR
     for(auto& s : ir)
       cse(s);
     IRDebug::dumpIR("IR/5-cse.dot");
-    /*
     for(auto& s : ir)
       deadStoreElim(s);
-    */
     IRDebug::dumpIR("IR/6-deadstore.dot");
     IRDebug::dumpIR("IR/7-inlined.dot");
   }
@@ -982,3 +977,4 @@ ostream& operator<<(ostream& os, const IR::StatementIR* stmt)
 {
   return stmt->print(os);
 }
+*/
