@@ -536,6 +536,9 @@ namespace Parser
     {
       errMsgLoc(fa, "for over array requires an iterator and at least one counter");
     }
+    expectPunct(COLON);
+    fa->arr = parseExpression(b->scope);
+    cout << "parsed the array to iterate over: " << (void*) fa->arr << '\n';
     fa->createIterators(tup);
     auto body = parseStatement(fa->inner, true);
     fa->inner->addStatement(body);

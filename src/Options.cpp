@@ -17,6 +17,7 @@ Options parseOptions(int argc, const char** argv)
     exit(EXIT_FAILURE);
   }
   Options op = getDefaultOptions();
+  /*
   for(int i = 1; i < argc; i++)
   {
     if(strcmp(argv[i], "--output") == 0)
@@ -42,6 +43,8 @@ Options parseOptions(int argc, const char** argv)
       op.input = argv[i];
     }
   }
+  */
+  op.input = argv[1];
   if(op.input == "")
   {
     puts("Error: no input files.");

@@ -36,11 +36,6 @@ int main(int argc, const char** argv)
 {
   auto startTime = clock();
   Options op = parseOptions(argc, argv);
-  if(argc == 1)
-  {
-    puts("Error: no input files.");
-    return EXIT_FAILURE;
-  }
   //init creates the builtin declarations
   init();
   //all program code: prepend builtin code to source file
@@ -52,8 +47,13 @@ int main(int argc, const char** argv)
   //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->resolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
-  vector<Expression*> args;
-  TIMEIT("Interpreting AST", Interpreter(mainSubr, args));
+  vector<Expression*> mainArgs;
+  if(argc > 2)
+  {
+    for(int i = 2; i < argc; i++)
+      mainArgs.push_back(new StringConstant(string(argv[i])));
+  }
+  TIMEIT("Interpreting AST", Interpreter(mainSubr, mainArgs));
     /*
   TIMEIT("IR/CFG construction", IR::buildIR();)
   //DEBUG_DO(IRDebug::dumpIR("ir.dot");)

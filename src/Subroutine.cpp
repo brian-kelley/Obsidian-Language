@@ -562,6 +562,8 @@ void Subroutine::resolveImpl()
         (type->paramTypes.size() == 1 &&
          !typesSame(type->paramTypes[0], getArrayType(primitives[Prim::CHAR], 2))))
     {
+      cout << "Main's parameter has type " << type->paramTypes[0]->getName() << '\n';
+      cout << "Expect it to have: " << getArrayType(primitives[Prim::CHAR], 2)->getName() << '\n';
       errMsgLoc(this, "main() must have either no parameters or just string[]");
     }
     mainSubr = this;

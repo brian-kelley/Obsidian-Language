@@ -1246,6 +1246,8 @@ void resolveType(Type*& t)
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
+    cout << "Resolving a type based on the element type of array.\n";
+    cout << "First, resolving the array's type (expr is " << (void*) (eet->arr) << ")...\n";
     resolveExpr(eet->arr);
     ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
     if(!arrType)
