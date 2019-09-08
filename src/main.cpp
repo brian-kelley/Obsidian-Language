@@ -6,9 +6,10 @@
 #include "Parser.hpp"
 #include "AST.hpp"
 #include "AST_Output.hpp"
-#include "IR.hpp"
-#include "Dataflow.hpp"
-#include "IRDebug.hpp"
+#include "AstInterpreter.hpp"
+//#include "IR.hpp"
+//#include "Dataflow.hpp"
+//#include "IRDebug.hpp"
 #include "BuiltIn.hpp"
 
 Module* global = nullptr;
@@ -51,6 +52,9 @@ int main(int argc, const char** argv)
   //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->resolve(););
   DEBUG_DO(outputAST(global, "AST.dot");)
+  vector<Expression*> args;
+  TIMEIT("Interpreting AST", Interpreter(mainSubr, args));
+    /*
   TIMEIT("IR/CFG construction", IR::buildIR();)
   //DEBUG_DO(IRDebug::dumpIR("ir.dot");)
   TIMEIT("Optimizing IR", IR::optimizeIR();)
@@ -59,7 +63,6 @@ int main(int argc, const char** argv)
   auto elapsed = (double) (clock() - startTime) / CLOCKS_PER_SEC;
   cout << "Compilation completed in " << elapsed << " seconds.\n";
   //int lines = PastEOF::inst.line;
-  /*
   cout << "Processed " << lines << " lines (" << lines / elapsed;
   cout << " lines/s, or " << code.length() / (elapsed * 1000000) << " MB/s)\n";
   */

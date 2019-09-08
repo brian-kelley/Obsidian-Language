@@ -1,4 +1,5 @@
 #include "AstInterpreter.hpp"
+#include "Variable.hpp"
 
 Interpreter::Interpreter(Subroutine* subr, vector<Expression*> args)
 {
@@ -10,8 +11,8 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
 {
   returning = false;
   //push stack frame
-  frames.emplace_back();
-  StackFrame& current = frames.back();
+  frames.emplace();
+  StackFrame& current = frames.top();
   current.thisExpr = thisExpr;
   //Execute statements in linear sequence.
   //If a return is encountered, execute() returns and
@@ -21,11 +22,11 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
     execute(s);
     if(returning)
     {
-      frames.pop_back();
+      frames.pop();
       return rv;
     }
   }
-  frames.pop_back();
+  frames.pop();
   //implicit return, so there is no return value.
   //Check that the subroutine doesn't return anything,
   //since the resolved AST can't check for missing returns
@@ -49,37 +50,23 @@ void Interpreter::execute(Statement* stmt)
   if(auto assign = dynamic_cast<Assign*>(stmt))
   {
     Expression* rvalue = evaluate(assign->rvalue);
-    //Make sure that rvalue is not pointing to a persistent lvalue
-    if(!rvalue->constant())
-      rvalue = rvalue->copy();
-    if(auto va = dynamic_cast<VarExpr*>(assign->lvalue))
-      assignVar(va->var, rvalue);
-    else if(auto indexed = dynamic_cast<Indexed*>(assign->lvalue))
+    if(auto compoundAssign = dynamic_cast<CompoundLiteral*>(assign->lvalue))
     {
-      //bounds check array/tuple index
-      if(auto arr = dynamic_cast<CompoundLiteral*>(indexed->group))
+      //rvalue (fully evaluated to a constant) should also be a CompoundLiteral.
+      //Do the assignment one element at a time
+      auto compoundRHS = dynamic_cast<CompoundLiteral*>(rvalue);
+      INTERNAL_ASSERT(compoundRHS);
+      size_t n = compoundAssign->members.size();
+      INTERNAL_ASSERT(n == compoundRHS->members.size());
+      for(size_t i = 0; i < n; i++)
       {
-        long index;
-        IntConstant* indexExpr = dynamic_cast<IntConstant*>(indexed->index);
-        INTERNAL_ASSERT(indexExpr);
-        if(indexExpr->isSigned())
-          index = indexExpr->sval;
-        else
-          index = indexExpr->uval;
-        if(index < 0 || index >= (long) arr->members.size())
-          errMsgLoc(indexed, "array index " << index << " out of bounds [0, " << arr->members.size() << ")\n");
-        //can assign the value directly
-        arr->members[index] = rvalue;
+        //evaluate symbolic lvalue, and directly assign rvalue
+        evaluateLValue(compoundAssign->members[i]) = compoundRHS->members[i];
       }
-      else if(auto map = dynamic_cast<MapConstant*>(indexed->group))
-        map->values[indexed->index] = rvalue;
-      else
-        INTERNAL_ERROR;
     }
-    else if(auto structMem = dynamic_cast<StructMem*>(assign->lvalue))
+    else
     {
-      //Have evaluated the 
-      (assign->lvalue) = rvalue;
+      evaluateLValue(assign->lvalue) = rvalue;
     }
   }
   else if(auto block = dynamic_cast<Block*>(stmt))
@@ -153,8 +140,7 @@ void Interpreter::execute(Statement* stmt)
   }
   else if(auto fa = dynamic_cast<ForArray*>(stmt))
   {
-    Expression* zero = new IntLiteral(0, primitives[Prim::LONG]);
-    Expression* iter = new VarExpr(fa->iter);
+    Expression* zero = new IntConstant((int64_t) 0, primitives[Prim::LONG]);
     zero->resolve();
     int dims = fa->counters.size();
     vector<Expression*> counterExprs;
@@ -164,20 +150,15 @@ void Interpreter::execute(Statement* stmt)
     //Use a stack to store the nodes which must still be visited.
     //zero out first counter
     vector<Assign*> counterZero;
-    for(int i = 0; i < dims; i++)
-    {
-      counterIncr.push_back(new Assign(counterExprs[0], INC));
-      counterIncr.back()->resolve();
-    }
     vector<int> indices(dims, 0);
-    stack<pair<Expression*, depth>> toVisit;
-    toVisit.emplace_back(evaluate(fa->arr), 0);
+    stack<pair<Expression*, int>> toVisit;
+    toVisit.emplace(evaluate(fa->arr), 0);
     while(!toVisit.empty())
     {
       Expression* visit;
       int depth;
-      visit = toVisit.top().get<0>();
-      depth = toVisit.top().get<1>();
+      visit = toVisit.top().first;
+      depth = toVisit.top().second;
       toVisit.pop();
       if(depth == dims - 1)
       {
@@ -189,14 +170,14 @@ void Interpreter::execute(Statement* stmt)
         //push elements of visit in reverse order
         if(auto cl = dynamic_cast<CompoundLiteral*>(visit))
           for(int i = cl->members.size() - 1; i >= 0; i--)
-            toVisit.emplace_back(cl->members[i], depth + 1);
+            toVisit.emplace(cl->members[i], depth + 1);
         else
         {
           StringConstant* sc = dynamic_cast<StringConstant*>(visit);
           INTERNAL_ASSERT(sc);
           string val = sc->value;
           for(int i = val.length() - 1; i >= 0; i--)
-            toVisit.emplace_back(new CharConstant(val[i]), depth + 1);
+            toVisit.emplace(new CharConstant(val[i]), depth + 1);
         }
         //zero out next dim's counter,
         assignVar(fa->counters[depth + 1], zero);
@@ -240,14 +221,14 @@ void Interpreter::execute(Statement* stmt)
         break;
     }
   }
-  else if(auto i = dynamic_cast<If*>(stmt))
+  else if(auto ifStmt = dynamic_cast<If*>(stmt))
   {
-    BoolConstant* cond = dynamic_cast<BoolConstant*>(evaluate(i->condition));
+    BoolConstant* cond = dynamic_cast<BoolConstant*>(evaluate(ifStmt->condition));
     INTERNAL_ASSERT(cond);
     if(cond->value)
-      execute(i->body);
-    else if(i->elseBody)
-      execute(i->elseBody);
+      execute(ifStmt->body);
+    else if(ifStmt->elseBody)
+      execute(ifStmt->elseBody);
   }
   else if(auto ret = dynamic_cast<Return*>(stmt))
   {
@@ -255,11 +236,11 @@ void Interpreter::execute(Statement* stmt)
       rv = evaluate(ret->value);
     returning = true;
   }
-  else if(auto brk = dynamic_cast<Break*>(stmt))
+  else if(dynamic_cast<Break*>(stmt))
   {
     breaking = true;
   }
-  else if(auto cont = dynamic_cast<Continue*>(stmt))
+  else if(dynamic_cast<Continue*>(stmt))
   {
     continuing = true;
   }
@@ -268,11 +249,11 @@ void Interpreter::execute(Statement* stmt)
     for(auto e : print->exprs)
       cout << evaluate(e);
   }
-  else if(auto assertion = dynamic_cast<Assert*>(stmt))
+  else if(auto assertion = dynamic_cast<Assertion*>(stmt))
   {
     BoolConstant* bc = dynamic_cast<BoolConstant*>(evaluate(assertion->asserted));
     assert(bc);
-    if(!bc->value);
+    if(!bc->value)
     {
       errMsgLoc(assertion, "Assertion failed: " << assertion->asserted);
     }
@@ -293,7 +274,7 @@ void Interpreter::execute(Statement* stmt)
     //begin executing body at the proper position
     for(size_t i = label; i < sw->block->stmts.size(); i++)
     {
-      execute(sw->block->stmts[j]);
+      execute(sw->block->stmts[i]);
       if(breaking)
       {
         breaking = false;
@@ -336,7 +317,7 @@ CompoundLiteral* Interpreter::createArray(uint64_t* dims, int ndims, Type* elem,
     }
     else
     {
-      elems.push_back(createArray(&dims[1], ndims - 1, elem));
+      elems.push_back(createArray(&dims[1], ndims - 1, elem, fillVal));
     }
   }
   CompoundLiteral* cl = new CompoundLiteral(elems);
@@ -394,6 +375,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
     auto cl = new CompoundLiteral(mem);
     cl->resolve();
     cl->setLocation(loc);
+    cl->type = type;
     return cl;
   }
   else if(structDst)
@@ -410,6 +392,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
     clRHS->setLocation(value);
     clRHS->resolve();
     clRHS->setLocation(loc);
+    clRHS->type = type;
     return clRHS;
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
@@ -456,14 +439,6 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   {
     //attempt to fold all elements (can't proceed unless every
     //one is a constant)
-    bool allConstant = true;
-    for(auto& mem : compLit->members)
-    {
-      foldExpression(mem);
-      allConstant = allConstant && mem->constant();
-    }
-    if(!allConstant)
-      return compLit;
     if(auto st = dynamic_cast<StructType*>(type))
     {
       for(size_t i = 0; i < compLit->members.size(); i++)
@@ -475,6 +450,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
         }
         //else: don't need to convert member
       }
+      compLit->type = type;
       return compLit;
     }
     else if(auto tt = dynamic_cast<TupleType*>(type))
@@ -487,6 +463,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
               compLit->members[i], tt->members[i]);
         }
       }
+      compLit->type = type;
       return compLit;
     }
     else if(auto at = dynamic_cast<ArrayType*>(type))
@@ -501,6 +478,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
       CompoundLiteral* arrayLit = new CompoundLiteral(elements);
       arrayLit->resolved = true;
       arrayLit->type = at;
+      arrayLit->type = type;
       return arrayLit;
     }
     else if(auto mt = dynamic_cast<MapType*>(type))
@@ -519,6 +497,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
           val = convertConstant(val, mt->value);
         mc->values[key] = val;
       }
+      mc->type = type;
       return mc;
     }
   }
@@ -533,8 +512,22 @@ Expression* Interpreter::evaluate(Expression* e)
 {
   if(e->constant())
   {
-    //nothing to do
+    //nothing to do, except convert StringConstant
+    //to char[] (this is required because StringConstants are not
+    //mutable, but variables of string type need to be)
+    if(auto sc = dynamic_cast<StringConstant*>(e))
+    {
+      vector<Expression*> chars;
+      for(size_t i = 0; i < sc->value.length(); i++)
+        chars.push_back(new CharConstant(sc->value[i]));
+      return new CompoundLiteral(chars);
+    }
     return e;
+  }
+  if(e->assignable())
+  {
+    //Don't want modifications to apply to the original.
+    return evaluateLValue(e)->copy();
   }
   if(auto ua = dynamic_cast<UnaryArith*>(e))
   {
@@ -563,7 +556,7 @@ Expression* Interpreter::evaluate(Expression* e)
         {
           //Negation: applies to integers and floats
           Expression* copy = operand->copy();
-          if(auto ic = dynamic_cast<IntegerConstant*>(copy))
+          if(auto ic = dynamic_cast<IntConstant*>(copy))
           {
             if(ic->isSigned())
               ic->sval = -ic->sval;
@@ -575,9 +568,9 @@ Expression* Interpreter::evaluate(Expression* e)
             if(fc->isDoublePrec())
               fc->dp = -fc->dp;
             else
-              fc->sp = -fc->sp;
+              fc->fp = -fc->fp;
           }
-          return ic;
+          return copy;
         }
       default:
         INTERNAL_ERROR;
@@ -619,11 +612,6 @@ Expression* Interpreter::evaluate(Expression* e)
       //handle array concat, prepend and append operations (not numeric + yet)
       CompoundLiteral* compoundLHS = dynamic_cast<CompoundLiteral*>(lhs);
       CompoundLiteral* compoundRHS = dynamic_cast<CompoundLiteral*>(rhs);
-      if((compoundLHS || compoundRHS) && oversize)
-      {
-        //+ on arrays always increases object size, so don't fold with oversized values
-        return nullptr;
-      }
       if(compoundLHS && compoundRHS)
       {
         vector<Expression*> resultMembers(compoundLHS->members.size() + compoundRHS->members.size());
@@ -685,8 +673,8 @@ Expression* Interpreter::evaluate(Expression* e)
   else if(auto cl = dynamic_cast<CompoundLiteral*>(e))
   {
     vector<Expression*> elems;
-    for(auto e : cl->members)
-      elems.push_back(evaluate(e));
+    for(auto mem : cl->members)
+      elems.push_back(evaluate(mem));
     return new CompoundLiteral(elems);
   }
   else if(auto ind = dynamic_cast<Indexed*>(e))
@@ -694,9 +682,9 @@ Expression* Interpreter::evaluate(Expression* e)
     Expression* group = evaluate(ind->group);
     Expression* index = evaluate(ind->index);
     //arrays are represented as either CompoundLiteral or StringConstant
-    auto cl = dynamic_cast<CompoundLiteral*>(group);
-    auto sc = dynamic_cast<StringConstant*>(group);
-    if(cl || sc)
+    auto compLit = dynamic_cast<CompoundLiteral*>(group);
+    auto stringConstant = dynamic_cast<StringConstant*>(group);
+    if(compLit || stringConstant)
     {
       //an array, so index should be an integer
       IntConstant* ic = dynamic_cast<IntConstant*>(index);
@@ -710,22 +698,22 @@ Expression* Interpreter::evaluate(Expression* e)
       }
       else
         ord = ic->uval;
-      if(cl)
+      if(compLit)
       {
-        if(ord >= cl->members.size())
-          errMsgLoc(ind, "array index out of bounds");
-        return cl->members[ord];
+        if(ord >= compLit->members.size())
+          errMsgLoc(ind, "array index " << ord << " out of bound " << compLit->members.size());
+        return compLit->members[ord];
       }
       else
       {
-        if(ord >= sc->value.length())
+        if(ord >= stringConstant->value.length())
           errMsgLoc(ind, "string index out of bounds");
-        return new CharConstant(sc->value[ord]);
+        return new CharConstant(stringConstant->value[ord]);
       }
     }
     else if(auto mc = dynamic_cast<MapConstant*>(group))
     {
-      MapType* mapType = (MapType*) mt->type;
+      MapType* mapType = (MapType*) mc->type;
       //if key (index) is not already in the map, insert it and default-initialize the value
       if(mc->values.find(group) == mc->values.end())
         mc->values[group] = mapType->value->getDefaultValue();
@@ -737,25 +725,16 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     //evaluate callable, then args in order
     auto callable = evaluate(call->callable);
-    Expression* callTarget = nullptr;
-    if(auto subExpr = dynamic_cast<SubroutineExpr*>(callable))
-      callTarget = subExpr;
-    else
-      callTarget = evaluate(callable);
     vector<Expression*> args;
-    for(auto a : eval->args)
+    for(auto a : call->args)
       args.push_back(evaluate(a));
-    //All "constant" callables must be SubroutineExpr,
+    //All "constant" callables must be SubroutineExpr
     auto subExpr = dynamic_cast<SubroutineExpr*>(callable);
-    INTERNAL_ASSERT(!subExpr);
+    INTERNAL_ASSERT(subExpr);
     if(subExpr->subr)
       callSubr(subExpr->subr, args, subExpr->thisObject);
     else
       callExtern(subExpr->exSubr, args);
-  }
-  else if(auto v = dynamic_cast<VarExpr*>(e))
-  {
-    return readVar(v);
   }
   else if(auto sm = dynamic_cast<StructMem*>(e))
   {
@@ -801,33 +780,27 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     //note: the type of this expression is always "long"
     Expression* arr = evaluate(al->array);
-    if(auto cl = dynamic_cast<CompoundLiteral*>(arr))
-    {
-      return new IntConstant((int64_t) cl->members.size());
-    }
-    else if(auto sc = dynamic_cast<StringConstant*>(arr))
-    {
-      return new IntConstant((int64_t) sc->value.length());
-    }
-    INTERNAL_ERROR;
+    auto compLit = dynamic_cast<CompoundLiteral*>(arr);
+    INTERNAL_ASSERT(compLit);
+    return new IntConstant((int64_t) compLit->members.size());
   }
   else if(auto ie = dynamic_cast<IsExpr*>(e))
   {
     UnionConstant* uc = dynamic_cast<UnionConstant*>(evaluate(ie->base));
     INTERNAL_ASSERT(uc);
-    return new BoolConstant(uc->optionIndex == ie->option);
+    return new BoolConstant(uc->option == ie->optionIndex);
   }
   else if(auto ae = dynamic_cast<AsExpr*>(e))
   {
     UnionConstant* uc = dynamic_cast<UnionConstant*>(evaluate(ae->base));
     INTERNAL_ASSERT(uc);
-    if(uc->optionIndex != ae->option)
+    if(uc->option != ae->optionIndex)
       errMsgLoc(ae, "union value does not have the type expected by \"as\"");
     return ae->base;
   }
-  else if(auto te = dynamic_cast<ThisExpr*>(e))
+  else if(dynamic_cast<ThisExpr*>(e))
   {
-    return frames.back().thisExpr;
+    return frames.top().thisExpr;
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
@@ -837,8 +810,79 @@ Expression* Interpreter::evaluate(Expression* e)
   return nullptr;
 }
 
-Expression*& Interpreter::evaluateLVal(Expression* e)
+Expression*& Interpreter::evaluateLValue(Expression* e)
 {
+  if(auto v = dynamic_cast<VarExpr*>(e))
+  {
+    return readVar(v->var);
+  }
+  else if(auto sm = dynamic_cast<StructMem*>(e))
+  {
+    //the sm's base must be an lvalue, and from that
+    //the member can be accessed
+    CompoundLiteral* base = dynamic_cast<CompoundLiteral*>(evaluateLValue(sm->base));
+    INTERNAL_ASSERT(base);
+    StructType* structType = dynamic_cast<StructType*>(sm->base->type);
+    INTERNAL_ASSERT(structType);
+    auto& dataMems = structType->members;
+    //Only variable members are mutable!
+    //Subroutine members are immutable parts of a struct type's interface.
+    INTERNAL_ASSERT(sm->member.is<Variable*>());
+    for(size_t i = 0; i < dataMems.size(); i++)
+    {
+      if(dataMems[i] == sm->member.get<Variable*>())
+        return base->members[i];
+    }
+    INTERNAL_ERROR;
+  }
+  else if(auto ind = dynamic_cast<Indexed*>(e))
+  {
+    Expression*& group = evaluateLValue(ind->group);
+    Expression* index = evaluate(ind->index);
+    //arrays are represented as either CompoundLiteral or StringConstant
+    auto cl = dynamic_cast<CompoundLiteral*>(group);
+    if(cl)
+    {
+      //an array, so index should be an integer
+      IntConstant* ic = dynamic_cast<IntConstant*>(index);
+      INTERNAL_ASSERT(ic);
+      unsigned ord = 0;
+      if(ic->isSigned())
+      {
+        if(ic->sval < 0)
+          errMsgLoc(ind, "negative array index");
+        ord = ic->sval;
+      }
+      else
+        ord = ic->uval;
+      if(ord >= cl->members.size())
+        errMsgLoc(ind, "array index out of bounds");
+      return cl->members[ord];
+    }
+    else if(auto mc = dynamic_cast<MapConstant*>(group))
+    {
+      MapType* mapType = (MapType*) mc->type;
+      //if key (index) is not already in the map, insert it and default-initialize the value
+      if(mc->values.find(group) == mc->values.end())
+        mc->values[group] = mapType->value->getDefaultValue();
+      return mc->values[group];
+    }
+    INTERNAL_ERROR;
+  }
+  else if(dynamic_cast<ThisExpr*>(e))
+  {
+    if(auto thisVar = dynamic_cast<VarExpr*>(frames.top().thisExpr))
+    {
+      //return a reference to the var referred to be "this"
+      return evaluateLValue(thisVar);
+    }
+    else
+    {
+      //return a direct reference to thisExpr
+      return frames.top().thisExpr;
+    }
+  }
+  INTERNAL_ERROR;
 }
 
 void Interpreter::assignVar(Variable* v, Expression* e)
@@ -853,14 +897,14 @@ void Interpreter::assignVar(Variable* v, Expression* e)
   else
   {
     //a reference to local must be in the current frame
-    frames.back().locals[v] = e;
+    frames.top().locals[v] = e;
   }
 }
 
-Expression* Interpreter::readVar(Variable* v)
+Expression*& Interpreter::readVar(Variable* v)
 {
   if(globals.find(v) != globals.end())
     return globals[v];
-  return frames.back().locals[v];
+  return frames.top().locals[v];
 }
 

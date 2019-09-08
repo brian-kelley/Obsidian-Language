@@ -27,13 +27,14 @@ struct Interpreter
   Expression* callExtern(ExternalSubroutine* exSubr, vector<Expression*> args);
   void execute(Statement* stmt);
   Expression* evaluate(Expression* e);
-  Expression*& evaluateLVal(Expression* e);
-  CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem);
-  Expression* convertConstant(Expression* value, Type* type);
+  Expression*& evaluateLValue(Expression* e);
+  static CompoundLiteral* createArray(uint64_t* dims, int ndims,
+      Type* elem, Expression* fillVal);
+  static Expression* convertConstant(Expression* value, Type* type);
   void assignVar(Variable* v, Expression* e);
-  Expression* readVar(Variable* v);
+  Expression*& readVar(Variable* v);
   //frames.back is the top of the call stack
-  vector<StackFrame> frames;
+  stack<StackFrame> frames;
   map<Variable*, Expression*> globals;
   //Is the topmost function returning?
   bool returning;
