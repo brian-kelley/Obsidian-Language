@@ -4,6 +4,8 @@
 Interpreter::Interpreter(Subroutine* subr, vector<Expression*> args)
 {
   returning = false;
+  breaking = false;
+  continuing = false;
   callSubr(subr, args);
 }
 
@@ -247,7 +249,25 @@ void Interpreter::execute(Statement* stmt)
   else if(auto print = dynamic_cast<Print*>(stmt))
   {
     for(auto e : print->exprs)
-      cout << evaluate(e);
+    {
+      Expression* toPrint = evaluate(e);
+      //Evaluating any string always returns "char[]", which
+      //would normally print as an array.
+      if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
+      {
+        CompoundLiteral* stringArr = dynamic_cast<CompoundLiteral*>(toPrint);
+        for(auto elem : stringArr->members)
+        {
+          auto charElem = dynamic_cast<CharConstant*>(elem);
+          INTERNAL_ASSERT(charElem);
+          cout << charElem->value;
+        }
+      }
+      else
+      {
+        cout << evaluate(e);
+      }
+    }
   }
   else if(auto assertion = dynamic_cast<Assertion*>(stmt))
   {
