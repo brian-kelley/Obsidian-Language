@@ -34,10 +34,7 @@ Variable::Variable(string n, Type* t, Block* b)
 
 void Variable::resolveImpl()
 {
-  cout << "Resolving variable " << name << '\n';
-  cout << "First, resolving type...\n";
   resolveType(type);
-  cout << "Resolved type: " << type->getName() << '\n';
   INTERNAL_ASSERT(type->resolved);
   if(initial)
   {

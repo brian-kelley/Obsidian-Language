@@ -16,6 +16,16 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
   frames.emplace();
   StackFrame& current = frames.top();
   current.thisExpr = thisExpr;
+  if(args.size() != subr->type->paramTypes.size())
+  {
+    errMsgLoc(args[0], "Call to " << subr->name << " expects " << \
+        subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
+  }
+  //assign args to corresponding local variables
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    assignVar(subr->params[i], args[i]);
+  }
   //Execute statements in linear sequence.
   //If a return is encountered, execute() returns and
   //the return value will be placed in the frame rv
@@ -151,10 +161,9 @@ void Interpreter::execute(Statement* stmt)
     //A ragged array is easily iterated using DFS over a tree.
     //Use a stack to store the nodes which must still be visited.
     //zero out first counter
-    vector<Assign*> counterZero;
-    vector<int> indices(dims, 0);
     stack<pair<Expression*, int>> toVisit;
-    toVisit.emplace(evaluate(fa->arr), 0);
+    toVisit.emplace(evaluate(fa->arr), -1);
+    assignVar(fa->counters[0], zero);
     while(!toVisit.empty())
     {
       Expression* visit;
@@ -162,45 +171,44 @@ void Interpreter::execute(Statement* stmt)
       visit = toVisit.top().first;
       depth = toVisit.top().second;
       toVisit.pop();
-      if(depth == dims - 1)
+      if(depth + 1 == dims)
       {
         //innermost dimension, assign iter's value
         assignVar(fa->iter, visit);
+        //and execute the body
+        execute(fa->inner);
+        if(breaking)
+        {
+          breaking = false;
+          break;
+        }
+        else if(continuing)
+          continuing = false;
+        else if(returning)
+          break;
       }
       else
       {
         //push elements of visit in reverse order
-        if(auto cl = dynamic_cast<CompoundLiteral*>(visit))
-          for(int i = cl->members.size() - 1; i >= 0; i--)
-            toVisit.emplace(cl->members[i], depth + 1);
-        else
+        auto cl = dynamic_cast<CompoundLiteral*>(visit);
+        INTERNAL_ASSERT(cl);
+        for(int i = cl->members.size() - 1; i >= 0; i--)
         {
-          StringConstant* sc = dynamic_cast<StringConstant*>(visit);
-          INTERNAL_ASSERT(sc);
-          string val = sc->value;
-          for(int i = val.length() - 1; i >= 0; i--)
-            toVisit.emplace(new CharConstant(val[i]), depth + 1);
+          toVisit.emplace(cl->members[i], depth + 1);
         }
-        //zero out next dim's counter,
-        assignVar(fa->counters[depth + 1], zero);
+        //zero out next dim's counter, if there is one
+        if(depth + 1 < dims)
+          assignVar(fa->counters[depth + 1], zero);
       }
-      //execute the body
-      execute(fa->inner);
-      if(breaking)
+      if(depth >= 0)
       {
-        breaking = false;
-        break;
+        //finally, increment the counter for the current dimension
+        IntConstant* countVal = dynamic_cast<IntConstant*>(readVar(fa->counters[depth]));
+        INTERNAL_ASSERT(countVal);
+        //"long" is always the type used for counters
+        INTERNAL_ASSERT(countVal->isSigned());
+        countVal->sval++;
       }
-      else if(continuing)
-        continuing = false;
-      else if(returning)
-        break;
-      //finally, increment the counter for the current dimension
-      IntConstant* countVal = dynamic_cast<IntConstant*>(readVar(fa->counters[depth]));
-      INTERNAL_ASSERT(countVal);
-      //"long" is the type used for counters
-      INTERNAL_ASSERT(countVal->isSigned());
-      countVal->sval++;
     }
   }
   else if(auto w = dynamic_cast<While*>(stmt))
@@ -253,9 +261,18 @@ void Interpreter::execute(Statement* stmt)
       Expression* toPrint = evaluate(e);
       //Evaluating any string always returns "char[]", which
       //would normally print as an array.
-      if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
+      if(auto stringConst = dynamic_cast<StringConstant*>(toPrint))
+      {
+        cout << stringConst->value;
+      }
+      else if(auto charConst = dynamic_cast<CharConstant*>(toPrint))
+      {
+        cout << charConst->value;
+      }
+      else if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
       {
         CompoundLiteral* stringArr = dynamic_cast<CompoundLiteral*>(toPrint);
+        INTERNAL_ASSERT(stringArr);
         for(auto elem : stringArr->members)
         {
           auto charElem = dynamic_cast<CharConstant*>(elem);
@@ -265,7 +282,7 @@ void Interpreter::execute(Statement* stmt)
       }
       else
       {
-        cout << evaluate(e);
+        cout << toPrint;
       }
     }
   }
@@ -925,6 +942,10 @@ Expression*& Interpreter::readVar(Variable* v)
 {
   if(globals.find(v) != globals.end())
     return globals[v];
+  if(frames.top().locals.find(v) == frames.top().locals.end())
+  {
+    errMsg("Variable " << v->name << " is not currently defined.\n");
+  }
   return frames.top().locals[v];
 }
 

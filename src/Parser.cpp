@@ -538,7 +538,6 @@ namespace Parser
     }
     expectPunct(COLON);
     fa->arr = parseExpression(b->scope);
-    cout << "parsed the array to iterate over: " << (void*) fa->arr << '\n';
     fa->createIterators(tup);
     auto body = parseStatement(fa->inner, true);
     fa->inner->addStatement(body);
@@ -665,7 +664,7 @@ namespace Parser
         uint64_t rawValue = ((IntLit*) expect(INT_LITERAL))->val;
         if(sign)
         {
-          if(rawValue > -numeric_limits<int64_t>::min())
+          if(rawValue > numeric_limits<int64_t>::max())
           {
             errMsgLoc(valueLocation, "negative enum value can't fit in a long");
           }

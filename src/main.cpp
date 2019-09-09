@@ -50,8 +50,16 @@ int main(int argc, const char** argv)
   vector<Expression*> mainArgs;
   if(argc > 2)
   {
+    vector<Expression*> stringArgs;
     for(int i = 2; i < argc; i++)
-      mainArgs.push_back(new StringConstant(string(argv[i])));
+    {
+      vector<Expression*> strChars;
+      string s = argv[i];
+      for(size_t j = 0; j < s.length(); j++)
+        strChars.push_back(new CharConstant(s[j]));
+      stringArgs.push_back(new CompoundLiteral(strChars));
+    }
+    mainArgs.push_back(new CompoundLiteral(stringArgs));
   }
   TIMEIT("Interpreting AST", Interpreter(mainSubr, mainArgs));
     /*

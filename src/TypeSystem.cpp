@@ -459,17 +459,17 @@ void UnionType::dependencies(set<Type*>& types)
     //True dependencies are those that appear in every option
     for(auto it : memIntersect)
     {
-      if(it.second == options.size())
+      if(it.second == (int) options.size())
         types.insert(it.first);
     }
   }
 }
 
-string UnionType::getName()
+string UnionType::getName() const
 {
   string name = "(";
   name += options[0]->getName();
-  for(int i = 1; i < options.size(); i++)
+  for(size_t i = 1; i < options.size(); i++)
   {
     name += " | ";
     name += options[i]->getName();
@@ -1048,7 +1048,7 @@ void CallableType::resolveImpl()
   //just leave resolved = true
 }
 
-string CallableType::getName()
+string CallableType::getName() const
 {
   Oss oss;
   if(pure)
@@ -1246,8 +1246,6 @@ void resolveType(Type*& t)
   }
   else if(ElemExprType* eet = dynamic_cast<ElemExprType*>(t))
   {
-    cout << "Resolving a type based on the element type of array.\n";
-    cout << "First, resolving the array's type (expr is " << (void*) (eet->arr) << ")...\n";
     resolveExpr(eet->arr);
     ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
     if(!arrType)
@@ -1297,8 +1295,7 @@ static bool typesSameImpl(const Type* t1, const Type* t2,
     auto a2 = dynamic_cast<const ArrayType*>(t2);
     if(!a2)
       return false;
-    return a1->dims == a2->dims &&
-      typesSameImpl(a1->elem, a2->elem,assume);
+    return typesSameImpl(a1->subtype, a2->subtype, assume);
   }
   else if(auto tt1 = dynamic_cast<const TupleType*>(t1))
   {

@@ -234,7 +234,7 @@ void ForArray::resolveImpl()
   {
     errMsgLoc(this, "can't iterate over non-array expression");
   }
-  if(arrType->dims < counters.size())
+  if(arrType->dims < (int) counters.size())
   {
     errMsgLoc(this, "requested " << counters.size() <<
         " counters but array has only " << arrType->dims << " dimensions");

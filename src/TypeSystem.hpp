@@ -52,7 +52,7 @@ struct Type : public Node
   virtual ~Type() {}
   virtual bool canConvert(Type* other) = 0;
   //get the type's name
-  virtual string getName() = 0;
+  virtual string getName() const = 0;
   //for types, resolve is only used to detect circular membership
   //i.e. a struct cannot contain itself (must have fixed, finite size)
   //so resolveImpl is only implemented for types where self-membership is
@@ -168,7 +168,7 @@ struct StructType : public Type
   Scope* scope;
   bool canConvert(Type* other);
   bool isStruct() {return true;}
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -203,7 +203,7 @@ struct UnionType : public Type
   bool canConvert(Type* other);
   bool isUnion() {return true;}
   bool isRecursive() {return recursive;}
-  string getName();
+  string getName() const;
   void dependencies(set<Type*>& types);
   size_t hash() const
   {
@@ -243,7 +243,7 @@ struct ArrayType : public Type
   void resolveImpl();
   bool isArray() {return true;}
   void dependencies(set<Type*>& types);
-  string getName()
+  string getName() const
   {
     string name = elem->getName();
     for(int i = 0; i < dims; i++)
@@ -272,7 +272,7 @@ struct TupleType : public Type
   void resolveImpl();
   bool isTuple() {return true;}
   void dependencies(set<Type*>& types);
-  string getName()
+  string getName() const
   {
     string name = "(";
     for(size_t i = 0; i < members.size(); i++)
@@ -303,7 +303,7 @@ struct MapType : public Type
   Type* value;
   bool isMap() {return true;}
   void dependencies(set<Type*>& types);
-  string getName()
+  string getName() const
   {
     string name = "(";
     name += key->getName();
@@ -344,7 +344,7 @@ struct AliasType : public Type
   bool isBool()     {return actual->isBool();}
   bool isPrimitive(){return actual->isPrimitive();}
   bool isAlias()    {return true;}
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -421,7 +421,7 @@ struct EnumType : public Type
   //The type used to represent the enum in memory
   IntegerType* underlying;
   Scope* scope;
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -445,7 +445,7 @@ struct IntegerType : public Type
   bool isInteger() {return true;}
   bool isNumber() {return true;}
   bool isPrimitive() {return true;}
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -469,7 +469,7 @@ struct FloatType : public Type
   bool isNumber() {return true;}
   bool isPrimitive() {return true;}
   bool isFloat() {return true;};
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -493,7 +493,7 @@ struct CharType : public Type
   bool isInteger() {return true;}
   bool isNumber() {return true;}
   bool isPrimitive() {return true;}
-  string getName()
+  string getName() const
   {
     return "char";
   }
@@ -513,7 +513,7 @@ struct BoolType : public Type
   bool canConvert(Type* other);
   bool isBool() {return true;}
   bool isPrimitive() {return true;}
-  string getName()
+  string getName() const
   {
     return "bool";
   }
@@ -535,7 +535,7 @@ struct SimpleType : public Type
   //for all purposes, this is POD and primitive
   bool isPrimitive() {return true;}
   bool isSimple() {return true;}
-  string getName()
+  string getName() const
   {
     return name;
   }
@@ -555,7 +555,7 @@ struct CallableType : public Type
   //constructor for members
   CallableType(bool isPure, StructType* owner, Type* returnType, vector<Type*>& params);
   virtual void resolveImpl();
-  string getName();
+  string getName() const;
   StructType* ownerStruct;  //true iff non-static and in struct scope
   Type* returnType;
   vector<Type*> paramTypes;
@@ -635,7 +635,7 @@ struct UnresolvedType : public Type
   int arrayDims;
   //UnresolvedType can never be resolved; it is replaced by something else
   bool canConvert(Type* other) {return false;}
-  virtual string getName() {return "<UNKNOWN TYPE>";}
+  virtual string getName() const {return "<UNKNOWN TYPE>";}
   size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
@@ -647,7 +647,7 @@ struct ExprType : public Type
   void resolveImpl();
   Expression* expr;
   bool canConvert(Type* other) {return false;}
-  string getName() {return "<unresolved expression type>";};
+  string getName() const {return "<unresolved expression type>";};
   size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
@@ -659,7 +659,7 @@ struct ElemExprType : public Type
   void resolveImpl();
   Expression* arr;
   bool canConvert(Type* other) {return false;}
-  string getName() {return "<unresolved array expr element type>";};
+  string getName() const {return "<unresolved array expr element type>";};
   size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
