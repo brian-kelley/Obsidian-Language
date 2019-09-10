@@ -152,11 +152,9 @@ void Interpreter::execute(Statement* stmt)
   }
   else if(auto fa = dynamic_cast<ForArray*>(stmt))
   {
-    Expression* zero = new IntConstant((int64_t) 0, primitives[Prim::LONG]);
     int dims = fa->counters.size();
     //A ragged array is easily iterated using DFS over a tree.
     //Use a stack to store the nodes which must still be visited.
-    //zero out first counter
     //Visit tuple is (array, depth, position), where position is the
     //depth-level index in the array
     stack<tuple<Expression*, int, long>> toVisit;

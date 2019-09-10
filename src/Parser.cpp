@@ -332,7 +332,8 @@ namespace Parser
     Punct rbrack(RBRACKET);
     Punct quest(QUESTION);
     //check for square bracket pairs after, indicating array type
-    while(lookAhead()->compareTo(&lbrack) ||
+    while((lookAhead(0)->compareTo(&lbrack) &&
+          lookAhead(1)->compareTo(&rbrack)) ||
         lookAhead()->compareTo(&quest))
     {
       if(acceptPunct(LBRACKET))
@@ -1012,6 +1013,7 @@ namespace Parser
         vector<Expression*> dims;
         while(acceptPunct(LBRACKET))
         {
+          cout <<"Parsed dim.\n";
           dims.push_back(parseExpression(s));
           expectPunct(RBRACKET);
         }
