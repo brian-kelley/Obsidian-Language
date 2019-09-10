@@ -50,6 +50,8 @@ int main(int argc, const char** argv)
   vector<Expression*> mainArgs;
   if(argc > 2)
   {
+    Type* stringType = getArrayType(primitives[Prim::CHAR], 1);
+    Type* stringArrType = getArrayType(primitives[Prim::CHAR], 2);
     vector<Expression*> stringArgs;
     for(int i = 2; i < argc; i++)
     {
@@ -57,9 +59,9 @@ int main(int argc, const char** argv)
       string s = argv[i];
       for(size_t j = 0; j < s.length(); j++)
         strChars.push_back(new CharConstant(s[j]));
-      stringArgs.push_back(new CompoundLiteral(strChars));
+      stringArgs.push_back(new CompoundLiteral(strChars, stringType));
     }
-    mainArgs.push_back(new CompoundLiteral(stringArgs));
+    mainArgs.push_back(new CompoundLiteral(stringArgs, stringArrType));
   }
   TIMEIT("Interpreting AST", Interpreter(mainSubr, mainArgs));
     /*

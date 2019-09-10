@@ -21,6 +21,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <new>
+#include <utility>
+#include <tuple>
 #include "variant.h"
 
 using std::string;
@@ -32,6 +34,7 @@ using std::set;
 using std::stack;
 using std::queue;
 using std::pair;
+using std::tuple;
 using std::ostream;
 using std::ofstream;
 using std::ostringstream;

@@ -245,11 +245,8 @@ struct ArrayType : public Type
   void dependencies(set<Type*>& types);
   string getName() const
   {
-    string name = elem->getName();
-    for(int i = 0; i < dims; i++)
-    {
-      name += "[]";
-    }
+    string name = subtype->getName();
+    name += "[]";
     return name;
   }
   size_t hash() const
@@ -656,8 +653,11 @@ struct ExprType : public Type
 struct ElemExprType : public Type
 {
   ElemExprType(Expression* arr);
+  ElemExprType(Expression* arr, int reduction);
   void resolveImpl();
   Expression* arr;
+  //how many array dimensions to remove from arr
+  int reduction;
   bool canConvert(Type* other) {return false;}
   string getName() const {return "<unresolved array expr element type>";};
   size_t hash() const {INTERNAL_ERROR; return 0;}

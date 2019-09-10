@@ -66,6 +66,11 @@ void createBuiltinTypes()
 Type* getArrayType(Type* elem, int ndims)
 {
   resolveType(elem);
+  if(auto subArray = dynamic_cast<ArrayType*>(elem))
+  {
+    ndims += subArray->dims;
+    elem = subArray->elem;
+  }
   if(ndims == 0)
     return elem;
   auto a = new ArrayType(elem, ndims);
@@ -1121,7 +1126,14 @@ void ExprType::resolveImpl()
   INTERNAL_ERROR;
 }
 
-ElemExprType::ElemExprType(Expression* a) : arr(a) {}
+ElemExprType::ElemExprType(Expression* a) : arr(a)
+{
+  //0 means remove all dimensions
+  reduction = 0;
+}
+
+ElemExprType::ElemExprType(Expression* a, int r)
+  : arr(a), reduction(r) {}
 
 void ElemExprType::resolveImpl()
 {
@@ -1137,6 +1149,7 @@ void resolveType(Type*& t)
   if(t->resolved)
   {
     //nothing to do
+    t = canonicalize(t);
     return;
   }
   if(UnresolvedType* unres = dynamic_cast<UnresolvedType*>(t))
@@ -1167,7 +1180,7 @@ void resolveType(Type*& t)
           t = (EnumType*) found.item;
           break;
         case Name::TYPEDEF:
-          t = (AliasType*) found.item;
+          t = ((AliasType*) found.item)->actual;
           break;
         default:
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
@@ -1234,7 +1247,7 @@ void resolveType(Type*& t)
     }
     if(unres->arrayDims > 0)
     {
-      t = new ArrayType(t, unres->arrayDims);
+      t = getArrayType(t, unres->arrayDims);
       t->resolve();
     }
   }
@@ -1248,20 +1261,22 @@ void resolveType(Type*& t)
   {
     resolveExpr(eet->arr);
     ArrayType* arrType = dynamic_cast<ArrayType*>(eet->arr->type);
-    if(!arrType)
+    if(eet->reduction == 0 || arrType->dims == eet->reduction)
     {
-      //arr's type is already singular, so use that
-      t = eet->arr->type;
+      //remove all dimensions, giving a singular type
+      t = arrType->elem;
     }
     else
     {
-      t = arrType->elem;
+      //only remove "reduction" dimensions, producing a smaller array type
+      t = getArrayType(arrType->elem, arrType->dims - eet->reduction);
     }
   }
   else
   {
     t->resolve();
   }
+  t = canonicalize(t);
   t->setLocation(loc);
   INTERNAL_ASSERT(t->resolved);
 }

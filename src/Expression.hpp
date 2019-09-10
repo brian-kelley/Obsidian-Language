@@ -612,6 +612,7 @@ struct UnionConstant : public Expression
 struct CompoundLiteral : public Expression
 {
   CompoundLiteral(vector<Expression*>& mems);
+  CompoundLiteral(vector<Expression*>& mems, Type* t);
   void resolveImpl();
   bool assignable()
   {

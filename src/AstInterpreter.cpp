@@ -155,22 +155,24 @@ void Interpreter::execute(Statement* stmt)
     Expression* zero = new IntConstant((int64_t) 0, primitives[Prim::LONG]);
     zero->resolve();
     int dims = fa->counters.size();
-    vector<Expression*> counterExprs;
-    for(auto counter : fa->counters)
-      counterExprs.push_back(new VarExpr(counter));
     //A ragged array is easily iterated using DFS over a tree.
     //Use a stack to store the nodes which must still be visited.
     //zero out first counter
-    stack<pair<Expression*, int>> toVisit;
-    toVisit.emplace(evaluate(fa->arr), -1);
-    assignVar(fa->counters[0], zero);
+    //Visit tuple is (array, depth, position), where position is the
+    //depth-level index in the array
+    stack<tuple<Expression*, int, long>> toVisit;
+    toVisit.emplace(evaluate(fa->arr), -1, 0);
     while(!toVisit.empty())
     {
-      Expression* visit;
-      int depth;
-      visit = toVisit.top().first;
-      depth = toVisit.top().second;
+      Expression* visit = std::get<0>(toVisit.top());
+      int depth = std::get<1>(toVisit.top());
+      long pos = std::get<2>(toVisit.top());
       toVisit.pop();
+      if(depth >= 0)
+      {
+        //update the index for this depth
+        assignVar(fa->counters[depth], new IntConstant(pos));
+      }
       if(depth + 1 == dims)
       {
         //innermost dimension, assign iter's value
@@ -190,24 +192,23 @@ void Interpreter::execute(Statement* stmt)
       else
       {
         //push elements of visit in reverse order
-        auto cl = dynamic_cast<CompoundLiteral*>(visit);
-        INTERNAL_ASSERT(cl);
-        for(int i = cl->members.size() - 1; i >= 0; i--)
+        CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(visit);
+        if(cl)
         {
-          toVisit.emplace(cl->members[i], depth + 1);
+          for(long i = cl->members.size() - 1; i >= 0; i--)
+          {
+            toVisit.emplace(cl->members[i], depth + 1, i);
+          }
         }
-        //zero out next dim's counter, if there is one
-        if(depth + 1 < dims)
-          assignVar(fa->counters[depth + 1], zero);
-      }
-      if(depth >= 0)
-      {
-        //finally, increment the counter for the current dimension
-        IntConstant* countVal = dynamic_cast<IntConstant*>(readVar(fa->counters[depth]));
-        INTERNAL_ASSERT(countVal);
-        //"long" is always the type used for counters
-        INTERNAL_ASSERT(countVal->isSigned());
-        countVal->sval++;
+        else
+        {
+          StringConstant* sc = dynamic_cast<StringConstant*>(visit);
+          INTERNAL_ASSERT(sc);
+          for(long i = sc->value.length() - 1; i >= 0; i--)
+          {
+            toVisit.emplace(new CharConstant(sc->value[i]), depth + 1, i);
+          }
+        }
       }
     }
   }
@@ -357,10 +358,7 @@ CompoundLiteral* Interpreter::createArray(uint64_t* dims, int ndims, Type* elem,
       elems.push_back(createArray(&dims[1], ndims - 1, elem, fillVal));
     }
   }
-  CompoundLiteral* cl = new CompoundLiteral(elems);
-  cl->type = getArrayType(elem, ndims);
-  cl->resolved = true;
-  return cl;
+  return new CompoundLiteral(elems, getArrayType(elem, ndims));
 }
 
 Expression* Interpreter::convertConstant(Expression* value, Type* type)
@@ -409,10 +407,8 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   {
     //Single-member struct is equivalent to the member
     vector<Expression*> mem(1, value);
-    auto cl = new CompoundLiteral(mem);
-    cl->resolve();
+    auto cl = new CompoundLiteral(mem, type);
     cl->setLocation(loc);
-    cl->type = type;
     return cl;
   }
   else if(structDst)
@@ -512,11 +508,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
       {
         elements.push_back(convertConstant(elem, at->subtype));
       }
-      CompoundLiteral* arrayLit = new CompoundLiteral(elements);
-      arrayLit->resolved = true;
-      arrayLit->type = at;
-      arrayLit->type = type;
-      return arrayLit;
+      return new CompoundLiteral(elements, at);
     }
     else if(auto mt = dynamic_cast<MapType*>(type))
     {
@@ -549,22 +541,14 @@ Expression* Interpreter::evaluate(Expression* e)
 {
   if(e->constant())
   {
-    //nothing to do, except convert StringConstant
-    //to char[] (this is required because StringConstants are not
-    //mutable, but variables of string type need to be)
-    if(auto sc = dynamic_cast<StringConstant*>(e))
-    {
-      vector<Expression*> chars;
-      for(size_t i = 0; i < sc->value.length(); i++)
-        chars.push_back(new CharConstant(sc->value[i]));
-      return new CompoundLiteral(chars);
-    }
     return e;
   }
   if(e->assignable())
   {
     //Don't want modifications to apply to the original.
-    return evaluateLValue(e)->copy();
+    Expression* ecopy = evaluateLValue(e)->copy();
+    ecopy->type = e->type;
+    return ecopy;
   }
   if(auto ua = dynamic_cast<UnaryArith*>(e))
   {
@@ -649,6 +633,7 @@ Expression* Interpreter::evaluate(Expression* e)
       //handle array concat, prepend and append operations (not numeric + yet)
       CompoundLiteral* compoundLHS = dynamic_cast<CompoundLiteral*>(lhs);
       CompoundLiteral* compoundRHS = dynamic_cast<CompoundLiteral*>(rhs);
+      INTERNAL_ASSERT(compoundLHS->type == compoundRHS->type);
       if(compoundLHS && compoundRHS)
       {
         vector<Expression*> resultMembers(compoundLHS->members.size() + compoundRHS->members.size());
@@ -657,6 +642,7 @@ Expression* Interpreter::evaluate(Expression* e)
         for(size_t i = 0; i < compoundRHS->members.size(); i++)
           resultMembers[i + compoundLHS->members.size()] = compoundRHS->members[i];
         CompoundLiteral* result = new CompoundLiteral(resultMembers);
+        result->type = compoundLHS->type;
         result->resolve();
         return result;
       }
@@ -666,6 +652,7 @@ Expression* Interpreter::evaluate(Expression* e)
         vector<Expression*> resultMembers = compoundLHS->members;
         resultMembers.push_back(rhs);
         CompoundLiteral* result = new CompoundLiteral(resultMembers);
+        result->type = compoundLHS->type;
         result->resolve();
         return result;
       }
@@ -679,6 +666,7 @@ Expression* Interpreter::evaluate(Expression* e)
           resultMembers[i + 1] = compoundRHS->members[i];
         }
         CompoundLiteral* result = new CompoundLiteral(resultMembers);
+        result->type = compoundRHS->type;
         result->resolve();
         return result;
       }
@@ -768,10 +756,13 @@ Expression* Interpreter::evaluate(Expression* e)
     //All "constant" callables must be SubroutineExpr
     auto subExpr = dynamic_cast<SubroutineExpr*>(callable);
     INTERNAL_ASSERT(subExpr);
+    Expression* retVal = nullptr;
     if(subExpr->subr)
-      callSubr(subExpr->subr, args, subExpr->thisObject);
+      retVal = callSubr(subExpr->subr, args, subExpr->thisObject);
     else
-      callExtern(subExpr->exSubr, args);
+      retVal = callExtern(subExpr->exSubr, args);
+    rv = nullptr;
+    return retVal;
   }
   else if(auto sm = dynamic_cast<StructMem*>(e))
   {
@@ -924,8 +915,14 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
 
 void Interpreter::assignVar(Variable* v, Expression* e)
 {
+  if(!typesSame(e->type, v->type))
+  {
+    cout << "Assigning expr " << e << " of type " << e->type->getName() << " to var " << v->name << " of type " << v->type->getName() << ", but types differ!\n";
+  }
+  INTERNAL_ASSERT(typesSame(e->type, v->type));
   if(!e->constant())
     e = evaluate(e);
+  INTERNAL_ASSERT(typesSame(e->type, v->type));
   //Only have to search in top stack frame, and globals
   if(globals.find(v) != globals.end())
   {

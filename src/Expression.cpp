@@ -379,7 +379,7 @@ Expression* IntConstant::convert(Type* t)
     CharConstant* cc = nullptr;
     if(isSigned())
     {
-      if(sval >= 0 && sval <= charInt->maxUnsignedVal())
+      if(sval >= 0 && sval <= (int64_t) charInt->maxUnsignedVal())
         cc = new CharConstant((char) sval);
     }
     else
@@ -865,6 +865,13 @@ ostream& UnionConstant::print(ostream& os)
 
 CompoundLiteral::CompoundLiteral(vector<Expression*>& mems)
   : members(mems) {}
+
+CompoundLiteral::CompoundLiteral(vector<Expression*>& mems, Type* t)
+  : members(mems)
+{
+  type = t;
+  resolved = true;
+}
 
 void CompoundLiteral::resolveImpl()
 {
@@ -1756,7 +1763,7 @@ void resolveExpr(Expression*& expr)
       if(!found.item)
       {
         string fullPath = names[0];
-        for(int i = 0; i < nameIter; i++)
+        for(size_t i = 0; i < nameIter; i++)
         {
           fullPath = fullPath + '.' + names[i];
         }
@@ -1891,7 +1898,7 @@ void resolveExpr(Expression*& expr)
         if(!found.item)
         {
           string fullPath;
-          for(int i = 0; i <= nameIter; i++)
+          for(size_t i = 0; i <= nameIter; i++)
           {
             fullPath = fullPath + '.' + names[i];
           }

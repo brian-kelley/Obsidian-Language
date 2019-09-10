@@ -222,7 +222,7 @@ void ForArray::createIterators(vector<string>& iters)
     outer->scope->addName(cnt);
   }
   //create iterator
-  iter = new Variable(iters.back(), new ElemExprType(arr), outer);
+  iter = new Variable(iters.back(), new ElemExprType(arr, iters.size() - 1), outer);
   outer->scope->addName(iter);
 }
 
@@ -236,7 +236,7 @@ void ForArray::resolveImpl()
   }
   if(arrType->dims < (int) counters.size())
   {
-    errMsgLoc(this, "requested " << counters.size() <<
+    errMsgLoc(this, "In for-loop over array, requested " << counters.size() <<
         " counters but array has only " << arrType->dims << " dimensions");
   }
   //finally resolve outer and inner blocks
@@ -526,10 +526,12 @@ void Subroutine::resolveImpl()
     errMsgLoc(this, "can't declare procedure in block scope");
   }
   type->resolve();
+  cout << "Type of " << name << ": " << type->getName() << '\n';
   for(auto param : params)
   {
     //resolving the param variables just resolves their types
     param->resolve();
+    cout << "Have param of type " << param->type->getName() << '\n';
   }
   //pretend this is resolved, so that recursive calls can resolve
   //(the type and params are resolved, so CallExprs can resolve successfully)
