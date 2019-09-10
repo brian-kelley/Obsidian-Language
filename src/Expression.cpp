@@ -875,6 +875,8 @@ CompoundLiteral::CompoundLiteral(vector<Expression*>& mems, Type* t)
 
 void CompoundLiteral::resolveImpl()
 {
+  if(resolved)
+    return;
   //first, try to resolve all members
   bool allResolved = true;
   lvalue = true;
@@ -902,8 +904,7 @@ Expression* CompoundLiteral::copy()
   vector<Expression*> memsCopy;
   for(auto m : members)
     memsCopy.push_back(m->copy());
-  CompoundLiteral* c = new CompoundLiteral(memsCopy);
-  c->resolve();
+  CompoundLiteral* c = new CompoundLiteral(memsCopy, type);
   c->setLocation(this);
   return c;
 }

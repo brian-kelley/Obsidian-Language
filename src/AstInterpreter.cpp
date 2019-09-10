@@ -153,7 +153,6 @@ void Interpreter::execute(Statement* stmt)
   else if(auto fa = dynamic_cast<ForArray*>(stmt))
   {
     Expression* zero = new IntConstant((int64_t) 0, primitives[Prim::LONG]);
-    zero->resolve();
     int dims = fa->counters.size();
     //A ragged array is easily iterated using DFS over a tree.
     //Use a stack to store the nodes which must still be visited.
@@ -915,10 +914,8 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
 
 void Interpreter::assignVar(Variable* v, Expression* e)
 {
-  if(!typesSame(e->type, v->type))
-  {
-    cout << "Assigning expr " << e << " of type " << e->type->getName() << " to var " << v->name << " of type " << v->type->getName() << ", but types differ!\n";
-  }
+  //Type must be identical - if not, the RHS (e) would have
+  //been wrapped in a Convert
   INTERNAL_ASSERT(typesSame(e->type, v->type));
   if(!e->constant())
     e = evaluate(e);
