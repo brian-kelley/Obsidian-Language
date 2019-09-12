@@ -160,24 +160,24 @@ void setOperatorPrec()
   }
   //note: lower value means lower precedence
   //only binary operators are given precedence
-  operatorPrec[CMPEQ] = 1;
-  operatorPrec[CMPNEQ] = 1;
-  operatorPrec[CMPL] = 2;
-  operatorPrec[CMPLE] = 2;
-  operatorPrec[CMPG] = 3;
-  operatorPrec[CMPGE] = 3;
-  operatorPrec[LOR] = 4;
-  operatorPrec[LAND] = 5;
-  operatorPrec[BOR] = 6;
-  operatorPrec[BXOR] = 7;
-  operatorPrec[BAND] = 8;
-  operatorPrec[SHL] = 9;
-  operatorPrec[SHR] = 9;
-  operatorPrec[PLUS] = 10;
-  operatorPrec[SUB] = 10;
-  operatorPrec[MUL] = 11;
-  operatorPrec[DIV] = 11;
-  operatorPrec[MOD] = 11;
+  operatorPrec[LOR] = 1;
+  operatorPrec[LAND] = 2;
+  operatorPrec[BOR] = 3;
+  operatorPrec[BXOR] = 4;
+  operatorPrec[BAND] = 5;
+  operatorPrec[SHL] = 6;
+  operatorPrec[SHR] = 6;
+  operatorPrec[PLUS] = 7;
+  operatorPrec[SUB] = 7;
+  operatorPrec[MUL] = 8;
+  operatorPrec[DIV] = 8;
+  operatorPrec[MOD] = 8;
+  operatorPrec[CMPEQ] = 9;
+  operatorPrec[CMPNEQ] = 9;
+  operatorPrec[CMPL] = 10;
+  operatorPrec[CMPLE] = 10;
+  operatorPrec[CMPG] = 11;
+  operatorPrec[CMPGE] = 11;
 }
 
 int getKeyword(string str)

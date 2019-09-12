@@ -1012,7 +1012,6 @@ namespace Parser
         vector<Expression*> dims;
         while(acceptPunct(LBRACKET))
         {
-          cout <<"Parsed dim.\n";
           dims.push_back(parseExpression(s));
           expectPunct(RBRACKET);
         }
