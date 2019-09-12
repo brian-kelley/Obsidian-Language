@@ -28,8 +28,7 @@ struct Interpreter
   void execute(Statement* stmt);
   Expression* evaluate(Expression* e);
   Expression*& evaluateLValue(Expression* e);
-  static CompoundLiteral* createArray(uint64_t* dims, int ndims,
-      Type* elem, Expression* fillVal);
+  static CompoundLiteral* createArray(uint64_t* dims, int ndims, Type* elem);
   static Expression* convertConstant(Expression* value, Type* type);
   void assignVar(Variable* v, Expression* e);
   Expression*& readVar(Variable* v);

@@ -1138,7 +1138,7 @@ struct Converted : public Expression
   Expression* value;
   bool assignable()
   {
-    return value->assignable();
+    return false;
   }
   size_t hash() const
   {

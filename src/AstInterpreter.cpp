@@ -18,7 +18,7 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
   current.thisExpr = thisExpr;
   if(args.size() != subr->type->paramTypes.size())
   {
-    errMsgLoc(args[0], "Call to " << subr->name << " expects " << \
+    errMsg("Call to " << subr->name << " expects " << \
         subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
   }
   //assign args to corresponding local variables
@@ -75,6 +75,10 @@ void Interpreter::execute(Statement* stmt)
         //evaluate symbolic lvalue, and directly assign rvalue
         evaluateLValue(compoundAssign->members[i]) = compoundRHS->members[i];
       }
+    }
+    else if(auto varExpr = dynamic_cast<VarExpr*>(assign->lvalue))
+    {
+      assignVar(varExpr->var, rvalue);
     }
     else
     {
@@ -341,18 +345,18 @@ void Interpreter::execute(Statement* stmt)
   }
 }
 
-CompoundLiteral* Interpreter::createArray(uint64_t* dims, int ndims, Type* elem, Expression* fillVal)
+CompoundLiteral* Interpreter::createArray(uint64_t* dims, int ndims, Type* elem)
 {
   vector<Expression*> elems;
   for(uint64_t i = 0; i < dims[0]; i++)
   {
     if(ndims == 1)
     {
-      elems.push_back(fillVal);
+      elems.push_back(elem->getDefaultValue());
     }
     else
     {
-      elems.push_back(createArray(&dims[1], ndims - 1, elem, fillVal));
+      elems.push_back(createArray(&dims[1], ndims - 1, elem));
     }
   }
   return new CompoundLiteral(elems, getArrayType(elem, ndims));
@@ -630,9 +634,9 @@ Expression* Interpreter::evaluate(Expression* e)
       //handle array concat, prepend and append operations (not numeric + yet)
       CompoundLiteral* compoundLHS = dynamic_cast<CompoundLiteral*>(lhs);
       CompoundLiteral* compoundRHS = dynamic_cast<CompoundLiteral*>(rhs);
-      INTERNAL_ASSERT(compoundLHS->type == compoundRHS->type);
       if(compoundLHS && compoundRHS)
       {
+        INTERNAL_ASSERT(compoundLHS->type == compoundRHS->type);
         vector<Expression*> resultMembers(compoundLHS->members.size() + compoundRHS->members.size());
         for(size_t i = 0; i < compoundLHS->members.size(); i++)
           resultMembers[i] = compoundLHS->members[i];
@@ -799,7 +803,7 @@ Expression* Interpreter::evaluate(Expression* e)
         dims.push_back(ic->uval);
     }
     Type* elem = ((ArrayType*) na->type)->elem;
-    return createArray(dims.data(), na->dims.size(), elem, elem->getDefaultValue());
+    return createArray(dims.data(), na->dims.size(), elem);
   }
   else if(auto al = dynamic_cast<ArrayLength*>(e))
   {
@@ -907,6 +911,7 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
       return frames.top().thisExpr;
     }
   }
+  cout << "Couldn't evaluate lvalue " << e << '\n';
   INTERNAL_ERROR;
 }
 
