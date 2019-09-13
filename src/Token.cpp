@@ -165,19 +165,19 @@ void setOperatorPrec()
   operatorPrec[BOR] = 3;
   operatorPrec[BXOR] = 4;
   operatorPrec[BAND] = 5;
-  operatorPrec[SHL] = 6;
-  operatorPrec[SHR] = 6;
-  operatorPrec[PLUS] = 7;
-  operatorPrec[SUB] = 7;
-  operatorPrec[MUL] = 8;
-  operatorPrec[DIV] = 8;
-  operatorPrec[MOD] = 8;
-  operatorPrec[CMPEQ] = 9;
-  operatorPrec[CMPNEQ] = 9;
-  operatorPrec[CMPL] = 10;
-  operatorPrec[CMPLE] = 10;
-  operatorPrec[CMPG] = 10;
-  operatorPrec[CMPGE] = 10;
+  operatorPrec[CMPEQ] = 6;
+  operatorPrec[CMPNEQ] = 6;
+  operatorPrec[CMPL] = 7;
+  operatorPrec[CMPLE] = 7;
+  operatorPrec[CMPG] = 7;
+  operatorPrec[CMPGE] = 7;
+  operatorPrec[SHL] = 8;
+  operatorPrec[SHR] = 8;
+  operatorPrec[PLUS] = 9;
+  operatorPrec[SUB] = 9;
+  operatorPrec[MUL] = 10;
+  operatorPrec[DIV] = 10;
+  operatorPrec[MOD] = 10;
 }
 
 int getKeyword(string str)
