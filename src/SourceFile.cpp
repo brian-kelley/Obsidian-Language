@@ -36,6 +36,11 @@ SourceFile::SourceFile(Node* includeLoc, string path_)
   source.resize(size);
   fread((void*) source.c_str(), 1, size, f);
   fclose(f);
+  if(!includeLoc && source.length() > 2 && source.substr(0, 2) == "#!")
+  {
+    //skip shebang line in main file
+    source = source.substr(source.find('\n'));
+  }
   tokens = lex(source, id);
 }
 
@@ -54,7 +59,7 @@ SourceFile* getSourceFile(Node* includeLoc, string path)
 
 SourceFile* sourceFileFromID(int id)
 {
-  INTERNAL_ASSERT(id < fileList.size());
+  INTERNAL_ASSERT(id < (int) fileList.size());
   return fileList[id];
 }
 

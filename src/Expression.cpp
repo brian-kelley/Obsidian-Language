@@ -168,6 +168,7 @@ void BinaryArith::resolveImpl()
     {
       //TODO (CTE): error for div/mod with rhs = 0
       //TODO: support array concatenation with +
+      cout << "Have arithmetic expr at " << this->printLocation() << ": types are " << ltype->getName() << " and " << rtype->getName() << '\n';
       if(!(ltype->isNumber()) || !(rtype->isNumber()))
       {
         errMsgLoc(this, "operands to arithmetic operators must be numbers.");

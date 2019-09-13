@@ -83,7 +83,7 @@ namespace Parser
     }
   }
 
-  void Stream::parseScopedDecl(Scope* s, bool semicolon)
+  Statement* Stream::parseScopedDecl(Scope* s, bool semicolon)
   {
     Node* loc = lookAhead();
     Punct colon(COLON);
@@ -114,7 +114,7 @@ namespace Parser
             subStream.parseScopedDecl(module->scope, true);
           }
         }
-        return;
+        return nullptr;
       }
       else
       {
@@ -128,34 +128,34 @@ namespace Parser
         case FUNC:
         case PROC:
           parseSubroutine(s);
-          return;
+          return nullptr;
         case EXTERN:
           parseExternalSubroutine(s);
-          return;
+          return nullptr;
         case STRUCT:
           parseStruct(s);
-          return;
+          return nullptr;
         case TYPEDEF:
           parseAlias(s);
           if(semicolon)
             expectPunct(SEMICOLON);
-          return;
+          return nullptr;
         case TYPE:
           {
             parseSimpleType(s);
             if(semicolon)
               expectPunct(SEMICOLON);
-            return;
+            return nullptr;
           }
         case ENUM:
           parseEnum(s);
-          return;
+          return nullptr;
         case MODULE:
           parseModule(s);
-          return;
+          return nullptr;
         case TEST:
           parseTest(s);
-          return;
+          return nullptr;
         case VOID:
         case ERROR:
         case BOOL:
@@ -182,7 +182,7 @@ namespace Parser
               //varInit exists, so know scope is a block
               s->node.get<Block*>()->addStatement(varInit);
             }
-            return;
+            return varInit;
           }
         default:
           errMsgLoc(loc, "expected a declaration");
@@ -201,13 +201,14 @@ namespace Parser
         //varInit exists, so know scope is a block
         s->node.get<Block*>()->addStatement(varInit);
       }
-      return;
+      return nullptr;
     }
     else
     {
       errMsgLoc(loc, "expected decl but got " + lookAhead()->getStr() + '\n');
       INTERNAL_ERROR;
     }
+    return nullptr;
   }
 
   Type* Stream::parseType(Scope* s)
@@ -774,10 +775,11 @@ namespace Parser
         case PROCTYPE:
         case STATIC:
           {
-            parseScopedDecl(b->scope, semicolon);
-            return nullptr;
+            return parseScopedDecl(b->scope, semicolon);
           }
         case RETURN:
+        case BREAK:
+        case CONTINUE:
         case FOR:
         case IF:
         case WHILE:
@@ -1268,7 +1270,7 @@ namespace Parser
   Token* Stream::lookAhead(int n)
   {
     int index = pos + n;
-    if(index >= tokens->size())
+    if(index >= (int) tokens->size())
     {
       return &PastEOF::inst;
     }

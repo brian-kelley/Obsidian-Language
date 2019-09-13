@@ -176,8 +176,8 @@ void setOperatorPrec()
   operatorPrec[CMPNEQ] = 9;
   operatorPrec[CMPL] = 10;
   operatorPrec[CMPLE] = 10;
-  operatorPrec[CMPG] = 11;
-  operatorPrec[CMPGE] = 11;
+  operatorPrec[CMPG] = 10;
+  operatorPrec[CMPGE] = 10;
 }
 
 int getKeyword(string str)

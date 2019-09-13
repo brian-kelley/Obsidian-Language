@@ -192,13 +192,18 @@ void ForC::resolveImpl()
   //Resolving outerwill only resolve the declarations in outer's scope,
   //since no statements will be added to outer
   outer->resolve();
-  init->resolve();
-  condition->resolve();
-  if(!typesSame(condition->type, primitives[Prim::BOOL]))
+  if(init)
+    init->resolve();
+  if(condition)
   {
-    errMsgLoc(condition, "C-style for loop condition must be a bool");
+    condition->resolve();
+    if(!typesSame(condition->type, primitives[Prim::BOOL]))
+    {
+      errMsgLoc(condition, "C-style for loop condition must be a bool");
+    }
   }
-  increment->resolve();
+  if(increment)
+    increment->resolve();
   //finally, resolve the body
   inner->resolve();
   resolved = true;
