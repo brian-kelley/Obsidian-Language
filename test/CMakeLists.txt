@@ -32,6 +32,6 @@ endfunction(createTest)
 
 createTest("HelloWorld")
 createTest("Primes")
-#add_test(IterStringArray onyx-tests.exe IterStringArray)
-#add_test(IterMultidim onyx-tests.exe IterMultidim)
+createTest("IterStringArray")
+createTest("IterMultidim")
 
