@@ -256,7 +256,6 @@ ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expressi
 {
   //create the counter variable in outer block
   counter = new Variable(counterName, primitives[Prim::LONG], outer);
-  cout << "Created counter: " << counter->name << '\n';
   outer->scope->addName(counter);
 }
 
@@ -542,7 +541,6 @@ void Subroutine::resolveImpl()
     errMsgLoc(this, "can't declare procedure in block scope");
   }
   type->resolve();
-  cout << "Type of " << name << ": " << type->getName() << '\n';
   for(auto param : params)
   {
     //resolving the param variables just resolves their types

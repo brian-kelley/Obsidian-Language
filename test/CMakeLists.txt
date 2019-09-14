@@ -31,7 +31,9 @@ function(createTest name)
 endfunction(createTest)
 
 createTest("HelloWorld")
+createTest("Arithmetic")
 createTest("Primes")
 createTest("IterStringArray")
 createTest("IterMultidim")
+createTest("Sierpinski")
 

@@ -1,5 +1,7 @@
 #include "Lexer.hpp"
 #include "SourceFile.hpp"
+#include "Common.hpp"
+#include "AST.hpp"
 
 #define TAB_LENGTH 2
 

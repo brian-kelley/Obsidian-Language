@@ -50,6 +50,8 @@ int main(int argc, const char** argv)
     cout << "<<< ACTUAL OUTPUT >>>\n";
     cout << actual << '\n';
     cout << "Test failed, because output wrong.\n";
+    cout << "Writing actual output to " << testName << ".out for diffing.\n";
+    writeFile(actual, testName + ".out");
     return 1;
   }
   return 0;

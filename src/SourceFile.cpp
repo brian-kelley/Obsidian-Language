@@ -41,6 +41,8 @@ SourceFile::SourceFile(Node* includeLoc, string path_)
     //skip shebang line in main file
     source = source.substr(source.find('\n'));
   }
+  fileList.push_back(this);
+  fileTable[path] = this;
   tokens = lex(source, id);
 }
 
@@ -48,12 +50,7 @@ SourceFile* getSourceFile(Node* includeLoc, string path)
 {
   auto it = fileTable.find(path);
   if(it == fileTable.end())
-  {
-    SourceFile* newFile = new SourceFile(includeLoc, path);
-    fileList.push_back(newFile);
-    fileTable[path] = newFile;
-    return newFile;
-  }
+    return new SourceFile(includeLoc, path);
   return it->second;
 }
 

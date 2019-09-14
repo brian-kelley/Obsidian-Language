@@ -451,7 +451,7 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
     if(isSigned()) \
       result->sval = sval op rhs->sval; \
     else \
-      result->uval  = uval op rhs->uval; \
+      result->uval = uval op rhs->uval; \
     break;
   switch(op)
   {
@@ -471,27 +471,59 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
       if(op == DIV)
       {
         if(isSigned())
-          result = new IntConstant(sval / rhs->sval);
+          result->sval = sval / rhs->sval;
         else
-          result = new IntConstant(uval / rhs->uval);
+          result->uval = uval / rhs->uval;
       }
       else
       {
         if(isSigned())
-          result = new IntConstant(sval % rhs->sval);
+          result->sval = sval % rhs->sval;
         else
-          result = new IntConstant(uval % rhs->uval);
+          result->uval = uval % rhs->uval;
       }
       break;
     }
     DO_OP(BOR, |)
     DO_OP(BXOR, ^)
     DO_OP(BAND, &)
-    DO_OP(SHL, <<)
-    DO_OP(SHR, >>)
+    case SHL:
+    case SHR:
+    {
+      int64_t shiftBits = rhs->uval;
+      if(rhs->isSigned())
+      {
+        if(rhs->sval < 0)
+        {
+          errMsg("Shifting by negative number of bits is illegal.");
+        }
+        shiftBits = rhs->sval;
+      }
+      if(isSigned())
+      {
+        if(op == SHL)
+          result->sval = sval << shiftBits;
+        else
+          result->sval = sval >> shiftBits;
+      }
+      else
+      {
+        if(op == SHL)
+          result->uval = uval << shiftBits;
+        else
+          result->uval = uval >> shiftBits;
+      }
+      break;
+    }
     default:
     INTERNAL_ERROR;
   }
+  cout << "Checking if value ";
+  if(result->isSigned())
+    cout << result->sval;
+  else
+    cout << result->uval;
+  cout << " fits in type " << type->getName() << '\n';
   if(!result->checkValueFits())
   {
     errMsgLoc(this, "operation overflows " << type->getName());
