@@ -46,6 +46,21 @@ bool runCommand(string command, bool silenced)
   return system(command.c_str()) == 0;
 }
 
+//this is not used outside this file
+Oss interpOutputCapture;
+
+//this is only defined when building the test driver
+#ifdef ONYX_TESTING
+ostream& interpreterOut = interpOutputCapture;
+#else
+ostream& interpreterOut = cout;
+#endif
+
+string getInterpreterOutput()
+{
+  return interpOutputCapture.str();
+}
+
 string getSourceName(int id)
 {
   return sourceFileFromID(id)->path;

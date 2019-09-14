@@ -540,7 +540,7 @@ namespace Parser
     expectPunct(COLON);
     fa->arr = parseExpression(b->scope);
     fa->createIterators(tup);
-    auto body = parseStatement(fa->inner, true);
+    Statement* body = parseStatement(fa->inner, true);
     fa->inner->addStatement(body);
     return fa;
   }
@@ -556,7 +556,7 @@ namespace Parser
     Expression* end = parseExpression(b->scope);
     ForRange* fr = new ForRange(b, counterName, begin, end);
     fr->setLocation(loc);
-    auto body = parseStatement(fr->inner, true);
+    Statement* body = parseStatement(fr->inner, true);
     fr->inner->addStatement(body);
     return fr;
   }

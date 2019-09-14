@@ -129,19 +129,22 @@ void Interpreter::execute(Statement* stmt)
   {
     //Create a statement to initialize counter, and another to increment
     VarExpr* ve = new VarExpr(fr->counter);
+    ve->resolve();
     Statement* init = new Assign(fr->block, ve, ASSIGN, fr->begin);
-    Statement* incr = new Assign(fr->block, ve, INC);
-    Expression* cond = new BinaryArith(ve, CMPL, fr->end);
     init->resolve();
+    Statement* incr = new Assign(fr->block, ve, INC);
     incr->resolve();
+    Expression* cond = new BinaryArith(ve, CMPL, fr->end);
     cond->resolve();
+    assignVar(fr->counter, fr->begin);
+    execute(init);
     while(true)
     {
       BoolConstant* condVal = dynamic_cast<BoolConstant*>(evaluate(cond));
       INTERNAL_ASSERT(condVal);
       if(!condVal->value)
         break;
-      execute(fc->inner);
+      execute(fr->inner);
       if(breaking)
       {
         breaking = false;
@@ -265,11 +268,11 @@ void Interpreter::execute(Statement* stmt)
       //would normally print as an array.
       if(auto stringConst = dynamic_cast<StringConstant*>(toPrint))
       {
-        cout << stringConst->value;
+        interpreterOut << stringConst->value;
       }
       else if(auto charConst = dynamic_cast<CharConstant*>(toPrint))
       {
-        cout << charConst->value;
+        interpreterOut << charConst->value;
       }
       else if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
       {
@@ -279,12 +282,12 @@ void Interpreter::execute(Statement* stmt)
         {
           auto charElem = dynamic_cast<CharConstant*>(elem);
           INTERNAL_ASSERT(charElem);
-          cout << charElem->value;
+          interpreterOut << charElem->value;
         }
       }
       else
       {
-        cout << toPrint;
+        interpreterOut << toPrint;
       }
     }
   }

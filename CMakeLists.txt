@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.0)
 
+include_directories(src)
 include_directories(src/variadic-variant)
 
 if (WIN32)
@@ -10,6 +11,8 @@ elseif (UNIX)
   #set(CMAKE_CXX_COMPILER clang++)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wshadow")
 endif()
+
+enable_testing()
 
 project (Onyx-Lang)
 
@@ -44,3 +47,5 @@ add_executable (onyx
 #  src/Memory.cpp
 #  src/CSElim.cpp
 #  src/IR.cpp
+
+add_subdirectory(test)

@@ -256,13 +256,24 @@ ForRange::ForRange(Block* b, string counterName, Expression* beginExpr, Expressi
 {
   //create the counter variable in outer block
   counter = new Variable(counterName, primitives[Prim::LONG], outer);
+  cout << "Created counter: " << counter->name << '\n';
   outer->scope->addName(counter);
 }
 
 void ForRange::resolveImpl()
 {
   resolveExpr(begin);
+  if(!typesSame(counter->type, begin->type))
+  {
+    begin = new Converted(begin, counter->type);
+    begin->resolve();
+  }
   resolveExpr(end);
+  if(!typesSame(counter->type, end->type))
+  {
+    end = new Converted(end, counter->type);
+    end->resolve();
+  }
   outer->resolve();
   inner->resolve();
   resolved = true;

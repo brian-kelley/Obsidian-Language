@@ -131,8 +131,6 @@ struct ForArray : public For
   ForArray(Block* b);
   void createIterators(vector<string>& iters);
   void resolveImpl();
-  //create an empty inner body (parser puts user's statements here)
-  Block* createInnerBody();
   //the (long) counters that count from 0 to each dimension of the array
   vector<Variable*> counters;
   Expression* arr;

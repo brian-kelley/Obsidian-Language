@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <vector>
 #include <map>
@@ -18,7 +19,6 @@
 #include <ctime>
 #include <climits>
 #include <cassert>
-#include <sstream>
 #include <stdexcept>
 #include <new>
 #include <utility>
@@ -43,6 +43,12 @@ using std::runtime_error;
 using std::cout;
 using std::endl;
 using std::to_string;
+
+//Interpreter output capture:
+//this either points to cout or capturedOutput (ostringstream)
+extern ostream& interpreterOut;
+
+string getInterpreterOutput();
 
 typedef ostringstream Oss;
 
