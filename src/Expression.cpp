@@ -518,12 +518,6 @@ IntConstant* IntConstant::binOp(int op, IntConstant* rhs)
     default:
     INTERNAL_ERROR;
   }
-  cout << "Checking if value ";
-  if(result->isSigned())
-    cout << result->sval;
-  else
-    cout << result->uval;
-  cout << " fits in type " << type->getName() << '\n';
   if(!result->checkValueFits())
   {
     errMsgLoc(this, "operation overflows " << type->getName());

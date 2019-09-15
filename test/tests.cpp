@@ -11,7 +11,6 @@ Module* global = nullptr;
 
 int main(int argc, const char** argv)
 {
-  cout << "Hello from test main.\n";
   if(argc != 2)
     return 1;
   string testName(argv[1]);

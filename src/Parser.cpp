@@ -705,6 +705,7 @@ namespace Parser
   Statement* Stream::parseStatementOrDecl(Block* b, bool semicolon)
   {
     Token* next = lookAhead();
+    Punct lbrace(LBRACE);
     if(next->type == IDENTIFIER)
     {
       Stream s1(*this);
@@ -793,7 +794,7 @@ namespace Parser
         default:;
       }
     }
-    else if(acceptPunct(SEMICOLON) || acceptPunct(LBRACE))
+    else if(lookAhead()->compareTo(&lbrace))
     {
       return parseStatement(b, semicolon);
     }

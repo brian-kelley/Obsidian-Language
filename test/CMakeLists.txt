@@ -35,5 +35,6 @@ createTest("Arithmetic")
 createTest("Primes")
 createTest("IterStringArray")
 createTest("IterMultidim")
+createTest("CStyleLoops")
 createTest("Sierpinski")
 

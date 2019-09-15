@@ -105,10 +105,16 @@ void Interpreter::execute(Statement* stmt)
       execute(fc->init);
     while(true)
     {
-      //Evaluate the condition
-      BoolConstant* cond = dynamic_cast<BoolConstant*>(evaluate(fc->condition));
-      INTERNAL_ASSERT(cond);
-      if(!cond->value)
+      //condition is optional; if omitted, always true
+      bool loopCond = true;
+      if(fc->condition)
+      {
+        //Evaluate the condition
+        BoolConstant* cond = dynamic_cast<BoolConstant*>(evaluate(fc->condition));
+        INTERNAL_ASSERT(cond);
+        loopCond = cond->value;
+      }
+      if(!loopCond)
         break;
       execute(fc->inner);
       if(breaking)
