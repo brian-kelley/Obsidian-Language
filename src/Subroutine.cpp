@@ -545,7 +545,6 @@ void Subroutine::resolveImpl()
   {
     //resolving the param variables just resolves their types
     param->resolve();
-    cout << "Have param of type " << param->type->getName() << '\n';
   }
   //pretend this is resolved, so that recursive calls can resolve
   //(the type and params are resolved, so CallExprs can resolve successfully)

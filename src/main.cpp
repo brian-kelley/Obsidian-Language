@@ -47,7 +47,7 @@ int main(int argc, const char** argv)
   TIMEIT("Parsing", parseProgram(op.input););
   //DEBUG_DO(outputAST(global, "parse.dot"););
   TIMEIT("Semantic analysis", global->resolve(););
-  DEBUG_DO(outputAST(global, "AST.dot");)
+  outputAST(global, "AST.dot");
   vector<Expression*> mainArgs;
   if(argc > 2)
   {

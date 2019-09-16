@@ -36,5 +36,6 @@ createTest("Primes")
 createTest("IterStringArray")
 createTest("IterMultidim")
 createTest("CStyleLoops")
+createTest("RecursiveFibonacci")
 createTest("Sierpinski")
 

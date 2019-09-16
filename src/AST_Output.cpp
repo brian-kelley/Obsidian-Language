@@ -207,7 +207,7 @@ int emitStatement(Statement* s)
   }
   else
   {
-    cout << "Haven't implemented output for a statement type\n";
+    cout << "Haven't implemented output for a statement type at " << s->printLocation()  << "\n";
     INTERNAL_ERROR;
   }
   return root;

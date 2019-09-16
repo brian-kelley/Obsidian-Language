@@ -11,8 +11,15 @@ Interpreter::Interpreter(Subroutine* subr, vector<Expression*> args)
 
 Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression* thisExpr)
 {
+  cout << "Invoking subroutine " << subr->name << '\n';
+  cout << "Args: ";
+  for(auto a : args)
+    cout << a << ' ';
+  cout << '\n';
   returning = false;
+  rv = nullptr;
   //push stack frame
+  cout << "Creating stack frame.\n";
   frames.emplace();
   StackFrame& current = frames.top();
   current.thisExpr = thisExpr;
@@ -21,11 +28,13 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
     errMsg("Call to " << subr->name << " expects " << \
         subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
   }
+  cout << "Setting arguments.\n";
   //assign args to corresponding local variables
   for(size_t i = 0; i < args.size(); i++)
   {
     assignVar(subr->params[i], args[i]);
   }
+  cout << "Executing statements.\n";
   //Execute statements in linear sequence.
   //If a return is encountered, execute() returns and
   //the return value will be placed in the frame rv
@@ -34,19 +43,16 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
     execute(s);
     if(returning)
     {
-      frames.pop();
-      return rv;
+      returning = false;
+      break;
     }
   }
   frames.pop();
-  //implicit return, so there is no return value.
-  //Check that the subroutine doesn't return anything,
-  //since the resolved AST can't check for missing returns
-  if(!subr->type->returnType->isSimple())
+  if(!rv && !subr->type->returnType->isSimple())
   {
     errMsgLoc(subr, "interpreter reached end of subroutine without a return value");
   }
-  return nullptr;
+  return rv;
 }
 
 Expression* Interpreter::callExtern(ExternalSubroutine* exSubr, vector<Expression*> args)
@@ -350,6 +356,7 @@ void Interpreter::execute(Statement* stmt)
   }
   else
   {
+    cout << "Interpreter doesn't know how to execute stmt at " << stmt->printLocation() << '\n';
     INTERNAL_ERROR;
   }
 }
