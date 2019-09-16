@@ -7,11 +7,9 @@ func int fib(int n)
 
 proc void main()
 {
-  print(fib(2), '\n');
+  print(fib(0), '\n');
+  print(fib(1), '\n');
   print(fib(3), '\n');
-  print(fib(5), '\n');
   print(fib(8), '\n');
-  print(fib(10), '\n');
-  print(fib(12), '\n');
 }
 

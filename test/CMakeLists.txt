@@ -38,4 +38,5 @@ createTest("IterMultidim")
 createTest("CStyleLoops")
 createTest("RecursiveFibonacci")
 createTest("Sierpinski")
+createTest("Sorting")
 

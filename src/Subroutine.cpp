@@ -303,7 +303,6 @@ If::If(Block* b, Expression* cond, Statement* bodyStmt)
 {
   condition = cond;
   body = bodyStmt;
-  elseBody = nullptr;
 }
 
 If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
@@ -425,7 +424,7 @@ void Return::resolveImpl()
 {
   if(value)
   {
-    value->resolve();
+    resolveExpr(value);
   }
   //make sure value can be converted to enclosing subroutine's return type
   auto subrRetType = block->subr->type->returnType;
