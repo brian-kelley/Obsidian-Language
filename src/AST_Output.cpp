@@ -229,7 +229,10 @@ int emitExpression(Expression* e)
   }
   else if(IntConstant* ic = dynamic_cast<IntConstant*>(e))
   {
-    root = out.createNode(to_string(ic->uval));
+    if(ic->isSigned())
+      root = out.createNode(to_string(ic->sval));
+    else
+      root = out.createNode(to_string(ic->uval));
   }
   else if(FloatConstant* fc = dynamic_cast<FloatConstant*>(e))
   {
