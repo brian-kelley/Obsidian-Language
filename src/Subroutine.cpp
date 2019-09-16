@@ -303,6 +303,7 @@ If::If(Block* b, Expression* cond, Statement* bodyStmt)
 {
   condition = cond;
   body = bodyStmt;
+  elseBody = nullptr;
 }
 
 If::If(Block* b, Expression* cond, Statement* tb, Statement* fb)
