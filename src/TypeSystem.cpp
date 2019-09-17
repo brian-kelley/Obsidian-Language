@@ -427,14 +427,24 @@ void UnionType::resolveImpl()
 bool UnionType::canConvert(Type* other)
 {
   other = canonicalize(other);
-  if(typesSame(other, this))
+  if(auto otherUnion = dynamic_cast<UnionType*>(other))
   {
+    //if every option of other can convert to this, good
+    for(auto otherOp : otherUnion->options)
+    {
+      if(!canConvert(otherOp))
+        return false;
+    }
     return true;
   }
-  for(auto op : options)
+  else
   {
-    if(op->canConvert(other))
-      return true;
+    //otherwise, check that other can convert to at least one option
+    for(auto op : options)
+    {
+      if(op->canConvert(other))
+        return true;
+    }
   }
   return false;
 }

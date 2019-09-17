@@ -896,6 +896,7 @@ namespace Parser
             accept();
             expectPunct(LPAREN);
             Assertion* as = new Assertion(b, parseExpression(b->scope));
+            as->setLocation(loc);
             expectPunct(RPAREN);
             if(semicolon)
               expectPunct(SEMICOLON);
