@@ -706,6 +706,8 @@ namespace Parser
   {
     Token* next = lookAhead();
     Punct lbrace(LBRACE);
+    Punct lparen(LPAREN);
+    Punct lbracket(LBRACKET);
     if(next->type == IDENTIFIER)
     {
       Stream s1(*this);
@@ -794,9 +796,15 @@ namespace Parser
         default:;
       }
     }
-    else if(lookAhead()->compareTo(&lbrace))
+    else if(lookAhead()->compareTo(&lbrace) ||
+        lookAhead()->compareTo(&lbracket))
     {
       return parseStatement(b, semicolon);
+    }
+    else if(lookAhead()->compareTo(&lparen))
+    {
+      //start of union/tuple type
+      return parseScopedDecl(b->scope, semicolon);
     }
     err("Expected statement or declaration");
     return nullptr;
@@ -1022,23 +1030,7 @@ namespace Parser
         na->setLocation(location);
         return na;
       }
-      Expression* base = parseExpression(s, 1);
-      if(acceptKeyword(IS))
-      {
-        IsExpr* ie = new IsExpr(base, parseType(s));
-        ie->setLocation(base);
-        return ie;
-      }
-      else if(acceptKeyword(AS))
-      {
-        AsExpr* ae = new AsExpr(base, parseType(s));
-        ae->setLocation(base);
-        return ae;
-      }
-      else
-      {
-        return base;
-      }
+      return parseExpression(s, 1);
     }
     else if(prec >= 1 && prec <= 11)
     {
@@ -1060,8 +1052,9 @@ namespace Parser
     }
     else if(prec == 12)
     {
-      //unary expressions
-      while(lookAhead()->type == OPERATOR)
+      Expression* base = nullptr;
+      //unary expressions (-!~), left to right
+      if(lookAhead()->type == OPERATOR)
       {
         int op = ((Oper*) lookAhead())->op;
         if(op == SUB || op == LNOT || op == BNOT)
@@ -1069,14 +1062,37 @@ namespace Parser
           accept();
           UnaryArith* ua = new UnaryArith(op, parseExpression(s, prec));
           ua->setLocation(location);
-          return ua;
+          base = ua;
         }
         else
         {
-          break;
+          err("Expected unary operator (-, !, ~)");
         }
       }
-      return parseExpression(s, prec + 1);
+      else
+      {
+        //parse innermost, highest precedence expr
+        base = parseExpression(s, prec + 1);
+      }
+      //as/is suffixes, also left to right
+      while(true)
+      {
+        if(acceptKeyword(IS))
+        {
+          IsExpr* ie = new IsExpr(base, parseType(s));
+          ie->setLocation(base);
+          base = ie;
+        }
+        else if(acceptKeyword(AS))
+        {
+          AsExpr* ae = new AsExpr(base, parseType(s));
+          ae->setLocation(base);
+          base = ae;
+        }
+        else
+          break;
+      }
+      return base;
     }
     else
     {
@@ -1291,6 +1307,7 @@ namespace Parser
       else
         fullMsg += '.';
       //display error and terminate
+      INTERNAL_ERROR;
       errAndQuit(fullMsg);
     }
     else

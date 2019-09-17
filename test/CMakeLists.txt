@@ -39,4 +39,5 @@ createTest("CStyleLoops")
 createTest("RecursiveFibonacci")
 createTest("Sierpinski")
 createTest("Sorting")
+createTest("Unions")
 
