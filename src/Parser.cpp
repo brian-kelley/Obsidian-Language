@@ -619,7 +619,9 @@ namespace Parser
     vector<Block*> caseBlocks;
     while(!acceptPunct(RBRACE))
     {
+      expectKeyword(CASE);
       caseTypes.push_back(parseType(b->scope));
+      expectPunct(COLON);
       Block* block = new Block(b);
       parseBlock(block);
       caseBlocks.push_back(block);
@@ -1308,7 +1310,6 @@ namespace Parser
       else
         fullMsg += '.';
       //display error and terminate
-      INTERNAL_ERROR;
       errAndQuit(fullMsg);
     }
     else

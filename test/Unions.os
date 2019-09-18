@@ -11,7 +11,7 @@ proc void main()
   print(a as char, '\n');
   print(b as int, '\n');
   print(c as int, '\n');
-  match(v : c)
+  match v : c
   {
     case char:
     {
