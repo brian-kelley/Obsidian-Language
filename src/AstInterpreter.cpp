@@ -174,7 +174,7 @@ void Interpreter::execute(Statement* stmt)
     {
       Expression* visit = std::get<0>(toVisit.top());
       int depth = std::get<1>(toVisit.top());
-      long pos = std::get<2>(toVisit.top());
+      int64_t pos = std::get<2>(toVisit.top());
       toVisit.pop();
       if(depth >= 0)
       {
