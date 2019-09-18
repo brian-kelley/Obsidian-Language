@@ -11,4 +11,19 @@ proc void main()
   print(a as char, '\n');
   print(b as int, '\n');
   print(c as int, '\n');
+  match(v : c)
+  {
+    case char:
+    {
+      print("It's a char!\n");
+    }
+    case int:
+    {
+      print("It's an int: ", v, '\n');
+    }
+    case double:
+    {
+      print("It's a double.\n");
+    }
+  }
 }
