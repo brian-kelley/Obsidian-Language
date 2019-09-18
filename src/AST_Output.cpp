@@ -310,7 +310,7 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("As");
     out.createEdge(root, emitExpression(ae->base));
-    out.createEdge(root, emitType(ae->option));
+    out.createEdge(root, emitType(ae->type));
   }
   else if(NewArray* na = dynamic_cast<NewArray*>(e))
   {

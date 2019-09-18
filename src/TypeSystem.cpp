@@ -512,9 +512,7 @@ Expression* UnionType::getDefaultValue()
       }
     }
     INTERNAL_ASSERT(defaultType >= 0);
-    defaultVal = new UnionConstant(
-        options[defaultType]->getDefaultValue(),
-        options[defaultType], this);
+    defaultVal = new UnionConstant(options[defaultType]->getDefaultValue(), this);
     defaultVal->resolve();
   }
   return defaultVal;

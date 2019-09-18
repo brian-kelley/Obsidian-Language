@@ -840,9 +840,9 @@ ostream& MapConstant::print(ostream& os)
  * UnionConstant *
  *****************/
 
-UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
+UnionConstant::UnionConstant(Expression* expr, UnionType* ut)
 {
-  INTERNAL_ASSERT(expr->constant());
+  INTERNAL_ASSERT(expr->resolved && expr->constant());
   setLocation(expr);
   value = expr;
   unionType = ut;
@@ -850,7 +850,7 @@ UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
   option = -1;
   for(size_t i = 0; i < ut->options.size(); i++)
   {
-    if(typesSame(t, ut->options[i]))
+    if(typesSame(expr->type, ut->options[i]))
     {
       option = i;
       break;
@@ -861,7 +861,7 @@ UnionConstant::UnionConstant(Expression* expr, Type* t, UnionType* ut)
 
 Expression* UnionConstant::copy()
 {
-  auto uc = new UnionConstant(value->copy(), type, unionType);
+  auto uc = new UnionConstant(value->copy(), unionType);
   uc->setLocation(this);
   return uc;
 }
@@ -1550,7 +1550,7 @@ ostream& IsExpr::print(ostream& os)
 void AsExpr::resolveImpl()
 {
   resolveExpr(base);
-  resolveType(option);
+  resolveType(type);
   ut = dynamic_cast<UnionType*>(canonicalize(base->type));
   if(!ut)
   {
@@ -1559,7 +1559,7 @@ void AsExpr::resolveImpl()
   //make sure option is actually one of the types in the union
   for(size_t i = 0; i < ut->options.size(); i++)
   {
-    if(typesSame(ut->options[i], option))
+    if(typesSame(ut->options[i], type))
     {
       optionIndex = i;
       resolved = true;
@@ -1570,7 +1570,7 @@ void AsExpr::resolveImpl()
 
 Expression* AsExpr::copy()
 {
-  auto c = new AsExpr(base->copy(), option);
+  auto c = new AsExpr(base->copy(), type);
   c->resolve();
   return c;
 }
@@ -1585,7 +1585,7 @@ bool AsExpr::operator==(const Expression& erhs) const
 
 ostream& AsExpr::print(ostream& os)
 {
-  os << '(' << base << " as " << option->getName() << ')';
+  os << '(' << base << " as " << type->getName() << ')';
   return os;
 }
 

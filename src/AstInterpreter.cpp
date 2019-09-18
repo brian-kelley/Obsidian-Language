@@ -386,6 +386,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
+    //first, look for exact type match
     for(size_t i = 0; i < unionDst->options.size(); i++)
     {
       if(typesSame(unionDst->options[i], value->type))
@@ -394,6 +395,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
         break;
       }
     }
+    //then, look for any valid conversion
     if(option < 0)
     {
       for(size_t i = 0; i < unionDst->options.size(); i++)
@@ -407,7 +409,7 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
       }
     }
     INTERNAL_ASSERT(option >= 0);
-    value = new UnionConstant(value, unionDst->options[option], unionDst);
+    value = new UnionConstant(value, unionDst);
     value->setLocation(loc);
     return value;
   }
@@ -841,7 +843,7 @@ Expression* Interpreter::evaluate(Expression* e)
     INTERNAL_ASSERT(uc);
     if(uc->option != ae->optionIndex)
       errMsgLoc(ae, "union value does not have the type expected by \"as\"");
-    return ae->base;
+    return uc->value;
   }
   else if(dynamic_cast<ThisExpr*>(e))
   {

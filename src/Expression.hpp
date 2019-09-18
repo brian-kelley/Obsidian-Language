@@ -573,7 +573,7 @@ struct MapConstant : public Expression
 //(which is guaranteed by semantic checking/implicit conversions)
 struct UnionConstant : public Expression
 {
-  UnionConstant(Expression* expr, Type* t, UnionType* ut);
+  UnionConstant(Expression* expr, UnionType* ut);
   bool assignable()
   {
     return false;
@@ -1064,7 +1064,6 @@ struct AsExpr : public Expression
     base = b;
     ut = nullptr;
     optionIndex = -1;
-    option = t;
     type = t;
   }
   void resolveImpl();
@@ -1101,7 +1100,6 @@ struct AsExpr : public Expression
   Expression* base;
   UnionType* ut;
   int optionIndex;
-  Type* option;
 };
 
 struct ThisExpr : public Expression
