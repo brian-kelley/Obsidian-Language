@@ -757,8 +757,9 @@ void AliasType::resolveImpl()
 /* Enum Type */
 /*************/
 
-EnumType::EnumType(Scope* enclosingScope)
+EnumType::EnumType(string n, Scope* enclosingScope)
 {
+  name = n;
   //"scope" encloses the enum constants
   scope = new Scope(enclosingScope, this);
 }

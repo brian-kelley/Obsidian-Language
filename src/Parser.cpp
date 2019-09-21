@@ -653,9 +653,11 @@ namespace Parser
 
   void Stream::parseEnum(Scope* s)
   {
-    EnumType* e = new EnumType(s);
-    e->setLocation(lookAhead());
+    Node* loc = lookAhead();
     expectKeyword(ENUM);
+    string enumName = expectIdent();
+    EnumType* e = new EnumType(enumName, s);
+    e->setLocation(loc);
     expectPunct(LBRACE);
     while(true)
     {

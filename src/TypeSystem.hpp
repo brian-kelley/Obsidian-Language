@@ -369,36 +369,25 @@ struct EnumConstant : public Node
   EnumConstant(string n, uint64_t u)
   {
     name = n;
-    fitsS64 = true;
-    fitsU64 = true;
-    if(u > (uint64_t) numeric_limits<int64_t>::max())
-    {
-      fitsS64 = false;
-    }
-    else
-    {
-      sval = u;
-    }
+    isSigned = false;
     uval = u;
   }
   EnumConstant(string n, int64_t s)
   {
     name = n;
-    fitsS64 = true;
-    fitsU64 = false;
+    isSigned = true;
     sval = s;
   }
   EnumType* et;
   string name;
-  uint64_t uval;
-  int64_t sval;
-  bool fitsS64;
-  bool fitsU64;
-};
+  //should rawVal be interpreted as int64_t?
+  bool isSigned;
+  uint64_t rawVal;
+}
 
 struct EnumType : public Type
 {
-  EnumType(Scope* enclosingScope);
+  EnumType(string name, Scope* enclosingScope);
   //resolving an enum decides what its underlying type should be
   void resolveImpl();
   //add a name to enum, automatically choosing numeric value
@@ -415,7 +404,8 @@ struct EnumType : public Type
   bool isEnum() {return true;}
   bool isInteger() {return true;}
   bool isNumber() {return true;}
-  //The type used to represent the enum in memory
+  //The type used to represent the enum in memory -
+  //is able to represent every value
   IntegerType* underlying;
   Scope* scope;
   string getName() const
@@ -426,6 +416,10 @@ struct EnumType : public Type
   {
     return fnv1a(this);
   }
+  private:
+  vector<uint64_t> rawValues;
+  vector<bool> rawSigned;
+  bool isSigned;
 };
 
 struct IntegerType : public Type

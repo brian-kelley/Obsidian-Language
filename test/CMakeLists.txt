@@ -40,4 +40,5 @@ createTest("RecursiveFibonacci")
 createTest("Sierpinski")
 createTest("Sorting")
 createTest("Unions")
+createTest("Switch")
 
