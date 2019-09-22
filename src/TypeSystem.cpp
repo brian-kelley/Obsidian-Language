@@ -766,117 +766,78 @@ EnumType::EnumType(string n, Scope* enclosingScope)
 
 void EnumType::resolveImpl()
 {
-  //Decide what integer type will represent the enum
-  //Prefer signed, and then prefer smaller widths
-  bool canUseS = true;
-  bool canUseU = true;
-  for(auto ec : values)
+  //First, decide if a signed type must be used (because at least one
+  //value is negative)
+  bool useSigned = false;
+  for(auto v : values)
   {
-    if(!ec->fitsS64)
-      canUseS = false;
-    if(!ec->fitsU64)
-      canUseU = false;
-  }
-  if(!canUseS && !canUseU)
-  {
-    errMsgLoc(this, "neither long nor ulong can represent all values in enum");
-  }
-  //Try different integer widths until all values fit
-  for(int width = 1; width <= 8; width *= 2)
-  {
-    underlying = getIntegerType(width, canUseS);
-    if(canUseS)
+    if(v->isSigned)
     {
-      for(auto ec : values)
-      {
-        if(ec->sval < underlying->minSignedVal() ||
-            ec->sval > underlying->maxSignedVal())
-        {
-          underlying = nullptr;
-          break;
-        }
-      }
-    }
-    else
-    {
-      for(auto ec : values)
-      {
-        if(ec->uval > underlying->maxUnsignedVal())
-        {
-          underlying = nullptr;
-          break;
-        }
-      }
-    }
-    if(underlying)
-    {
-      //found the smallest type that works, done
+      useSigned = true;
       break;
     }
   }
+  if(useSigned)
+  {
+    //int64_t is the biggest value that can be used, so check that all
+    //positive values are <= int64_t's max value.
+    uint64_t maxAllowed = (uint64_t) std::numeric_limits<int64_t>::max();
+    for(auto v : values)
+    {
+      if(!v->isSigned && v->value > maxAllowed)
+        errMsgLoc(v, "enum is signed, but this value doesn't fit in long");
+    }
+  }
+  //finally, find the smallest type that fits all values
+  int width = 8;
+  //unsigned range: [0, 1 << width)
+  //signed range:   [-(1 << (width - 1)), 1 << (width - 1))
+  for(auto v : values)
+  {
+    if(useSigned)
+    {
+      int64_t sval = (int64_t) v->value;
+      if(sval < -((int64_t) 1 << (width - 1)))
+        width *= 2;
+      else if(sval >= (int64_t) 1 << (width - 1))
+        width *= 2;
+    }
+    else
+    {
+      if(v->value >= (uint64_t) 1 << width)
+        width *= 2;
+    }
+    if(width == 64)
+      break;
+  }
+  underlying = getIntegerType(width / 8, useSigned);
   resolved = true;
 }
 
 void EnumType::addAutomaticValue(string n, Node* location)
 {
-  uint64_t uval = 0;
-  if(!values.back()->fitsU64)
+  //the next value is always 1 + the previous value, or 0 if
+  //this is the first.
+  uint64_t nextVal = 0;
+  bool nextSigned = false;
+  if(values.size())
   {
-    //previously added value was negative
-    for(int64_t sval = values.back()->sval + 1; sval < 0; sval++)
-    {
-      //check if sval is already in the enum
-      bool alreadyInEnum = false;
-      for(auto existing : values)
-      {
-        if(!existing->fitsU64 && existing->sval == sval)
-        {
-          alreadyInEnum = true;
-          break;
-        }
-      }
-      if(!alreadyInEnum)
-      {
-        addNegativeValue(n, sval, location);
-        return;
-      }
-    }
-    //fall through: start trying unsigned values to insert at 0
+    //even if value really represents a 2s complement, adding
+    //one still gives the next value.
+    nextVal = values.back()->value + 1;
+    nextSigned = values.back()->isSigned;
+    if(nextVal == 0)
+      nextSigned = false;
   }
-  else if(!values.empty())
-  {
-    uval = values.back()->uval + 1;
-  }
-  //otherwise, start searching at uval = 0
-  for(;; uval++)
-  {
-    bool alreadyInEnum = false;
-    for(auto existing : values)
-    {
-      if(existing->fitsU64 && existing->uval == uval)
-      {
-        alreadyInEnum = true;
-        break;
-      }
-    }
-    if(!alreadyInEnum)
-    {
-      addPositiveValue(n, uval, location);
-      return;
-    }
-  }
+  EnumConstant* newValue = new EnumConstant(n, nextVal, nextSigned);
+  newValue->setLocation(location);
+  newValue->et = this;
+  scope->addName(newValue);
+  values.push_back(newValue);
 }
 
 void EnumType::addPositiveValue(string n, uint64_t uval, Node* location)
 {
-  //uval must not already be in the enum
-  for(auto existing : values)
-  {
-    if(existing->fitsU64 && existing->uval == uval)
-    {
-      errMsgLoc(this, "enum value " << n << " duplicates value of " << existing->name);
-    }
-  }
   EnumConstant* newValue = new EnumConstant(n, uval);
   newValue->setLocation(location);
   newValue->et = this;
@@ -886,14 +847,8 @@ void EnumType::addPositiveValue(string n, uint64_t uval, Node* location)
 
 void EnumType::addNegativeValue(string n, int64_t sval, Node* location)
 {
-  for(auto existing : values)
-  {
-    if(!existing->fitsU64 && existing->sval == sval)
-    {
-      errMsgLoc(this, "enum value " << n << " duplicates value of " << existing->name);
-    }
-  }
-  EnumConstant* newValue = new EnumConstant(n, sval);
+  uint64_t uval = static_cast<uint64_t>(sval);
+  EnumConstant* newValue = new EnumConstant(n, uval, true);
   newValue->setLocation(location);
   newValue->et = this;
   scope->addName(newValue);

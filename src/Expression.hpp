@@ -1185,9 +1185,7 @@ struct EnumExpr : public Expression
   bool operator<(const Expression& rhs) const
   {
     const EnumExpr& e = dynamic_cast<const EnumExpr&>(rhs);
-    if(value->et->underlying->isSigned)
-      return value->sval < e.value->sval;
-    return value->uval < e.value->uval;
+    return value->value < e.value->value;
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();

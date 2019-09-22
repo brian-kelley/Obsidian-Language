@@ -36,5 +36,70 @@ proc void main()
         print("Saturday\n");
         break;
     }
+    switch(day)
+    {
+      case Day.SUN:
+        print("Sunday\n");
+        break;
+      case Day.MON:
+        print("Monday\n");
+        break;
+      case Day.TUES:
+        print("Tuesday\n");
+        break;
+      case Day.WED:
+        print("Wednesday\n");
+        break;
+      case Day.THU:
+        print("Thursday\n");
+        break;
+      case Day.FRI:
+        print("Friday\n");
+        break;
+      case Day.SAT:
+        print("Saturday\n");
+        break;
+    }
+  }
+  Day oneDay = Day.FRI;
+  Day otherDay = Day.SAT;
+  switch(oneDay)
+  {
+    case MON:
+      print("Monday\n");
+      break;
+    case FRI:
+      print("Friday\n");
+      break;
+    default:
+      print("Something else.\n");
+  }
+  switch(otherDay)
+  {
+    case MON:
+      print("Monday\n");
+      break;
+    case FRI:
+      print("Friday\n");
+      break;
+    default:
+      print("Something else.\n");
+  }
+  int a = 5;
+  switch(a)
+  {
+    case 0:
+      print("0\n");
+      break;
+    case 3:
+      print("3\n");
+      break;
+    case 5:
+      print("5\n");
+      break;
+    case 6:
+      print("6 (fallthrough, good)\n");
+    default:
+      print("default (fallthrough, good)\n");
   }
 }

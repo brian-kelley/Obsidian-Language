@@ -366,24 +366,17 @@ struct AliasType : public Type
 struct EnumConstant : public Node
 {
   //use this constructor for all non-negative values
-  EnumConstant(string n, uint64_t u)
+  EnumConstant(string n, uint64_t u, bool sign = false)
   {
     name = n;
-    isSigned = false;
-    uval = u;
-  }
-  EnumConstant(string n, int64_t s)
-  {
-    name = n;
-    isSigned = true;
-    sval = s;
+    isSigned = sign;
+    value = u;
   }
   EnumType* et;
   string name;
-  //should rawVal be interpreted as int64_t?
-  bool isSigned;
-  uint64_t rawVal;
-}
+  bool isSigned;  //should value be interpreted as int64_t?
+  uint64_t value;
+};
 
 struct EnumType : public Type
 {
@@ -416,14 +409,11 @@ struct EnumType : public Type
   {
     return fnv1a(this);
   }
-  private:
-  vector<uint64_t> rawValues;
-  vector<bool> rawSigned;
-  bool isSigned;
 };
 
 struct IntegerType : public Type
 {
+  //size is in bytes (1, 2, 4, 8)
   IntegerType(string name, int size, bool sign);
   uint64_t maxUnsignedVal();
   int64_t minSignedVal();

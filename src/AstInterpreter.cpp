@@ -461,17 +461,15 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   }
   else if(auto enumConst = dynamic_cast<EnumExpr*>(value))
   {
-    if(enumConst->value->fitsS64)
+    if(enumConst->value->isSigned)
     {
-      //make a signed temporary int constant, then convert that
-      //(this can't possible lose information)
-      IntConstant asInt(enumConst->value->sval);
+      IntConstant asInt((int64_t) enumConst->value->value);
       asInt.setLocation(loc);
       return asInt.convert(type);
     }
     else
     {
-      IntConstant asInt(enumConst->value->uval);
+      IntConstant asInt(enumConst->value->value);
       asInt.setLocation(loc);
       return asInt.convert(type);
     }

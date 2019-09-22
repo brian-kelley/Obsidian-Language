@@ -44,7 +44,17 @@ Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e)
 
 void Scope::addName(Name n)
 {
-  Name prev = lookup(n.name);
+  //Check for name conflicts
+  Name prev;
+  if(node.is<Block*>() || node.is<Function*>())
+  {
+    //Subr-local names can't shadow anything
+    prev = lookup(n.name);
+  }
+  else
+  {
+    prev = findName(n.name);
+  }
   if(prev.item)
   {
     errMsgLoc(n.item, "name " << n.name << " redefined - previous declaration at " << prev.item->printLocation());

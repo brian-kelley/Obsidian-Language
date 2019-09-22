@@ -669,17 +669,13 @@ namespace Parser
         uint64_t rawValue = ((IntLit*) expect(INT_LITERAL))->val;
         if(sign)
         {
-          if(rawValue > numeric_limits<int64_t>::max())
-          {
+          if(rawValue > (uint64_t) numeric_limits<int64_t>::max())
             errMsgLoc(valueLocation, "negative enum value can't fit in a long");
-          }
           //otherwise, is safe to convert to int64
           e->addNegativeValue(name, -rawValue, valueLocation);
         }
         else
-        {
           e->addPositiveValue(name, rawValue, valueLocation);
-        }
       }
       else
       {

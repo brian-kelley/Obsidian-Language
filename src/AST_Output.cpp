@@ -451,10 +451,9 @@ int emitEnum(EnumType* e)
   int root = out.createNode("Enum " + e->name);
   for(auto ec : e->values)
   {
-    if(ec->fitsS64)
-      out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->sval)));
-    else
-      out.createEdge(root, out.createNode(ec->name + " = " + to_string(ec->uval)));
+    string printedValue = ec->isSigned ?
+      to_string((int64_t) ec->value) : to_string(ec->value);
+    out.createEdge(root, out.createNode(ec->name + " = " + printedValue));
   }
   return root;
 }

@@ -47,7 +47,8 @@ struct Name
     SUBROUTINE,
     EXTERN_SUBR,
     VARIABLE,
-    ENUM_CONSTANT
+    ENUM_CONSTANT,
+    USING_DIRECTIVE
   };
   Name() : item(nullptr), kind(NONE), name(""), scope(nullptr) {}
   Name(Module* m, Scope* parent);

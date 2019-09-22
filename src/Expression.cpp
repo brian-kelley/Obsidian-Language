@@ -316,26 +316,21 @@ Expression* IntConstant::convert(Type* t)
   else if(auto enumType = dynamic_cast<EnumType*>(t))
   {
     //when converting int to enum,
-    //make sure value is actually in enum
-    for(auto ec : enumType->values)
+    //make sure value is actually in the enum
+    if(isSigned())
     {
-      if(isSigned())
+      for(auto ec : enumType->values)
       {
-        if(ec->fitsS64 && ec->sval == sval)
-        {
-          auto ee = new EnumExpr(ec);
-          ee->setLocation(this);
-          return ee;
-        }
+        if(sval == (int64_t) ec->value)
+          return new EnumExpr(ec);
       }
-      else
+    }
+    else
+    {
+      for(auto ec : enumType->values)
       {
-        if(ec->fitsU64 && ec->uval == uval)
-        {
-          auto ee = new EnumExpr(ec);
-          ee->setLocation(this);
-          return ee;
-        }
+        if(uval == ec->value)
+          return new EnumExpr(ec);
       }
     }
     if(isSigned())
