@@ -99,7 +99,11 @@ proc void main()
       break;
     case 6:
       print("6 (fallthrough, good)\n");
+    cast 7:
+      print("7 (fallthrough 2, good)\n");
+      break;
     default:
-      print("default (fallthrough, good)\n");
+      print("default (fallthrough 3, BAD)\n");
   }
 }
+

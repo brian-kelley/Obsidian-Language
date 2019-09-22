@@ -9,9 +9,11 @@ FRONTEND
 -using directives
   -introduces either one name into the current modules, or
    all names in another module.
-  -Ambiguous usage is an error
-  -Change shadowing rules: allow names in module scope to shadow without warning,
-   but never allow block names to shadow a visible name.
+  -Ambiguous usage is an error: a name that has been declared or introduced via using
+    more than once into the same exact scope. Can only catch this when resolving the usage,
+    not when first inserting the names.
+  -Allow names in module/enum/struct/function scope to shadow without warning.
+  -Never allow block scope names to shadow any other name.
 
 -(WIP) AST interpreter for core language (prerequisite)
 -extern functions:
@@ -27,7 +29,8 @@ BACKEND
 -IR rewrite:
   -Remove "print" and "assert" as instructions - make them FFI calls
   -Create parallel, simplified type system like LLVM
--All optimizations should work on the IR, without any AST
+-All optimizations should work on the IR only - it should be possible to
+  completely delete the AST
 
 -Metaprogramming:
   -Put '#' before any pseudo-statement (scoped decls and regular statements)
