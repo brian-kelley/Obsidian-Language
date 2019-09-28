@@ -1752,6 +1752,19 @@ UnresolvedExpr::UnresolvedExpr(Expression* b, Member* n, Scope* s)
   usage = s;
 }
 
+void UnresolvedExpr::setShortcutEnum(EnumType* et)
+{
+  INTERNAL_ASSERT(!shortcutEnum);
+  shortcutEnum = et;
+}
+
+void UnresolvedExpr::clearShortcutEnum()
+{
+  shortcutEnum = nullptr;
+}
+
+EnumType* UnresolvedExpr::shortcutEnum = nullptr;
+
 void resolveExpr(Expression*& expr)
 {
   if(auto defaultVal = dynamic_cast<DefaultValueExpr*>(expr))
@@ -1774,6 +1787,11 @@ void resolveExpr(Expression*& expr)
   vector<string>& names = unres->name->names;
   //need a "base" expression first
   //(could be the whole expr, or could be the root of a StructMem etc.)
+  EnumConstant* enumShortcutValue = nullptr;
+  if(names.size() == 1 && UnresolvedExpr::shortcutEnum)
+  {
+    enumShortcutValue = (EnumConstant*) UnresolvedExpr::shortcutEnum->scope->lookup(names[0]).item;
+  }
   if(!base)
   {
     Scope* baseSearch = unres->usage;
@@ -1782,82 +1800,101 @@ void resolveExpr(Expression*& expr)
       Name found = baseSearch->findName(names[nameIter]);
       if(!found.item)
       {
-        string fullPath = names[0];
-        for(size_t i = 0; i < nameIter; i++)
+        //Failed to find the name
+        if(enumShortcutValue)
         {
-          fullPath = fullPath + '.' + names[i];
+          base = new EnumExpr(enumShortcutValue);
         }
-        errMsgLoc(unres, "unknown identifier " << fullPath);
+        else
+        {
+          string fullPath = names[0];
+          for(size_t i = 0; i < nameIter; i++)
+          {
+            fullPath = fullPath + '.' + names[i];
+          }
+          errMsgLoc(unres, "unknown identifier " << fullPath);
+        }
       }
-      //based on type of name, either set base or update search scope
-      switch(found.kind)
+      else
       {
-        case Name::MODULE:
-          baseSearch = ((Module*) found.item)->scope;
-          break;
-        case Name::STRUCT:
-          baseSearch = ((StructType*) found.item)->scope;
-          break;
-        case Name::SUBROUTINE:
-          {
-            auto subr = (Subroutine*) found.item;
-            if(subr->type->ownerStruct)
-            {
-              //is a member subroutine, so create implicit "this"
-              ThisExpr* subrThis = new ThisExpr(unres->usage);
-              subrThis->setLocation(unres);
-              subrThis->resolve();
-              //this must match owner type of subr
-              if(subr->type->ownerStruct != subrThis->structType)
-              {
-                errMsgLoc(unres,
-                    "implicit 'this' here can't be used to call " <<
-                    subr->type->ownerStruct->name << '.' << subr->name);
-              }
-              base = new SubroutineExpr(subrThis, (Subroutine*) found.item);
-            }
-            else
-            {
-              //nonmember subroutine can be called from anywhere,
-              //so no context checking here
-              base = new SubroutineExpr(subr);
-            }
+        //based on type of name, either set base or update search scope
+        switch(found.kind)
+        {
+          case Name::MODULE:
+            baseSearch = ((Module*) found.item)->scope;
             break;
-          }
-        case Name::EXTERN_SUBR:
-          base = new SubroutineExpr((ExternalSubroutine*) found.item);
-          break;
-        case Name::VARIABLE:
-          {
-            auto var = (Variable*) found.item;
-            if(var->owner)
-            {
-              ThisExpr* varThis = new ThisExpr(unres->usage);
-              varThis->setLocation(unres);
-              varThis->resolve();
-              if(varThis->structType != var->owner)
-              {
-                errMsgLoc(unres,
-                    "implicit 'this' here can't be used to access " <<
-                    var->owner->name << '.' << var->name);
-              }
-              base = new StructMem(varThis, var);
-            }
-            else
-            {
-              //static variable can be accessed anywhere
-              base = new VarExpr(var);
-            }
+          case Name::ENUM:
+            baseSearch = ((EnumType*) found.item)->scope;
             break;
-          }
-        case Name::SIMPLE_TYPE:
-          base = ((SimpleType*) found.item)->val;
-          break;
-        case Name::ENUM_CONSTANT:
-          base = new EnumExpr((EnumConstant*) found.item);
-          break;
-        default:
-          errMsgLoc(unres, "identifier is not a valid expression");
+          case Name::STRUCT:
+            baseSearch = ((StructType*) found.item)->scope;
+            break;
+          case Name::SUBROUTINE:
+            {
+              auto subr = (Subroutine*) found.item;
+              if(subr->type->ownerStruct)
+              {
+                //is a member subroutine, so create implicit "this"
+                ThisExpr* subrThis = new ThisExpr(unres->usage);
+                subrThis->setLocation(unres);
+                subrThis->resolve();
+                //this must match owner type of subr
+                if(subr->type->ownerStruct != subrThis->structType)
+                {
+                  errMsgLoc(unres,
+                      "implicit 'this' here can't be used to call " <<
+                      subr->type->ownerStruct->name << '.' << subr->name);
+                }
+                base = new SubroutineExpr(subrThis, (Subroutine*) found.item);
+              }
+              else
+              {
+                //nonmember subroutine can be called from anywhere,
+                //so no context checking here
+                base = new SubroutineExpr(subr);
+              }
+              break;
+            }
+          case Name::EXTERN_SUBR:
+            base = new SubroutineExpr((ExternalSubroutine*) found.item);
+            break;
+          case Name::VARIABLE:
+            {
+              auto var = (Variable*) found.item;
+              if(var->owner)
+              {
+                ThisExpr* varThis = new ThisExpr(unres->usage);
+                varThis->setLocation(unres);
+                varThis->resolve();
+                if(varThis->structType != var->owner)
+                {
+                  errMsgLoc(unres,
+                      "implicit 'this' here can't be used to access " <<
+                      var->owner->name << '.' << var->name);
+                }
+                base = new StructMem(varThis, var);
+              }
+              else
+              {
+                //static variable can be accessed anywhere
+                base = new VarExpr(var);
+              }
+              break;
+            }
+          case Name::SIMPLE_TYPE:
+            base = ((SimpleType*) found.item)->val;
+            break;
+          case Name::ENUM_CONSTANT:
+            base = new EnumExpr((EnumConstant*) found.item);
+            break;
+          default:
+            errMsgLoc(unres, "name is not a valid expression");
+        }
+        if(nameIter == 0 && enumShortcutValue && base)
+        {
+          warnMsgLoc(unres, "in special context (switch), ambiguity between enum value " << names[0] << "\n" \
+              << "and other declaration " << names[0] << " at " << base->printLocation());
+        }
       }
       nameIter++;
     }

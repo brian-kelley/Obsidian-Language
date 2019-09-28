@@ -934,7 +934,7 @@ namespace Parser
         CallExpr* ce = dynamic_cast<CallExpr*>(lhs);
         if(!ce)
         {
-          errMsgLoc(lhs, "this expression can't be used as statement");
+          errMsgLoc(lhs, "side-effect free expression can't be used as statement");
         }
         CallStmt* cs = new CallStmt(b, ce);
         if(semicolon)

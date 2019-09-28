@@ -81,6 +81,11 @@ string getSourceName(int id);
 
 #define errMsgLoc(node, msg) errMsgLocManual(node->fileID, node->line, node->col, msg)
 
+#define warnMsgLocManual(fileID, line, col, msg) \
+{ostringstream oss_; oss_ << "Warning: " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; cout << (oss_.str());}
+
+#define warnMsgLoc(node, msg) warnMsgLocManual(node->fileID, node->line, node->col, msg)
+
 #define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; int* asdf = nullptr; asdf[0] = 4; exit(1);}
 
 #define INTERNAL_ERROR IE_IMPL(__FILE__, __LINE__)

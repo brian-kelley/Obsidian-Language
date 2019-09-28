@@ -8,9 +8,12 @@ proc void main()
     WED,
     THU,
     FRI,
-    SAT
+    SAT,
+    NUM_DAYS
   }
-  for(int day = 0; day < 7; day++)
+  int numDays = Day.NUM_DAYS;
+  print("There are ", numDays, " days of the week.\n");
+  for(Day day = 0; day < Day.NUM_DAYS; day++)
   {
     switch(day)
     {
@@ -96,10 +99,9 @@ proc void main()
       break;
     case 5:
       print("5\n");
-      break;
     case 6:
       print("6 (fallthrough, good)\n");
-    cast 7:
+    case 7:
       print("7 (fallthrough 2, good)\n");
       break;
     default:

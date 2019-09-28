@@ -128,6 +128,10 @@ Type* getSubroutineType(StructType* owner, bool pure, Type* retType, vector<Type
 
 Type* promote(Type* lhs, Type* rhs)
 {
+  if(auto leftEnum = dynamic_cast<EnumType*>(lhs))
+    lhs = leftEnum->underlying;
+  if(auto rightEnum = dynamic_cast<EnumType*>(rhs))
+    rhs = rightEnum->underlying;
   INTERNAL_ASSERT(lhs->isNumber() && rhs->isNumber());
   if(typesSame(lhs, rhs))
   {

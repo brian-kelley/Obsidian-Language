@@ -46,7 +46,7 @@ void Scope::addName(Name n)
 {
   //Check for name conflicts
   Name prev;
-  if(node.is<Block*>() || node.is<Function*>())
+  if(node.is<Block*>() || node.is<Subroutine*>())
   {
     //Subr-local names can't shadow anything
     prev = lookup(n.name);

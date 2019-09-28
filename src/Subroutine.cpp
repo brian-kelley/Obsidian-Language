@@ -396,22 +396,13 @@ void Switch::resolveImpl()
   //resolve case values and make sure they can convert to 
   for(auto& caseVal : caseValues)
   {
-    auto unresVal = dynamic_cast<UnresolvedExpr*>(caseVal);
     //intercept special case of enum values, without preceding enum name.
-    if(auto switchedEnum = dynamic_cast<EnumType*>(switched->type))
-    {
-      if(unresVal && unresVal->name && unresVal->name->names.size() == 1)
-      {
-        string name = unresVal->name->names[0];
-        //have a single name; could try to look up enum value,
-        //but the name could still refer to a variable.
-        //This must to take precedence, since the enum constant
-        //can always be unambigously referenced using the enum name.
-      }
-    }
     if(!caseVal->resolved)
     {
+      auto switchedEnum = dynamic_cast<EnumType*>(switched->type);
+      UnresolvedExpr::setShortcutEnum(switchedEnum);
       resolveExpr(caseVal);
+      UnresolvedExpr::clearShortcutEnum();
     }
     if(!switched->type->canConvert(caseVal->type))
     {

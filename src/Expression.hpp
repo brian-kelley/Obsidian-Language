@@ -1283,9 +1283,17 @@ struct UnresolvedExpr : public Expression
     INTERNAL_ERROR;
     return false;
   }
+  //Temporarily import enum's named values into the current
+  //scope for the purposes of name lookup (used only for
+  //switch cases). Will never actually override the results
+  //of a name lookup (if there is a variable with same name)
+  //but there will be a warning if the enum value is overridden.
+  static void setShortcutEnum(EnumType* et);
+  static void clearShortcutEnum();
   Expression* base; //null = no base
   Member* name;
   Scope* usage;
+  static EnumType* shortcutEnum;
 };
 
 void resolveExpr(Expression*& expr);

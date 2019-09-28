@@ -367,11 +367,14 @@ int emitExpression(Expression* e)
     else
       root = out.createNode("External subroutine " + se->exSubr->name);
   }
+  else if(auto ee = dynamic_cast<EnumExpr*>(e))
+  {
+    root = out.createNode("Enum value " + ee->value->name);
+  }
   else
   {
     cout << "Didn't implement emitExpression for type " << typeid(*e).name() << '\n';
     //resolved AST can't contain any UnresolvedExprs
-    return 0;
     INTERNAL_ERROR;
   }
   return root;
