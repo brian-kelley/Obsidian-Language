@@ -144,7 +144,7 @@ Type* promote(Type* lhs, Type* rhs)
     auto lhsInt = dynamic_cast<IntegerType*>(lhs);
     auto rhsInt = dynamic_cast<IntegerType*>(rhs);
     int size = std::max(lhsInt->size, rhsInt->size);
-   bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
+    bool isSigned = lhsInt->isSigned || rhsInt->isSigned;
     //to combine signed and unsigned of same size, expand to next size if not already 8 bytes
     if(lhsInt->size == rhsInt->size && lhsInt->isSigned != rhsInt->isSigned && size != 8)
     {

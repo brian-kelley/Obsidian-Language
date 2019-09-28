@@ -13,6 +13,9 @@ proc void main()
   }
   int numDays = Day.NUM_DAYS;
   print("There are ", numDays, " days of the week.\n");
+  //Intentionally trigger the warning about ambiguous names
+  Day TUES = Day.MON;
+  print("Here they are, twice each:\n");
   for(Day day = 0; day < Day.NUM_DAYS; day++)
   {
     switch(day)
@@ -20,10 +23,10 @@ proc void main()
       case SUN:
         print("Sunday\n");
         break;
-      case MON:
+      case TUES:      //this is actually a variable with value MON!
         print("Monday\n");
         break;
-      case TUES:
+      case Day.TUES:  //this is unambiguously the enum constant TUES.
         print("Tuesday\n");
         break;
       case WED:
@@ -38,6 +41,8 @@ proc void main()
       case SAT:
         print("Saturday\n");
         break;
+      default:
+        print("BAD!\n");
     }
     switch(day)
     {

@@ -1801,7 +1801,7 @@ void resolveExpr(Expression*& expr)
       if(!found.item)
       {
         //Failed to find the name
-        if(enumShortcutValue)
+        if(nameIter == 0 && enumShortcutValue)
         {
           base = new EnumExpr(enumShortcutValue);
         }
@@ -1890,10 +1890,12 @@ void resolveExpr(Expression*& expr)
           default:
             errMsgLoc(unres, "name is not a valid expression");
         }
-        if(nameIter == 0 && enumShortcutValue && base)
+        if(enumShortcutValue && base)
         {
+          VarExpr* ambigVar = dynamic_cast<VarExpr*>(base);
+          INTERNAL_ASSERT(ambigVar);
           warnMsgLoc(unres, "in special context (switch), ambiguity between enum value " << names[0] << "\n" \
-              << "and other declaration " << names[0] << " at " << base->printLocation());
+              << "and other declaration " << names[0] << " at " << ambigVar->var->printLocation());
         }
       }
       nameIter++;

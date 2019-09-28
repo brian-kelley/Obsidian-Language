@@ -46,7 +46,7 @@ using std::to_string;
 
 //Interpreter output capture:
 //this either points to cout or capturedOutput (ostringstream)
-extern ostream& interpreterOut;
+extern ostream& compilerOut;
 
 string getInterpreterOutput();
 
@@ -82,7 +82,7 @@ string getSourceName(int id);
 #define errMsgLoc(node, msg) errMsgLocManual(node->fileID, node->line, node->col, msg)
 
 #define warnMsgLocManual(fileID, line, col, msg) \
-{ostringstream oss_; oss_ << "Warning: " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; cout << (oss_.str());}
+{ostringstream oss_; oss_ << "Warning: " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; compilerOut << (oss_.str()) << '\n';}
 
 #define warnMsgLoc(node, msg) warnMsgLocManual(node->fileID, node->line, node->col, msg)
 

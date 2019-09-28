@@ -15,8 +15,7 @@ SourceFile::SourceFile(Node* includeLoc, string path_)
   //TODO: convert to absolute, canonical path
   //Doesn't affect correctness but may avoid redundant loads
   id = fileCounter++;
-  path = path_;
-  FILE* f = fopen(path.c_str(), "rb");
+  path = path_;  FILE* f = fopen(path.c_str(), "rb");
   if(!f)
   {
     if(!includeLoc)
@@ -29,6 +28,17 @@ SourceFile::SourceFile(Node* includeLoc, string path_)
           string("Could not load included file \"") + path + "\"");
     }
   }
+#ifdef ONYX_TESTING
+  //For testing purposes, just use filename (no directory).
+  //This way, error/warning messages in gold output files
+  //can be diffed exactly.
+  cout << "Orig path: " << path << '\n';
+  size_t filenameStart = 0;
+  filenameStart = std::max(path.rfind('\\') + 1, filenameStart);
+  filenameStart = std::max(path.rfind('/') + 1, filenameStart);
+  path = path.substr(filenameStart);
+  cout << "Stripped path: " << path << '\n';
+#endif
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
   rewind(f);

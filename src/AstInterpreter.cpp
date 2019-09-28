@@ -272,11 +272,11 @@ void Interpreter::execute(Statement* stmt)
       //would normally print as an array.
       if(auto stringConst = dynamic_cast<StringConstant*>(toPrint))
       {
-        interpreterOut << stringConst->value;
+        compilerOut << stringConst->value;
       }
       else if(auto charConst = dynamic_cast<CharConstant*>(toPrint))
       {
-        interpreterOut << charConst->value;
+        compilerOut << charConst->value;
       }
       else if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
       {
@@ -286,12 +286,12 @@ void Interpreter::execute(Statement* stmt)
         {
           auto charElem = dynamic_cast<CharConstant*>(elem);
           INTERNAL_ASSERT(charElem);
-          interpreterOut << charElem->value;
+          compilerOut << charElem->value;
         }
       }
       else
       {
-        interpreterOut << toPrint;
+        compilerOut << toPrint;
       }
     }
   }
@@ -311,7 +311,7 @@ void Interpreter::execute(Statement* stmt)
     int label = sw->defaultPosition;
     for(size_t i = 0; i < sw->caseValues.size(); i++)
     {
-      if(*switched == *sw->caseValues[i])
+      if(*switched == *evaluate(sw->caseValues[i]))
       {
         label = sw->caseLabels[i];
         break;
