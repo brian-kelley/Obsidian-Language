@@ -953,11 +953,18 @@ void Interpreter::assignVar(Variable* v, Expression* e)
 
 Expression*& Interpreter::readVar(Variable* v)
 {
-  if(globals.find(v) != globals.end())
+  if(v->isGlobal())
+  {
+    if(globals.find(v) == globals.end())
+    {
+      //lazily add new global to the global table.
+      globals[v] = evaluate(v->initial);
+    }
     return globals[v];
+  }
   if(frames.top().locals.find(v) == frames.top().locals.end())
   {
-    errMsg("Variable " << v->name << " is not currently defined.\n");
+    errMsg("Variable " << v->name << " was used before initialization/declaration.\n");
   }
   return frames.top().locals[v];
 }

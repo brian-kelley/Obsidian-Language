@@ -512,34 +512,30 @@ void Assertion::resolveImpl()
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* enclosing, string n, bool isStatic, bool pure,
-    Type* returnType, vector<string>& paramNames, vector<Type*>& paramTypes)
+Subroutine::Subroutine(Scope* s, string n)
 {
   name = n;
-  scope = new Scope(enclosing, this);
-  auto enclosingStruct = enclosing->getMemberContext();
+  scope = new Scope(s, this);
+  body = new Block(this);
+  id = nextSubrID++;
+}
+
+void Subroutine::setType(Type* retType, vector<Variable*>& parsedParams, bool isStatic, bool isPure)
+{
+  vector<Type*> paramTypes;
+  params = parsedParams;
+  for(auto p : params)
+    paramTypes.push_back(p->type);
+  auto enclosingStruct = scope->getMemberContext();
   if(enclosingStruct && !isStatic)
   {
-    type = new CallableType(pure, enclosingStruct, returnType, paramTypes);
+    type = new CallableType(isPure, enclosingStruct, retType, paramTypes);
     owner = enclosingStruct;
   }
   else
   {
-    type = new CallableType(pure, returnType, paramTypes);
+    type = new CallableType(isPure, retType, paramTypes);
   }
-  //create parameter variables
-  if(paramNames.size() != paramTypes.size())
-  {
-    INTERNAL_ERROR;
-  }
-  for(size_t i = 0; i < paramNames.size(); i++)
-  {
-    Variable* v = new Variable(scope, paramNames[i], paramTypes[i], nullptr, true);
-    params.push_back(v);
-    scope->addName(v);
-  }
-  body = new Block(this);
-  id = nextSubrID++;
 }
 
 void Subroutine::resolveImpl()

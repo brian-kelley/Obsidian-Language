@@ -41,4 +41,8 @@ createTest("Sierpinski")
 createTest("Sorting")
 createTest("Unions")
 createTest("Switch")
+createTest("Assertions")
+createTest("ShadowingErrorParam")
+createTest("ShadowingErrorLocal")
+createTest("ShadowingModuleOK")
 

@@ -1,0 +1,2 @@
+Error in ShadowingErrorLocal.os, 5.3:
+local declaration A shadows a global declaration at ShadowingErrorLocal.os, 1:1

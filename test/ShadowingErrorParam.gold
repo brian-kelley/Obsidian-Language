@@ -1,0 +1,2 @@
+Error in ShadowingErrorParam.os, 3.18:
+local declaration A shadows a global declaration at ShadowingErrorParam.os, 1:1

@@ -32,8 +32,12 @@ void writeFile(string& text, string filename)
 
 void errAndQuit(string message)
 {
-  cout << message << '\n';
-  exit(EXIT_FAILURE);
+  compilerOut << message << '\n';
+#ifdef ONYX_TESTING
+  throw std::runtime_error("Normal compile error");
+#else
+  exit(1);
+#endif
 }
 
 bool runCommand(string command, bool silenced)

@@ -21,25 +21,29 @@ int main(int argc, const char** argv)
   global = new Module("", nullptr);
   createBuiltinTypes();
   //Parse the global/root module
-  parseProgram(op.input);
-  global->resolve();
-  vector<Expression*> mainArgs;
-  if(argc > 2)
+  try
   {
-    Type* stringType = getArrayType(primitives[Prim::CHAR], 1);
-    Type* stringArrType = getArrayType(primitives[Prim::CHAR], 2);
-    vector<Expression*> stringArgs;
-    for(int i = 2; i < argc; i++)
+    parseProgram(op.input);
+    global->resolve();
+    vector<Expression*> mainArgs;
+    if(argc > 2)
     {
-      vector<Expression*> strChars;
-      string s = argv[i];
-      for(size_t j = 0; j < s.length(); j++)
-        strChars.push_back(new CharConstant(s[j]));
-      stringArgs.push_back(new CompoundLiteral(strChars, stringType));
+      Type* stringType = getArrayType(primitives[Prim::CHAR], 1);
+      Type* stringArrType = getArrayType(primitives[Prim::CHAR], 2);
+      vector<Expression*> stringArgs;
+      for(int i = 2; i < argc; i++)
+      {
+        vector<Expression*> strChars;
+        string s = argv[i];
+        for(size_t j = 0; j < s.length(); j++)
+          strChars.push_back(new CharConstant(s[j]));
+        stringArgs.push_back(new CompoundLiteral(strChars, stringType));
+      }
+      mainArgs.push_back(new CompoundLiteral(stringArgs, stringArrType));
     }
-    mainArgs.push_back(new CompoundLiteral(stringArgs, stringArrType));
+    Interpreter(mainSubr, mainArgs);
   }
-  Interpreter(mainSubr, mainArgs);
+  catch(...) {}
   string gold = loadFile(testName + ".gold");
   string actual = getInterpreterOutput();
   if(actual != gold)

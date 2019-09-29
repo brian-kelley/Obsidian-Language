@@ -384,21 +384,26 @@ namespace Parser
     if(acceptKeyword(STATIC))
       isStatic = true;
     Type* retType = parseType(s);
-    string name = expectIdent();
+    Subroutine* subr = new Subroutine(s, expectIdent());
+    subr->setLocation(location);
     expectPunct(LPAREN);
-    vector<string> argNames;
-    vector<Type*> argTypes;
+    vector<Variable*> params;
     while(!acceptPunct(RPAREN))
     {
-      if(argTypes.size() > 0)
+      if(params.size())
         expectPunct(COMMA);
-      argTypes.push_back(parseType(s));
-      //all arguments must be given names
-      argNames.push_back(expectIdent());
+      Node* varLoc = lookAhead();
+      //parse a variable
+      Type* paramType = parseType(s);
+      //TODO: make param names optional
+      string paramName = expectIdent();
+      Variable* v = new Variable(subr->scope, paramName, paramType, nullptr, false);
+      v->setLocation(varLoc);
+      params.push_back(v);
+      subr->scope->addName(v);
     }
     //Subroutine constructor constructs body
-    Subroutine* subr = new Subroutine(s, name, isStatic, pure, retType, argNames, argTypes);
-    subr->setLocation(location);
+    subr->setType(retType, params, isStatic, pure);
     parseBlock(subr->body);
     s->addName(subr);
   }

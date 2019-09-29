@@ -237,7 +237,8 @@ struct Subroutine : public Node
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
-  Subroutine(Scope* s, string name, bool isStatic, bool pure, Type* returnType, vector<string>& paramNames, vector<Type*>& paramTypes);
+  Subroutine(Scope* s, string name);
+  void setType(Type* retType, vector<Variable*>& params, bool isStatic, bool isPure);
   void resolveImpl();
   string name;
   //the full type of this subroutine

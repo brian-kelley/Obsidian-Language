@@ -44,20 +44,22 @@ Scope::Scope(Scope* p, EnumType* e) : parent(p), node(e)
 
 void Scope::addName(Name n)
 {
-  //Check for name conflicts
-  Name prev;
+  //Check for name conflicts:
+  //  No name can be redefined in the same scope,
+  //  but names can shadow if they aren't in a block/subr.
+  Name prev = lookup(n.name);
+  if(prev.item)
+  {
+    errMsgLoc(n.item, "declaration " << n.name << " conflicts with other declaration at " << prev.item->printLocation());
+  }
   if(node.is<Block*>() || node.is<Subroutine*>())
   {
     //Subr-local names can't shadow anything
-    prev = lookup(n.name);
-  }
-  else
-  {
     prev = findName(n.name);
-  }
-  if(prev.item)
-  {
-    errMsgLoc(n.item, "name " << n.name << " redefined - previous declaration at " << prev.item->printLocation());
+    if(prev.item)
+    {
+      errMsgLoc(n.item, "local declaration " << n.name << " shadows a global declaration at " << prev.item->printLocation());
+    }
   }
   names[n.name] = n;
 }
