@@ -31,6 +31,17 @@ struct Module : public Node
   set<SourceFile*> included;
 };
 
+struct UsingModule : public Node
+{
+  UsingModule(Member moduleName, Scope* enclosing);
+  Module* module;
+};
+
+struct UsingName : public Node
+{
+  UsingName(Member name, Scope* enclosing);
+};
+
 extern Module* global;
 
 // Unified name lookup system
@@ -48,7 +59,8 @@ struct Name
     EXTERN_SUBR,
     VARIABLE,
     ENUM_CONSTANT,
-    USING_DIRECTIVE
+    USING_MODULE,
+    USING_NAME
   };
   Name() : item(nullptr), kind(NONE), name(""), scope(nullptr) {}
   Name(Module* m, Scope* parent);

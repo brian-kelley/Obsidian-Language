@@ -6,14 +6,23 @@ FRONTEND
   -Scope "subroutine" names should be a set of overloads,
     which are matched during call resolution
 
--using directives
-  -introduces either one name into the current modules, or
-   all names in another module.
+Accept complete namespace separation between metaprogram and program.
+This gets rid of tons of conflicts between the metaprogram resolution
+approach (use-before-declare, resolve on demand) and the program approach
+(use any time, resolve after all parsing)
+
+-"using <name>;" directive
+  -introduces all names in another module into the current one (if name is a module),
+  or just the one name (otherwise).
   -Ambiguous usage is an error: a name that has been declared or introduced via using
     more than once into the same exact scope. Can only catch this when resolving the usage,
     not when first inserting the names.
-  -Allow names in module/enum/struct/function scope to shadow without warning.
-  -Never allow block scope names to shadow any other name.
+  -Now, shadowing is allowed in all cases without warning, except for local variables/parameters.
+  -Prohibiting all shadowing is just too restrictive with real-life modules and large codebases.
+
+  -After parsing, all names are registered in their scopes.
+    During scope resolution, the first step must be to resolve all "using"s, so that future name
+    lookup during resolution can access those.
 
 -(WIP) AST interpreter for core language (prerequisite)
 -extern functions:

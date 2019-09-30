@@ -51,5 +51,11 @@ struct Node
   virtual void resolveImpl() {};
 };
 
+struct Member : public Node
+{
+  vector<string> names;
+};
+
+
 #endif
 

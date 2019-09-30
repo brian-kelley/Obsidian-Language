@@ -6,11 +6,6 @@
 #include "Token.hpp"
 #include "Scope.hpp"
 
-struct Member : public Node
-{
-  vector<string> names;
-};
-
 struct Statement;
 struct Expression;
 struct Block;

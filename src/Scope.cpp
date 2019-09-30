@@ -321,3 +321,15 @@ bool Module::hasInclude(SourceFile* sf)
   return included.find(sf) != included.end();
 }
 
+UsingModule::UsingModule(Member moduleName, Scope* enclosing)
+{
+  //TODO
+  INTERNAL_ERROR;
+}
+
+UsingName::UsingName(Member name, Scope* enclosing)
+{
+  //TODO
+  INTERNAL_ERROR;
+}
+
