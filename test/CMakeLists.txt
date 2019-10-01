@@ -45,4 +45,6 @@ createTest("Assertions")
 createTest("ShadowingErrorParam")
 createTest("ShadowingErrorLocal")
 createTest("ShadowingModuleOK")
+createTest("Structs")
+createTest("Tuples")
 
