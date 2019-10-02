@@ -31,7 +31,7 @@ struct B
   {
     print("Specific B thing, my value is ", dataB, '\n');
   }
-  func bool getSum()
+  func int getSum()
   {
     return a.dataA + dataB;
   }
@@ -59,9 +59,13 @@ struct C
 
 proc void main()
 {
+  print("1\n");
   A a = [4];
-  B b = [6];
-  C c = [8];
+  print("2\n");
+  B b = [[5], 6];
+  print("3\n");
+  C c = [[[1], 2], 8];
+  print("4\n");
   print("Exercising A.\n");
   a.doThing();
   a.doAThing();

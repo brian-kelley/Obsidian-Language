@@ -54,7 +54,7 @@ namespace Parser
     Token* lookAhead(int n = 0);  //get the next token without advancing pos
     void err(string msg = "");
 
-    Statement* parseScopedDecl(Scope* s, bool semicolon);
+    Statement* parseDecl(Scope* s, bool semicolon);
     //parse a statement, but don't add it to block
     Statement* parseStatement(Block* b, bool semicolon);
     //parse a statement or declaration

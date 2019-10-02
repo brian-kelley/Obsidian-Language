@@ -1148,8 +1148,12 @@ void resolveType(Type*& t)
           t = (EnumType*) found.item;
           break;
         case Name::TYPEDEF:
-          t = ((AliasType*) found.item)->actual;
+        {
+          AliasType* at = (AliasType*) found.item;
+          at->resolve();
+          t = at->actual;
           break;
+        }
         default:
           errMsgLoc(unres, "name " << mem << " does not refer to a type");
       }
@@ -1158,21 +1162,18 @@ void resolveType(Type*& t)
     else if(unres->t.is<UnresolvedType::Tuple>())
     {
       auto& tupleList = unres->t.get<UnresolvedType::Tuple>();
-      t = new TupleType(tupleList.members);
-      t->resolve();
+      t = getTupleType(tupleList.members);
     }
     else if(unres->t.is<UnresolvedType::Union>())
     {
       //first, resolve the elements of the union
       auto& unionList = unres->t.get<UnresolvedType::Union>();
-      t = new UnionType(unionList.members);
-      t->resolve();
+      t = getUnionType(unionList.members);
     }
     else if(unres->t.is<UnresolvedType::Map>())
     {
       auto& kv = unres->t.get<UnresolvedType::Map>();
-      t = new MapType(kv.key, kv.value);
-      t->resolve();
+      t = getMapType(kv.key, kv.value);
     }
     else if(unres->t.is<UnresolvedType::Callable>())
     {

@@ -9,6 +9,10 @@ Variable::Variable(Scope* s, string n, Type* t, Expression* init, bool isStatic,
   name = n;
   type = t;
   owner = s->getMemberContext();
+  if(isStatic && !owner)
+    errMsgLoc(this, "variable declared static outside a struct");
+  if(isStatic)
+    owner = nullptr;
   initial = init;
   //if this variable is nonstatic and is inside a struct, add it as member
   if(!isStatic && owner)

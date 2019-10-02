@@ -228,10 +228,6 @@ StructType* Scope::getStructContext()
   //reaching a static subroutine or global scope
   for(Scope* iter = this; iter; iter = iter->parent)
   {
-    if(iter->node.is<StructType*>())
-    {
-      return iter->node.get<StructType*>();
-    }
     if(iter->node.is<Subroutine*>())
     {
       auto subrType = iter->node.get<Subroutine*>()->type;

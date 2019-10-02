@@ -526,7 +526,7 @@ void Subroutine::setType(Type* retType, vector<Variable*>& parsedParams, bool is
   params = parsedParams;
   for(auto p : params)
     paramTypes.push_back(p->type);
-  auto enclosingStruct = scope->getMemberContext();
+  auto enclosingStruct = scope->parent->getMemberContext();
   if(enclosingStruct && !isStatic)
   {
     type = new CallableType(isPure, enclosingStruct, retType, paramTypes);

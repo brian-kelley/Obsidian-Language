@@ -48,7 +48,7 @@ void parseProgram(string mainSourcePath)
   Parser::Stream mainStream(getSourceFile(nullptr, mainSourcePath));
   while(!mainStream.accept(PastEOF::inst))
   {
-    mainStream.parseScopedDecl(global->scope, true);
+    mainStream.parseDecl(global->scope, true);
   }
 }
 
@@ -64,7 +64,7 @@ namespace Parser
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
-      parseScopedDecl(m->scope, true);
+      parseDecl(m->scope, true);
     }
     s->addName(m);
   }
@@ -79,11 +79,11 @@ namespace Parser
     expectPunct(LBRACE);
     while(!acceptPunct(RBRACE))
     {
-      parseScopedDecl(structType->scope, true);
+      parseDecl(structType->scope, true);
     }
   }
 
-  Statement* Stream::parseScopedDecl(Scope* s, bool semicolon)
+  Statement* Stream::parseDecl(Scope* s, bool semicolon)
   {
     Node* loc = lookAhead();
     Punct colon(COLON);
@@ -111,7 +111,7 @@ namespace Parser
           //parse scoped decls until EOF of the included file
           while(!subStream.accept(PastEOF::inst))
           {
-            subStream.parseScopedDecl(module->scope, true);
+            subStream.parseDecl(module->scope, true);
           }
         }
         return nullptr;
@@ -123,12 +123,23 @@ namespace Parser
     }
     else if(Keyword* kw = dynamic_cast<Keyword*>(lookAhead()))
     {
+      bool parsingSubr = false;
+      if(kw->kw == FUNC || kw->kw == PROC)
+        parsingSubr = true;
+      else if(kw->kw == STATIC)
+      {
+        Keyword* after = dynamic_cast<Keyword*>(lookAhead(1));
+        if(after && (after->kw == FUNC || after->kw == PROC))
+          parsingSubr = true;
+      }
+      if(parsingSubr)
+      {
+        parseSubroutine(s);
+        return nullptr;
+      }
+      //otherwise, "static" precedes a VarDecl
       switch(kw->kw)
       {
-        case FUNC:
-        case PROC:
-          parseSubroutine(s);
-          return nullptr;
         case EXTERN:
           parseExternalSubroutine(s);
           return nullptr;
@@ -288,6 +299,7 @@ namespace Parser
           types.push_back(parseType(s));
         }
         while(acceptPunct(COMMA));
+        cout << "Parsed tuple with " << types.size() << " members\n";
         t->t = UnresolvedType::Tuple(types);
       }
       else if(acceptPunct(COLON))
@@ -370,6 +382,9 @@ namespace Parser
   void Stream::parseSubroutine(Scope* s)
   {
     Node* location = lookAhead();
+    bool isStatic = false;
+    if(acceptKeyword(STATIC))
+      isStatic = true;
     bool pure;
     if(acceptKeyword(FUNC))
     {
@@ -380,9 +395,6 @@ namespace Parser
       expectKeyword(PROC);
       pure = false;
     }
-    bool isStatic = false;
-    if(acceptKeyword(STATIC))
-      isStatic = true;
     Type* retType = parseType(s);
     Subroutine* subr = new Subroutine(s, expectIdent());
     subr->setLocation(location);
@@ -783,7 +795,7 @@ namespace Parser
         case PROCTYPE:
         case STATIC:
           {
-            return parseScopedDecl(b->scope, semicolon);
+            return parseDecl(b->scope, semicolon);
           }
         case RETURN:
         case BREAK:
@@ -809,7 +821,7 @@ namespace Parser
     else if(lookAhead()->compareTo(&lparen))
     {
       //start of union/tuple type
-      return parseScopedDecl(b->scope, semicolon);
+      return parseDecl(b->scope, semicolon);
     }
     err("Expected statement or declaration");
     return nullptr;
