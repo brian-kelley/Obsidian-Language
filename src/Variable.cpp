@@ -50,6 +50,8 @@ void Variable::resolveImpl()
     if(!typesSame(initial->type, type))
       initial = new Converted(initial, type);
   }
+  else
+    initial = type->getDefaultValue();
   resolved = true;
 }
 

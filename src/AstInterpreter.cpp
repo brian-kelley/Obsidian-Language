@@ -9,42 +9,22 @@ Interpreter::Interpreter(Subroutine* subr, vector<Expression*> args)
   callSubr(subr, args);
 }
 
-Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression* thisExpr)
+Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args)
 {
-  returning = false;
-  rv = nullptr;
-  //push stack frame
   frames.emplace();
-  StackFrame& current = frames.top();
-  current.thisExpr = thisExpr;
-  if(args.size() != subr->type->paramTypes.size())
-  {
-    errMsg("Call to " << subr->name << " expects " << \
-        subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
-  }
-  //assign args to corresponding local variables
-  for(size_t i = 0; i < args.size(); i++)
-  {
-    assignVar(subr->params[i], args[i]);
-  }
-  //Execute statements in linear sequence.
-  //If a return is encountered, execute() returns and
-  //the return value will be placed in the frame rv
-  for(auto s : subr->body->stmts)
-  {
-    execute(s);
-    if(returning)
-    {
-      returning = false;
-      break;
-    }
-  }
-  frames.pop();
-  if(!rv && !subr->type->returnType->isSimple())
-  {
-    errMsgLoc(subr, "interpreter reached end of subroutine without a return value");
-  }
-  return rv;
+  return invoke(subr, args);
+}
+
+Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression*& thisExpr)
+{
+  frames.emplace(thisExpr);
+  return invoke(subr, args);
+}
+
+Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression*&& thisExpr)
+{
+  frames.emplace(thisExpr);
+  return invoke(subr, args);
 }
 
 Expression* Interpreter::callExtern(ExternalSubroutine* exSubr, vector<Expression*> args)
@@ -775,7 +755,17 @@ Expression* Interpreter::evaluate(Expression* e)
     INTERNAL_ASSERT(subExpr);
     Expression* retVal = nullptr;
     if(subExpr->subr)
-      retVal = callSubr(subExpr->subr, args, subExpr->thisObject);
+    {
+      if(subExpr->thisObject)
+      {
+        if(subExpr->thisObject->assignable())
+          retVal = callSubr(subExpr->subr, args, (Expression*&) evaluateLValue(subExpr->thisObject));
+        else
+          retVal = callSubr(subExpr->subr, args, evaluate(subExpr->thisObject));
+      }
+      else
+          retVal = callSubr(subExpr->subr, args);
+    }
     else
       retVal = callExtern(subExpr->exSubr, args);
     rv = nullptr;
@@ -845,7 +835,7 @@ Expression* Interpreter::evaluate(Expression* e)
   }
   else if(dynamic_cast<ThisExpr*>(e))
   {
-    return frames.top().thisExpr;
+    return frames.top().getThis();
   }
   else if(auto conv = dynamic_cast<Converted*>(e))
   {
@@ -916,16 +906,7 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
   }
   else if(dynamic_cast<ThisExpr*>(e))
   {
-    if(auto thisVar = dynamic_cast<VarExpr*>(frames.top().thisExpr))
-    {
-      //return a reference to the var referred to be "this"
-      return evaluateLValue(thisVar);
-    }
-    else
-    {
-      //return a direct reference to thisExpr
-      return frames.top().thisExpr;
-    }
+    return frames.top().getThis();
   }
   cout << "Couldn't evaluate lvalue " << e << '\n';
   INTERNAL_ERROR;
@@ -967,5 +948,40 @@ Expression*& Interpreter::readVar(Variable* v)
     errMsg("Variable " << v->name << " was used before initialization/declaration.\n");
   }
   return frames.top().locals[v];
+}
+
+Expression* Interpreter::invoke(Subroutine* subr, vector<Expression*>& args)
+{
+  returning = false;
+  rv = nullptr;
+  //push stack frame
+  if(args.size() != subr->type->paramTypes.size())
+  {
+    errMsg("Call to " << subr->name << " expects " << \
+        subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
+  }
+  //assign args to corresponding local variables
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    assignVar(subr->params[i], args[i]);
+  }
+  //Execute statements in linear sequence.
+  //If a return is encountered, execute() returns and
+  //the return value will be placed in the frame rv
+  for(auto s : subr->body->stmts)
+  {
+    execute(s);
+    if(returning)
+    {
+      returning = false;
+      break;
+    }
+  }
+  frames.pop();
+  if(!rv && !subr->type->returnType->isSimple())
+  {
+    errMsgLoc(subr, "interpreter reached end of subroutine without a return value");
+  }
+  return rv;
 }
 

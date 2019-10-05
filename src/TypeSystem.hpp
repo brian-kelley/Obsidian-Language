@@ -45,6 +45,7 @@ struct ElemExprType;
 
 struct Scope;
 struct Expression;
+struct EnumExpr;
 struct SimpleConstant;
 
 struct Type : public Node
@@ -397,6 +398,7 @@ struct EnumType : public Type
   bool isEnum() {return true;}
   bool isInteger() {return true;}
   bool isNumber() {return true;}
+  Expression* getDefaultValue();
   //The type used to represent the enum in memory -
   //is able to represent every value
   IntegerType* underlying;
@@ -409,6 +411,9 @@ struct EnumType : public Type
   {
     return fnv1a(this);
   }
+private:
+  //singleton default value
+  EnumExpr* defVal;
 };
 
 struct IntegerType : public Type

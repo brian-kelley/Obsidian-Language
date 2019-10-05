@@ -770,6 +770,10 @@ EnumType::EnumType(string n, Scope* enclosingScope)
 
 void EnumType::resolveImpl()
 {
+  if(values.size() == 0)
+  {
+    errMsgLoc(this, "empty enum is not allowed. Try using \"type " << name << ";\" instead.");
+  }
   //First, decide if a signed type must be used (because at least one
   //value is negative)
   bool useSigned = false;
@@ -816,6 +820,8 @@ void EnumType::resolveImpl()
   }
   underlying = getIntegerType(width / 8, useSigned);
   resolved = true;
+  defVal = new EnumExpr(values.front());
+  defVal->resolve();
 }
 
 void EnumType::addAutomaticValue(string n, Node* location)
@@ -863,6 +869,11 @@ bool EnumType::canConvert(Type* other)
 {
   other = canonicalize(other);
   return other->isInteger();
+}
+
+Expression* EnumType::getDefaultValue()
+{
+  return defVal;
 }
 
 /****************/

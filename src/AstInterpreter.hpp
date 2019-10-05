@@ -8,13 +8,34 @@
 
 struct StackFrame
 {
+  StackFrame()
+  {
+    thisExprLval = nullptr;
+    thisExprRval = nullptr;
+  }
+  StackFrame(Expression*&& e)
+  {
+    thisExprLval = nullptr;
+    thisExprRval = e;
+  }
+  StackFrame(Expression*& e)
+  {
+    thisExprLval = &e;
+    thisExprRval = nullptr;
+  }
+  Expression*& getThis()
+  {
+    if(thisExprLval)
+      return *thisExprLval;
+    else if(!thisExprRval)
+      INTERNAL_ERROR;
+    return thisExprRval;
+  }
   //Local variables are lazily added
   //to this when initialized.
-  //
-  //If a var is referenced before first initialization,
-  //it was used before declaration.
   map<Variable*, Expression*> locals;
-  Expression* thisExpr;
+  Expression** thisExprLval;
+  Expression* thisExprRval;
 };
 
 struct Interpreter
@@ -23,7 +44,9 @@ struct Interpreter
   Interpreter(Subroutine* subr, vector<Expression*> args);
   //thisExpr is a reference, not a value!
   //Any modifications to it through a method apply to the original, not a copy.
-  Expression* callSubr(Subroutine* subr, vector<Expression*> args, Expression* thisExpr = nullptr);
+  Expression* callSubr(Subroutine* subr, vector<Expression*> args);
+  Expression* callSubr(Subroutine* subr, vector<Expression*> args, Expression*& thisExpr);
+  Expression* callSubr(Subroutine* subr, vector<Expression*> args, Expression*&& thisExpr);
   Expression* callExtern(ExternalSubroutine* exSubr, vector<Expression*> args);
   void execute(Statement* stmt);
   Expression* evaluate(Expression* e);
@@ -41,6 +64,8 @@ struct Interpreter
   bool continuing;
   //The return value for the current function
   Expression* rv;
+private:
+  Expression* invoke(Subroutine* subr, vector<Expression*>& args);
 };
 
 #endif
