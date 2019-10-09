@@ -59,13 +59,9 @@ struct C
 
 proc void main()
 {
-  print("1\n");
   A a = [4];
-  print("2\n");
   B b = [[5], 6];
-  print("3\n");
   C c = [[[1], 2], 8];
-  print("4\n");
   print("Exercising A.\n");
   a.doThing();
   a.doAThing();
