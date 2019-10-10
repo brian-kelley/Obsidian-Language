@@ -1,0 +1,19 @@
+Exercising A.
+A is doing a thing.
+Specific A thing, my value is 4
+Doubled: 8
+Exercising B.
+B is doing a thing.
+Specific A thing, my value is 5
+Specific B thing, my value is 6
+Summed: 11
+Exercising C.
+C is doing a thing.
+Specific A thing, my value is 1
+Specific B thing, my value is 2
+Specific C thing, my value is 8
+Multiplied: 16
+Testing A static:
+A string: 
+A string: Already printed it.
+A string: Third time

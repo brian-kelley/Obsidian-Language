@@ -134,17 +134,9 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 void Assign::resolveImpl()
 {
   resolveExpr(lvalue);
+  resolveExpr(rvalue);
   //Default-initialized local variables produce an assignment
   //with a null rvalue - use the default value for the type
-  if(rvalue)
-  {
-    resolveExpr(rvalue);
-  }
-  else
-  {
-    rvalue = lvalue->type->getDefaultValue();
-    rvalue->resolve();
-  }
   if(!lvalue->assignable())
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");

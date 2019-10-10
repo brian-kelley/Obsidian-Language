@@ -273,7 +273,9 @@ void StructType::resolveImpl()
       //add everything in memStruct's interface to this interface
       for(auto& ifaceKV : memStruct->interface)
       {
-        interface[ifaceKV.first] = ifaceKV.second;
+        auto exposedIface = ifaceKV.second;
+        interface[ifaceKV.first] =
+          IfaceMember(members[i], exposedIface.callable);
       }
     }
   }

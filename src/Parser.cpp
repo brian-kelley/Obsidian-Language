@@ -1168,10 +1168,7 @@ namespace Parser
         PARSE_PLUS_COMMA(exprs, parseExpression(s), rbrack);
         //allow a single element in CompoundLiteral syntax,
         //but then the expression doesn't need to be a CompoundLiteral
-        if(exprs.size() == 1)
-          base = exprs[0];
-        else
-          base = new CompoundLiteral(exprs);
+        base = new CompoundLiteral(exprs);
       }
       else
       {

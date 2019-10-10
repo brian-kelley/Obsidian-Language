@@ -18,12 +18,14 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args)
 Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression*& thisExpr)
 {
   frames.emplace(thisExpr);
+  INTERNAL_ASSERT(typesSame(thisExpr->type, subr->type->ownerStruct));
   return invoke(subr, args);
 }
 
 Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Expression*&& thisExpr)
 {
   frames.emplace(thisExpr);
+  INTERNAL_ASSERT(typesSame(thisExpr->type, subr->type->ownerStruct));
   return invoke(subr, args);
 }
 
@@ -362,10 +364,10 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   }
   Node* loc = value;
   INTERNAL_ASSERT(value->constant());
-  int option = -1;
   auto structDst = dynamic_cast<StructType*>(type);
   if(auto unionDst = dynamic_cast<UnionType*>(type))
   {
+    int option = -1;
     //first, look for exact type match
     for(size_t i = 0; i < unionDst->options.size(); i++)
     {
@@ -414,11 +416,8 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
     {
       mems.push_back(convertConstant(clRHS->members[i], structDst->members[i]->type));
     }
-    clRHS->setLocation(value);
-    clRHS->resolve();
-    clRHS->setLocation(loc);
-    clRHS->type = type;
-    return clRHS;
+    CompoundLiteral* conv = new CompoundLiteral(mems, type);
+    return conv;
   }
   else if(auto intConst = dynamic_cast<IntConstant*>(value))
   {
@@ -857,30 +856,20 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
     //the sm's base must be an lvalue, and from that
     //the member can be accessed
     Expression*& baseLval = evaluateLValue(sm->base);
-    CompoundLiteral* compoundBase = dynamic_cast<CompoundLiteral*>(baseLval);
+    INTERNAL_ASSERT(typesSame(baseLval->type, sm->base->type));
     StructType* structType = dynamic_cast<StructType*>(sm->base->type);
     INTERNAL_ASSERT(structType);
+    CompoundLiteral* compoundBase = dynamic_cast<CompoundLiteral*>(baseLval);
+    INTERNAL_ASSERT(compoundBase);
     auto& dataMems = structType->members;
     //Only variable members are mutable!
     //Subroutine members are immutable parts of a struct type's interface.
     INTERNAL_ASSERT(sm->member.is<Variable*>());
-    //Single-member structs can be represented as just the value
-    //(not a CompoundLiteral) for efficiency, but not always
-    if(dataMems.size() == 1)
+    for(size_t i = 0; i < dataMems.size(); i++)
     {
-      if(compoundBase)
-        return compoundBase->members.front();
-      else
-        return baseLval;
-    }
-    else
-    {
-      //struct with multiple values always stored as CompoundLiteral
-      INTERNAL_ASSERT(compoundBase);
-      for(size_t i = 0; i < dataMems.size(); i++)
+      if(dataMems[i] == sm->member.get<Variable*>())
       {
-        if(dataMems[i] == sm->member.get<Variable*>())
-          return compoundBase->members[i];
+        return compoundBase->members[i];
       }
     }
     INTERNAL_ERROR;

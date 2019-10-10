@@ -1927,14 +1927,16 @@ void resolveExpr(Expression*& expr)
       auto& iface = baseStruct->interface;
       if(iface.find(names[nameIter]) != iface.end())
       {
-        auto& ifaceMember = iface[names[nameIter]];
+        auto ifaceMember = iface[names[nameIter]];
         Node* baseLoc = base;
-        if(ifaceMember.member)
+        while(ifaceMember.member)
         {
           //replace base with another StructMem to access the composed member
           base = new StructMem(base, ifaceMember.member);
           base->setLocation(baseLoc);
           base->resolve();
+          if(auto composingStruct = dynamic_cast<StructType*>(base->type))
+            ifaceMember = composingStruct->interface[names[nameIter]];
         }
         if(ifaceMember.callable.is<Subroutine*>())
         {

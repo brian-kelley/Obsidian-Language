@@ -83,3 +83,4 @@ proc void main()
   A.label = "Third time";
   A.staticAThing();
 }
+

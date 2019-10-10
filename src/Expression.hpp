@@ -611,7 +611,10 @@ struct UnionConstant : public Expression
 //implicitly converts to array, struct and other tuples (elementwise).
 struct CompoundLiteral : public Expression
 {
+  //Constructor used by parser: mems can be unresolved and type is a tuple
   CompoundLiteral(vector<Expression*>& mems);
+  //Constructor used by interpreter: mems must be resolved and type is
+  //any array, tuple, or struct
   CompoundLiteral(vector<Expression*>& mems, Type* t);
   void resolveImpl();
   bool assignable()

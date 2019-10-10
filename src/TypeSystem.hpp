@@ -179,8 +179,12 @@ struct StructType : public Type
     {
       callable = (Subroutine*) nullptr;
     }
-    IfaceMember(Variable* m, Subroutine* s) : member(m), callable(s) {}
-    IfaceMember(Variable* m, Variable* v) : member(m), callable(v) {}
+    IfaceMember(Variable* m, Subroutine* s)
+      : member(m), callable(s) {}
+    IfaceMember(Variable* m, Variable* v)
+      : member(m), callable(v) {}
+    IfaceMember(Variable* m, variant<Subroutine*, Variable*> sv)
+      : member(m), callable(sv) {}
     Variable* member; //the composed member, or NULL for this
     variant<Subroutine*, Variable*> callable;
   };
