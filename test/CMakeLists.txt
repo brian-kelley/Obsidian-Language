@@ -47,4 +47,8 @@ createTest("ShadowingErrorLocal")
 createTest("ShadowingModuleOK")
 createTest("Structs")
 createTest("Tuples")
+createTest("Overloading")
+createTest("Using")
+createTest("Casting")
+createTest("UnionConversion")
 

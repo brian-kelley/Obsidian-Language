@@ -532,11 +532,11 @@ void Subroutine::setType(Type* retType, vector<Variable*>& parsedParams, bool is
 
 void Subroutine::resolveImpl()
 {
+  INTERNAL_ASSERT(type->resolved);
   if(scope->parent->node.is<Block*>() && !type->pure)
   {
     errMsgLoc(this, "can't declare procedure in block scope");
   }
-  type->resolve();
   for(auto param : params)
   {
     //resolving the param variables just resolves their types
@@ -603,7 +603,7 @@ ExternalSubroutine::ExternalSubroutine(
 
 void ExternalSubroutine::resolveImpl()
 {
-  type->resolve();
+  INTERNAL_ASSERT(type->resolved);
   resolved = true;
 }
 

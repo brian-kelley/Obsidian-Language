@@ -73,12 +73,16 @@ void Scope::addName(type* item) \
 IMPL_ADD_NAME(Variable)
 IMPL_ADD_NAME(Module)
 IMPL_ADD_NAME(StructType)
-IMPL_ADD_NAME(Subroutine)
-IMPL_ADD_NAME(ExternalSubroutine)
 IMPL_ADD_NAME(AliasType)
 IMPL_ADD_NAME(SimpleType)
 IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
+void Scope::addName(Subroutine* s)
+{
+}
+void Scope::addName(ExternalSubroutine* s)
+{
+}
 
 bool Scope::resolveAll()
 {
@@ -315,6 +319,18 @@ void Module::resolveImpl()
 bool Module::hasInclude(SourceFile* sf)
 {
   return included.find(sf) != included.end();
+}
+
+void SubroutineFamily::resolveImpl()
+{
+  //Resolve just the types of each member
+  for(auto s : subrs)
+    s->type->resolve();
+  for(auto es : exSubrs)
+    es->type->resolve();
+  //Hash the parameters from each type signature: if there's a conflict
+  //(extremely unlikely) then fall back to using typesSame() on every pair.
+  unordered_set<size_t> hashes;
 }
 
 UsingModule::UsingModule(Member moduleName, Scope* enclosing)

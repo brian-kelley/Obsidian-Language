@@ -1,15 +1,14 @@
 ---------------------
       TODO:
 ---------------------
-FRONTEND
+FRONTEND (last core language features):
 -Add function overloading
-  -Scope "subroutine" names should be a set of overloads,
-    which are matched during call resolution
 
-Accept complete namespace separation between metaprogram and program.
-This gets rid of tons of conflicts between the metaprogram resolution
-approach (use-before-declare, resolve on demand) and the program approach
-(use any time, resolve after all parsing)
+-Generalize "x as Y" to provide conversion of expression x to type Y.
+
+-Allow implicit widening conversions from one union type to another
+-Allow explicit narrowing from one union to another,
+  not just from a union to a member of the union
 
 -"using <name>;" directive
   -introduces all names in another module into the current one (if name is a module),
@@ -24,7 +23,6 @@ approach (use-before-declare, resolve on demand) and the program approach
     During scope resolution, the first step must be to resolve all "using"s, so that future name
     lookup during resolution can access those.
 
--(WIP) AST interpreter for core language (prerequisite)
 -extern functions:
   -for libc functions, compiler calls directly
   -otherwise, load the functions from dynamic library
