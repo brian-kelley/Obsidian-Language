@@ -179,14 +179,14 @@ struct StructType : public Type
     {
       callable = (Subroutine*) nullptr;
     }
-    IfaceMember(Variable* m, Subroutine* s)
+    IfaceMember(Variable* m, SubroutineFamily* s)
       : member(m), callable(s) {}
     IfaceMember(Variable* m, Variable* v)
       : member(m), callable(v) {}
-    IfaceMember(Variable* m, variant<Subroutine*, Variable*> sv)
+    IfaceMember(Variable* m, variant<SubroutineFamily*, Variable*> sv)
       : member(m), callable(sv) {}
     Variable* member; //the composed member, or NULL for this
-    variant<Subroutine*, Variable*> callable;
+    variant<SubroutineFamily*, Variable*> callable;
   };
   size_t hash() const
   {

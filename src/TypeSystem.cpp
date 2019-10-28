@@ -286,9 +286,9 @@ void StructType::resolveImpl()
   {
     switch(scopeName.second.kind)
     {
-      case Name::SUBROUTINE:
+      case Name::SUBROUTINE_FAMILY:
         {
-          Subroutine* subr = (Subroutine*) scopeName.second.item;
+          auto sf = (SubroutineFamily*) scopeName.second.item;
           //ownerStruct is populated by ctor (before resolve)
           //so it's safe to access here
           if(subr->type->ownerStruct == this)

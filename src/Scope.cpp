@@ -77,11 +77,52 @@ IMPL_ADD_NAME(AliasType)
 IMPL_ADD_NAME(SimpleType)
 IMPL_ADD_NAME(EnumType)
 IMPL_ADD_NAME(EnumConstant)
+IMPL_ADD_NAME(SubroutineFamily)
+
 void Scope::addName(Subroutine* s)
 {
+  //Check if a subroutine family exists
+  Name prev = lookup(s->name);
+  auto family = dynamic_cast<SubroutineFamily*>(prev.item);
+  if(family)
+  {
+    //add to existing SubroutineFamily
+    family->add(s);
+  }
+  else if(prev.item)
+  {
+    errMsgLoc(s, "declaration " << s->name << " conflicts with other declaration at " << prev.item->printLocation());
+  }
+  else
+  {
+    //It's a new declaration
+    auto f = new SubroutineFamily(s->name);
+    f->add(s);
+    addName(f);
+  }
 }
-void Scope::addName(ExternalSubroutine* s)
+
+void Scope::addName(ExternalSubroutine* es)
 {
+  //Check if a subroutine family exists
+  Name prev = lookup(es->name);
+  auto family = dynamic_cast<SubroutineFamily*>(prev.item);
+  if(family)
+  {
+    //add to existing SubroutineFamily
+    family->add(es);
+  }
+  else if(prev.item)
+  {
+    errMsgLoc(es, "declaration " << es->name << " conflicts with other declaration at " << prev.item->printLocation());
+  }
+  else
+  {
+    //It's a new declaration
+    auto f = new SubroutineFamily(es->name);
+    f->add(es);
+    addName(f);
+  }
 }
 
 bool Scope::resolveAll()
@@ -120,15 +161,10 @@ Name::Name(AliasType* a, Scope* s)
 {
   item = a;
 }
-Name::Name(Subroutine* subr, Scope* s)
-  : kind(SUBROUTINE), name(subr->name), scope(s)
+Name::Name(SubroutineFamily* subrFamily, Scope* s)
+  : kind(SUBROUTINE_FAMILY), name(subrFamily->name), scope(s)
 {
-  item = subr;
-}
-Name::Name(ExternalSubroutine* subr, Scope* s)
-  : kind(EXTERN_SUBR), name(subr->name), scope(s)
-{
-  item = subr;
+  item = subrFamily;
 }
 Name::Name(Variable* var, Scope* s)
   : kind(VARIABLE), name(var->name), scope(s)
