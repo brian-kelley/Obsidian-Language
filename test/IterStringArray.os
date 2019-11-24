@@ -1,4 +1,4 @@
-proc void main()
+proc main: void()
 {
   string[] arr = ["Hello", "World", "ABC"];
   for [i, iter] : arr

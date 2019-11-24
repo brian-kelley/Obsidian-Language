@@ -1,5 +1,4 @@
-
-proc void main()
+proc main: void()
 {
   int i = 13;
   int j = 8;

@@ -1,4 +1,4 @@
-func int[] bubbleSort(int[] arr)
+func bubbleSort: int[] (int[] arr)
 {
   bool update = true;
   while(update)
@@ -18,7 +18,7 @@ func int[] bubbleSort(int[] arr)
   return arr;
 }
 
-proc int[] insertionSort(int[] arr)
+proc insertionSort: int[] (int[] arr)
 {
   for i: 1, arr.len
   {
@@ -35,7 +35,7 @@ proc int[] insertionSort(int[] arr)
   return arr;
 }
 
-func int[] selectionSort(int[] arr)
+func selectionSort: int[] (int[] arr)
 {
   for i: 0, arr.len - 1
   {
@@ -59,7 +59,7 @@ func int[] selectionSort(int[] arr)
   return arr;
 }
 
-proc void main()
+proc main: void()
 {
   int[] testArr = [67, -234, 63, 786, 13412, -234, 754324];
   print("Bubble sorted:    ", bubbleSort(testArr), '\n');

@@ -1,18 +1,18 @@
 struct A
 {
-  proc void doThing()
+  proc doThing: void()
   {
     print("A is doing a thing.\n");
   }
-  proc void doAThing()
+  proc doAThing: void()
   {
     print("Specific A thing, my value is ", dataA, '\n');
   }
-  func int doubleMe()
+  func doubleMe: int()
   {
     return dataA * 2;
   }
-  static proc void staticAThing()
+  static proc staticAThing: void()
   {
     print("A string: ", label, '\n');
     label = "Already printed it.";
@@ -23,11 +23,11 @@ struct A
 
 struct B
 {
-  proc void doThing()
+  proc doThing: void()
   {
     print("B is doing a thing.\n");
   }
-  proc void doBThing()
+  proc doBThing: void()
   {
     print("Specific B thing, my value is ", dataB, '\n');
   }
@@ -41,15 +41,15 @@ struct B
 
 struct C
 {
-  proc void doThing()
+  proc doThing: void()
   {
     print("C is doing a thing.\n");
   }
-  proc void doCThing()
+  proc doCThing: void()
   {
     print("Specific C thing, my value is ", dataC, '\n');
   }
-  func int getProduct()
+  func getProduct: int()
   {
     return b.a.dataA * b.dataB * dataC;
   }
@@ -57,7 +57,7 @@ struct C
   int dataC;
 }
 
-proc void main()
+proc main: void()
 {
   A a = [4];
   B b = [[5], 6];

@@ -1,12 +1,12 @@
 int A = 5;
 
-func int problem(int B)
+func problem: int(int B)
 {
   int A = B + 3;
   return A * 2;
 }
 
-proc void main()
+proc main: void()
 {
   print(problem(3), '\n');
 }

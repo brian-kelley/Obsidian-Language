@@ -1,4 +1,4 @@
-proc void main()
+proc main: void()
 {
   uint ctr = 1;
   uint one = 1;

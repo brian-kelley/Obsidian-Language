@@ -173,27 +173,15 @@ struct StructType : public Type
   {
     return name;
   }
-  struct IfaceMember
-  {
-    IfaceMember() : member(nullptr)
-    {
-      callable = (Subroutine*) nullptr;
-    }
-    IfaceMember(Variable* m, SubroutineFamily* s)
-      : member(m), callable(s) {}
-    IfaceMember(Variable* m, Variable* v)
-      : member(m), callable(v) {}
-    IfaceMember(Variable* m, variant<SubroutineFamily*, Variable*> sv)
-      : member(m), callable(sv) {}
-    Variable* member; //the composed member, or NULL for this
-    variant<SubroutineFamily*, Variable*> callable;
-  };
+  //Given an unresolved CallExpr of the form x.y(z) where x
+  //is of this type, resolve the call to have the correct behavior
+  //(wrt. overloads, composition and first-class member callables)
+  void matchCall(CallExpr* parsed);
   size_t hash() const
   {
     //structs are pointer-unique
     return fnv1a(this);
   }
-  map<string, IfaceMember> interface;
   void resolveImpl();
   Expression* getDefaultValue();
   void dependencies(set<Type*>& types);
@@ -538,6 +526,21 @@ struct SimpleType : public Type
   string name;
 };
 
+//MultiCallableType is the type of an overload family:
+//it is simultaneously "the same" as every member.
+//No implicit conversions besides exact matches are possible.
+//It is used for shouldn't appear in a
+struct MultiCallableType : public Type
+{
+  MultiCallableType(SubroutineDecl* decl);
+  void resolveImpl();
+  bool canConvert(Type* other);
+  vector<CallableType*> types;
+  SubroutineDecl* d;
+};
+
+//Type of a specific callable:
+//purity, 'this' type, return type and parameter types
 struct CallableType : public Type
 {
   //constructor for non-member callables

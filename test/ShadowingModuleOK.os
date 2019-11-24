@@ -3,13 +3,13 @@ int globalInt = 4;
 module InnerModule
 {
   int globalInt = 5;
-  proc int getGlobalInt()
+  proc getGlobalInt: int()
   {
     return globalInt;
   }
 }
 
-proc void main()
+proc main: void()
 {
   assert(globalInt == 4);
   assert(InnerModule.globalInt == 5);

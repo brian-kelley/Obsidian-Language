@@ -42,30 +42,6 @@ struct UsingName : public Node
   UsingName(Member name, Scope* enclosing);
 };
 
-//SubroutineFamily represents a set of
-//overloaded Subroutines and ExternalSubroutines
-//(different parameters, same name)
-struct SubroutineFamily : public Node
-{
-  SubroutineFamily(string n)
-    : name(n)
-  {}
-  void add(Subroutine* s)
-  {
-    subrs.push_back(s);
-  }
-  void add(ExternalSubroutine* es)
-  {
-    exSubrs.push_back(es);
-  }
-  //Resolution resolves every member of the family, but
-  //it also checks that no two take the same parameters
-  void resolveImpl();
-  string name;
-  vector<Subroutine*> subrs;
-  vector<ExternalSubroutine*> exSubrs;
-};
-
 extern Module* global;
 
 // Unified name lookup system

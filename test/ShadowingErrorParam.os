@@ -1,11 +1,11 @@
 int A = 5;
 
-func int problem(int A)
+func problem: int(int A)
 {
   return A * 4;
 }
 
-proc void main()
+proc main: void()
 {
   print(problem(3), '\n');
 }

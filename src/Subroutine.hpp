@@ -46,6 +46,7 @@ struct Assertion;
 struct Switch;
 struct Match;
 
+struct Callable;
 struct Subroutine;
 struct ExternalSubroutine;
 
@@ -232,7 +233,29 @@ struct Assertion : public Statement
   Expression* asserted;
 };
 
-struct Subroutine : public Node
+//SubroutineDecl represents a set of
+//overloaded Callables with the same name,
+//and which must be declared together.
+struct SubroutineDecl : public Node
+{
+  SubroutineDecl(string n)
+    : name(n)
+  {}
+  
+  //Resolution resolves every member of the family, but
+  //it also checks that no two take the same parameters
+  void resolveImpl();
+  string name;
+  vector<Callable*> overloads;
+};
+
+//Callable: a 
+struct Callable : public Node
+{
+  CallableType* type;
+};
+
+struct Subroutine : public Callable
 {
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
@@ -255,12 +278,11 @@ struct Subroutine : public Node
   int id;
 };
 
-struct ExternalSubroutine : public Node
+struct ExternalSubroutine : public Callable
 {
   ExternalSubroutine(Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   string name;
   void resolveImpl();
-  CallableType* type;
   //the C code that provides the body of this subroutine
   string c;
   Scope* scope;

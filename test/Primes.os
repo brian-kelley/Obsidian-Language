@@ -1,4 +1,4 @@
-proc void main()
+proc main: void()
 {
   for i : 2,20
   {

@@ -1,4 +1,4 @@
-proc void main()
+proc main: void()
 {
   {
     //init, cond, incr

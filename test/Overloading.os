@@ -1,5 +1,5 @@
 //Test overloads 
 
-proc void main()
+proc main: void()
 {
 }

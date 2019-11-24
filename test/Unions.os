@@ -1,4 +1,4 @@
-proc void main()
+proc main: void()
 {
   (int | char) a = 'a';
   (int | char) b = 532;
