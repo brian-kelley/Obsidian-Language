@@ -254,65 +254,6 @@ void StructType::resolveImpl()
       return;
     }
   }
-  //all members must now be resolved (including types)
-  //all members have been resolved, which means that
-  //all member types (including structs) are fully resolved
-  //so can now form the interface for this
-  //do in reverse priority order so that names are
-  //overwritten with higher priority automatically
-  for(int i = members.size() - 1; i >= 0; i--)
-  {
-    if(composed[i])
-    {
-      auto memStruct = dynamic_cast<StructType*>(members[i]->type);
-      if(!memStruct)
-      {
-        errMsgLoc(members[i], "composition only works on struct types");
-      }
-      memStruct->resolve();
-      //add everything in memStruct's interface to this interface
-      for(auto& ifaceKV : memStruct->interface)
-      {
-        auto exposedIface = ifaceKV.second;
-        interface[ifaceKV.first] =
-          IfaceMember(members[i], exposedIface.callable);
-      }
-    }
-  }
-  //Build the interface
-  //An unresolved member subroutine still knows which struct it
-  //belongs to, so it's not necessary to resolve any part of the subroutine here
-  for(auto& scopeName : scope->names)
-  {
-    switch(scopeName.second.kind)
-    {
-      case Name::SUBROUTINE_FAMILY:
-        {
-          auto sf = scopeName.second.item;
-          //ownerStruct is populated by ctor (before resolve)
-          //so it's safe to access here
-          if(subr->type->ownerStruct == this)
-          {
-            interface[subr->name] = IfaceMember(nullptr, subr);
-          }
-          break;
-        }
-      case Name::VARIABLE:
-        {
-          Variable* var = (Variable*) scopeName.second.item;
-          //var (member) type can't contain its owner type,
-          //so this shouldn't cause a circular dependency
-          var->resolve();
-          auto ct = dynamic_cast<CallableType*>(var->type);
-          if(ct && ct->ownerStruct == this)
-          {
-            interface[var->name] = IfaceMember(nullptr, var);
-          }
-          break;
-        }
-      default:;
-    }
-  }
   resolved = true;
   //now, it's safe to resolve all members
   scope->resolveAll();
@@ -352,6 +293,11 @@ bool StructType::canConvert(Type* other)
     return members[0]->type->canConvert(other);
   }
   return false;
+}
+
+void StructType::matchCall(CallExpr* parsed)
+{
+
 }
 
 Expression* StructType::getDefaultValue()

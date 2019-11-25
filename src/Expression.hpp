@@ -5,6 +5,10 @@
 #include "TypeSystem.hpp"
 #include "AST.hpp"
 
+struct Subroutine;
+struct ExternalSubroutine;
+struct SubroutineDecl;
+
 struct Expression;
 /**********************/
 /* Parsed Expressions */
@@ -857,8 +861,17 @@ struct VarExpr : public Expression
   ostream& print(ostream& os);
 };
 
+struct SubrOverloadExpr : public Expression
+{
+  SubrOverloadExpr(string n, Scope* s);
+  Scope* scope;
+  string name;
+  //Resolving this just finds the overload family
+  SubroutineDecl* decl;
+};
+
 //Expression to represent constant callable
-//May be standalone, or may be applied to an object
+//May be applied to a this object
 struct SubroutineExpr : public Expression
 {
   SubroutineExpr(Subroutine* s);

@@ -504,9 +504,138 @@ void Assertion::resolveImpl()
   resolved = true;
 }
 
-Subroutine::Subroutine(Scope* s, string n)
+/******************/
+/* SubroutineDecl */
+/******************/
+
+variant<Subroutine*, ExternalSubroutine*>
+SubroutineDecl::match(vector<Type*>& params, bool* exact)
 {
-  name = n;
+  INTERNAL_ASSERT(this->resolved);
+  auto typeMatches =
+  [&](CallableType* ct, bool allowConv) -> bool
+  {
+    auto& cp = ct->paramTypes;
+    if(params.size() != cp.size())
+      return false;
+    for(size_t i = 0; i < cp.size(); i++)
+    {
+      if(allowConv)
+      {
+        if(!cp[i]->canConvert(params[i]))
+          return false;
+      }
+      else
+      {
+        if(!typesSame(cp[i], params[i]))
+          return false;
+      }
+    }
+    return true;
+  };
+  for(int allowConv = 0; allowConv < 2; allowConv++)
+  {
+    for(auto s : subrs)
+    {
+      if(typeMatches(s->type, allowConv))
+        return s;
+    }
+    for(auto es : exSubrs)
+    {
+      if(typeMatches(es->type, allowConv))
+        return es;
+    }
+  }
+  return nullptr;
+}
+
+void SubroutineDecl::resolveImpl()
+{
+  //Resolve just the types of each member
+  for(auto s : subrs)
+    s->type->resolve();
+  for(auto es : exSubrs)
+    es->type->resolve();
+  //Hash the parameters from each type signature: if there's a conflict
+  //(extremely unlikely) then fall back to using typesSame() on every pair.
+  bool collision = false;
+  unordered_set<size_t> hashes;
+  for(auto s : subrs)
+  {
+    size_t thash = s->type->hash();
+    auto iter = hashes.find(thash);
+    if(iter == hashes.end())
+      hashes.insert(thash);
+    else
+    {
+      collision = true;
+      break;
+    }
+  }
+  for(auto es : exSubrs)
+  {
+    size_t thash = es->type->hash();
+    auto iter = hashes.find(thash);
+    if(iter == hashes.end())
+      hashes.insert(thash);
+    else
+    {
+      collision = true;
+      break;
+    }
+  }
+  if(collision)
+  {
+    //fall back to naive pairwise comparison
+    for(auto s : subrs)
+    {
+      for(auto es : exSubrs)
+      {
+        if(typesSame(s->type, es->type))
+        {
+          errMsg("Conflicting overloads for " << name << ": one at " <<
+              s->printLocation() << " and the other at " << es->printLocation());
+        }
+      }
+    }
+    for(size_t i = 0; i < subrs.size(); i++)
+    {
+      for(size_t j = i + 1; j < subrs.size(); j++)
+      {
+        if(typesSame(subrs[i]->type, subrs[j]->type))
+        {
+          errMsg("Conflicting overloads for " << name << ": one at " <<
+              subrs[i]->printLocation() << " and the other at " << subrs[j]->printLocation());
+        }
+      }
+    }
+    for(size_t i = 0; i < exSubrs.size(); i++)
+    {
+      for(size_t j = i + 1; j < exSubrs.size(); j++)
+      {
+        if(typesSame(exSubrs[i]->type, exSubrs[j]->type))
+        {
+          errMsg("Conflicting overloads for " << name << ": one at " <<
+              exSubrs[i]->printLocation() << " and the other at " << exSubrs[j]->printLocation());
+        }
+      }
+    }
+  }
+  //now finish resolving the full body of the subroutines
+  for(auto s : subrs)
+    s->resolve();
+  for(auto es : exSubrs)
+    es->resolve();
+  resolved = true;
+}
+
+/**************/
+/* Subroutine */
+/**************/
+
+Subroutine::Subroutine(SubroutineDecl* d, Scope* s, string n)
+{
+  decl = d;
   scope = new Scope(s, this);
   body = new Block(this);
   id = nextSubrID++;
@@ -582,6 +711,7 @@ void Subroutine::resolveImpl()
 }
 
 ExternalSubroutine::ExternalSubroutine(
+    SubroutineDecl* decl, 
     Scope* s,
     string n,
     Type* returnType,
@@ -593,9 +723,7 @@ ExternalSubroutine::ExternalSubroutine(
   //all ExternalSubroutines are procedures, since it is assumed that
   //all C functions may have side effects
   type = new CallableType(false, returnType, pTypes);
-  name = n;
   c = code;
-  scope = s;
   paramNames = pNames;
   paramBorrowed = borrow;
   id = nextExSubrID++;

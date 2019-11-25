@@ -1206,6 +1206,14 @@ ostream& VarExpr::print(ostream& os)
   return os;
 }
 
+/********************
+ * SubrOverloadExpr *
+ ********************/
+
+SubrOverloadExpr::SubrOverloadExpr(string n, Scope* s)
+{
+}
+
 /******************
  * SubroutineExpr *
  ******************/

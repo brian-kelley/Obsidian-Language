@@ -238,32 +238,41 @@ struct Assertion : public Statement
 //and which must be declared together.
 struct SubroutineDecl : public Node
 {
-  SubroutineDecl(string n)
-    : name(n)
+  SubroutineDecl(string n, Scope* s)
+    : name(n), scope(s)
   {}
-  
+  //Find a version matching the arguments.
+  variant<Subroutine*, ExternalSubroutine*> match(vector<Type*>& params, bool* exact = nullptr);
   //Resolution resolves every member of the family, but
-  //it also checks that no two take the same parameters
+  //it also checks that no two have identical parameters
   void resolveImpl();
   string name;
-  vector<Callable*> overloads;
+  Scope* scope;
+  vector<Subroutine*> subrs;
+  vector<ExternalSubroutine*> exSubrs;
 };
 
-//Callable: a 
-struct Callable : public Node
-{
-  CallableType* type;
-};
-
-struct Subroutine : public Callable
+struct Subroutine : public Node
 {
   //isStatic is just whether there was an explicit "static" before declaration,
   //everything else can be determined from context
   //isPure is whether this is declared as a function
-  Subroutine(Scope* s, string name);
+  Subroutine(SubroutineDecl* decl);
   void setType(Type* retType, vector<Variable*>& params, bool isStatic, bool isPure);
   void resolveImpl();
-  string name;
+  bool pure()
+  {
+    return type->pure;
+  }
+  string name()
+  {
+    return decl->name;
+  }
+  Scope* scope()
+  {
+    return decl->scope;
+  }
+  SubroutineDecl* decl;
   //the full type of this subroutine
   CallableType* type;
   //Local variables in subroutine scope representing arguments, in order
@@ -272,20 +281,17 @@ struct Subroutine : public Callable
   //otherwise NULL
   StructType* owner;
   Block* body;
-  //scope->node is this
-  Scope* scope;
   IR::SubroutineIR* subrIR;
   int id;
 };
 
-struct ExternalSubroutine : public Callable
+struct ExternalSubroutine : public Node
 {
-  ExternalSubroutine(Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
-  string name;
+  ExternalSubroutine(SubroutineDecl* decl, Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   void resolveImpl();
-  //the C code that provides the body of this subroutine
+  CallableType* type;
+  //the raw symbol name of the C or mangled C++ function to call
   string c;
-  Scope* scope;
   vector<string> paramNames;
   //How each argument is passed
   vector<bool> paramBorrowed;
