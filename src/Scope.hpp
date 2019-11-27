@@ -10,8 +10,8 @@ struct AliasType;
 struct EnumType;
 struct EnumConstant;
 struct SimpleType;
+struct SubroutineDecl;
 struct Subroutine;
-struct ExternalSubroutine;
 struct Variable;
 struct Block;
 struct Member;
@@ -67,7 +67,7 @@ struct Name
   Name(EnumType* e, Scope* s);
   Name(SimpleType* t, Scope* s);
   Name(AliasType* a, Scope* s);
-  Name(SubroutineFamily* subrFamily, Scope* s);
+  Name(SubroutineDecl* sd, Scope* s);
   Name(Variable* var, Scope* s);
   Name(EnumConstant* ec, Scope* s);
   Node* item;
@@ -98,10 +98,7 @@ struct Scope
   void addName(Variable* v);
   void addName(Module* m);
   void addName(StructType* s);
-  void addName(SubroutineFamily* sf);
-  //next two functions create or add to overload family
-  void addName(Subroutine* s); 
-  void addName(ExternalSubroutine* es);
+  void addName(SubroutineDecl* sf);
   void addName(AliasType* a);
   void addName(SimpleType* s);
   void addName(EnumType* e);
@@ -115,6 +112,7 @@ struct Scope
   //if in a struct (or module within struct) return the struct
   //otherwise NULL
   StructType* getMemberContext();
+
   /*  take innermost function scope
       if static, return that function's scope
       if member, return owning struct

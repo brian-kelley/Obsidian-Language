@@ -252,14 +252,12 @@ struct SubroutineDecl : public Node
   vector<ExternalSubroutine*> exSubrs;
 };
 
-struct Subroutine : public Node
+struct SubrBase : public Node
 {
-  //isStatic is just whether there was an explicit "static" before declaration,
-  //everything else can be determined from context
-  //isPure is whether this is declared as a function
-  Subroutine(SubroutineDecl* decl);
-  void setType(Type* retType, vector<Variable*>& params, bool isStatic, bool isPure);
-  void resolveImpl();
+  SubrBase(SubroutineDecl* d)
+    : decl(d)
+  {}
+  virtual void resolveImpl();
   bool pure()
   {
     return type->pure;
@@ -272,10 +270,22 @@ struct Subroutine : public Node
   {
     return decl->scope;
   }
+
   SubroutineDecl* decl;
-  //the full type of this subroutine
   CallableType* type;
-  //Local variables in subroutine scope representing arguments, in order
+};
+
+struct Subroutine : public SubrBase
+{
+  //isStatic is just whether there was an explicit "static" before declaration,
+  //everything else can be determined from context
+  //isPure is whether this is declared as a function
+  Subroutine(SubroutineDecl* decl);
+  void setType(Type* retType, vector<Variable*>& params, bool isStatic, bool isPure);
+  void resolveImpl();
+  //scope that contains the parameters
+  Scope* scope;
+  //Params are standard local variables in the scope
   vector<Variable*> params;
   //constructor sets owner to innermost struct if there is one and isStatic is false
   //otherwise NULL
@@ -285,11 +295,16 @@ struct Subroutine : public Node
   int id;
 };
 
-struct ExternalSubroutine : public Node
+struct ExternalSubroutine : public SubrBase
 {
   ExternalSubroutine(SubroutineDecl* decl, Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   void resolveImpl();
+  string name()
+  {
+    return decl->name;
+  }
   CallableType* type;
+  SubroutineDecl* decl;
   //the raw symbol name of the C or mangled C++ function to call
   string c;
   vector<string> paramNames;

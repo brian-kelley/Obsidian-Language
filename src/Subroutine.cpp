@@ -633,10 +633,12 @@ void SubroutineDecl::resolveImpl()
 /* Subroutine */
 /**************/
 
-Subroutine::Subroutine(SubroutineDecl* d, Scope* s, string n)
+Subroutine::Subroutine(SubroutineDecl* d)
+  : SubrBase(d)
 {
-  decl = d;
-  scope = new Scope(s, this);
+  //Create the scope for parameters.
+  scope = new Scope(d->scope, this);
+  //Body will be a sub-scope of that)
   body = new Block(this);
   id = nextSubrID++;
 }

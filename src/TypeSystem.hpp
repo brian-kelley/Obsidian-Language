@@ -46,6 +46,7 @@ struct ElemExprType;
 struct Scope;
 struct Expression;
 struct EnumExpr;
+struct CallExpr;
 struct SimpleConstant;
 
 struct Type : public Node
@@ -173,10 +174,12 @@ struct StructType : public Type
   {
     return name;
   }
-  //Given an unresolved CallExpr of the form x.y(z) where x
-  //is of this type, resolve the call to have the correct behavior
-  //(wrt. overloads, composition and first-class member callables)
-  void matchCall(CallExpr* parsed);
+  //Given the pieces of a method call: x.y(p1, p2, ...)
+  //produce the fully resolved CallExpr.
+  //Preconditions:
+  //  * x is resolved and of this type.
+  //  * args are all resolved.
+  CallExpr* matchCall(Expression* thisExpr, const string& subrName, vector<Expression*>& args);
   size_t hash() const
   {
     //structs are pointer-unique

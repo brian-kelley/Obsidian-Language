@@ -295,9 +295,17 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
-void StructType::matchCall(CallExpr* parsed)
+CallExpr* StructType::matchCall(Expression* thisExpr, const string& subrName, vector<Expression*>& args)
 {
+  INTERNAL_ASSERT(thisExpr->resolved);
+  INTERNAL_ASSERT(this == thisExpr->type);
+  //matchCall() first checks local names, then recursively does depth-first
+  //search through the names in each composed member in order.
+  Name n = scope->lookup(subrName);
+  if(n.item)
+  {
 
+  }
 }
 
 Expression* StructType::getDefaultValue()

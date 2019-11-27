@@ -758,7 +758,6 @@ struct Indexed : public Expression
 struct CallExpr : public Expression
 {
   CallExpr(Expression* callable, vector<Expression*>& args);
-  void resolveImpl();
   Expression* callable;
   vector<Expression*> args;
   bool assignable()
@@ -819,6 +818,7 @@ struct CallExpr : public Expression
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
+  void resolveImpl();
 };
 
 struct VarExpr : public Expression
