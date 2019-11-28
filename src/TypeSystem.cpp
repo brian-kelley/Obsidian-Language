@@ -299,12 +299,37 @@ CallExpr* StructType::matchCall(Expression* thisExpr, const string& subrName, ve
 {
   INTERNAL_ASSERT(thisExpr->resolved);
   INTERNAL_ASSERT(this == thisExpr->type);
-  //matchCall() first checks local names, then recursively does depth-first
+  //matchCall() first checks local names,
+  //then it recursively does depth-first
   //search through the names in each composed member in order.
+  vector<Type*> argTypes(args.size());
+  for(size_t i = 0; i < args.size(); i++)
+  {
+    INTERNAL_ASSERT(args[i]->resolved);
+    argTypes[i] = args[i]->type;
+  }
   Name n = scope->lookup(subrName);
   if(n.item)
   {
-
+    Expression* callable = nullptr;
+    //name MUST be a SubroutineDecl, or a Variable
+    //describing a first-class subr
+    if(n.kind == Name::SUBROUTINE)
+    {
+      auto sd = (SubroutineDecl*) n.item;
+      //sd MUST be non-static, or it's not a match
+      if(sd->owner == this)
+      {
+        SubrBase* matched = sd->match(argTypes);
+        if(matched)
+        {
+          callable = new SubroutineExpr(thisExpr, 
+        }
+      }
+    }
+    else if(n.kind == Name::VARIABLE)
+    {
+    }
   }
 }
 

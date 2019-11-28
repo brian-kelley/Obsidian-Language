@@ -508,8 +508,22 @@ void Assertion::resolveImpl()
 /* SubroutineDecl */
 /******************/
 
-variant<Subroutine*, ExternalSubroutine*>
-SubroutineDecl::match(vector<Type*>& params, bool* exact)
+SubroutineDecl::SubroutineDecl(string n, Scope* s, bool pure, bool explicitStatic)
+  : name(n), scope(s), isPure(pure), owner(nullptr)
+{
+  //Determine the "this" type
+  auto structContext = scope->parent->getMemberContext();
+  if(!explicitStatic && structContext)
+  {
+    owner = structContext;
+  }
+  else if(explicitStatic && !structContext)
+  {
+    errMsgLoc(this, (isPure ? "func" : "proc") << " declared static, but not inside a struct");
+  }
+}
+
+SubrBase* SubroutineDecl::match(vector<Type*>& params, bool* exact)
 {
   INTERNAL_ASSERT(this->resolved);
   auto typeMatches =
@@ -535,15 +549,10 @@ SubroutineDecl::match(vector<Type*>& params, bool* exact)
   };
   for(int allowConv = 0; allowConv < 2; allowConv++)
   {
-    for(auto s : subrs)
+    for(auto s : overloads)
     {
       if(typeMatches(s->type, allowConv))
         return s;
-    }
-    for(auto es : exSubrs)
-    {
-      if(typeMatches(es->type, allowConv))
-        return es;
     }
   }
   return nullptr;
@@ -552,29 +561,15 @@ SubroutineDecl::match(vector<Type*>& params, bool* exact)
 void SubroutineDecl::resolveImpl()
 {
   //Resolve just the types of each member
-  for(auto s : subrs)
-    s->type->resolve();
-  for(auto es : exSubrs)
-    es->type->resolve();
+  for(auto o : overloads)
+    o->type->resolve();
   //Hash the parameters from each type signature: if there's a conflict
   //(extremely unlikely) then fall back to using typesSame() on every pair.
   bool collision = false;
   unordered_set<size_t> hashes;
-  for(auto s : subrs)
+  for(auto o : overloads)
   {
-    size_t thash = s->type->hash();
-    auto iter = hashes.find(thash);
-    if(iter == hashes.end())
-      hashes.insert(thash);
-    else
-    {
-      collision = true;
-      break;
-    }
-  }
-  for(auto es : exSubrs)
-  {
-    size_t thash = es->type->hash();
+    size_t thash = o->type->hash();
     auto iter = hashes.find(thash);
     if(iter == hashes.end())
       hashes.insert(thash);
@@ -587,45 +582,22 @@ void SubroutineDecl::resolveImpl()
   if(collision)
   {
     //fall back to naive pairwise comparison
-    for(auto s : subrs)
+    for(size_t i = 1; i < overloads.size(); i++)
     {
-      for(auto es : exSubrs)
+      for(size_t j = 0; j < i; j++)
       {
-        if(typesSame(s->type, es->type))
+        SubrBase* s1 = overloads[i];
+        SubrBase* s2 = overloads[j];
+        if(typesSame(s1->type, s2->type))
         {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              s->printLocation() << " and the other at " << es->printLocation());
-        }
-      }
-    }
-    for(size_t i = 0; i < subrs.size(); i++)
-    {
-      for(size_t j = i + 1; j < subrs.size(); j++)
-      {
-        if(typesSame(subrs[i]->type, subrs[j]->type))
-        {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              subrs[i]->printLocation() << " and the other at " << subrs[j]->printLocation());
-        }
-      }
-    }
-    for(size_t i = 0; i < exSubrs.size(); i++)
-    {
-      for(size_t j = i + 1; j < exSubrs.size(); j++)
-      {
-        if(typesSame(exSubrs[i]->type, exSubrs[j]->type))
-        {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              exSubrs[i]->printLocation() << " and the other at " << exSubrs[j]->printLocation());
+          errMsg("Conflicting overloads for " << name << ": one at " << s1->printLocation() << " and the other at " << s2->printLocation());
         }
       }
     }
   }
   //now finish resolving the full body of the subroutines
-  for(auto s : subrs)
-    s->resolve();
-  for(auto es : exSubrs)
-    es->resolve();
+  for(auto o : overloads)
+    o->resolve();
   resolved = true;
 }
 
@@ -643,22 +615,16 @@ Subroutine::Subroutine(SubroutineDecl* d)
   id = nextSubrID++;
 }
 
-void Subroutine::setType(Type* retType, vector<Variable*>& parsedParams, bool isStatic, bool isPure)
+void Subroutine::setSignature(Type* retType, vector<Variable*>& parsedParams)
 {
-  vector<Type*> paramTypes;
   params = parsedParams;
+  vector<Type*> paramTypes;
   for(auto p : params)
     paramTypes.push_back(p->type);
-  auto enclosingStruct = scope->parent->getMemberContext();
-  if(enclosingStruct && !isStatic)
-  {
-    type = new CallableType(isPure, enclosingStruct, retType, paramTypes);
-    owner = enclosingStruct;
-  }
+  if(decl->owner)
+    type = new CallableType(decl->isPure, decl->owner, retType, paramTypes);
   else
-  {
-    type = new CallableType(isPure, retType, paramTypes);
-  }
+    type = new CallableType(decl->isPure, retType, paramTypes);
 }
 
 void Subroutine::resolveImpl()
@@ -685,8 +651,12 @@ void Subroutine::resolveImpl()
   //resolve the body
   body->resolve();
   //do additional checks for main()
-  if(name == "main")
+  if(name() == "main")
   {
+    if(mainSubr)
+    {
+      errMsgLoc(this, "main() can't be overloaded (previous definition at " << mainSubr->printLocation() << ")");
+    }
     if(scope->parent != global->scope)
     {
       errMsgLoc(this, "main() must be in global scope");

@@ -1258,7 +1258,7 @@ void SubroutineExpr::resolveImpl()
     errMsgLoc(this, \
         "can't call member subroutine " << \
         subr->type->ownerStruct->name << '.' \
-        << subr->name << \
+        << subr->name() << \
         "\nwithout providing 'this' object");
   }
   else if(thisObject &&
@@ -1266,7 +1266,7 @@ void SubroutineExpr::resolveImpl()
   {
     errMsgLoc(this, \
         "can't call non-member subroutine " << \
-        (subr ? subr->name : exSubr->name) << \
+        subr ? subr->name() : exSubr->name) << \
         " on an object");
   }
   resolved = true;

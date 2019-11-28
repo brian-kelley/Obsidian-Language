@@ -24,8 +24,17 @@ FRONTEND (last core language features):
     lookup during resolution can access those.
 
 -extern functions:
-  -for libc functions, compiler calls directly
-  -otherwise, load the functions from dynamic library
+  -Need to design memory ownership model for passing pointers
+  -Need to prevent leaks, use-after-free, double free
+    -Each argument can have one of several different modes:
+    -RELEASE: pass ownership to callee, memory no longer accessible and not responsible for freeing.
+      -For arrays, this means the value is replaced by []
+    -SHARE: Onyx keeps ownership and passes a non-const view.
+    -SHARE_CONST: Onyx keeps ownership and passes a const view.
+    -COPY: pass a deep copy
+  -Should work in interpreter!
+    -libc functions are already available to the compiler
+    -load other functions from dynamic library
 
 -Metaprogramming!
   -Implement "# StatementOrDecl" pattern to execute statements

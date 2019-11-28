@@ -47,6 +47,8 @@ struct Switch;
 struct Match;
 
 struct Callable;
+struct SubroutineDecl;
+struct SubrBase;
 struct Subroutine;
 struct ExternalSubroutine;
 
@@ -238,18 +240,17 @@ struct Assertion : public Statement
 //and which must be declared together.
 struct SubroutineDecl : public Node
 {
-  SubroutineDecl(string n, Scope* s)
-    : name(n), scope(s)
-  {}
+  SubroutineDecl(string n, Scope* s, bool pure, bool explicitStatic);
   //Find a version matching the arguments.
-  variant<Subroutine*, ExternalSubroutine*> match(vector<Type*>& params, bool* exact = nullptr);
+  SubrBase* match(vector<Type*>& params, bool* exact = nullptr);
   //Resolution resolves every member of the family, but
   //it also checks that no two have identical parameters
   void resolveImpl();
   string name;
   Scope* scope;
-  vector<Subroutine*> subrs;
-  vector<ExternalSubroutine*> exSubrs;
+  bool isPure;
+  StructType* owner;
+  vector<SubrBase*> overloads;
 };
 
 struct SubrBase : public Node
@@ -266,11 +267,10 @@ struct SubrBase : public Node
   {
     return decl->name;
   }
-  Scope* scope()
+  StructType* owner()
   {
-    return decl->scope;
+    return decl->owner;
   }
-
   SubroutineDecl* decl;
   CallableType* type;
 };
@@ -281,7 +281,7 @@ struct Subroutine : public SubrBase
   //everything else can be determined from context
   //isPure is whether this is declared as a function
   Subroutine(SubroutineDecl* decl);
-  void setType(Type* retType, vector<Variable*>& params, bool isStatic, bool isPure);
+  void setSignature(Type* retType, vector<Variable*>& p);
   void resolveImpl();
   //scope that contains the parameters
   Scope* scope;
@@ -299,13 +299,9 @@ struct ExternalSubroutine : public SubrBase
 {
   ExternalSubroutine(SubroutineDecl* decl, Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   void resolveImpl();
-  string name()
-  {
-    return decl->name;
-  }
   CallableType* type;
   SubroutineDecl* decl;
-  //the raw symbol name of the C or mangled C++ function to call
+  //the native symbol to call
   string c;
   vector<string> paramNames;
   //How each argument is passed

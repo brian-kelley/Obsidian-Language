@@ -134,15 +134,12 @@ namespace Parser
       }
       if(parsingSubr)
       {
-        parseSubroutine(s);
+        parseSubroutineDecl(s);
         return nullptr;
       }
       //otherwise, "static" precedes a VarDecl
       switch(kw->kw)
       {
-        case EXTERN:
-          parseExternalSubroutine(s);
-          return nullptr;
         case STRUCT:
           parseStruct(s);
           return nullptr;
@@ -379,7 +376,7 @@ namespace Parser
     return m;
   }
 
-  void Stream::parseSubroutine(Scope* s)
+  void Stream::parseSubroutineDecl(Scope* s)
   {
     Node* location = lookAhead();
     bool isStatic = false;
@@ -395,41 +392,64 @@ namespace Parser
       expectKeyword(PROC);
       pure = false;
     }
-    Type* retType = parseType(s);
-    Subroutine* subr = new Subroutine(s, expectIdent());
-    subr->setLocation(location);
-    expectPunct(LPAREN);
-    vector<Variable*> params;
-    while(!acceptPunct(RPAREN))
+    auto sd = new SubroutineDecl(expectIdent(), s, pure, isStatic);
+    sd->setLocation(location);
+    Keyword extrn(EXTERN);
+    while(acceptPunct(COLON))
     {
-      if(params.size())
-        expectPunct(COMMA);
-      Node* varLoc = lookAhead();
-      //parse a variable
-      Type* paramType = parseType(s);
-      //TODO: make param names optional
-      string paramName = expectIdent();
-      Variable* v = new Variable(subr->scope, paramName, paramType, nullptr, false);
-      v->setLocation(varLoc);
-      params.push_back(v);
-      subr->scope->addName(v);
+      if(lookAhead()->compareTo(&extrn))
+      {
+        parseExternalSubroutine(sd);
+      }
+      else
+      {
+        parseSubroutine(sd);
+      }
     }
-    //Subroutine constructor constructs body
-    subr->setType(retType, params, isStatic, pure);
-    parseBlock(subr->body);
-    s->addName(subr);
+    s->addName(sd);
   }
 
-  void Stream::parseExternalSubroutine(Scope* s)
+  void Stream::parseSubroutine(SubroutineDecl* sd)
   {
+    Subroutine* subr = new Subroutine(sd);
+    subr->setLocation(lookAhead());
+    sd->overloads.push_back(subr);
+    Scope* outer = sd->scope;
+    Type* retType = parseType(outer);
+    vector<Variable*> params;
+    expectPunct(LPAREN);
+    while(!acceptPunct(RPAREN))
+    {
+      Type* paramType = parseType(outer);
+      string paramName = expectIdent();
+      Node* ploc = lookAhead();
+      Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
+      subr->scope->addName(param);
+      param->setLocation(ploc);
+      params.push_back(param);
+    }
+    subr->setSignature(retType, params);
+    //Finally, parse the body statements (body has already been created)
+    expectPunct(LBRACE);
+    while(!acceptPunct(RBRACE))
+    {
+      Statement* stmt = parseStatementOrDecl(subr->body, true);
+      if(stmt)
+        subr->body->addStatement(stmt);
+    }
+  }
+
+  void Stream::parseExternalSubroutine(SubroutineDecl* sd)
+  {
+    errMsgLoc(lookAhead(), "External subroutines haven't been implemented yet");
+    /*
     Node* loc = lookAhead();
     expectKeyword(EXTERN);
-    Type* retType = parseType(s);
+    Type* retType = parseType(sd->scope);
     string name = expectIdent();
     expectPunct(LPAREN);
     vector<string> paramNames;
     vector<Type*> paramTypes;
-    vector<bool> borrow;
     while(!acceptPunct(RPAREN))
     {
       borrow.push_back(acceptKeyword(CONST));
@@ -440,6 +460,7 @@ namespace Parser
     ExternalSubroutine* es = new ExternalSubroutine(s, name, retType, paramTypes, paramNames, borrow, code);
     es->setLocation(loc);
     s->addName(es);
+    */
   }
 
   Assign* Stream::parseVarDecl(Scope* s)

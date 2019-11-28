@@ -67,8 +67,9 @@ namespace Parser
     //if s belongs to a block and the variable is initialized, return the assignment
     Assign* parseVarDecl(Scope* s);
     Expression* parseExpression(Scope* s, int prec = 0);
-    void parseSubroutine(Scope* s);
-    void parseExternalSubroutine(Scope* s);
+    void parseSubroutineDecl(Scope* s);
+    void parseSubroutine(SubroutineDecl* sd);
+    void parseExternalSubroutine(SubroutineDecl* sd);
     void parseModule(Scope* s);
     void parseStruct(Scope* s);
     void parseAlias(Scope* s);
