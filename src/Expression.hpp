@@ -5,6 +5,7 @@
 #include "TypeSystem.hpp"
 #include "AST.hpp"
 
+struct SubrBase;
 struct Subroutine;
 struct ExternalSubroutine;
 struct SubroutineDecl;
@@ -863,20 +864,34 @@ struct VarExpr : public Expression
 
 struct SubrOverloadExpr : public Expression
 {
-  SubrOverloadExpr(string n, Scope* s);
-  Scope* scope;
-  string name;
-  //Resolving this just finds the overload family
+  SubrOverloadExpr(SubroutineDecl* decl, Expression* thisExpr = nullptr);
+  void resolveImpl();
+  Expression* thisExpr;
   SubroutineDecl* decl;
 };
 
-//Expression to represent constant callable
-//May be applied to a this object
 struct SubroutineExpr : public Expression
 {
-  SubroutineExpr(Subroutine* s);
-  SubroutineExpr(Expression* thisObj, Subroutine* s);
-  SubroutineExpr(ExternalSubroutine* es);
+  //2 ways to select a specific SubrBase from an
+  //overload family:
+  // * using a specific CallableType (requires exact param type match)
+  // * given a set of parameters (doesn't require exact match)
+  //thisObject may be different from the SubrOverloadExpr's this, if
+  //the call matches through a composed member.
+  SubroutineExpr(SubrBase* s)
+  {
+    thisObject = nullptr;
+    subr = s;
+  }
+  SubroutineExpr(Expression* thisObj, SubrBase* s)
+  {
+    thisObject = thisObj;
+    subr = s;
+  }
+  SubroutineExpr(SubrOverloadExpr* s, CallableType* type);
+  SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args);
+  //Both constructors call create()
+  void create(SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch);
   void resolveImpl();
   bool assignable()
   {
@@ -906,14 +921,12 @@ struct SubroutineExpr : public Expression
     FNV1A f;
     f.pump(thisObject);
     f.pump(subr);
-    f.pump(exSubr);
     return f.get();
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
-  Subroutine* subr;
-  ExternalSubroutine* exSubr;
+  SubrBase* subr;
   Expression* thisObject; //null for static/extern
 };
 

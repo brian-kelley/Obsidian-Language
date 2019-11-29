@@ -1210,65 +1210,44 @@ ostream& VarExpr::print(ostream& os)
  * SubrOverloadExpr *
  ********************/
 
-SubrOverloadExpr::SubrOverloadExpr(string n, Scope* s)
+SubrOverloadExpr::SubrOverloadExpr(SubroutineDecl* d, Expression* te)
 {
+  INTERNAL_ASSERT(d->resolved);
+  INTERNAL_ASSERT(te->resolved);
+  decl = d;
+  thisExpr = te;
 }
 
 /******************
  * SubroutineExpr *
  ******************/
 
-SubroutineExpr::SubroutineExpr(Subroutine* s)
+SubroutineExpr::SubroutineExpr(SubrOverloadExpr* s, CallableType* type)
 {
-  thisObject = nullptr;
-  subr = s;
-  exSubr = nullptr;
+  //Find the matching call
+  create(s, type->paramTypes, true);
 }
 
-SubroutineExpr::SubroutineExpr(Expression* root, Subroutine* s)
+SubroutineExpr::SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args)
 {
-  thisObject = root;
-  subr = s;
-  exSubr = nullptr;
+  vector<Type*> argTypes;
+  for(auto a : args)
+    argTypes.push_back(a->type);
+  create(s, argTypes, false);
 }
 
-SubroutineExpr::SubroutineExpr(ExternalSubroutine* es)
+//Both constructors call create()
+void SubroutineExpr::create(
+    SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch)
 {
-  thisObject = nullptr;
-  subr = nullptr;
-  exSubr = es;
+  Expression* curBase = s->thisExpr;
+  resolveExpr(curBase);
 }
 
 void SubroutineExpr::resolveImpl()
 {
-  if(subr)
-  {
-    subr->resolve();
-    type = subr->type;
-  }
-  else if(exSubr)
-  {
-    exSubr->resolve();
-    type = exSubr->type;
-  }
-  else
-    INTERNAL_ERROR;
-  if(!thisObject && subr && subr->type->ownerStruct)
-  {
-    errMsgLoc(this, \
-        "can't call member subroutine " << \
-        subr->type->ownerStruct->name << '.' \
-        << subr->name() << \
-        "\nwithout providing 'this' object");
-  }
-  else if(thisObject &&
-      ((subr && !subr->type->ownerStruct) || exSubr))
-  {
-    errMsgLoc(this, \
-        "can't call non-member subroutine " << \
-        subr ? subr->name() : exSubr->name) << \
-        " on an object");
-  }
+  subr->resolve();
+  type = subr->type;
   resolved = true;
 }
 
@@ -1279,8 +1258,6 @@ Expression* SubroutineExpr::copy()
     c = new SubroutineExpr(thisObject, subr);
   else if(subr)
     c = new SubroutineExpr(subr);
-  else
-    c = new SubroutineExpr(exSubr);
   c->resolve();
   c->setLocation(this);
   return c;
@@ -1291,8 +1268,7 @@ bool SubroutineExpr::operator==(const Expression& erhs) const
   auto rhs = dynamic_cast<const SubroutineExpr*>(&erhs);
   if(!rhs)
     return false;
-  if(subr != rhs->subr ||
-    exSubr != rhs->exSubr)
+  if(subr != rhs->subr)
     return false;
   if(thisObject)
   {
@@ -1304,14 +1280,13 @@ bool SubroutineExpr::operator==(const Expression& erhs) const
 
 ostream& SubroutineExpr::print(ostream& os)
 {
+  INTERNAL_ASSERT(resolved);
   if(subr)
   {
     if(thisObject)
       os << thisObject << '.';
-    os << subr->name;
+    os << subr->name();
   }
-  else
-    os << exSubr->name;
   return os;
 }
 
@@ -1389,7 +1364,7 @@ ostream& StructMem::print(ostream& os)
   if(member.is<Variable*>())
     os << member.get<Variable*>()->name;
   else
-    os << member.get<Subroutine*>()->name;
+    os << member.get<Subroutine*>()->name();
   return os;
 }
 
@@ -1839,6 +1814,7 @@ void resolveExpr(Expression*& expr)
             break;
           case Name::SUBROUTINE:
             {
+              SubroutineDecl* sd = 
               auto subr = (Subroutine*) found.item;
               if(subr->type->ownerStruct)
               {
@@ -1851,7 +1827,7 @@ void resolveExpr(Expression*& expr)
                 {
                   errMsgLoc(unres,
                       "implicit 'this' here can't be used to call " <<
-                      subr->type->ownerStruct->name << '.' << subr->name);
+                      subr->decl->owner->name << '.' << subr->name());
                 }
                 base = new SubroutineExpr(subrThis, (Subroutine*) found.item);
               }
@@ -1863,9 +1839,6 @@ void resolveExpr(Expression*& expr)
               }
               break;
             }
-          case Name::EXTERN_SUBR:
-            base = new SubroutineExpr((ExternalSubroutine*) found.item);
-            break;
           case Name::VARIABLE:
             {
               auto var = (Variable*) found.item;

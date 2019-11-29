@@ -683,28 +683,23 @@ void Subroutine::resolveImpl()
 }
 
 ExternalSubroutine::ExternalSubroutine(
-    SubroutineDecl* decl, 
+    SubroutineDecl* decl,
     Scope* s,
-    string n,
+    string name,
     Type* returnType,
-    vector<Type*>& pTypes,
-    vector<string>& pNames,
+    vector<Type*>& paramTypes,
+    vector<string>& paramNames,
     vector<bool>& borrow,
     string& code)
+  : SubrBase(decl)
 {
-  //all ExternalSubroutines are procedures, since it is assumed that
-  //all C functions may have side effects
-  type = new CallableType(false, returnType, pTypes);
-  c = code;
-  paramNames = pNames;
-  paramBorrowed = borrow;
-  id = nextExSubrID++;
+  //TODO
+  INTERNAL_ERROR;
 }
 
 void ExternalSubroutine::resolveImpl()
 {
-  INTERNAL_ASSERT(type->resolved);
-  resolved = true;
+  INTERNAL_ERROR;
 }
 
 Test::Test(Scope* s, Block* b) : scope(s), run(b)
