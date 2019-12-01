@@ -1218,6 +1218,11 @@ SubrOverloadExpr::SubrOverloadExpr(SubroutineDecl* d, Expression* te)
   thisExpr = te;
 }
 
+void SubrOverloadExpr::resolveImpl()
+{
+  decl->resolve();
+}
+
 /******************
  * SubroutineExpr *
  ******************/
@@ -1253,11 +1258,7 @@ void SubroutineExpr::resolveImpl()
 
 Expression* SubroutineExpr::copy()
 {
-  SubroutineExpr* c = nullptr;
-  if(thisObject)
-    c = new SubroutineExpr(thisObject, subr);
-  else if(subr)
-    c = new SubroutineExpr(subr);
+  SubroutineExpr* c = new SubroutineExpr(subr);
   c->resolve();
   c->setLocation(this);
   return c;
@@ -1268,25 +1269,13 @@ bool SubroutineExpr::operator==(const Expression& erhs) const
   auto rhs = dynamic_cast<const SubroutineExpr*>(&erhs);
   if(!rhs)
     return false;
-  if(subr != rhs->subr)
-    return false;
-  if(thisObject)
-  {
-    return rhs->thisObject &&
-      *thisObject == *rhs->thisObject;
-  }
-  return true;
+  return subr == rhs->subr;
 }
 
 ostream& SubroutineExpr::print(ostream& os)
 {
   INTERNAL_ASSERT(resolved);
-  if(subr)
-  {
-    if(thisObject)
-      os << thisObject << '.';
-    os << subr->name();
-  }
+  os << subr->name();
   return os;
 }
 
@@ -1775,12 +1764,23 @@ void resolveExpr(Expression*& expr)
   {
     enumShortcutValue = (EnumConstant*) UnresolvedExpr::shortcutEnum->scope->lookup(names[0]).item;
   }
+  //Process names until a base expression is reached.
   if(!base)
   {
     Scope* baseSearch = unres->usage;
     while(!base)
     {
-      Name found = baseSearch->findName(names[nameIter]);
+      Name found;
+      if(baseSearch == unres->usage)
+      {
+        //First name lookup can find name in ANY enclosing scope
+        //(from innermost, up to global)
+        found = baseSearch->findName(names[nameIter]);
+      }
+      else
+      {
+        found = baseSearch->lookup(names[nameIter]);
+      }
       if(!found.item)
       {
         //Failed to find the name
@@ -1814,8 +1814,7 @@ void resolveExpr(Expression*& expr)
             break;
           case Name::SUBROUTINE:
             {
-              SubroutineDecl* sd = 
-              auto subr = (Subroutine*) found.item;
+              base = new SubrOverloadExpr((SubroutineDecl*) name.item);
               if(subr->type->ownerStruct)
               {
                 //is a member subroutine, so create implicit "this"

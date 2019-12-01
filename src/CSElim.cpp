@@ -1,3 +1,4 @@
+/*
 #include "CSElim.hpp"
 #include "Variable.hpp"
 
@@ -6,7 +7,6 @@ using namespace IR;
 
 void cse(SubroutineIR* subr)
 {
-  /*
   auto numBlocks = subr->blocks.size();
   if(numBlocks == 0)
     return;

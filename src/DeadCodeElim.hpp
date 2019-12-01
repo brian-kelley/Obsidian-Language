@@ -1,3 +1,4 @@
+/*
 #ifndef DEADCODE_H
 #define DEADCODE_H
 
@@ -9,7 +10,6 @@
 //Then delete all unreachable instructions
 bool deadCodeElim(IR::SubroutineIR* subr);
 
-/*
 //Do liveness analysis, and delete assignments to dead variables
 //(still evaluate RHS if it has side effects).
 //Finally, completely delete local variables that are never alive
@@ -20,7 +20,6 @@ void deadStoreElim(IR::SubroutineIR* subr);
 
 void unusedSubrElim();
 void unusedGlobalElim();
-*/
 
 #endif
-
+*/

@@ -38,8 +38,6 @@ struct VarExpr;
 struct Converted;
 struct ThisExpr;
 
-//SubroutineExpr stores a pointer
-
 /*******************************/
 /* Placeholders for Resolution */
 /*******************************/
@@ -63,32 +61,6 @@ struct Expression : public Node
   {
     INTERNAL_ERROR;
     return 0;
-  }
-  //Get the variables read and written by evaluating.
-  //If lhs, don't include the "base" variable.
-  virtual void getReads(set<Variable*>& vars, bool lhs) {}
-  //All lvalues have exactly one "base" variable.
-  //Null for all non-lvalues.
-  virtual Variable* getWrite()
-  {
-    return nullptr;
-  }
-  //Does this change global state?
-  //(call a proc)
-  virtual bool hasSideEffects()
-  {
-    return false;
-  }
-  //Does this read any globals?
-  //(call a proc or reference global)
-  virtual bool readsGlobals()
-  {
-    return false;
-  }
-  //Is it worth doing CSE to avoid computing this?
-  virtual bool isComputation()
-  {
-    return false;
   }
   //Hash this expression (for use in unordered map/set)
   //Only hard requirement: if a == b, then hash(a) == hash(b)
@@ -119,7 +91,6 @@ struct Expression : public Node
   {
     return !(*this < rhs);
   }
-  virtual Variable* getRootVariable() {INTERNAL_ERROR;}
   //deep copy (must already be resolved)
   virtual Expression* copy() = 0;
   virtual ostream& print(ostream& os) = 0;
@@ -158,26 +129,6 @@ struct UnaryArith : public Expression
     return false;
   }
   void resolveImpl();
-  bool hasSideEffects()
-  {
-    return expr->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return expr->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool)
-  {
-    expr->getReads(vars, false);
-  }
-  Variable* getWrite()
-  {
-    return expr->getWrite();
-  }
   size_t hash() const
   {
     FNV1A f;
@@ -200,23 +151,6 @@ struct BinaryArith : public Expression
   bool assignable()
   {
     return false;
-  }
-  bool hasSideEffects()
-  {
-    return lhs->hasSideEffects() || rhs->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return lhs->readsGlobals() || rhs->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool)
-  {
-    lhs->getReads(vars, false);
-    rhs->getReads(vars, false);
   }
   bool commutative()
   {
@@ -647,24 +581,6 @@ struct CompoundLiteral : public Expression
     }
     return total;
   }
-  bool hasSideEffects()
-  {
-    for(auto m : members)
-    {
-      if(m->hasSideEffects())
-        return true;
-    }
-    return false;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    //IR should never contain assignment to CompoundLiteral
-    INTERNAL_ASSERT(!lhs);
-    for(auto m : members)
-    {
-      m->getReads(vars, false);
-    }
-  }
   bool readsGlobals()
   {
     for(auto m : members)
@@ -695,15 +611,6 @@ struct CompoundLiteral : public Expression
       f.pump(31 * m->hash());
     return f.get();
   }
-  bool isComputation()
-  {
-    for(auto m : members)
-    {
-      if(m->isComputation())
-        return true;
-    }
-    return false;
-  }
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
@@ -718,31 +625,6 @@ struct Indexed : public Expression
   bool assignable()
   {
     return group->assignable();
-  }
-  Variable* getRootVariable()
-  {
-    return group->getRootVariable();
-  }
-  bool hasSideEffects()
-  {
-    return group->hasSideEffects() || index->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return group->readsGlobals() || index->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    group->getReads(vars, lhs);
-    index->getReads(vars, false);
-  }
-  Variable* getWrite()
-  {
-    return group->getWrite();
   }
   size_t hash() const
   {
@@ -768,45 +650,6 @@ struct CallExpr : public Expression
   bool isProc()
   {
     return ((CallableType*) callable->type)->isProc();
-  }
-  bool hasSideEffects()
-  {
-    //All procs are assumed to have side effects
-    if(isProc())
-      return true;
-    //The callable expr itself may also have side effects
-    if(callable->hasSideEffects())
-      return true;
-    for(auto a : args)
-    {
-      if(a->hasSideEffects())
-        return true;
-    }
-    return false;
-  }
-  bool readsGlobals()
-  {
-    //All procs are assumed to read globals
-    if(isProc())
-      return true;
-    if(callable->readsGlobals())
-      return true;
-    for(auto a : args)
-    {
-      if(a->readsGlobals())
-        return true;
-    }
-    return false;
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    callable->getReads(vars, false);
-    for(auto a : args)
-      a->getReads(vars, false);
   }
   size_t hash() const
   {
@@ -834,24 +677,6 @@ struct VarExpr : public Expression
     //all variables are lvalues
     return true;
   }
-  Variable* getRootVariable()
-  {
-    return var;
-  }
-  bool hasSideEffects()
-  {
-    return false;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    if(!lhs)
-      vars.insert(var);
-  }
-  Variable* getWrite()
-  {
-    return var;
-  }
-  bool readsGlobals();
   size_t hash() const
   {
     //variables are uniquely identifiable by pointer
@@ -866,6 +691,15 @@ struct SubrOverloadExpr : public Expression
 {
   SubrOverloadExpr(SubroutineDecl* decl, Expression* thisExpr = nullptr);
   void resolveImpl();
+  bool assignable()
+  {
+    return false;
+  }
+  Expression* copy()
+  {
+    return new SubrOverloadExpr(
+  }
+  virtual ostream& print(ostream& os) = 0;
   Expression* thisExpr;
   SubroutineDecl* decl;
 };
@@ -880,12 +714,6 @@ struct SubroutineExpr : public Expression
   //the call matches through a composed member.
   SubroutineExpr(SubrBase* s)
   {
-    thisObject = nullptr;
-    subr = s;
-  }
-  SubroutineExpr(Expression* thisObj, SubrBase* s)
-  {
-    thisObject = thisObj;
     subr = s;
   }
   SubroutineExpr(SubrOverloadExpr* s, CallableType* type);
@@ -901,25 +729,10 @@ struct SubroutineExpr : public Expression
   {
     return true;
   }
-  bool hasSideEffects()
-  {
-    //example, if "a" is a proc,
-    //a().callMember() has side effects
-    return thisObject && thisObject->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return thisObject && thisObject->readsGlobals();
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    if(thisObject)
-      thisObject->getReads(vars, false);
-  }
   size_t hash() const
   {
     FNV1A f;
-    f.pump(thisObject);
+    f.pump<int>(19323423);
     f.pump(subr);
     return f.get();
   }
@@ -927,7 +740,6 @@ struct SubroutineExpr : public Expression
   Expression* copy();
   ostream& print(ostream& os);
   SubrBase* subr;
-  Expression* thisObject; //null for static/extern
 };
 
 struct StructMem : public Expression
@@ -935,35 +747,11 @@ struct StructMem : public Expression
   StructMem(Expression* base, Variable* var);
   StructMem(Expression* base, Subroutine* subr);
   void resolveImpl();
-  Expression* base;           //base->type is always StructType
+  Expression* base;  //base->type is always a StructType
   variant<Variable*, Subroutine*> member;
   bool assignable()
   {
     return base->assignable() && member.is<Variable*>();
-  }
-  Variable* getRootVariable()
-  {
-    return base->getRootVariable();
-  }
-  bool hasSideEffects()
-  {
-    return base->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return base->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    base->getReads(vars, lhs);
-  }
-  Variable* getWrite()
-  {
-    return base->getWrite();
   }
   size_t hash() const
   {
@@ -1012,27 +800,11 @@ struct ArrayLength : public Expression
   {
     return false;
   }
-  bool hasSideEffects()
-  {
-    return array->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return array->readsGlobals();
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    array->getReads(vars, false);
-  }
   size_t hash() const
   {
     FNV1A f;
     f.pump(5 * array->hash());
     return f.get();
-  }
-  bool isComputation()
-  {
-    return true;
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();
@@ -1060,22 +832,6 @@ struct IsExpr : public Expression
     f.pump(optionIndex);
     f.pump(13 * base->hash());
     return f.get();
-  }
-  bool hasSideEffects()
-  {
-    return base->hasSideEffects();
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    base->getReads(vars, lhs);
-  }
-  bool readsGlobals()
-  {
-    return base->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
   }
   bool operator==(const Expression& rhs) const;
   ostream& print(ostream& os);
@@ -1106,22 +862,6 @@ struct AsExpr : public Expression
     f.pump(optionIndex);
     f.pump(17 * base->hash());
     return f.get();
-  }
-  bool hasSideEffects()
-  {
-    return base->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return base->readsGlobals();
-  }
-  bool isComputation()
-  {
-    return true;
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    base->getReads(vars, lhs);
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();
@@ -1172,22 +912,6 @@ struct Converted : public Expression
     FNV1A f;
     f.pump(23 * value->hash());
     return f.get();
-  }
-  bool hasSideEffects()
-  {
-    return value->hasSideEffects();
-  }
-  bool readsGlobals()
-  {
-    return value->readsGlobals();
-  }
-  void getReads(set<Variable*>& vars, bool lhs)
-  {
-    value->getReads(vars, false);
-  }
-  bool isComputation()
-  {
-    return true;
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();
@@ -1312,16 +1036,16 @@ struct UnresolvedExpr : public Expression
     INTERNAL_ERROR;
     return false;
   }
-  //Temporarily import enum's named values into the current
-  //scope for the purposes of name lookup (used only for
+  Expression* base; //null = no base
+  Member* name;
+  Scope* usage;
+  //Can temporarily import enum's values into the current
+  //scope for the purposes of name lookup (for
   //switch cases). Will never actually override the results
   //of a name lookup (if there is a variable with same name)
   //but there will be a warning if the enum value is overridden.
   static void setShortcutEnum(EnumType* et);
   static void clearShortcutEnum();
-  Expression* base; //null = no base
-  Member* name;
-  Scope* usage;
   static EnumType* shortcutEnum;
 };
 

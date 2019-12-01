@@ -1,3 +1,4 @@
+/*
 #include "DeadCodeElim.hpp"
 #include "Dataflow.hpp"
 #include "Variable.hpp"
@@ -104,7 +105,6 @@ bool deadCodeElim(SubroutineIR* subr)
   return updatePhase1 || updatePhase2;
 }
 
-/*
 void deadStoreElim(SubroutineIR* subr)
 {
   ReachingDefs reaching(subr);

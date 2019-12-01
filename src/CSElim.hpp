@@ -1,9 +1,5 @@
+/*
 #include "IR.hpp"
-
-/* Common Subexpression Elimination (CSE)
- * and Copy Propagation (done at the same time)
- *
- * Uses reaching definitions */
 
 using IR::SubroutineIR;
 using IR::StatementIR;
@@ -53,3 +49,4 @@ namespace CSElim
 bool operator==(const CSElim::DefSet& d1, const CSElim::DefSet& d2);
 bool operator!=(const CSElim::DefSet& d1, const CSElim::DefSet& d2);
 
+*/

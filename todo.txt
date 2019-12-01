@@ -4,6 +4,11 @@
 FRONTEND (last core language features):
 -Add function overloading
 
+-Use "SubroutineExpr" only for references to nonmember subroutines
+  -No longer needs "thisObject"
+-Use "StructMem" for all references to methods, member vars
+  -ALWAYS includes "thisObject"
+
 -Generalize "x as Y" to provide conversion of expression x to type Y.
 
 -Allow implicit widening conversions from one union type to another
@@ -139,9 +144,9 @@ BUILT-IN MODULES (all must be fully cross-platform)
     -Shader utilities
     -Mesh utilities (half-edge structure, loading, saving)
   -Font (Unicode support, antialiasing)
-  -Input (keyboard, mouse, gamepad - portable across all machines)
+  -Input (keyboard, mouse, gamepad - must be portable)
     -Want to be able to poll keys/buttons efficiently like SDL,
-      or set callbacks for specific events
+      or set callbacks for button events
     -callbacks can be very simple with first-class subrs
   -UI through Nuklear
   -Native audio wrapper?
