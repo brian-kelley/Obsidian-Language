@@ -581,15 +581,6 @@ struct CompoundLiteral : public Expression
     }
     return total;
   }
-  bool readsGlobals()
-  {
-    for(auto m : members)
-    {
-      if(m->readsGlobals())
-        return true;
-    }
-    return false;
-  }
   bool operator<(const Expression& rhs) const
   {
     const CompoundLiteral& cl = dynamic_cast<const CompoundLiteral&>(rhs);
@@ -689,7 +680,7 @@ struct VarExpr : public Expression
 
 struct SubrOverloadExpr : public Expression
 {
-  SubrOverloadExpr(SubroutineDecl* decl, Expression* thisExpr = nullptr);
+  SubrOverloadExpr(SubroutineDecl* decl);
   void resolveImpl();
   bool assignable()
   {
@@ -697,10 +688,10 @@ struct SubrOverloadExpr : public Expression
   }
   Expression* copy()
   {
-    return new SubrOverloadExpr(
+    //No need for deep copies
+    return this;
   }
-  virtual ostream& print(ostream& os) = 0;
-  Expression* thisExpr;
+  ostream& print(ostream& os);
   SubroutineDecl* decl;
 };
 

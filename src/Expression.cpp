@@ -1179,11 +1179,6 @@ void VarExpr::resolveImpl()
   resolved = true;
 }
 
-bool VarExpr::readsGlobals()
-{
-  return var->isGlobal();
-}
-
 Expression* VarExpr::copy()
 {
   auto c = new VarExpr(var);
@@ -1223,11 +1218,16 @@ void SubrOverloadExpr::resolveImpl()
   decl->resolve();
 }
 
+ostream& SubrOverloadExpr::print(ostream& os)
+{
+  os << (decl->isPure ? "func " : "proc ") << decl->name;
+}
+
 /******************
  * SubroutineExpr *
  ******************/
 
-SubroutineExpr::SubroutineExpr(SubrOverloadExpr* s, CallableType* type)
+SubroutineExpr::SubroutineExpr(SubroutineOverloadExpr* s, CallableType* type)
 {
   //Find the matching call
   create(s, type->paramTypes, true);
@@ -1245,8 +1245,113 @@ SubroutineExpr::SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args)
 void SubroutineExpr::create(
     SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch)
 {
-  Expression* curBase = s->thisExpr;
-  resolveExpr(curBase);
+  subr = nullptr;
+  //Find an exact matching overload
+  for(auto overload : decl->overloads)
+  {
+    auto oArgTypes = overload->type->paramTypes;
+    if(oArgTypes.size() != argTypes.size())
+      continue;
+    bool allMatch = true;
+    for(size_t i = 0; i < argTypes.size(); i++)
+    {
+      if(!typesSame(oArgTypes[i], argTypes[i]))
+      {
+        allMatch = false;
+        break;
+      }
+    }
+    if(allMatch)
+    {
+      subr = overload;
+      break;
+    }
+  }
+  if(exactMatch && !subr)
+  {
+    Oss paramlist;
+    paramlist << '(';
+    for(size_t i = 0; i < argTypes.size(); i++)
+    {
+      if(i != 0)
+        paramlist << ", ";
+      paramlist << argTypes[i]->getName();
+    }
+    paramlist << ')';
+    Oss cands;
+    for(auto overload : decl->overloads)
+    {
+      cands << '(';
+      auto& oArgTypes = overload->type->argTypes;
+      for(size_t i = 0; i < oArgTypes.size(); i++)
+      {
+        if(i != 0)
+          cands << ", ";
+        cands << oArgTypes[i]->getName();
+      }
+      cands << ")\n";
+    }
+    errMsgLoc(this, "no overload of " << decl->name <<
+        " exactly matches parameter types:\n" <<
+        paramlist.str() << '\n' <<
+        "Candidates are:\n" << cands.str());
+  }
+  else if(!exactMatch)
+  {
+    //Now try to find a match, allowing implicit conversion of each argument
+    for(auto overload : decl->overloads)
+    {
+      auto oArgTypes = overload->type->paramTypes;
+      if(oArgTypes.size() != argTypes.size())
+        continue;
+      bool allMatch = true;
+      for(size_t i = 0; i < argTypes.size(); i++)
+      {
+        if(!oArgTypes[i]->canConvert(argTypes[i]))
+        {
+          allMatch = false;
+          break;
+        }
+      }
+      if(allMatch)
+      {
+        subr = overload;
+        break;
+      }
+    }
+    if(!subr)
+    {
+      Oss paramlist;
+      paramlist << '(';
+      for(size_t i = 0; i < argTypes.size(); i++)
+      {
+        if(i != 0)
+          paramlist << ", ";
+        paramlist << argTypes[i]->getName();
+      }
+      paramlist << ')';
+      Oss cands;
+      for(auto overload : decl->overloads)
+      {
+        cands << '(';
+        auto& oArgTypes = overload->type->argTypes;
+        for(size_t i = 0; i < oArgTypes.size(); i++)
+        {
+          if(i != 0)
+            cands << ", ";
+          cands << oArgTypes[i]->getName();
+        }
+        cands << ")\n";
+      }
+      errMsgLoc(this, "provided argument types:\n" <<
+          paramlist.str() << '\n' <<
+          "cannot be implicitly converted to the parameters of any overload of "
+          << decl->name << ".\n" << "Candidates are:\n" <<
+          cands.str());
+    }
+  }
+  //if here, should have found the match
+  INTERNAL_ASSERT(subr);
 }
 
 void SubroutineExpr::resolveImpl()
@@ -1736,6 +1841,38 @@ void UnresolvedExpr::clearShortcutEnum()
 }
 
 EnumType* UnresolvedExpr::shortcutEnum = nullptr;
+
+/*
+ * Expr resolution flow chart:
+ * In member context?
+ *  Yes:
+ *  -Look up name in current scope
+ *  -If a scope comes back: continue lookup from that scope
+ *  -If something else found, have a base expr
+ *    -If a static decl, just handle it as a direct VarExpr or SubrOverloadExpr
+ *    -Otherwise, create a StructMem using an implicit "this"
+ *  -Otherwise, nothing found: try to find a callable member thru composition
+ *    -If something found, continue as above
+ *    -If nothing found, try lookup in an enclosing scope (first name only)
+ *      -Succeeds and produces a scope, that is the new (only) scope for lookup 
+ *      -Succeeds and produces an expr, that's the base
+ *      -Fails, last chance is the EnumExpr shortcut
+ *        -If THAT fails, error: use of undeclared name
+ *  No (static context):
+ *  -Look up name in current scope
+ *  -If a scope comes back: continue lookup from the found scope (only)
+ *  -If something else found, have a base expr
+ *    -If a NON-static decl, error since there's no "this" in context
+ *    -Otherwise, create a SubrOverloadExpr, VarExpr, EnumExpr, etc.
+ *  -If nothing comes back, look up in an enclosing scope (first name only)
+ *    -If that produces a scope, search from there only
+ *
+ *  -Once a base is produced:
+ *    -Continue consuming names. Only structs can have named members (except for array ".len")
+ *    -So: the search scope for names past base is always the StructType's scope.
+ *    -Produce nested StructMems as necessary
+ *    -Update search scope as necessary (lookup can only be in current scope + composition now, not enclosing scope)
+ */
 
 void resolveExpr(Expression*& expr)
 {

@@ -4,6 +4,31 @@
 FRONTEND (last core language features):
 -Add function overloading
 
+Name lookup:
+  * To resolve name a.b.c, find nearest "a"
+    in an enclosing scope
+  * Then find b in that scope only, and so on
+  * "using" decls are simpler than C++: just directly
+    introduce a name from one scope into the current one
+  * "using module abc" introduces all names in module abc
+  * "using abc" just introduces name abc
+  * The names introduced have lower lookup priority than
+    names already in the scope. No errors/warnings from
+    conflicting names.
+  * "using a.b.subr" if "subr" is already a subroutine will
+    combine the overloads of the versions of subr, IF the
+    purity (func/proc) and owning struct (this type) match.
+    If they don't match, works like any other name, and the
+    "a.b.subr" is hidden by "subr"
+
+Name match priority in member context:
+local < composition (in order of member decl) < "using" (in order of using decl)
+
+Move this logic inside StructType - should always be able to generate a resolved
+StructMem or an error, given a single name (possibly nested, for composition) 
+
+Same for static context, except composition doesn't apply.
+
 -Use "SubroutineExpr" only for references to nonmember subroutines
   -No longer needs "thisObject"
 -Use "StructMem" for all references to methods, member vars
