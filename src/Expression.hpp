@@ -681,17 +681,18 @@ struct VarExpr : public Expression
 struct SubrOverloadExpr : public Expression
 {
   SubrOverloadExpr(SubroutineDecl* decl);
-  void resolveImpl();
+  SubrOverloadExpr(Expression* t, SubroutineDecl* decl);
   bool assignable()
   {
     return false;
   }
   Expression* copy()
   {
-    //No need for deep copies
-    return this;
+    INTERNAL_ERROR;
+    return nullptr;
   }
   ostream& print(ostream& os);
+  Expression* thisObject;
   SubroutineDecl* decl;
 };
 
@@ -706,6 +707,8 @@ struct SubroutineExpr : public Expression
   SubroutineExpr(SubrBase* s)
   {
     subr = s;
+    thisObject = nullptr;
+    resolved = true;
   }
   SubroutineExpr(SubrOverloadExpr* s, CallableType* type);
   SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args);
@@ -730,6 +733,7 @@ struct SubroutineExpr : public Expression
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
+  Expression* thisObject;
   SubrBase* subr;
 };
 
@@ -738,7 +742,7 @@ struct StructMem : public Expression
   StructMem(Expression* base, Variable* var);
   StructMem(Expression* base, Subroutine* subr);
   void resolveImpl();
-  Expression* base;  //base->type is always a StructType
+  Expression* base;  //base->type must be a StructType
   variant<Variable*, Subroutine*> member;
   bool assignable()
   {
@@ -1041,6 +1045,7 @@ struct UnresolvedExpr : public Expression
 };
 
 void resolveExpr(Expression*& expr);
+void resolveAndCoerceExpr(Expression*& expr, Type* reqType);
 
 #endif
 

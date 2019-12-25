@@ -1205,17 +1205,24 @@ ostream& VarExpr::print(ostream& os)
  * SubrOverloadExpr *
  ********************/
 
-SubrOverloadExpr::SubrOverloadExpr(SubroutineDecl* d, Expression* te)
+SubrOverloadExpr(SubroutineDecl* decl)
 {
   INTERNAL_ASSERT(d->resolved);
   INTERNAL_ASSERT(te->resolved);
   decl = d;
   thisExpr = te;
+  //A SubrOverloadExpr has no single type.
+  type = nullptr;
 }
 
-void SubrOverloadExpr::resolveImpl()
+SubrOverloadExpr(Expression* t, SubroutineDecl* d)
 {
-  decl->resolve();
+  INTERNAL_ASSERT(d->resolved);
+  INTERNAL_ASSERT(t->resolved);
+  decl = d;
+  thisExpr = t;
+  //A SubrOverloadExpr never has a single type, even when resovled.
+  type = nullptr;
 }
 
 ostream& SubrOverloadExpr::print(ostream& os)
@@ -1892,226 +1899,192 @@ void resolveExpr(Expression*& expr)
   Expression* base = unres->base; //might be null
   //set initial searchScope:
   //the struct scope if base is a struct, otherwise just usage
-  size_t nameIter = 0;
   vector<string>& names = unres->name->names;
+  Scope* searchScope = unres->usage;
   //need a "base" expression first
   //(could be the whole expr, or could be the root of a StructMem etc.)
   EnumConstant* enumShortcutValue = nullptr;
   if(names.size() == 1 && UnresolvedExpr::shortcutEnum)
   {
-    enumShortcutValue = (EnumConstant*) UnresolvedExpr::shortcutEnum->scope->lookup(names[0]).item;
-  }
-  //Process names until a base expression is reached.
-  if(!base)
-  {
-    Scope* baseSearch = unres->usage;
-    while(!base)
+    //only use enum shortcut if no other name matches an expression
+    Name n = !searchScope->findName(names[0]);
+    if(n.item == nullptr ||
+        (n.kind != Name::SIMPLE_TYPE &&
+         n.kind != Name::SUBROUTINE &&
+         n.kind != Name::VARIABLE &&
+         n.kind != Name::ENUM_CONSTANT))
     {
-      Name found;
-      if(baseSearch == unres->usage)
+      //only name that can appear inside enum is EnumConstant, so no dynamic cast
+      EnumConstant* ec = (EnumConstant*) EnumUnresolvedExpr::shortcutEnum->scope->lookup(names[0]).item;
+      if(ec)
       {
-        //First name lookup can find name in ANY enclosing scope
-        //(from innermost, up to global)
-        found = baseSearch->findName(names[nameIter]);
+        expr = ec;
+        return;
       }
-      else
-      {
-        found = baseSearch->lookup(names[nameIter]);
-      }
-      if(!found.item)
-      {
-        //Failed to find the name
-        if(nameIter == 0 && enumShortcutValue)
-        {
-          base = new EnumExpr(enumShortcutValue);
-        }
-        else
-        {
-          string fullPath = names[0];
-          for(size_t i = 0; i < nameIter; i++)
-          {
-            fullPath = fullPath + '.' + names[i];
-          }
-          errMsgLoc(unres, "unknown identifier " << fullPath);
-        }
-      }
-      else
-      {
-        //based on type of name, either set base or update search scope
-        switch(found.kind)
-        {
-          case Name::MODULE:
-            baseSearch = ((Module*) found.item)->scope;
-            break;
-          case Name::ENUM:
-            baseSearch = ((EnumType*) found.item)->scope;
-            break;
-          case Name::STRUCT:
-            baseSearch = ((StructType*) found.item)->scope;
-            break;
-          case Name::SUBROUTINE:
-            {
-              base = new SubrOverloadExpr((SubroutineDecl*) name.item);
-              if(subr->type->ownerStruct)
-              {
-                //is a member subroutine, so create implicit "this"
-                ThisExpr* subrThis = new ThisExpr(unres->usage);
-                subrThis->setLocation(unres);
-                subrThis->resolve();
-                //this must match owner type of subr
-                if(subr->type->ownerStruct != subrThis->structType)
-                {
-                  errMsgLoc(unres,
-                      "implicit 'this' here can't be used to call " <<
-                      subr->decl->owner->name << '.' << subr->name());
-                }
-                base = new SubroutineExpr(subrThis, (Subroutine*) found.item);
-              }
-              else
-              {
-                //nonmember subroutine can be called from anywhere,
-                //so no context checking here
-                base = new SubroutineExpr(subr);
-              }
-              break;
-            }
-          case Name::VARIABLE:
-            {
-              auto var = (Variable*) found.item;
-              if(var->owner)
-              {
-                ThisExpr* varThis = new ThisExpr(unres->usage);
-                varThis->setLocation(unres);
-                varThis->resolve();
-                if(varThis->structType != var->owner)
-                {
-                  errMsgLoc(unres,
-                      "implicit 'this' here can't be used to access " <<
-                      var->owner->name << '.' << var->name);
-                }
-                base = new StructMem(varThis, var);
-              }
-              else
-              {
-                //static variable can be accessed anywhere
-                base = new VarExpr(var);
-              }
-              break;
-            }
-          case Name::SIMPLE_TYPE:
-            base = ((SimpleType*) found.item)->val;
-            break;
-          case Name::ENUM_CONSTANT:
-            base = new EnumExpr((EnumConstant*) found.item);
-            break;
-          default:
-            errMsgLoc(unres, "name is not a valid expression");
-        }
-        if(enumShortcutValue && base)
-        {
-          VarExpr* ambigVar = dynamic_cast<VarExpr*>(base);
-          INTERNAL_ASSERT(ambigVar);
-          warnMsgLoc(unres, "in special context (switch), ambiguity between enum value " << names[0] << "\n" \
-              << "and other declaration " << names[0] << " at " << ambigVar->var->printLocation());
-        }
-      }
-      nameIter++;
     }
   }
-  base->resolve();
-  //base must be resolved (need its type) to continue
-  //look up members in searchScope until a new expr can be formed
-  while(nameIter < names.size())
+  //If a base is given, resolve it
+  if(base)
   {
-    if(base->type->isArray() && names[nameIter] == "len")
+    resolveExpr(base);
+  }
+  //Decide where to start search
+  StructType* structContext = unres->usage->getStructContext();
+  if(base)
+  {
+    structContext = dynamic_cast<StructType*>(base->type);
+    if(structContext)
+      searchScope = structContext->scope;
+  }
+  //Consume all names, while maintaining base, searchScope and structContext
+  for(size_t i = 0; i < names.size(); i++)
+  {
+    //Handle special case: x.len where x is an array
+    if(base && (base->type->isArray() || base->type->isMap()) && names[i] == "len")
     {
-      base = new ArrayLength(base);
-      //this resolution can't fail
+      Node* loc = base;
+      base = new ArrayLen(base);
       base->resolve();
-      nameIter++;
+      base->setLocation(loc);
       continue;
     }
-    auto baseStruct = dynamic_cast<StructType*>(base->type);
-    if(!baseStruct)
+    if(structContext)
     {
-      errMsgLoc(unres, "cant access member of non-struct type " << base->type->getName());
+      //have explicit base and struct context
+      size_t namesUsed = 0;
+      //findMember errors out if nothing found
+      base = structContext->findMember(base, names.data() + i,
+          names.size() - i, namesUsed);
+      //compensate for the "++" in the loop
+      i += namesUsed - 1;
+      structContext = dynamic_cast<StructType*>(base->type);
+      if(structContext)
+        searchScope = structContext->scope;
+      else
+        searchScope = nullptr;
     }
-    bool validBase = false;
-    Scope* baseSearch = baseStruct->scope;
-    while(!validBase && nameIter < names.size())
+    else
     {
-      //before doing name lookup, look in the struct's interface
-      auto& iface = baseStruct->interface;
-      if(iface.find(names[nameIter]) != iface.end())
+      Expression* implicitThis = nullptr;
+      if(
+      if(!searchScope)
       {
-        auto ifaceMember = iface[names[nameIter]];
-        Node* baseLoc = base;
-        while(ifaceMember.member)
+        //There must be a base, otherwise search wouldn't be null
+        errMsgLoc(base, "Expression " << base << " can't have named members.");
+      }
+      //Otherwise, use scope lookup.
+      Name found = (i == 0) ? searchScope->findName(names[i]) : searchScope->lookup(names[i]);
+      if(!found.item)
+      {
+        StructType* 
+        //If in a struct, haven't processed any names and have no explicit
+        //base, try to use implicit 'this'.
+        ThisExpr* te = 
+        size_t namesUsed = 0;
+        //findMember errors out if nothing found
+        base = structContext->findMember(base, names.data() + i,
+            names.size() - i, namesUsed);
+        //compensate for the "++" in the loop
+        i += namesUsed - 1;
+        structContext = dynamic_cast<StructType*>(base->type);
+        if(structContext)
+          searchScope = structContext->scope;
+        else
+          searchScope = nullptr;
+        if(base)
         {
-          //replace base with another StructMem to access the composed member
-          base = new StructMem(base, ifaceMember.member);
-          base->setLocation(baseLoc);
-          base->resolve();
-          if(auto composingStruct = dynamic_cast<StructType*>(base->type))
-            ifaceMember = composingStruct->interface[names[nameIter]];
-        }
-        if(ifaceMember.callable.is<Subroutine*>())
-        {
-          base = new SubroutineExpr(base, ifaceMember.callable.get<Subroutine*>());
-          base->setLocation(baseLoc);
-          base->resolve();
+          if(structContext)
+          {
+
+          }
+          else
+          {
+            errMsgLoc(base, "Expression of type " << base->type->getName() <<
+                " can't have named members.");
+          }
         }
         else
-        {
-          base = new StructMem(base, ifaceMember.callable.get<Variable*>());
-          base->setLocation(baseLoc);
-          base->resolve();
-        }
-        //in any case, accessing a composed member is a valid expression
-        validBase = true;
+          errMsgLoc(expr, "Unknown identifier " << names[i]);
       }
-      else
+      switch(found.item)
       {
-        Name found = baseSearch->findName(names[nameIter]);
-        if(!found.item)
-        {
-          string fullPath;
-          for(size_t i = 0; i <= nameIter; i++)
-          {
-            fullPath = fullPath + '.' + names[i];
-          }
-          errMsgLoc(unres, "unknown member " << fullPath);
-        }
-        //based on type of name, either set base or update search scope
-        switch(found.kind)
-        {
-          case Name::MODULE:
-            baseSearch = ((Module*) found.item)->scope;
-            break;
-          case Name::SUBROUTINE:
-            base = new SubroutineExpr(base, (Subroutine*) found.item);
-            validBase = true;
-            break;
-          case Name::VARIABLE:
-            base = new StructMem(base, (Variable*) found.item);
-            validBase = true;
-            break;
-          default:
-            errMsgLoc(unres, "identifier " << names[nameIter] <<
-                " is not a valid member of struct " << base->type->getName());
-        }
+        case MODULE:
+          structContext = nullptr;
+          searchScope = ((Module*) found.item)->scope;
+          break;
+        case STRUCT:
+          //static reference to struct type - just like module
+          structContext = nullptr;
+          searchScope = ((StructType*) found.item)->scope;
+          break;
+        case ENUM:
+          structContext = nullptr;
+          searchScope = ((EnumType*) found.item)->scope;
+          break;
+        case SIMPLE_TYPE:
+          base = ((SimpleType*) found.item)->val;
+          base->resolve();
+          base->setLocation(unres);
+          structContext = nullptr;
+          searchScope = nullptr;
+          break;
+        case SUBROUTINE:
+          //Static reference to SubroutineDecl
+          base = new SubroutineOverloadExpr((SubroutineDecl*) found.item);
+          base->resolve();
+          base->setLocation(unres);
+          structContext = nullptr;
+          searchScope = nullptr;
+          break;
+        case VARIABLE:
+          //Reference to static/local variable
+          base = new VarExpr((Variable*) found.item, unres->usage);
+          base->resolve();
+          base->setLocation(unres);
+          structContext = nullptr;
+          searchScope = nullptr;
+          break;
+        case ENUM_CONSTANT:
+          base = new EnumExpr((EnumConstant*) found.item);
+          base->resolve();
+          base->setLocation(unres);
+          structContext = nullptr;
+          searchScope = nullptr;
+          break;
+        case TYPEDEF:
+          errMsgLoc(unres, "Expected expression but got alias type name " << names[i]);
+          break;
+        default:
+          //Want to catch new Kinds being added
+          INTERNAL_ERROR;
       }
-      nameIter++;
     }
-    if(!validBase)
-    {
-      errMsgLoc(unres, unres->name << " is not an expression");
-    }
-    base->resolve();
   }
   //save lexical location of original parsed expression
   base->setLocation(expr);
   expr = base;
   INTERNAL_ASSERT(base->resolved);
+}
+
+void resolveAndCoerceExpr(Expression*& expr, Type* reqType)
+{
+  resolveExpr(expr);
+  SubrOverloadExpr* soe = dynamic_cast<SubrOverloadExpr*>(expr);
+  if(soe)
+  {
+    auto callable = dynamic_cast<CallableType*>(reqType);
+    if(!callable)
+      errMsgLoc(expr, "Reference to subroutine " << soe->decl->name << " can't be coerced to non-callable type " << reqType->getName());
+    Expression* thisObject = soe->thisObject;
+    SubrBase* sb = soe->decl->match(callable);
+
+  }
+  if(!typesSame(reqType, expr->type))
+  {
+    if(reqType->isCallable())
+    {
+      //Coerce by choosing the overload with exact matching type
+    }
+  }
 }
 

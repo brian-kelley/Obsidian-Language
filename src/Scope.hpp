@@ -57,9 +57,7 @@ struct Name
     SIMPLE_TYPE,
     SUBROUTINE,
     VARIABLE,
-    ENUM_CONSTANT,
-    USING_MODULE,
-    USING_NAME
+    ENUM_CONSTANT
   };
   Name() : item(nullptr), kind(NONE), name(""), scope(nullptr) {}
   Name(Module* m, Scope* parent);

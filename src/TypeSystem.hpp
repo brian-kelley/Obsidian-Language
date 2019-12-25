@@ -174,12 +174,8 @@ struct StructType : public Type
   {
     return name;
   }
-  //Given the pieces of a method call: x.y(p1, p2, ...)
-  //produce the fully resolved CallExpr.
-  //Preconditions:
-  //  * x is resolved and of this type.
-  //  * args are all resolved.
-  CallExpr* matchCall(Expression* thisExpr, const string& subrName, vector<Expression*>& args);
+  //Given a sequence of names, build a resolved StructMem/SubroutineOverloadExpr
+  Expression* findMember(Expression* thisExpr, string* names, size_t numNames, size_t& namesUsed);
   size_t hash() const
   {
     //structs are pointer-unique
@@ -527,19 +523,6 @@ struct SimpleType : public Type
   Expression* getDefaultValue();
   SimpleConstant* val;
   string name;
-};
-
-//MultiCallableType is the type of an overload family:
-//it is simultaneously "the same" as every member.
-//No implicit conversions besides exact matches are possible.
-//It is used for shouldn't appear in a
-struct MultiCallableType : public Type
-{
-  MultiCallableType(SubroutineDecl* decl);
-  void resolveImpl();
-  bool canConvert(Type* other);
-  vector<CallableType*> types;
-  SubroutineDecl* d;
 };
 
 //Type of a specific callable:

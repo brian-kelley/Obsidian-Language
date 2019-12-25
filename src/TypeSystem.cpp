@@ -295,42 +295,114 @@ bool StructType::canConvert(Type* other)
   return false;
 }
 
-CallExpr* StructType::matchCall(Expression* thisExpr, const string& subrName, vector<Expression*>& args)
+Expression* StructType::findMember(Expression* thisExpr, string* names, size_t numNames, size_t& namesUsed)
 {
-  INTERNAL_ASSERT(thisExpr->resolved);
-  INTERNAL_ASSERT(this == thisExpr->type);
-  //matchCall() first checks local names,
-  //then it recursively does depth-first
-  //search through the names in each composed member in order.
-  vector<Type*> argTypes(args.size());
-  for(size_t i = 0; i < args.size(); i++)
+  //Names inside modules of composing structs aren't visible
+  //So, if a module name comes back, search for the name in this struct only.
+  Scope* searchScope = scope;
+  for(namesUsed = 0; namesUsed < numNames; namesUsed++)
   {
-    INTERNAL_ASSERT(args[i]->resolved);
-    argTypes[i] = args[i]->type;
-  }
-  Name n = scope->lookup(subrName);
-  if(n.item)
-  {
-    Expression* callable = nullptr;
-    //name MUST be a SubroutineDecl, or a Variable
-    //describing a first-class subr
-    if(n.kind == Name::SUBROUTINE)
+    string& n = names[namesUsed];
+    namesUsed++;
+    Name found = searchScope->lookup(n);
+    if(found.item)
     {
-      auto sd = (SubroutineDecl*) n.item;
-      //sd MUST be non-static, or it's not a match
-      if(sd->owner == this)
+      switch(found.kind)
       {
-        SubrBase* matched = sd->match(argTypes);
-        if(matched)
+        case Name::SUBROUTINE:
         {
-          callable = new SubroutineExpr(thisExpr, 
+          //error if a static callable
+          auto sd = (SubroutineDecl*) found.item;
+          if(!sd->owner)
+          {
+            errMsgLoc(thisExpr, "Can't call static " <<
+                (sd->isPure ? "func" : "proc") << " with a 'this' object");
+          }
+          INTERNAL_ASSERT(this == sd->owner);
+          //OK, have a member callable
+          auto s = new SubrOverloadExpr(thisExpr, sd);
+          s->resolve();
+          s->setLocation(thisExpr);
+          return s;
         }
+        case Name::VARIABLE:
+        {
+          auto v = (Variable*) found.item;
+          auto sm = new StructMem(thisExpr, v);
+          sm->resolve();
+          sm->setLocation(thisExpr);
+          return sm;
+        }
+        case Name::MODULE:
+        {
+          Module* m = (Module*) found.item;
+          searchScope = m->scope;
+          break;
+        }
+        default:
+          errMsgLoc(thisExpr, n <<
+              " is not a (nonstatic) member of an object of type " << name);
       }
     }
-    else if(n.kind == Name::VARIABLE)
+    else if(namesUsed == 0)
     {
+      //Only chance to try composition
+      for(size_t i = 0; i < members.size(); i++)
+      {
+        if(composed[i])
+        {
+          Variable* mem = members[i];
+          auto composedStruct = (StructType*) mem->type;
+          found = composedStruct->scope->lookup(n);
+          if(found.kind == Name::SUBROUTINE)
+          {
+            //get the composed member as expr
+            Expression* m = new StructMem(thisExpr, mem);
+            m->resolve();
+            m->setLocation(thisExpr);
+            m = new SubrOverloadExpr(m, (SubroutineDecl*) found.item);
+            m->resolve();
+            m->setLocation(thisExpr);
+            return m;
+          }
+          else if(found.kind == Name::VARIABLE)
+          {
+            //accessing member variable only allowed if it's a callable
+            Variable* memVar = (Variable*) found.item;
+            if(memVar->type->isCallable())
+            {
+              //can use it
+              Expression* m = new StructMem(thisExpr, mem);
+              m->resolve();
+              m->setLocation(thisExpr);
+              m = new StructMem(m, memVar);
+              m->resolve();
+              m->setLocation(thisExpr);
+              return m;
+            }
+          }
+        }
+      }
+      //If here, no match through composition
+      errMsgLoc(thisExpr, "Struct " << name << " has no member named " << n << ", either directly or through composition");
+    }
+    else
+    {
+      //no name found at all, including in modules
+      Oss oss;
+      for(int i = 0; i < namesUsed; i++)
+      {
+        if(i > 0)
+          oss << ".";
+        oss << names[i];
+      }
+      errMsgLoc(thisExpr, "Sub-module " << oss.str() <<
+          " in struct " << name << " has no member named " << n);
     }
   }
+  //Should never get here
+  INTERNAL_ERROR;
+  return nullptr;
 }
 
 Expression* StructType::getDefaultValue()

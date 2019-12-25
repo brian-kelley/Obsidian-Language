@@ -558,6 +558,17 @@ SubrBase* SubroutineDecl::match(vector<Type*>& params, bool* exact)
   return nullptr;
 }
 
+SubrBase* SubroutineDecl::match(CallableType* ct)
+{
+  INTERNAL_ASSERT(this->resolved);
+  for(auto o : overloads)
+  {
+    if(typesSame(o->type, ct))
+      return o;
+  }
+  return nullptr;
+}
+
 void SubroutineDecl::resolveImpl()
 {
   //Resolve just the types of each member
