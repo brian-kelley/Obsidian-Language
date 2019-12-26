@@ -707,7 +707,6 @@ struct SubroutineExpr : public Expression
   SubroutineExpr(SubrBase* s)
   {
     subr = s;
-    thisObject = nullptr;
     resolved = true;
   }
   SubroutineExpr(SubrOverloadExpr* s, CallableType* type);
@@ -733,7 +732,6 @@ struct SubroutineExpr : public Expression
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
-  Expression* thisObject;
   SubrBase* subr;
 };
 

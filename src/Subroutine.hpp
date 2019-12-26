@@ -242,11 +242,19 @@ struct SubroutineDecl : public Node
 {
   SubroutineDecl(string n, Scope* s, bool pure, bool explicitStatic);
   //Find a version matching the arguments.
-  //If exact, parameter types must match exactly.
-  //Otherwise, allowed to convert them individually.
+  //Querying exact match is optional.
+  //If *exact, parameter types matched exactly.
+  //Otherwise, at least one was converted.
   SubrBase* match(vector<Type*>& params, bool* exact = nullptr);
   //Find a version matching the full CallableType exactly.
   SubrBase* match(CallableType* ct);
+  //In many cases, there will only be one version, so return that.
+  SubrBase* getOnly()
+  {
+    if(overloads.size() > 1)
+      return nullptr;
+    return overloads[0];
+  }
   //Resolution resolves every member of the family, but
   //it also checks that no two have identical parameters
   void resolveImpl();

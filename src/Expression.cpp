@@ -1071,16 +1071,35 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 void CallExpr::resolveImpl()
 {
   resolveExpr(callable);
-  auto callableType = dynamic_cast<CallableType*>(callable->type);
-  if(!callableType)
-  {
-    errMsgLoc(this, "attempt to call expression of type " << callable->type->getName());
-  }
-  type = callableType->returnType;
+  auto soe = dynamic_cast<SubrOverloadExpr*>(callable);
+  //Resolve arguments
+  vector<Type*> argTypes(args.size());
   for(size_t i = 0; i < args.size(); i++)
   {
     resolveExpr(args[i]);
+    argTypes[i] = args[i]->type;
   }
+  if(overloadSet)
+  {
+    //need to choose from a set of overloads based on arg types
+    SubrBase* sb = soe->decl->match(argTypes);
+    if(!sb)
+      errMsgLoc(this, "No overloads of " << overloadSet->decl->name << " match arg types");
+    //replace callable
+    if(soe->thisObject)
+      callable = new StructMem(soe->thisObject, sb);
+    else
+      callable = new SubroutineExpr(sb);
+    callable->resolve();
+    callable->setLocation(this);
+  }
+  //have a specific callable
+  auto callableType = dynamic_cast<CallableType*>(callable->type);
+  if(!callableType)
+  {
+    errMsgLoc(this, "Expression of type " << callable->type->getName() << " is not callable");
+  }
+  type = callableType->returnType;
   //make sure number of arguments matches
   if(callableType->paramTypes.size() != args.size())
   {
@@ -1098,13 +1117,16 @@ void CallExpr::resolveImpl()
     if(!callableType->paramTypes[i]->canConvert(args[i]->type))
     {
       errMsgLoc(args[i], "argument " << i + 1 << " to " <<
-        (callableType->pure ? "function" : "procedure") << " has wrong type (expected " <<
-        callableType->paramTypes[i]->getName() << " but got " <<
-        (args[i]->type ? args[i]->type->getName() : "incompatible compound literal") << ")");
+        (callableType->pure ? "function " : "procedure ") << callable <<
+        " has wrong type (expected " << callableType->paramTypes[i]->getName()
+        << " but got " << args[i]->type->getName());
     }
     if(!typesSame(callableType->paramTypes[i], args[i]->type))
     {
+      Node* loc = args[i];
       args[i] = new Converted(args[i], callableType->paramTypes[i]);
+      args[i]->resolve();
+      args[i]->setLocation(loc);
     }
   }
   resolved = true;
@@ -1965,8 +1987,6 @@ void resolveExpr(Expression*& expr)
     }
     else
     {
-      Expression* implicitThis = nullptr;
-      if(
       if(!searchScope)
       {
         //There must be a base, otherwise search wouldn't be null
@@ -1974,99 +1994,150 @@ void resolveExpr(Expression*& expr)
       }
       //Otherwise, use scope lookup.
       Name found = (i == 0) ? searchScope->findName(names[i]) : searchScope->lookup(names[i]);
-      if(!found.item)
+      StructType* enclosingStruct = searchScope->getStructContext();
+      if(!found.item && i == 0 && enclosingStruct)
       {
-        StructType* 
-        //If in a struct, haven't processed any names and have no explicit
-        //base, try to use implicit 'this'.
-        ThisExpr* te = 
+        //after normal lookup failed, try to use full struct member lookup
         size_t namesUsed = 0;
-        //findMember errors out if nothing found
-        base = structContext->findMember(base, names.data() + i,
-            names.size() - i, namesUsed);
-        //compensate for the "++" in the loop
+        ThisExpr* implicitThis = new ThisExpr(searchScope);
+        implicitThis->resolve();
+        implicitThis->setLocation(unres);
+        base = enclosingStruct->findMember(implicitThis, names.data(), names.size(), namesUsed);
         i += namesUsed - 1;
+        //update context for new base
         structContext = dynamic_cast<StructType*>(base->type);
         if(structContext)
           searchScope = structContext->scope;
         else
           searchScope = nullptr;
-        if(base)
-        {
-          if(structContext)
-          {
-
-          }
-          else
-          {
-            errMsgLoc(base, "Expression of type " << base->type->getName() <<
-                " can't have named members.");
-          }
-        }
-        else
-          errMsgLoc(expr, "Unknown identifier " << names[i]);
       }
-      switch(found.item)
+      else if(!found.item)
       {
-        case MODULE:
-          structContext = nullptr;
-          searchScope = ((Module*) found.item)->scope;
-          break;
-        case STRUCT:
-          //static reference to struct type - just like module
-          structContext = nullptr;
-          searchScope = ((StructType*) found.item)->scope;
-          break;
-        case ENUM:
-          structContext = nullptr;
-          searchScope = ((EnumType*) found.item)->scope;
-          break;
-        case SIMPLE_TYPE:
-          base = ((SimpleType*) found.item)->val;
-          base->resolve();
-          base->setLocation(unres);
-          structContext = nullptr;
-          searchScope = nullptr;
-          break;
-        case SUBROUTINE:
-          //Static reference to SubroutineDecl
-          base = new SubroutineOverloadExpr((SubroutineDecl*) found.item);
-          base->resolve();
-          base->setLocation(unres);
-          structContext = nullptr;
-          searchScope = nullptr;
-          break;
-        case VARIABLE:
-          //Reference to static/local variable
-          base = new VarExpr((Variable*) found.item, unres->usage);
-          base->resolve();
-          base->setLocation(unres);
-          structContext = nullptr;
-          searchScope = nullptr;
-          break;
-        case ENUM_CONSTANT:
-          base = new EnumExpr((EnumConstant*) found.item);
-          base->resolve();
-          base->setLocation(unres);
-          structContext = nullptr;
-          searchScope = nullptr;
-          break;
-        case TYPEDEF:
-          errMsgLoc(unres, "Expected expression but got alias type name " << names[i]);
-          break;
-        default:
-          //Want to catch new Kinds being added
-          INTERNAL_ERROR;
+        errMsgLoc(unres, "Name " << n << " was not defined in this context.");
+      }
+      else
+      {
+        //Found a name.
+        switch(found.item)
+        {
+          case MODULE:
+            structContext = nullptr;
+            searchScope = ((Module*) found.item)->scope;
+            break;
+          case STRUCT:
+            //static reference to struct type - just like module
+            structContext = nullptr;
+            searchScope = ((StructType*) found.item)->scope;
+            break;
+          case ENUM:
+            structContext = nullptr;
+            searchScope = ((EnumType*) found.item)->scope;
+            break;
+          case SIMPLE_TYPE:
+            base = ((SimpleType*) found.item)->val;
+            base->resolve();
+            base->setLocation(unres);
+            structContext = nullptr;
+            searchScope = nullptr;
+            break;
+          case SUBROUTINE:
+          {
+            //Static or implicit this reference to SubroutineDecl
+            SubroutineDecl* sd = (SubroutineDecl*) found.item;
+            if(sd->owner)
+            {
+              //Make sure searchScope context matches 
+              StructType* enclosingStruct = searchScope->getStructContext();
+              if(!enclosingStruct)
+                errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
+                    sd->owner->name << ") in static context.");
+              else if(enclosingStruct != sd->owner)
+                errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
+                    sd->owner->name << ") in context where 'this' refers to other struct "
+                    << enclosingStruct->name);
+              //Can call with implicit this
+              ThisExpr* implicitThis = new ThisExpr(searchScope);
+              implicitThis->resolve();
+              implicitThis->setLocation(unres);
+              Subroutine* only = dynamic_cast<Subroutine*>(sd->getOnly());
+              if(only)
+                base = new StructMem(implicitThis, only);
+              else
+                base = new SubrOverloadExpr(implicitThis, sd);
+            }
+            else
+            {
+              //Calling a static subr is allowed in any context
+              SubrBase* only = sd->getOnly();
+              if(only)
+                base = new SubroutineExpr(only);
+              else
+                base = new SubrOverloadExpr(sd);
+            }
+            base->resolve();
+            base->setLocation(unres);
+            structContext = nullptr;
+            searchScope = nullptr;
+            break;
+          }
+          case VARIABLE:
+          {
+            //Reference to variable or member of implicit this
+            Variable* var = (Variable*) found.item;
+            if(var->owner)
+            {
+              StructContext* enclosingStruct = searchScope->getStructContext();
+              if(!enclosingStruct)
+              {
+                errMsgLoc(unres, "Can't refer to member " << var->name << " of struct " <<
+                    var->owner->name << ") in static context.");
+              }
+              else if(enclosingStruct != var->owner)
+              {
+                errMsgLoc(unres, "Can't refer to member " << var->name << " of struct " <<
+                    var->owner->name << ") where 'this' refers to other struct " << enclosingStruct->name);
+              }
+              ThisExpr* implicitThis = new ThisExpr(searchScope);
+              implicitThis->resolve();
+              implicitThis->setLocation(unres);
+              base = new StructMem(implicitThis, var);
+              base->resolve();
+              structContext = dynamic_cast<StructType*>(base->type);
+              if(structContext)
+                searchScope = structContext->scope;
+              else
+                searchScope = nullptr;
+            }
+            else
+            {
+              base = new VarExpr(var, searchScope);
+              base->resolve();
+            }
+            base->setLocation(unres);
+            break;
+          }
+          case ENUM_CONSTANT:
+            base = new EnumExpr((EnumConstant*) found.item);
+            base->resolve();
+            base->setLocation(unres);
+            structContext = nullptr;
+            searchScope = nullptr;
+            break;
+          case TYPEDEF:
+            errMsgLoc(unres, "Expected expression but got alias type name " << names[i]);
+            break;
+          default:
+            //Want to catch new Kinds being added
+            INTERNAL_ERROR;
+        }
       }
     }
   }
-  //save lexical location of original parsed expression
-  base->setLocation(expr);
   expr = base;
-  INTERNAL_ASSERT(base->resolved);
+  INTERNAL_ASSERT(expr->resolved);
 }
 
-void resolveAndCoerceExpr(Expression*& expr, Type* reqType)
+void resolveAndCoerce(Expression*& expr, Type* reqType)
 {
   resolveExpr(expr);
   SubrOverloadExpr* soe = dynamic_cast<SubrOverloadExpr*>(expr);
@@ -2074,17 +2145,53 @@ void resolveAndCoerceExpr(Expression*& expr, Type* reqType)
   {
     auto callable = dynamic_cast<CallableType*>(reqType);
     if(!callable)
-      errMsgLoc(expr, "Reference to subroutine " << soe->decl->name << " can't be coerced to non-callable type " << reqType->getName());
+      errMsgLoc(expr, "Reference to subroutine " << soe->decl->name <<
+          " can't be converted to non-callable type " << reqType->getName());
     Expression* thisObject = soe->thisObject;
     SubrBase* sb = soe->decl->match(callable);
-
-  }
-  if(!typesSame(reqType, expr->type))
-  {
-    if(reqType->isCallable())
+    if(!sb)
     {
-      //Coerce by choosing the overload with exact matching type
+      //give error message for why match failed
+      if(soe->owner != callable->ownerStruct)
+      {
+        if(!soe->owner)
+          errMsgLoc(expr, "Can't use static subroutine " << soe->decl->name <<
+              " in place of member of struct " << callable->ownerStruct->name);
+        else if(!callable->ownerStruct)
+          errMsgLoc(expr, "Can't use member " << soe->decl->name <<
+              " of struct " << soe->ownerStruct->name <<
+              " in place of static subroutine.");
+        else
+          errMsgLoc(expr, "Can't use member " << soe->decl->name <<
+              " of struct " << soe->ownerStruct->name <<
+              " in place of member of " << callable->ownerStruct->name);
+      }
+      else
+        errMsgLoc(expr, "No overload of " << soe->decl->name <<
+            " has parameters matching " << callable->getName());
     }
+    //match successful, create the new expression
+    Node* loc = expr;
+    if(thisObject)
+    {
+      //only Subroutine can be a member, not Extern
+      Subroutine* subr = dynamic_cast<Subroutine*>(sb);
+      INTERNAL_ASSERT(subr);
+      expr = new StructMem(thisObject, subr);
+    }
+    else
+      expr = new SubroutineExpr(sb);
+    expr->resolve();
+    expr->setLocation(loc);
   }
+  else if(!typesSame(reqType, expr->type))
+  {
+    Node* loc = expr;
+    //do normal conversion (if allowed)
+    expr = new Converted(expr, reqType);
+    expr->resolve();
+    expr->setLocation(loc);
+  }
+  //otherwise, nothing to do (types already match)
 }
 
