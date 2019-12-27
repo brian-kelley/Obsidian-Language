@@ -270,7 +270,7 @@ struct SubrBase : public Node
   SubrBase(SubroutineDecl* d)
     : decl(d)
   {}
-  virtual void resolveImpl();
+  virtual void resolveImpl() = 0;
   bool pure()
   {
     return type->pure;

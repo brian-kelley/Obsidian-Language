@@ -138,7 +138,7 @@ string Scope::getLocalName()
   if(node.is<StructType*>())
     return node.get<StructType*>()->name;
   if(node.is<Subroutine*>())
-    return node.get<SubroutineDecl*>()->name;
+    return node.get<Subroutine*>()->decl->name;
   if(node.is<Block*>())
   {
     Oss oss;
@@ -309,80 +309,6 @@ void Module::resolveImpl()
 bool Module::hasInclude(SourceFile* sf)
 {
   return included.find(sf) != included.end();
-}
-
-void SubroutineFamily::resolveImpl()
-{
-  //Resolve just the types of each member
-  for(auto s : subrs)
-    s->type->resolve();
-  for(auto es : exSubrs)
-    es->type->resolve();
-  //Hash the parameters from each type signature: if there's a conflict
-  //(extremely unlikely) then fall back to using typesSame() on every pair.
-  bool collision = false;
-  unordered_set<size_t> hashes;
-  for(auto s : subrs)
-  {
-    size_t thash = s->type->hash();
-    auto iter = hashes->find(thash);
-    if(iter == hashes.end())
-      hashes.insert(thash);
-    else
-    {
-      collision = true;
-      break;
-    }
-  }
-  for(auto es : exSubrs)
-  {
-    size_t thash = es->type->hash();
-    auto iter = hashes->find(thash);
-    if(iter == hashes.end())
-      hashes.insert(thash);
-    else
-    {
-      collision = true;
-      break;
-    }
-  }
-  if(collision)
-  {
-    //fall back to naive pairwise comparison
-    for(auto s : subrs)
-    {
-      for(auto es : exSubrs)
-      {
-        if(typesSame(s->type, es->type))
-        {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              s->printLocation() << " and the other at " << es->printLocation());
-        }
-      }
-    }
-    for(size_t i = 0; i < subrs.size(); i++)
-    {
-      for(size_t j = i + 1; j < subrs.size(); j++)
-      {
-        if(typesSame(subrs[i]->type, subrs[j]->type))
-        {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              subrs[i]->printLocation() << " and the other at " << subrs[j]->printLocation());
-        }
-      }
-    }
-    for(size_t i = 0; i < exSubrs.size(); i++)
-    {
-      for(size_t j = i + 1; j < exSubrs.size(); j++)
-      {
-        if(typesSame(exSubrs[i]->type, exSubrs[j]->type))
-        {
-          errMsg("Conflicting overloads for " << name << ": one at " <<
-              exSubrs[i]->printLocation() << " and the other at " << exSubrs[j]->printLocation());
-        }
-      }
-    }
-  }
 }
 
 UsingModule::UsingModule(Member moduleName, Scope* enclosing)

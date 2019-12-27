@@ -5,7 +5,7 @@
 using std::find;
 
 static int nextSubrID = 0;
-static int nextExSubrID = 0;
+//static int nextExSubrID = 0;
 
 Subroutine* mainSubr = nullptr;
 extern Module* global;
@@ -694,15 +694,15 @@ void Subroutine::resolveImpl()
 }
 
 ExternalSubroutine::ExternalSubroutine(
-    SubroutineDecl* decl,
+    SubroutineDecl* sd,
     Scope* s,
     string name,
     Type* returnType,
-    vector<Type*>& paramTypes,
-    vector<string>& paramNames,
+    vector<Type*>& ptypes,
+    vector<string>& pnames,
     vector<bool>& borrow,
     string& code)
-  : SubrBase(decl)
+  : SubrBase(sd)
 {
   //TODO
   INTERNAL_ERROR;

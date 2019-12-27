@@ -10,6 +10,7 @@ struct Name;
 struct Type;
 struct StructType;
 struct AliasType;
+struct SubroutineDecl;
 struct Subroutine;
 struct ExternalSubroutine;
 struct SimpleType;
@@ -27,6 +28,7 @@ namespace AstOut
   int emitExpression(Expression* e);
   int emitStruct(StructType* s);
   int emitAlias(AliasType* a);
+  int emitSubroutineDecl(SubroutineDecl* s);
   int emitSubroutine(Subroutine* s);
   int emitExternSubroutine(ExternalSubroutine* s);
   int emitVariable(Variable* v);

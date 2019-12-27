@@ -32,6 +32,7 @@ Expression* Interpreter::callSubr(Subroutine* subr, vector<Expression*> args, Ex
 Expression* Interpreter::callExtern(ExternalSubroutine* exSubr, vector<Expression*> args)
 {
   //TODO: lazily load correct dynamic library, put arguments in correct binary format, and call
+  errMsgLoc(exSubr, "External calls aren't supported by interpreter (yet)");
   return nullptr;
 }
 
@@ -752,23 +753,28 @@ Expression* Interpreter::evaluate(Expression* e)
       args.push_back(evaluate(a));
     //All "constant" callables must be SubroutineExpr
     auto subExpr = dynamic_cast<SubroutineExpr*>(callable);
-    INTERNAL_ASSERT(subExpr);
+    auto structMem = dynamic_cast<StructMem*>(callable);
     Expression* retVal = nullptr;
-    if(subExpr->subr)
+    if(subExpr)
     {
-      if(subExpr->thisObject)
-      {
-        if(subExpr->thisObject->assignable())
-          retVal = callSubr(subExpr->subr, args, (Expression*&) evaluateLValue(subExpr->thisObject));
-        else
-          retVal = callSubr(subExpr->subr, args, evaluate(subExpr->thisObject));
-      }
+      auto subr = dynamic_cast<Subroutine*>(subExpr->subr);
+      auto exSubr = dynamic_cast<ExternalSubroutine*>(subExpr->subr);
+      if(subr)
+        retVal = callSubr(subr, args);
       else
-          retVal = callSubr(subExpr->subr, args);
+        retVal = callExtern(exSubr, args);
+    }
+    else if(structMem)
+    {
+      Expression* thisObject = structMem->base;
+      Subroutine* subr = structMem->member.get<Subroutine*>();
+      if(thisObject->assignable())
+        retVal = callSubr(subr, args, (Expression*&) evaluateLValue(thisObject));
+      else
+        retVal = callSubr(subr, args, evaluate(thisObject));
     }
     else
-      retVal = callExtern(subExpr->exSubr, args);
-    rv = nullptr;
+      INTERNAL_ERROR;
     return retVal;
   }
   else if(auto sm = dynamic_cast<StructMem*>(e))
@@ -791,7 +797,9 @@ Expression* Interpreter::evaluate(Expression* e)
     else
     {
       //Member subroutine - return a SubroutineExpr
-      return new SubroutineExpr(base, sm->member.get<Subroutine*>());
+      StructMem* res = new StructMem(base, sm->member.get<Subroutine*>());
+      res->resolve();
+      return res;
     }
     INTERNAL_ERROR;
     return nullptr;
@@ -961,7 +969,7 @@ Expression* Interpreter::invoke(Subroutine* subr, vector<Expression*>& args)
   //push stack frame
   if(args.size() != subr->type->paramTypes.size())
   {
-    errMsg("Call to " << subr->name << " expects " << \
+    errMsg("Call to " << subr->decl->name << " expects " << \
         subr->type->paramTypes.size() << " args, but got " << args.size() << ".");
   }
   //assign args to corresponding local variables

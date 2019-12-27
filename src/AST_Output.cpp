@@ -49,9 +49,7 @@ int emitName(Name* n)
     case Name::TYPEDEF:
       return emitAlias((AliasType*) n->item);
     case Name::SUBROUTINE:
-      return emitSubroutine((Subroutine*) n->item);
-    case Name::EXTERN_SUBR:
-      return emitExternSubroutine((ExternalSubroutine*) n->item);
+      return emitSubroutineDecl((SubroutineDecl*) n->item);
     case Name::VARIABLE:
       return emitVariable((Variable*) n->item);
     case Name::ENUM:
@@ -352,20 +350,17 @@ int emitExpression(Expression* e)
     if(sm->member.is<Variable*>())
       out.createEdge(root, emitVariable(sm->member.get<Variable*>()));
     else
-      out.createEdge(root, out.createNode("Subroutine " + sm->member.get<Subroutine*>()->name));
+      out.createEdge(root, out.createNode(
+            "Subroutine " + sm->member.get<Subroutine*>()->decl->name));
   }
   else if(auto se = dynamic_cast<SubroutineExpr*>(e))
   {
-    if(se->thisObject)
-    {
-      root = out.createNode("Member subroutine");
-      out.createEdge(root, emitExpression(se->thisObject));
-      out.createEdge(root, out.createNode(se->subr->name));
-    }
-    else if(se->subr)
-      root = out.createNode("Subroutine " + se->subr->name);
+    auto subr = dynamic_cast<Subroutine*>(se->subr);
+    auto exSubr = dynamic_cast<ExternalSubroutine*>(se->subr);
+    if(subr)
+      root = out.createNode("Subroutine " + subr->decl->name);
     else
-      root = out.createNode("External subroutine " + se->exSubr->name);
+      root = out.createNode("External subroutine " + exSubr->decl->name);
   }
   else if(auto ee = dynamic_cast<EnumExpr*>(e))
   {
@@ -413,9 +408,24 @@ int emitAlias(AliasType* a)
   return out.createNode("Alias " + a->name + " = " + a->actual->getName());
 }
 
-int emitSubroutine(Subroutine* s)
+int emitSubroutineDecl(SubroutineDecl* s)
 {
   int root = out.createNode("Subroutine " + s->name);
+  for(auto o : s->overloads)
+  {
+    auto subr = dynamic_cast<Subroutine*>(o);
+    auto exSubr = dynamic_cast<ExternalSubroutine*>(o);
+    if(subr)
+      out.createEdge(root, emitSubroutine(subr));
+    else
+      out.createEdge(root, emitExternSubroutine(exSubr));
+  }
+  return root;
+}
+
+int emitSubroutine(Subroutine* s)
+{
+  int root = out.createNode("Subroutine " + s->name());
   int params = out.createNode("Parameters");
   out.createEdge(root, params);
   for(auto p : s->params)
@@ -428,7 +438,7 @@ int emitSubroutine(Subroutine* s)
 
 int emitExternSubroutine(ExternalSubroutine* s)
 {
-  int root = out.createNode("External subroutine " + s->name);
+  int root = out.createNode("External subroutine " + s->name());
   int args = out.createNode("Args");
   out.createEdge(root, args);
   for(size_t i = 0; i < s->type->paramTypes.size(); i++)

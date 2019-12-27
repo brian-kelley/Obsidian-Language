@@ -390,6 +390,7 @@ struct EnumType : public Type
   bool isInteger() {return true;}
   bool isNumber() {return true;}
   Expression* getDefaultValue();
+  EnumExpr* valueFromName(string n);
   //The type used to represent the enum in memory -
   //is able to represent every value
   IntegerType* underlying;

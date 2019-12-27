@@ -1,5 +1,6 @@
 #include "AstToIR.hpp"
 
+/*
 namespace AstToIR
 {
   IRBuilder::IRBuilder()
@@ -10,3 +11,4 @@ namespace AstToIR
   {
   }
 }
+*/

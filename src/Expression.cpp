@@ -1071,7 +1071,6 @@ CallExpr::CallExpr(Expression* c, vector<Expression*>& a)
 void CallExpr::resolveImpl()
 {
   resolveExpr(callable);
-  auto soe = dynamic_cast<SubrOverloadExpr*>(callable);
   //Resolve arguments
   vector<Type*> argTypes(args.size());
   for(size_t i = 0; i < args.size(); i++)
@@ -1079,15 +1078,20 @@ void CallExpr::resolveImpl()
     resolveExpr(args[i]);
     argTypes[i] = args[i]->type;
   }
-  if(overloadSet)
+  auto soe = dynamic_cast<SubrOverloadExpr*>(callable);
+  if(soe)
   {
     //need to choose from a set of overloads based on arg types
     SubrBase* sb = soe->decl->match(argTypes);
     if(!sb)
-      errMsgLoc(this, "No overloads of " << overloadSet->decl->name << " match arg types");
+      errMsgLoc(this, "No overloads of " << soe->decl->name << " match arg types");
     //replace callable
     if(soe->thisObject)
-      callable = new StructMem(soe->thisObject, sb);
+    {
+      Subroutine* subr = dynamic_cast<Subroutine*>(sb);
+      INTERNAL_ASSERT(subr);
+      callable = new StructMem(soe->thisObject, subr);
+    }
     else
       callable = new SubroutineExpr(sb);
     callable->resolve();
@@ -1227,161 +1231,36 @@ ostream& VarExpr::print(ostream& os)
  * SubrOverloadExpr *
  ********************/
 
-SubrOverloadExpr(SubroutineDecl* decl)
+SubrOverloadExpr::SubrOverloadExpr(SubroutineDecl* d)
 {
   INTERNAL_ASSERT(d->resolved);
-  INTERNAL_ASSERT(te->resolved);
   decl = d;
-  thisExpr = te;
+  thisObject = nullptr;
   //A SubrOverloadExpr has no single type.
   type = nullptr;
+  resolved = true;
 }
 
-SubrOverloadExpr(Expression* t, SubroutineDecl* d)
+SubrOverloadExpr::SubrOverloadExpr(Expression* t, SubroutineDecl* d)
 {
   INTERNAL_ASSERT(d->resolved);
   INTERNAL_ASSERT(t->resolved);
   decl = d;
-  thisExpr = t;
+  thisObject = t;
   //A SubrOverloadExpr never has a single type, even when resovled.
   type = nullptr;
+  resolved = true;
 }
 
 ostream& SubrOverloadExpr::print(ostream& os)
 {
   os << (decl->isPure ? "func " : "proc ") << decl->name;
+  return os;
 }
 
 /******************
  * SubroutineExpr *
  ******************/
-
-SubroutineExpr::SubroutineExpr(SubroutineOverloadExpr* s, CallableType* type)
-{
-  //Find the matching call
-  create(s, type->paramTypes, true);
-}
-
-SubroutineExpr::SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args)
-{
-  vector<Type*> argTypes;
-  for(auto a : args)
-    argTypes.push_back(a->type);
-  create(s, argTypes, false);
-}
-
-//Both constructors call create()
-void SubroutineExpr::create(
-    SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch)
-{
-  subr = nullptr;
-  //Find an exact matching overload
-  for(auto overload : decl->overloads)
-  {
-    auto oArgTypes = overload->type->paramTypes;
-    if(oArgTypes.size() != argTypes.size())
-      continue;
-    bool allMatch = true;
-    for(size_t i = 0; i < argTypes.size(); i++)
-    {
-      if(!typesSame(oArgTypes[i], argTypes[i]))
-      {
-        allMatch = false;
-        break;
-      }
-    }
-    if(allMatch)
-    {
-      subr = overload;
-      break;
-    }
-  }
-  if(exactMatch && !subr)
-  {
-    Oss paramlist;
-    paramlist << '(';
-    for(size_t i = 0; i < argTypes.size(); i++)
-    {
-      if(i != 0)
-        paramlist << ", ";
-      paramlist << argTypes[i]->getName();
-    }
-    paramlist << ')';
-    Oss cands;
-    for(auto overload : decl->overloads)
-    {
-      cands << '(';
-      auto& oArgTypes = overload->type->argTypes;
-      for(size_t i = 0; i < oArgTypes.size(); i++)
-      {
-        if(i != 0)
-          cands << ", ";
-        cands << oArgTypes[i]->getName();
-      }
-      cands << ")\n";
-    }
-    errMsgLoc(this, "no overload of " << decl->name <<
-        " exactly matches parameter types:\n" <<
-        paramlist.str() << '\n' <<
-        "Candidates are:\n" << cands.str());
-  }
-  else if(!exactMatch)
-  {
-    //Now try to find a match, allowing implicit conversion of each argument
-    for(auto overload : decl->overloads)
-    {
-      auto oArgTypes = overload->type->paramTypes;
-      if(oArgTypes.size() != argTypes.size())
-        continue;
-      bool allMatch = true;
-      for(size_t i = 0; i < argTypes.size(); i++)
-      {
-        if(!oArgTypes[i]->canConvert(argTypes[i]))
-        {
-          allMatch = false;
-          break;
-        }
-      }
-      if(allMatch)
-      {
-        subr = overload;
-        break;
-      }
-    }
-    if(!subr)
-    {
-      Oss paramlist;
-      paramlist << '(';
-      for(size_t i = 0; i < argTypes.size(); i++)
-      {
-        if(i != 0)
-          paramlist << ", ";
-        paramlist << argTypes[i]->getName();
-      }
-      paramlist << ')';
-      Oss cands;
-      for(auto overload : decl->overloads)
-      {
-        cands << '(';
-        auto& oArgTypes = overload->type->argTypes;
-        for(size_t i = 0; i < oArgTypes.size(); i++)
-        {
-          if(i != 0)
-            cands << ", ";
-          cands << oArgTypes[i]->getName();
-        }
-        cands << ")\n";
-      }
-      errMsgLoc(this, "provided argument types:\n" <<
-          paramlist.str() << '\n' <<
-          "cannot be implicitly converted to the parameters of any overload of "
-          << decl->name << ".\n" << "Candidates are:\n" <<
-          cands.str());
-    }
-  }
-  //if here, should have found the match
-  INTERNAL_ASSERT(subr);
-}
 
 void SubroutineExpr::resolveImpl()
 {
@@ -1925,11 +1804,10 @@ void resolveExpr(Expression*& expr)
   Scope* searchScope = unres->usage;
   //need a "base" expression first
   //(could be the whole expr, or could be the root of a StructMem etc.)
-  EnumConstant* enumShortcutValue = nullptr;
   if(names.size() == 1 && UnresolvedExpr::shortcutEnum)
   {
     //only use enum shortcut if no other name matches an expression
-    Name n = !searchScope->findName(names[0]);
+    Name n = searchScope->findName(names[0]);
     if(n.item == nullptr ||
         (n.kind != Name::SIMPLE_TYPE &&
          n.kind != Name::SUBROUTINE &&
@@ -1937,10 +1815,12 @@ void resolveExpr(Expression*& expr)
          n.kind != Name::ENUM_CONSTANT))
     {
       //only name that can appear inside enum is EnumConstant, so no dynamic cast
-      EnumConstant* ec = (EnumConstant*) EnumUnresolvedExpr::shortcutEnum->scope->lookup(names[0]).item;
-      if(ec)
+      EnumExpr* ee = UnresolvedExpr::shortcutEnum->valueFromName(names[0]);
+      if(ee)
       {
-        expr = ec;
+        Node* loc = unres;
+        expr = ee;
+        expr->setLocation(loc);
         return;
       }
     }
@@ -1965,7 +1845,7 @@ void resolveExpr(Expression*& expr)
     if(base && (base->type->isArray() || base->type->isMap()) && names[i] == "len")
     {
       Node* loc = base;
-      base = new ArrayLen(base);
+      base = new ArrayLength(base);
       base->resolve();
       base->setLocation(loc);
       continue;
@@ -2013,44 +1893,43 @@ void resolveExpr(Expression*& expr)
       }
       else if(!found.item)
       {
-        errMsgLoc(unres, "Name " << n << " was not defined in this context.");
+        errMsgLoc(unres, "Name " << names[i] << " was not defined in this context.");
       }
       else
       {
         //Found a name.
-        switch(found.item)
+        switch(found.kind)
         {
-          case MODULE:
+          case Name::MODULE:
             structContext = nullptr;
             searchScope = ((Module*) found.item)->scope;
             break;
-          case STRUCT:
+          case Name::STRUCT:
             //static reference to struct type - just like module
             structContext = nullptr;
             searchScope = ((StructType*) found.item)->scope;
             break;
-          case ENUM:
+          case Name::ENUM:
             structContext = nullptr;
             searchScope = ((EnumType*) found.item)->scope;
             break;
-          case SIMPLE_TYPE:
+          case Name::SIMPLE_TYPE:
             base = ((SimpleType*) found.item)->val;
             base->resolve();
             base->setLocation(unres);
             structContext = nullptr;
             searchScope = nullptr;
             break;
-          case SUBROUTINE:
+          case Name::SUBROUTINE:
           {
             //Static or implicit this reference to SubroutineDecl
             SubroutineDecl* sd = (SubroutineDecl*) found.item;
             if(sd->owner)
             {
               //Make sure searchScope context matches 
-              StructType* enclosingStruct = searchScope->getStructContext();
               if(!enclosingStruct)
                 errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
-                    sd->owner->name << ") in static context.");
+                    sd->owner->name << ") in static context.")
               else if(enclosingStruct != sd->owner)
                 errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
                     sd->owner->name << ") in context where 'this' refers to other struct "
@@ -2080,13 +1959,12 @@ void resolveExpr(Expression*& expr)
             searchScope = nullptr;
             break;
           }
-          case VARIABLE:
+          case Name::VARIABLE:
           {
             //Reference to variable or member of implicit this
             Variable* var = (Variable*) found.item;
             if(var->owner)
             {
-              StructContext* enclosingStruct = searchScope->getStructContext();
               if(!enclosingStruct)
               {
                 errMsgLoc(unres, "Can't refer to member " << var->name << " of struct " <<
@@ -2116,14 +1994,14 @@ void resolveExpr(Expression*& expr)
             base->setLocation(unres);
             break;
           }
-          case ENUM_CONSTANT:
+          case Name::ENUM_CONSTANT:
             base = new EnumExpr((EnumConstant*) found.item);
             base->resolve();
             base->setLocation(unres);
             structContext = nullptr;
             searchScope = nullptr;
             break;
-          case TYPEDEF:
+          case Name::TYPEDEF:
             errMsgLoc(unres, "Expected expression but got alias type name " << names[i]);
             break;
           default:
@@ -2152,19 +2030,19 @@ void resolveAndCoerce(Expression*& expr, Type* reqType)
     if(!sb)
     {
       //give error message for why match failed
-      if(soe->owner != callable->ownerStruct)
+      if(soe->decl->owner != callable->ownerStruct)
       {
-        if(!soe->owner)
+        if(!soe->decl->owner)
           errMsgLoc(expr, "Can't use static subroutine " << soe->decl->name <<
-              " in place of member of struct " << callable->ownerStruct->name);
+              " in place of member of struct " << callable->ownerStruct->name)
         else if(!callable->ownerStruct)
           errMsgLoc(expr, "Can't use member " << soe->decl->name <<
-              " of struct " << soe->ownerStruct->name <<
-              " in place of static subroutine.");
+              " of struct " << soe->decl->owner->name <<
+              " in place of static subroutine.")
         else
           errMsgLoc(expr, "Can't use member " << soe->decl->name <<
-              " of struct " << soe->ownerStruct->name <<
-              " in place of member of " << callable->ownerStruct->name);
+              " of struct " << soe->decl->owner->name <<
+              " in place of member of " << callable->ownerStruct->name)
       }
       else
         errMsgLoc(expr, "No overload of " << soe->decl->name <<

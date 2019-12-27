@@ -7,6 +7,7 @@
 #include "Expression.hpp"
 #include "Subroutine.hpp"
 
+/*
 namespace AstToIR
 {
   using IR::Datatype;
@@ -79,6 +80,7 @@ namespace AstToIR
     Datatype* type;
   };
 }
+*/
 
 #endif
 

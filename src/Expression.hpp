@@ -691,6 +691,15 @@ struct SubrOverloadExpr : public Expression
     INTERNAL_ERROR;
     return nullptr;
   }
+  size_t hash() const
+  {
+    return fnv1a(decl);
+  }
+  bool operator==(const Expression& erhs) const
+  {
+    auto soe = dynamic_cast<const SubrOverloadExpr*>(&erhs);
+    return soe && soe->decl == decl;
+  }
   ostream& print(ostream& os);
   Expression* thisObject;
   SubroutineDecl* decl;
@@ -709,8 +718,6 @@ struct SubroutineExpr : public Expression
     subr = s;
     resolved = true;
   }
-  SubroutineExpr(SubrOverloadExpr* s, CallableType* type);
-  SubroutineExpr(SubrOverloadExpr* s, vector<Expression*>& args);
   //Both constructors call create()
   void create(SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch);
   void resolveImpl();
@@ -913,7 +920,7 @@ struct Converted : public Expression
 
 struct EnumExpr : public Expression
 {
-  EnumExpr(EnumConstant* ec);
+  EnumExpr(EnumConstant* ec); //needs no resolve() after
   EnumConstant* value;
   bool assignable()
   {

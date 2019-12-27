@@ -390,7 +390,7 @@ Expression* StructType::findMember(Expression* thisExpr, string* names, size_t n
     {
       //no name found at all, including in modules
       Oss oss;
-      for(int i = 0; i < namesUsed; i++)
+      for(size_t i = 0; i < namesUsed; i++)
       {
         if(i > 0)
           oss << ".";
@@ -927,6 +927,14 @@ bool EnumType::canConvert(Type* other)
 Expression* EnumType::getDefaultValue()
 {
   return defVal;
+}
+
+EnumExpr* EnumType::valueFromName(string n)
+{
+  EnumConstant* ec = (EnumConstant*) scope->lookup(n).item;
+  if(ec)
+    return new EnumExpr(ec);
+  return nullptr;
 }
 
 /****************/

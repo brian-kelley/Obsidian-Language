@@ -35,7 +35,7 @@ void semanticCheck()
 
 int main(int argc, const char** argv)
 {
-  auto startTime = clock();
+  //auto startTime = clock();
   Options op = parseOptions(argc, argv);
   //init creates the builtin declarations
   init();
