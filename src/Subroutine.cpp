@@ -631,11 +631,15 @@ void Subroutine::setSignature(Type* retType, vector<Variable*>& parsedParams)
   params = parsedParams;
   vector<Type*> paramTypes;
   for(auto p : params)
+  {
+    p->resolve();
     paramTypes.push_back(p->type);
+  }
   if(decl->owner)
     type = new CallableType(decl->isPure, decl->owner, retType, paramTypes);
   else
     type = new CallableType(decl->isPure, retType, paramTypes);
+  type->resolve();
 }
 
 void Subroutine::resolveImpl()

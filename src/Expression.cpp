@@ -1265,8 +1265,6 @@ ostream& SubrOverloadExpr::print(ostream& os)
 SubroutineExpr::SubroutineExpr(SubrBase* s)
 {
   subr = s;
-  type = subr->type;
-  resolved = true;
 }
 
 void SubroutineExpr::resolveImpl()
