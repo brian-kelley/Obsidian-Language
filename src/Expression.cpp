@@ -1197,7 +1197,7 @@ void VarExpr::resolveImpl()
     //(or, if innermost function is a member, a member of that struct)
     Scope* varScope = var->scope;
     Scope* fnScope = scope->getFunctionContext();
-    if(!fnScope->contains(varScope))
+    if(fnScope && !fnScope->contains(varScope))
     {
       errMsgLoc(this, "use of variable " << var->name << " here violates function purity");
     }
