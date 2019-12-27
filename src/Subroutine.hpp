@@ -311,7 +311,6 @@ struct ExternalSubroutine : public SubrBase
 {
   ExternalSubroutine(SubroutineDecl* decl, Scope* s, string name, Type* returnType, vector<Type*>& paramTypes, vector<string>& paramNames, vector<bool>& borrow, string& code);
   void resolveImpl();
-  CallableType* type;
   SubroutineDecl* decl;
   //the native symbol to call
   string c;

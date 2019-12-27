@@ -713,13 +713,7 @@ struct SubroutineExpr : public Expression
   // * given a set of parameters (doesn't require exact match)
   //thisObject may be different from the SubrOverloadExpr's this, if
   //the call matches through a composed member.
-  SubroutineExpr(SubrBase* s)
-  {
-    subr = s;
-    resolved = true;
-  }
-  //Both constructors call create()
-  void create(SubrOverloadExpr* s, vector<Type*> argTypes, bool exactMatch);
+  SubroutineExpr(SubrBase* s);
   void resolveImpl();
   bool assignable()
   {
