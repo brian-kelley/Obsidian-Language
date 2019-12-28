@@ -104,11 +104,10 @@ struct Scope
   bool resolveAll();
   map<string, Name> names;
   vector<Scope*> children;
-  //if in static context, this returns NULL
-  //otherwise, returns the Struct that "this" would refer to
+  //Returns the StructType that "this" would refer to.
   StructType* getStructContext();
-  //if in a struct (or module within struct) return the struct
-  //otherwise NULL
+  //For a non-static variable declared in this scope, determine the StructType
+  //it would become a member of (if any)
   StructType* getMemberContext();
 
   /*  take innermost function scope

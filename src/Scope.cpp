@@ -232,7 +232,7 @@ StructType* Scope::getStructContext()
       else
       {
         //in a static subroutine, which is always a static context
-        break;
+        return nullptr;
       }
     }
   }

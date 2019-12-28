@@ -31,7 +31,7 @@ struct B
   {
     print("Specific B thing, my value is ", dataB, '\n');
   }
-  func int getSum()
+  func getSum: int()
   {
     return a.dataA + dataB;
   }

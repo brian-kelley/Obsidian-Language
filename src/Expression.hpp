@@ -47,6 +47,7 @@ struct UnresolvedExpr;
 struct Expression : public Node
 {
   Expression() : type(nullptr) {}
+  virtual ~Expression() {}
   virtual void resolveImpl() {}
   Type* type;
   //whether this works as an lvalue
@@ -1044,7 +1045,7 @@ struct UnresolvedExpr : public Expression
 };
 
 void resolveExpr(Expression*& expr);
-void resolveAndCoerceExpr(Expression*& expr, Type* reqType);
+void resolveAndCoerce(Expression*& expr, Type* reqType);
 
 #endif
 

@@ -327,10 +327,10 @@ Expression* StructType::findMember(Expression* thisExpr, string* names, size_t n
         }
         case Name::VARIABLE:
         {
-          auto v = (Variable*) found.item;
-          auto sm = new StructMem(thisExpr, v);
-          sm->resolve();
+          Variable* v = (Variable*) found.item;
+          StructMem* sm = new StructMem(thisExpr, v);
           sm->setLocation(thisExpr);
+          sm->resolve();
           return sm;
         }
         case Name::MODULE:
@@ -341,67 +341,34 @@ Expression* StructType::findMember(Expression* thisExpr, string* names, size_t n
         }
         default:
           errMsgLoc(thisExpr, n <<
-              " is not a (nonstatic) member of an object of type " << name);
+              " is not a member (variable/subroutine) of struct " << name);
       }
     }
-    else if(namesUsed == 0)
+    else if(namesUsed == 1)
     {
       //Only chance to try composition
+      namesUsed--;
       for(size_t i = 0; i < members.size(); i++)
       {
         if(composed[i])
         {
-          Variable* mem = members[i];
-          auto composedStruct = (StructType*) mem->type;
-          found = composedStruct->scope->lookup(n);
-          if(found.kind == Name::SUBROUTINE)
-          {
-            //get the composed member as expr
-            Expression* m = new StructMem(thisExpr, mem);
-            m->resolve();
-            m->setLocation(thisExpr);
-            m = new SubrOverloadExpr(m, (SubroutineDecl*) found.item);
-            m->resolve();
-            m->setLocation(thisExpr);
-            return m;
-          }
-          else if(found.kind == Name::VARIABLE)
-          {
-            //accessing member variable only allowed if it's a callable
-            Variable* memVar = (Variable*) found.item;
-            if(memVar->type->isCallable())
-            {
-              //can use it
-              Expression* m = new StructMem(thisExpr, mem);
-              m->resolve();
-              m->setLocation(thisExpr);
-              m = new StructMem(m, memVar);
-              m->resolve();
-              m->setLocation(thisExpr);
-              return m;
-            }
-          }
+          //Recursively try lookup in the composing struct
+          StructMem* memberThis = new StructMem(thisExpr, members[i]);
+          memberThis->setLocation(thisExpr);
+          memberThis->resolve();
+          StructType* composingStruct = (StructType*) memberThis->type;
+          //But, members in submodules can't be accessed through composition
+          //So only provide the first name.
+          Expression* foundMem = composingStruct->findMember(memberThis, names, 1, namesUsed);
+          if(foundMem)
+            return foundMem;
+          //otherwise, don't leak
+          delete memberThis;
         }
       }
-      //If here, no match through composition
-      errMsgLoc(thisExpr, "Struct " << name << " has no member named " << n << ", either directly or through composition");
-    }
-    else
-    {
-      //no name found at all, including in modules
-      Oss oss;
-      for(size_t i = 0; i < namesUsed; i++)
-      {
-        if(i > 0)
-          oss << ".";
-        oss << names[i];
-      }
-      errMsgLoc(thisExpr, "Sub-module " << oss.str() <<
-          " in struct " << name << " has no member named " << n);
     }
   }
-  //Should never get here
-  INTERNAL_ERROR;
+  //Didn't find anything
   return nullptr;
 }
 

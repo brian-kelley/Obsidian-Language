@@ -134,22 +134,13 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
 void Assign::resolveImpl()
 {
   resolveExpr(lvalue);
-  resolveExpr(rvalue);
   //Default-initialized local variables produce an assignment
   //with a null rvalue - use the default value for the type
   if(!lvalue->assignable())
   {
     errMsgLoc(this, "left-hand side of assignment is immutable");
   }
-  if(!lvalue->type->canConvert(rvalue->type))
-  {
-    errMsgLoc(this, "cannot convert from " << rvalue->type->getName() << " to " << lvalue->type->getName());
-  }
-  if(!typesSame(lvalue->type, rvalue->type))
-  {
-    rvalue = new Converted(rvalue, lvalue->type);
-    rvalue->resolve();
-  }
+  resolveAndCoerce(rvalue, lvalue->type);
   resolved = true;
 }
 
@@ -512,15 +503,15 @@ SubroutineDecl::SubroutineDecl(string n, Scope* s, bool pure, bool explicitStati
   : name(n), scope(s), isPure(pure), owner(nullptr)
 {
   //Determine the "this" type
-  auto structContext = scope->parent->getMemberContext();
+  auto structContext = scope->getMemberContext();
+  if(explicitStatic && !structContext)
+  {
+    errMsgLoc(this, (isPure ? "func " : "proc ") << n << " declared static, but not inside a struct");
+  }
   if(!explicitStatic && structContext)
-  {
     owner = structContext;
-  }
-  else if(explicitStatic && !structContext)
-  {
-    errMsgLoc(this, (isPure ? "func" : "proc") << " declared static, but not inside a struct");
-  }
+  else
+    owner = nullptr;
 }
 
 SubrBase* SubroutineDecl::match(vector<Type*>& params, bool* exact)

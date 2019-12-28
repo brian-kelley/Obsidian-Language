@@ -1830,18 +1830,17 @@ void resolveExpr(Expression*& expr)
       }
     }
   }
-  //If a base is given, resolve it
+  StructType* structContext = unres->usage->getStructContext();
+  //If a base was given, resolve it.
+  //It also determines the structContext.
   if(base)
   {
     resolveExpr(base);
-  }
-  //Decide where to start search
-  StructType* structContext = unres->usage->getStructContext();
-  if(base)
-  {
     structContext = dynamic_cast<StructType*>(base->type);
     if(structContext)
       searchScope = structContext->scope;
+    else
+      searchScope = nullptr;
   }
   //Consume all names, while maintaining base, searchScope and structContext
   for(size_t i = 0; i < names.size(); i++)
@@ -1855,13 +1854,21 @@ void resolveExpr(Expression*& expr)
       base->setLocation(loc);
       continue;
     }
-    if(structContext)
+    if(structContext && base)
     {
       //have explicit base and struct context
       size_t namesUsed = 0;
-      //findMember errors out if nothing found
-      base = structContext->findMember(base, names.data() + i,
+      //findMember will error out if nothing found,
+      //so don't try using implicit 'this' yet
+      //(happens below, only after normal lookup fails)
+      Expression* newBase = structContext->findMember(base, names.data() + i,
           names.size() - i, namesUsed);
+      if(!newBase)
+      {
+        errMsgLoc(base, "Name " << names[i] <<
+            ((names.size() > i+1) ? "..." : "") << " is not a member of " << structContext->name);
+      }
+      base = newBase;
       //compensate for the "++" in the loop
       i += namesUsed - 1;
       structContext = dynamic_cast<StructType*>(base->type);
@@ -1888,6 +1895,11 @@ void resolveExpr(Expression*& expr)
         implicitThis->resolve();
         implicitThis->setLocation(unres);
         base = enclosingStruct->findMember(implicitThis, names.data(), names.size(), namesUsed);
+        if(!base)
+        {
+          errMsgLoc(implicitThis, "Name " << names[i] <<
+              ((names.size() > i+1) ? "..." : "") << " is not a valid expression");
+        }
         i += namesUsed - 1;
         //update context for new base
         structContext = dynamic_cast<StructType*>(base->type);
@@ -1984,18 +1996,17 @@ void resolveExpr(Expression*& expr)
               implicitThis->resolve();
               implicitThis->setLocation(unres);
               base = new StructMem(implicitThis, var);
-              base->resolve();
-              structContext = dynamic_cast<StructType*>(base->type);
-              if(structContext)
-                searchScope = structContext->scope;
-              else
-                searchScope = nullptr;
             }
             else
             {
               base = new VarExpr(var, searchScope);
-              base->resolve();
             }
+            base->resolve();
+            structContext = dynamic_cast<StructType*>(base->type);
+            if(structContext)
+              searchScope = structContext->scope;
+            else
+              searchScope = nullptr;
             base->setLocation(unres);
             break;
           }

@@ -752,8 +752,10 @@ Expression* Interpreter::evaluate(Expression* e)
     for(auto a : call->args)
       args.push_back(evaluate(a));
     //All "constant" callables must be SubroutineExpr
+    //SubroutineExpr is always non-assignable so fully evaluate it
     auto subExpr = dynamic_cast<SubroutineExpr*>(callable);
     auto structMem = dynamic_cast<StructMem*>(callable);
+    INTERNAL_ASSERT((subExpr == nullptr) != (structMem == nullptr));
     Expression* retVal = nullptr;
     if(subExpr)
     {
@@ -766,7 +768,8 @@ Expression* Interpreter::evaluate(Expression* e)
     }
     else if(structMem)
     {
-      Expression* thisObject = structMem->base;
+      auto nonEvaluated = dynamic_cast<StructMem*>(call->callable);
+      Expression* thisObject = nonEvaluated->base;
       Subroutine* subr = structMem->member.get<Subroutine*>();
       if(thisObject->assignable())
         retVal = callSubr(subr, args, (Expression*&) evaluateLValue(thisObject));

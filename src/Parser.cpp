@@ -420,12 +420,12 @@ namespace Parser
     expectPunct(LPAREN);
     while(!acceptPunct(RPAREN))
     {
+      Node* ploc = lookAhead();
       Type* paramType = parseType(outer);
       string paramName = expectIdent();
-      Node* ploc = lookAhead();
       Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
-      subr->scope->addName(param);
       param->setLocation(ploc);
+      subr->scope->addName(param);
       params.push_back(param);
     }
     subr->setSignature(retType, params);
