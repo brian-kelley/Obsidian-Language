@@ -827,8 +827,12 @@ Expression* Interpreter::evaluate(Expression* e)
     //note: the type of this expression is always "long"
     Expression* arr = evaluate(al->array);
     auto compLit = dynamic_cast<CompoundLiteral*>(arr);
-    INTERNAL_ASSERT(compLit);
-    return new IntConstant((int64_t) compLit->members.size());
+    auto strLit = dynamic_cast<StringConstant*>(arr);
+    if(compLit)
+      return new IntConstant((int64_t) compLit->members.size());
+    else if(strLit)
+      return new IntConstant((int64_t) strLit->value.length());
+    INTERNAL_ERROR;
   }
   else if(auto ie = dynamic_cast<IsExpr*>(e))
   {

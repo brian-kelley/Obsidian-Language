@@ -139,8 +139,15 @@ Type* promote(Type* lhs, Type* rhs)
   }
   //get type of result as the "most promoted" of lhs and rhs
   //double > float, float > integers, signed > unsigned, wider integer > narrower integer
-  if(lhs->isInteger() && rhs->isInteger())
+  if(lhs->isChar() && rhs->isChar())
+    return lhs;
+  else if(lhs->isChar())
+    return rhs;
+  else if(rhs->isChar())
+    return lhs;
+  else if(lhs->isInteger() && rhs->isInteger())
   {
+    //two non-char integer types
     auto lhsInt = dynamic_cast<IntegerType*>(lhs);
     auto rhsInt = dynamic_cast<IntegerType*>(rhs);
     int size = std::max(lhsInt->size, rhsInt->size);

@@ -683,6 +683,7 @@ struct SubrOverloadExpr : public Expression
 {
   SubrOverloadExpr(SubroutineDecl* decl);
   SubrOverloadExpr(Expression* t, SubroutineDecl* decl);
+  void resolveImpl();
   bool assignable()
   {
     return false;

@@ -1233,22 +1233,25 @@ ostream& VarExpr::print(ostream& os)
 
 SubrOverloadExpr::SubrOverloadExpr(SubroutineDecl* d)
 {
-  INTERNAL_ASSERT(d->resolved);
   decl = d;
   thisObject = nullptr;
   //A SubrOverloadExpr has no single type.
   type = nullptr;
-  resolved = true;
 }
 
 SubrOverloadExpr::SubrOverloadExpr(Expression* t, SubroutineDecl* d)
 {
-  INTERNAL_ASSERT(d->resolved);
-  INTERNAL_ASSERT(t->resolved);
   decl = d;
   thisObject = t;
   //A SubrOverloadExpr never has a single type, even when resovled.
   type = nullptr;
+}
+
+void SubrOverloadExpr::resolveImpl()
+{
+  decl->resolve();
+  if(thisObject)
+    resolveExpr(thisObject);
   resolved = true;
 }
 
