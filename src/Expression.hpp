@@ -18,7 +18,6 @@ struct Expression;
 //Constants/literals
 struct IntConstant;
 struct FloatConstant;
-struct StringConstant;
 struct BoolConstant;
 struct MapConstant;
 struct CompoundLiteral;
@@ -256,6 +255,9 @@ struct IntConstant : public Expression
   }
   bool isSigned() const
   {
+    if(type == getCharType())
+      return false;
+    //All other possible types are IntegerType
     return ((IntegerType*) type)->isSigned;
   }
   size_t hash() const
@@ -340,86 +342,6 @@ struct FloatConstant : public Expression
     if(isDoublePrec())
       return fnv1a(dp);
     return fnv1a(fp);
-  }
-  bool operator==(const Expression& rhs) const;
-  Expression* copy();
-  ostream& print(ostream& os);
-};
-
-struct StringConstant : public Expression
-{
-  StringConstant(StrLit* ast)
-  {
-    value = ast->val;
-    type = getArrayType(primitives[Prim::CHAR], 1);
-    resolveType(type);
-    resolved = true;
-  }
-  StringConstant(string str)
-  {
-    value = str;
-    type = getArrayType(primitives[Prim::CHAR], 1);
-    resolveType(type);
-    resolved = true;
-  }
-  string value;
-  bool assignable()
-  {
-    return false;
-  }
-  bool constant() const
-  {
-    return true;
-  }
-  bool operator<(const Expression& rhs) const
-  {
-    const StringConstant& rhsStr = dynamic_cast<const StringConstant&>(rhs);
-    return value < rhsStr.value;
-  }
-  int getConstantSize()
-  {
-    return 16 + value.length() + 1;
-  }
-  size_t hash() const
-  {
-    return fnv1a(value.c_str(), value.length());
-  }
-  bool operator==(const Expression& rhs) const;
-  Expression* copy();
-  ostream& print(ostream& os);
-};
-
-struct CharConstant : public Expression
-{
-  CharConstant(CharLit* ast)
-  {
-    value = ast->val;
-    type = primitives[Prim::CHAR];
-    resolved = true;
-  }
-  CharConstant(char c)
-  {
-    value = c;
-    type = primitives[Prim::CHAR];
-    resolved = true;
-  }
-  char value;
-  bool assignable()
-  {
-    return false;
-  }
-  bool constant() const
-  {
-    return true;
-  }
-  bool operator<(const Expression& rhs) const
-  {
-    const CharConstant& rhsChar = dynamic_cast<const CharConstant&>(rhs);
-    return value < rhsChar.value;
-  }
-  size_t hash() const
-  {
-    return fnv1a(value);
   }
   bool operator==(const Expression& rhs) const;
   Expression* copy();

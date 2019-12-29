@@ -354,7 +354,7 @@ namespace Parser
       {
         vector<Type*> optionalTypes;
         optionalTypes.push_back(t);
-        optionalTypes.push_back(primitives[Prim::VOID]);
+        optionalTypes.push_back(getVoidType());
         t = new UnresolvedType;
         t->setLocation(loc);
         t->scope = s;
@@ -1155,11 +1155,11 @@ namespace Parser
       }
       else if(acceptKeyword(VOID))
       {
-        base = ((SimpleType*) primitives[Prim::VOID])->val;
+        base = getVoidType()->val;
       }
       else if(acceptKeyword(ERROR))
       {
-        base = ((SimpleType*) primitives[Prim::ERROR])->val;
+        base = getErrorType()->val;
       }
       else if(auto intLit = (IntLit*) accept(INT_LITERAL))
       {
@@ -1171,11 +1171,17 @@ namespace Parser
       }
       else if(auto strLit = (StrLit*) accept(STRING_LITERAL))
       {
-        base = new StringConstant(strLit);
+        //Build a CompoundLiteral from individual characters
+        vector<Expression*> chars;
+        for(size_t i = 0; i < strLit->val.length(); i++)
+        {
+          chars.push_back(new IntConstant((uint64_t) strLit->val[i], getCharType()));
+        }
+        base = new CompoundLiteral(chars, getStringType());
       }
       else if(auto charLit = (CharLit*) accept(CHAR_LITERAL))
       {
-        base = new CharConstant(charLit);
+        base = new IntConstant((uint64_t) charLit->val, getCharType());
       }
       else if(acceptPunct(LPAREN))
       {

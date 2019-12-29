@@ -664,5 +664,14 @@ struct TypeHash
   }
 };
 
+//Helpers for getting primitive types
+SimpleType* getVoidType();
+SimpleType* getErrorType();
+BoolType* getBoolType();
+IntegerType* getCharType();
+ArrayType* getStringType();
+IntegerType* getLongType();
+IntegerType* getULongType();
+
 #endif
 

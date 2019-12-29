@@ -227,7 +227,9 @@ int emitExpression(Expression* e)
   }
   else if(IntConstant* ic = dynamic_cast<IntConstant*>(e))
   {
-    if(ic->isSigned())
+    if(ic->type == getCharType())
+      root = out.createNode("'" + generateCharDotfile((char) ic->uval) + "'");
+    else if(ic->isSigned())
       root = out.createNode(to_string(ic->sval));
     else
       root = out.createNode(to_string(ic->uval));
@@ -238,22 +240,6 @@ int emitExpression(Expression* e)
     sprintf(buf, "%#f", fc->dp);
     root = out.createNode(buf);
   }
-  else if(StringConstant* sc = dynamic_cast<StringConstant*>(e))
-  {
-    //print string with all characters fully escaped
-    Oss oss;
-    oss << "\\\"";
-    for(size_t i = 0; i < sc->value.length(); i++)
-    {
-      oss << generateCharDotfile(sc->value[i]);
-    }
-    oss << "\\\"";
-    root = out.createNode(oss.str());
-  }
-  else if(CharConstant* cc = dynamic_cast<CharConstant*>(e))
-  {
-    root = out.createNode("'" + generateCharDotfile(cc->value) + "'");
-  }
   else if(BoolConstant* bc = dynamic_cast<BoolConstant*>(e))
   {
     if(bc->value)
@@ -263,10 +249,27 @@ int emitExpression(Expression* e)
   }
   else if(CompoundLiteral* compLit = dynamic_cast<CompoundLiteral*>(e))
   {
-    root = out.createNode("compound literal");
-    for(auto expr : compLit->members)
+    if(compLit->type == getStringType())
     {
-      out.createEdge(root, emitExpression(expr));
+      //print string with all characters fully escaped
+      Oss oss;
+      oss << "\\\"";
+      for(auto m : compLit->members)
+      {
+        IntConstant* charElem = dynamic_cast<IntConstant*>(m);
+        INTERNAL_ASSERT(charElem);
+        oss << generateCharDotfile((char) charElem->uval);
+      }
+      oss << "\\\"";
+      root = out.createNode(oss.str());
+    }
+    else
+    {
+      root = out.createNode("compound literal");
+      for(auto expr : compLit->members)
+      {
+        out.createEdge(root, emitExpression(expr));
+      }
     }
   }
   else if(Indexed* in = dynamic_cast<Indexed*>(e))

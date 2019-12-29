@@ -28,15 +28,16 @@ int main(int argc, const char** argv)
     vector<Expression*> mainArgs;
     if(argc > 2)
     {
-      Type* stringType = getArrayType(primitives[Prim::CHAR], 1);
-      Type* stringArrType = getArrayType(primitives[Prim::CHAR], 2);
+      Type* charType = getCharType();
+      Type* stringType = getStringType();
+      Type* stringArrType = getArrayType(stringType, 1);
       vector<Expression*> stringArgs;
       for(int i = 2; i < argc; i++)
       {
         vector<Expression*> strChars;
         string s = argv[i];
         for(size_t j = 0; j < s.length(); j++)
-          strChars.push_back(new CharConstant(s[j]));
+          strChars.push_back(new IntConstant((uint64_t) s[j], charType));
         stringArgs.push_back(new CompoundLiteral(strChars, stringType));
       }
       mainArgs.push_back(new CompoundLiteral(stringArgs, stringArrType));

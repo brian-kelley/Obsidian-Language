@@ -1017,7 +1017,7 @@ bool CharType::canConvert(Type* other)
 
 Expression* CharType::getDefaultValue()
 {
-  return new CharConstant('\0');
+  return new IntConstant((uint64_t) 0, getCharType());
 }
 
 /*************/
@@ -1403,5 +1403,40 @@ Type* canonicalize(Type* t)
     t = at->actual;
   }
   return t;
+}
+
+SimpleType* getVoidType()
+{
+  return (SimpleType*) primitives[Prim::VOID];
+}
+
+SimpleType* getErrorType()
+{
+  return (SimpleType*) primitives[Prim::ERROR];
+}
+
+BoolType* getBoolType()
+{
+  return (BoolType*) primitives[Prim::BOOL];
+}
+
+IntegerType* getCharType()
+{
+  return (IntegerType*) primitives[Prim::CHAR];
+}
+
+ArrayType* getStringType()
+{
+  return (ArrayType*) getArrayType(primitives[Prim::CHAR], 1);
+}
+
+IntegerType* getLongType()
+{
+  return (IntegerType*) primitives[Prim::LONG];
+}
+
+IntegerType* getULongType()
+{
+  return (IntegerType*) primitives[Prim::ULONG];
 }
 

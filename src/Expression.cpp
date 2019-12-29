@@ -16,7 +16,7 @@ UnaryArith::UnaryArith(int o, Expression* e)
 void UnaryArith::resolveImpl()
 {
   resolveExpr(expr);
-  if(op == LNOT && !typesSame(expr->type, primitives[Prim::BOOL]))
+  if(op == LNOT && !typesSame(expr->type, getBoolType()))
   {
     errMsgLoc(this, "! operand must be a bool");
   }
@@ -71,13 +71,13 @@ void BinaryArith::resolveImpl()
     case LOR:
     case LAND:
     {
-      if(!typesSame(ltype, primitives[Prim::BOOL]) ||
-         !typesSame(rtype, primitives[Prim::BOOL]))
+      if(!typesSame(ltype, getBoolType()) ||
+         !typesSame(rtype, getBoolType()))
       {
         errMsgLoc(this, "operands to " << operatorTable[op] << " must be bools.");
       }
       //type of expression is always bool
-      this->type = primitives[Prim::BOOL];
+      this->type = getBoolType();
       break;
     }
     case BOR:
@@ -201,7 +201,7 @@ void BinaryArith::resolveImpl()
     {
       //To determine if comparison is allowed, lhs or rhs needs to be convertible to the type of the other
       //here, use the canConvert that takes an expression
-      type = primitives[Prim::BOOL];
+      type = getBoolType();
       if(!ltype->canConvert(rtype) && !rtype->canConvert(ltype))
       {
         errMsgLoc(this, ltype->getName() <<
@@ -313,6 +313,14 @@ Expression* IntConstant::convert(Type* t)
     }
     return intConstant;
   }
+  else if(dynamic_cast<CharType*>(t))
+  {
+    //First, convert to ubyte
+    IntConstant* toChar = (IntConstant*) this->convert(primitives[Prim::UBYTE]);
+    //then just set the type to char
+    toChar->type = getCharType();
+    return toChar;
+  }
   else if(auto enumType = dynamic_cast<EnumType*>(t))
   {
     //when converting int to enum,
@@ -365,25 +373,6 @@ Expression* IntConstant::convert(Type* t)
     }
     fc->setLocation(this);
     return fc;
-  }
-  else if(dynamic_cast<CharType*>(t))
-  {
-    auto charInt = (IntegerType*) primitives[Prim::UBYTE];
-    CharConstant* cc = nullptr;
-    if(isSigned())
-    {
-      if(sval >= 0 && sval <= (int64_t) charInt->maxUnsignedVal())
-        cc = new CharConstant((char) sval);
-    }
-    else
-    {
-      if(uval <= charInt->maxUnsignedVal())
-        cc = new CharConstant((char) uval);
-    }
-    if(!cc)
-      errMsgLoc(this, "integer value doesn't fit in char");
-    cc->setLocation(this);
-    return cc;
   }
   INTERNAL_ERROR;
   return nullptr;
@@ -604,12 +593,12 @@ Expression* FloatConstant::convert(Type* t)
     //temporarily make an integer value, then convert that to enum
     if(val < 0)
     {
-      IntConstant* asLong = (IntConstant*) convert(primitives[Prim::LONG]);
+      IntConstant* asLong = (IntConstant*) convert(getLongType());
       return asLong->convert(t);
     }
     else
     {
-      IntConstant* asULong = (IntConstant*) convert(primitives[Prim::ULONG]);
+      IntConstant* asULong = (IntConstant*) convert(getULongType());
       return asULong->convert(t);
     }
   }
@@ -692,61 +681,6 @@ ostream& FloatConstant::print(ostream& os)
     os << dp;
   else
     os << fp;
-  return os;
-}
-
-/******************
- * StringConstant *
- ******************/
-
-Expression* StringConstant::copy()
-{
-  auto sc = new StringConstant(value);
-  sc->setLocation(this);
-  return sc;
-}
-
-bool StringConstant::operator==(const Expression& erhs) const
-{
-  auto rhs = dynamic_cast<const StringConstant*>(&erhs);
-  if(!rhs)
-    return false;
-  return value == rhs->value;
-}
-
-Expression* CharConstant::copy()
-{
-  auto cc = new CharConstant(value);
-  cc->setLocation(this);
-  return cc;
-}
-
-ostream& StringConstant::print(ostream& os)
-{
-  os << generateCharDotfile('"');
-  for(size_t i = 0; i < value.size(); i++)
-  {
-    os << generateCharDotfile(value[i]);
-  }
-  os << generateCharDotfile('"');
-  return os;
-}
-
-/****************
- * CharConstant *
- ****************/
-
-bool CharConstant::operator==(const Expression& erhs) const
-{
-  auto rhs = dynamic_cast<const CharConstant*>(&erhs);
-  if(!rhs)
-    return false;
-  return value == rhs->value;
-}
-
-ostream& CharConstant::print(ostream& os)
-{
-  os << generateCharDotfile('\'') << generateCharDotfile(value) << generateCharDotfile('\'');
   return os;
 }
 
@@ -947,15 +881,15 @@ bool CompoundLiteral::operator==(const Expression& erhs) const
 
 ostream& CompoundLiteral::print(ostream& os)
 {
-  if(constant() && type == getArrayType(primitives[Prim::CHAR], 1))
+  if(constant() && typesSame(type, getStringType()))
   {
     //it's a string, so just print it as a string literal
     os << generateCharDotfile('"');
     for(size_t i = 0; i < members.size(); i++)
     {
-      auto scc = dynamic_cast<CharConstant*>(members[i]);
-      INTERNAL_ASSERT(scc);
-      os << generateCharDotfile(scc->value);
+      auto c = dynamic_cast<IntConstant*>(members[i]);
+      INTERNAL_ASSERT(c);
+      os << generateCharDotfile((char) c->uval);
     }
     os << generateCharDotfile('"');
   }
@@ -1459,7 +1393,7 @@ void ArrayLength::resolveImpl()
     //that should be handled in resolveExpr
     INTERNAL_ERROR;
   }
-  type = primitives[Prim::LONG];
+  type = getLongType();
   resolved = true;
 }
 

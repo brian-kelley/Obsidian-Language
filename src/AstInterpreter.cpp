@@ -184,21 +184,10 @@ void Interpreter::execute(Statement* stmt)
       {
         //push elements of visit in reverse order
         CompoundLiteral* cl = dynamic_cast<CompoundLiteral*>(visit);
-        if(cl)
+        INTERNAL_ASSERT(cl);
+        for(long i = cl->members.size() - 1; i >= 0; i--)
         {
-          for(long i = cl->members.size() - 1; i >= 0; i--)
-          {
-            toVisit.emplace(cl->members[i], depth + 1, i);
-          }
-        }
-        else
-        {
-          StringConstant* sc = dynamic_cast<StringConstant*>(visit);
-          INTERNAL_ASSERT(sc);
-          for(long i = sc->value.length() - 1; i >= 0; i--)
-          {
-            toVisit.emplace(new CharConstant(sc->value[i]), depth + 1, i);
-          }
+          toVisit.emplace(cl->members[i], depth + 1, i);
         }
       }
     }
@@ -253,23 +242,19 @@ void Interpreter::execute(Statement* stmt)
       Expression* toPrint = evaluate(e);
       //Evaluating any string always returns "char[]", which
       //would normally print as an array.
-      if(auto stringConst = dynamic_cast<StringConstant*>(toPrint))
+      if(typesSame(toPrint->type, getCharType()))
       {
-        compilerOut << stringConst->value;
+        IntConstant* ic = dynamic_cast<IntConstant*>(toPrint);
+        compilerOut << (char) ic->uval;
       }
-      else if(auto charConst = dynamic_cast<CharConstant*>(toPrint))
-      {
-        compilerOut << charConst->value;
-      }
-      else if(typesSame(e->type, getArrayType(primitives[Prim::CHAR], 1)))
+      else if(typesSame(e->type, getStringType()))
       {
         CompoundLiteral* stringArr = dynamic_cast<CompoundLiteral*>(toPrint);
         INTERNAL_ASSERT(stringArr);
         for(auto elem : stringArr->members)
         {
-          auto charElem = dynamic_cast<CharConstant*>(elem);
-          INTERNAL_ASSERT(charElem);
-          compilerOut << charElem->value;
+          IntConstant* ic = dynamic_cast<IntConstant*>(elem);
+          compilerOut << (char) ic->uval;
         }
       }
       else
@@ -424,13 +409,6 @@ Expression* Interpreter::convertConstant(Expression* value, Type* type)
   {
     //do the conversion which tests for overflow and enum membership
     value = intConst->convert(type);
-    value->setLocation(loc);
-    return value;
-  }
-  else if(auto charConst = dynamic_cast<CharConstant*>(value))
-  {
-    //char is equivalent to an 8-bit unsigned for purposes of value conversion
-    value = new IntConstant((uint64_t) charConst->value);
     value->setLocation(loc);
     return value;
   }
@@ -704,10 +682,9 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     Expression* group = evaluate(ind->group);
     Expression* index = evaluate(ind->index);
-    //arrays are represented as either CompoundLiteral or StringConstant
+    //arrays are represented as CompoundLiteral
     auto compLit = dynamic_cast<CompoundLiteral*>(group);
-    auto stringConstant = dynamic_cast<StringConstant*>(group);
-    if(compLit || stringConstant)
+    if(compLit)
     {
       //an array, so index should be an integer
       IntConstant* ic = dynamic_cast<IntConstant*>(index);
@@ -721,18 +698,9 @@ Expression* Interpreter::evaluate(Expression* e)
       }
       else
         ord = ic->uval;
-      if(compLit)
-      {
-        if(ord >= compLit->members.size())
-          errMsgLoc(ind, "array index " << ord << " out of bound " << compLit->members.size());
-        return compLit->members[ord];
-      }
-      else
-      {
-        if(ord >= stringConstant->value.length())
-          errMsgLoc(ind, "string index out of bounds");
-        return new CharConstant(stringConstant->value[ord]);
-      }
+      if(ord >= compLit->members.size())
+        errMsgLoc(ind, "array index " << ord << " out of bound " << compLit->members.size());
+      return compLit->members[ord];
     }
     else if(auto mc = dynamic_cast<MapConstant*>(group))
     {
@@ -827,12 +795,8 @@ Expression* Interpreter::evaluate(Expression* e)
     //note: the type of this expression is always "long"
     Expression* arr = evaluate(al->array);
     auto compLit = dynamic_cast<CompoundLiteral*>(arr);
-    auto strLit = dynamic_cast<StringConstant*>(arr);
-    if(compLit)
-      return new IntConstant((int64_t) compLit->members.size());
-    else if(strLit)
-      return new IntConstant((int64_t) strLit->value.length());
-    INTERNAL_ERROR;
+    INTERNAL_ASSERT(compLit);
+    return new IntConstant((int64_t) compLit->members.size());
   }
   else if(auto ie = dynamic_cast<IsExpr*>(e))
   {
@@ -893,7 +857,7 @@ Expression*& Interpreter::evaluateLValue(Expression* e)
   {
     Expression*& group = evaluateLValue(ind->group);
     Expression* index = evaluate(ind->index);
-    //arrays are represented as either CompoundLiteral or StringConstant
+    //arrays are represented as CompoundLiteral
     auto cl = dynamic_cast<CompoundLiteral*>(group);
     if(cl)
     {

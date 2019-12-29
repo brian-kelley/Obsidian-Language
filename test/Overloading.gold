@@ -1,0 +1,8 @@
+Size of int: 4
+Size of char: 1
+Size of string hello: 5
+Size of double: 8
+Twice '!': B
+Twice -4: -8
+Twice 2.718: 5.436
+Twice hello: hellohello

@@ -59,7 +59,7 @@ int main(int argc, const char** argv)
       vector<Expression*> strChars;
       string s = argv[i];
       for(size_t j = 0; j < s.length(); j++)
-        strChars.push_back(new CharConstant(s[j]));
+        strChars.push_back(new IntConstant((uint64_t) s[j], getCharType()));
       stringArgs.push_back(new CompoundLiteral(strChars, stringType));
     }
     mainArgs.push_back(new CompoundLiteral(stringArgs, stringArrType));

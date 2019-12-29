@@ -180,7 +180,7 @@ void ForC::resolveImpl()
   if(condition)
   {
     condition->resolve();
-    if(!typesSame(condition->type, primitives[Prim::BOOL]))
+    if(!typesSame(condition->type, getBoolType()))
     {
       errMsgLoc(condition, "C-style for loop condition must be a bool");
     }
