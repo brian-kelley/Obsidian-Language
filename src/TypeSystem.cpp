@@ -83,8 +83,6 @@ Type* getTupleType(vector<Type*>& members)
 {
   for(auto& mem : members)
     resolveType(mem);
-  if(members.size() == 1)
-    return members[0];
   TupleType* t = new TupleType(members);
   t->resolve();
   return t;
@@ -1012,7 +1010,7 @@ Expression* FloatType::getDefaultValue()
 
 bool CharType::canConvert(Type* other)
 {
-  return other->isInteger();
+  return other->isNumber();
 }
 
 Expression* CharType::getDefaultValue()

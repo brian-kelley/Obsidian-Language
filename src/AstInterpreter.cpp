@@ -511,14 +511,12 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     return e;
   }
-  if(e->assignable())
+  if(auto var = dynamic_cast<VarExpr*>(e))
   {
-    //Don't want modifications to apply to the original.
-    Expression* ecopy = evaluateLValue(e)->copy();
-    ecopy->type = e->type;
-    return ecopy;
+    //deep copy the value, so the original is never modified
+    return evaluateLValue(var)->copy();
   }
-  if(auto ua = dynamic_cast<UnaryArith*>(e))
+  else if(auto ua = dynamic_cast<UnaryArith*>(e))
   {
     Expression* operand = evaluate(ua->expr);
     switch(ua->op)

@@ -578,6 +578,17 @@ Expression* FloatConstant::convert(Type* t)
       return asULong.convert(t);
     }
   }
+  else if(dynamic_cast<CharType*>(t))
+  {
+    if(val < 0 || val >= 256.0)
+    {
+      errMsgLoc(this, "floating-point value " << val <<
+          " can't be represented by char");
+    }
+    IntConstant* toChar = new IntConstant((uint64_t) val, getCharType());
+    toChar->setLocation(this);
+    return toChar;
+  }
   else if(auto floatType = dynamic_cast<FloatType*>(t))
   {
     FloatConstant* fc = nullptr;
@@ -1561,7 +1572,7 @@ Converted::Converted(Expression* val, Type* dst)
   setLocation(val);
   if(!type->canConvert(value->type))
   {
-    errMsgLoc(this, "can't implicitly convert from " << \
+    errMsgLoc(this, "can't convert from " << \
         val->type->getName() << " to " << type->getName());
   }
 }
@@ -1737,6 +1748,7 @@ void resolveExpr(Expression*& expr)
   {
     //Check if the base is really a union.
     resolveExpr(asExpr->base);
+    resolveType(asExpr->type);
     if(!asExpr->base->type->isUnion())
     {
       //Replace with a cast

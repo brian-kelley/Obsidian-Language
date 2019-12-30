@@ -294,7 +294,6 @@ namespace Parser
           types.push_back(parseType(s));
         }
         while(acceptPunct(COMMA));
-        cout << "Parsed tuple with " << types.size() << " members\n";
         t->t = UnresolvedType::Tuple(types);
       }
       else if(acceptPunct(COLON))
@@ -758,43 +757,33 @@ namespace Parser
     Punct lbrace(LBRACE);
     Punct lparen(LPAREN);
     Punct lbracket(LBRACKET);
-    if(next->type == IDENTIFIER)
+    if(next->type == IDENTIFIER || next->compareTo(&lparen))
     {
-      Stream s1(*this);
-      Stream s2(*this);
+      //Don't know if the next tokens are for a decl or statement.
+      //Pattern "type ident" means VarDecl.
+      //All other patterns mean Stmt.
+      Stream tempStream(*this);
       //with errors disabled, parsing failure will just throw
-      s1.emitErrors = false;
-      s2.emitErrors = false;
-      Type* t = nullptr;
-      Expression* e = nullptr;
+      tempStream.emitErrors = false;
+      bool haveVarDecl = false;
       try
       {
-        t = s1.parseType(b->scope);
+        //parse but discard a type
+        tempStream.parseType(b->scope);
+        //if an identifier follows the type, have a variable decl
+        if(tempStream.accept(IDENTIFIER))
+          haveVarDecl = true;
       }
       catch(...) {}
-      try
+      if(haveVarDecl)
       {
-        e = s2.parseExpression(b->scope);
-      }
-      catch(...) {}
-      Ident* id;
-      if(t && (id = (Ident*) s1.accept(IDENTIFIER)))
-      {
-        //parse a VarDecl in the original stream
-        auto stmt = parseVarDecl(b->scope);
-        if(semicolon)
-          expectPunct(SEMICOLON);
-        return stmt;
-      }
-      else if(e)
-      {
-        //parse an assign or call
-        return parseStatement(b, semicolon);
+         auto stmt = parseVarDecl(b->scope);
+         if(semicolon)
+           expectPunct(SEMICOLON);
+         return stmt;
       }
       else
-      {
-        err("Expected statement or declaration.");
-      }
+        return parseStatement(b, semicolon);
     }
     else if(next->type == KEYWORD)
     {
@@ -847,15 +836,12 @@ namespace Parser
         default:;
       }
     }
-    else if(lookAhead()->compareTo(&lbrace) ||
-        lookAhead()->compareTo(&lbracket))
+    else if(next->compareTo(&lbrace) ||
+        next->compareTo(&lbracket))
     {
+      //compound literal (expression, beginning of statement) or
+      //brace (start of block)
       return parseStatement(b, semicolon);
-    }
-    else if(lookAhead()->compareTo(&lparen))
-    {
-      //start of union/tuple type
-      return parseDecl(b->scope, semicolon);
     }
     err("Expected statement or declaration");
     return nullptr;
@@ -865,6 +851,7 @@ namespace Parser
   {
     Token* next = lookAhead();
     Punct lbrack(LBRACKET);
+    Punct lparen(LPAREN);
     Punct rparen(RPAREN);
     Node* loc = lookAhead();
     if(next->type == KEYWORD)
@@ -873,7 +860,6 @@ namespace Parser
       {
         case FOR:
           {
-            Punct lparen(LPAREN);
             Token* next2 = lookAhead(1);
             if(next2->compareTo(&lparen))
               return parseForC(b);
@@ -961,7 +947,9 @@ namespace Parser
           err("expected statement");
       }
     }
-    else if(next->type == IDENTIFIER || next->compareTo(&lbrack))
+    else if(next->type == IDENTIFIER ||
+        next->compareTo(&lbrack) ||
+        next->compareTo(&lparen))
     {
       //statement must be either a call or an assign
       //in either case, parse an expression first

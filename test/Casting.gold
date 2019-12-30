@@ -1,0 +1,23 @@
+Got int: 35
+Got ulong: 35
+Got char: #
+Got double: 35
+Got float: 35
+Got int: 37
+Got ulong: 37
+Got char: %
+Got double: 37.6991
+Got float: 37.6991
+Got int array: [37]
+Got int array: [37, 37, 37]
+Got 3-int tuple: [37, 37, 37]
+Got int array: [35]
+Got 3-int tuple: [35, 34, 33]
+Got int array: [35, 34, 33]
+Got int array: [35, 34, 33, 32]
+Raw tuple 1: [5, 6]
+raw 1 as Thing1: Int vec: (5, 6)
+raw 1 as Thing2: Float vec: (5, 6)
+Raw tuple 2: [5.3, 6]
+raw 2 as Thing1: Int vec: (5, 6)
+raw 2 as Thing2: Float vec: (5.3, 6)
