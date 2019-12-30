@@ -24,12 +24,12 @@ void init()
   //C::init();
 }
 
-void semanticCheck()
+void resolveSemantics()
 {
   global->resolve();
   if(!mainSubr)
   {
-    errMsg("Program requires main procedure to be defined");
+    errMsg("Program requires proc main to be defined");
   }
 }
 
@@ -46,7 +46,7 @@ int main(int argc, const char** argv)
   //Parse the global/root module
   TIMEIT("Parsing", parseProgram(op.input););
   //DEBUG_DO(outputAST(global, "parse.dot"););
-  TIMEIT("Semantic analysis", global->resolve(););
+  TIMEIT("Semantic analysis", resolveSemantics(););
   outputAST(global, "AST.dot");
   vector<Expression*> mainArgs;
   if(argc > 2)

@@ -1733,6 +1733,18 @@ void resolveExpr(Expression*& expr)
     INTERNAL_ASSERT(expr->resolved);
     return;
   }
+  else if(auto asExpr = dynamic_cast<AsExpr*>(expr))
+  {
+    //Check if the base is really a union.
+    resolveExpr(asExpr->base);
+    if(!asExpr->base->type->isUnion())
+    {
+      //Replace with a cast
+      expr = new Converted(asExpr->base, asExpr->type);
+      expr->setLocation(asExpr);
+      //and resolve below.
+    }
+  }
   auto unres = dynamic_cast<UnresolvedExpr*>(expr);
   if(!unres)
   {

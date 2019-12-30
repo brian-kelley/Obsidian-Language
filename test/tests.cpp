@@ -9,6 +9,15 @@
 
 Module* global = nullptr;
 
+void resolveSemantics()
+{
+  global->resolve();
+  if(!mainSubr)
+  {
+    errMsg("Program requires proc main to be defined");
+  }
+}
+
 int main(int argc, const char** argv)
 {
   if(argc != 2)
@@ -24,7 +33,7 @@ int main(int argc, const char** argv)
   try
   {
     parseProgram(op.input);
-    global->resolve();
+    resolveSemantics();
     vector<Expression*> mainArgs;
     if(argc > 2)
     {
@@ -60,3 +69,4 @@ int main(int argc, const char** argv)
   }
   return 0;
 }
+
