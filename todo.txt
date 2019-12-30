@@ -5,24 +5,13 @@ FRONTEND (last core language features):
 
 -Generalize "x as Y" to provide conversion of expression x to type Y.
 
--Allow implicit widening conversions from one union type to another
--Allow explicit narrowing from one union to another,
-  not just from a union to a member of the union
+-Implicit widening conversions from one union type to another (without as)
 
--"using <name>;" directive
-  -introduces all names in another module into the current one (if name is a module),
-  or just the one name (otherwise).
-  -Ambiguous usage is an error: a name that has been declared or introduced via using
-    more than once into the same exact scope. Can only catch this when resolving the usage,
-    not when first inserting the names.
-  -Now, shadowing is allowed in all cases without a warning,
-   except for local variables and parameters (which are errors)
-  -Prohibiting all shadowing is just too restrictive with real-life modules and large codebases.
-
-  -After parsing, all decls/names will be registered in the scope tree
-    -Right after parsing, need to resolve every "using" decl
-    -Don't allow using of name introduced by using.
-     Would make it way too hard to decide the order to resolve the declarations.
+"x as y" can do:
+-narrow a union to a specific option
+-narrow a union to a set of options 
+-explicit version wherever implicit conversion would be allowed
+  -should test this case with overload matching
 
 -extern functions:
   -Need to design memory ownership model for passing pointers
