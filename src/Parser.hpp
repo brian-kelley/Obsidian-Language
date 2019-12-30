@@ -75,6 +75,7 @@ namespace Parser
     void parseAlias(Scope* s);
     void parseSimpleType(Scope* s);
     void parseEnum(Scope* s);
+    void parseUsing(Scope* s);
     ForC* parseForC(Block* b);
     ForArray* parseForArray(Block* b);
     ForRange* parseForRange(Block* b);

@@ -17,7 +17,8 @@ struct SourceFile
 
 //Look up the loaded source file with given path
 //If it has already been loaded, no I/O is done
-SourceFile* getSourceFile(Node* includeLoc, string path);
+SourceFile* findSourceFile(string path);
+SourceFile* addSourceFile(Node* includeLoc, string path);
 SourceFile* sourceFileFromID(int id);
 
 #endif

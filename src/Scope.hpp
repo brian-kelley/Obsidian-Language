@@ -5,6 +5,8 @@
 #include "AST.hpp"
 
 struct Scope;
+struct Module;
+struct UsingDecl;
 struct StructType;
 struct AliasType;
 struct EnumType;
@@ -14,33 +16,7 @@ struct SubroutineDecl;
 struct Subroutine;
 struct Variable;
 struct Block;
-struct Member;
 struct SourceFile;
-
-struct Module : public Node
-{
-  //name is "" for global scope
-  Module(string n, Scope* s);
-  bool hasInclude(SourceFile* sf);
-  void resolveImpl();
-  //table of files that have been included in this module
-  string name;
-  //scope->node == this
-  Scope* scope;
-  //set of all files included in this module
-  set<SourceFile*> included;
-};
-
-struct UsingModule : public Node
-{
-  UsingModule(Member moduleName, Scope* enclosing);
-  Module* module;
-};
-
-struct UsingName : public Node
-{
-  UsingName(Member name, Scope* enclosing);
-};
 
 extern Module* global;
 
@@ -76,6 +52,17 @@ struct Name
   bool inScope(Scope* s);
 };
 
+struct Module : public Node
+{
+  //name is "" for global scope
+  Module(string n, Scope* s);
+  void resolveImpl();
+  //table of files that have been included in this module
+  string name;
+  //scope->node == this
+  Scope* scope;
+};
+
 //Scopes own all funcs/structs/traits/etc
 struct Scope
 {
@@ -87,12 +74,12 @@ struct Scope
   string getLocalName();
   string getFullPath();               //get full, unambiguous name of scope (for C type names)
   Scope* parent;                      //parent of scope, or NULL for 
-  Name findName(Member* mem);
+  Name findName(Member* mem, bool allowUsing = true);
   //try to find name in this scope or any parent scope
-  Name findName(string name);
+  Name findName(const string& name, bool allowUsing = true);
   //try to find name in this scope only
-  Name lookup(string name);
-  void addName(Name n);
+  Name lookup(const string& name, bool allowUsing = true);
+  void addName(const Name& n);
   void addName(Variable* v);
   void addName(Module* m);
   void addName(StructType* s);
@@ -101,8 +88,12 @@ struct Scope
   void addName(SimpleType* s);
   void addName(EnumType* e);
   void addName(EnumConstant* e);
-  bool resolveAll();
+  //Resolving all UsingDecls in this and all child scopes
+  void resolveAllUsings();
+  //Resolve all names (in this scope only)
+  void resolveAll();
   map<string, Name> names;
+  vector<UsingDecl*> usingDecls;
   vector<Scope*> children;
   //Returns the StructType that "this" would refer to.
   StructType* getStructContext();
@@ -142,6 +133,38 @@ struct Scope
   //all types that can represent a Scope in the AST
   //using this variant instead of having these types inherit Scope
   variant<Module*, StructType*, Subroutine*, Block*, EnumType*> node;
+};
+
+struct UsingDecl : public Node
+{
+  virtual Name lookup(const string& n) = 0;
+  virtual void resolveImpl() = 0;
+};
+
+struct UsingModule : public UsingDecl
+{
+  UsingModule(Member* mname, Scope* s);
+  void resolveImpl();
+  Name lookup(const string& n);
+private:
+  //Before resolving:
+  Member* moduleName;
+  Scope* scope;
+  //After resolving:
+  Module* module;
+};
+
+struct UsingName : public UsingDecl
+{
+  UsingName(Member* n, Scope* s);
+  void resolveImpl();
+  Name lookup(const string& n);
+private:
+  //Before resolving:
+  Member* fullName;
+  Scope* scope;
+  //After resolving:
+  Name name;
 };
 
 #endif

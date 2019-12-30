@@ -54,12 +54,19 @@ SourceFile::SourceFile(Node* includeLoc, string path_)
   tokens = lex(source, id);
 }
 
-SourceFile* getSourceFile(Node* includeLoc, string path)
+SourceFile* findSourceFile(string path)
 {
   auto it = fileTable.find(path);
   if(it == fileTable.end())
-    return new SourceFile(includeLoc, path);
+    return nullptr;
   return it->second;
+}
+
+SourceFile* addSourceFile(Node* includeLoc, string path)
+{
+  SourceFile* sf = new SourceFile(includeLoc, path);
+  fileTable[path] = sf;
+  return sf;
 }
 
 SourceFile* sourceFileFromID(int id)

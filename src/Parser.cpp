@@ -45,7 +45,7 @@ extern Module* global;
 
 void parseProgram(string mainSourcePath)
 {
-  Parser::Stream mainStream(getSourceFile(nullptr, mainSourcePath));
+  Parser::Stream mainStream(addSourceFile(nullptr, mainSourcePath));
   while(!mainStream.accept(PastEOF::inst))
   {
     mainStream.parseDecl(global->scope, true);
@@ -94,24 +94,19 @@ namespace Parser
       string id = expectIdent();
       if(id == "include")
       {
-        if(!s->isNestedModule())
+        if(s != global->scope)
         {
-          errMsgLoc(loc, "can only #include files in a module or submodule.\n");
+          errMsgLoc(loc, "can only #include files in the global module\n");
         }
-        expectPunct(LPAREN);
         StrLit* str = (StrLit*) expect(STRING_LITERAL);
-        expectPunct(RPAREN);
-        expectPunct(SEMICOLON);
-        SourceFile* includedFile = getSourceFile(loc, str->val);
-        Module* module = s->node.get<Module*>();
-        if(!module->hasInclude(includedFile))
+        if(!findSourceFile(str->val))
         {
-          module->included.insert(includedFile);
+          SourceFile* includedFile = addSourceFile(loc, str->val);
           Stream subStream(includedFile);
           //parse scoped decls until EOF of the included file
           while(!subStream.accept(PastEOF::inst))
           {
-            subStream.parseDecl(module->scope, true);
+            subStream.parseDecl(global->scope, true);
           }
         }
         return nullptr;
@@ -163,6 +158,9 @@ namespace Parser
           return nullptr;
         case TEST:
           parseTest(s);
+          return nullptr;
+        case USING:
+          parseUsing(s);
           return nullptr;
         case VOID:
         case ERROR:
@@ -729,6 +727,20 @@ namespace Parser
     s->addName(e);
   }
 
+  void Stream::parseUsing(Scope* s)
+  {
+    Node* loc = lookAhead();
+    expectKeyword(USING);
+    UsingDecl* decl;
+    if(acceptKeyword(MODULE))
+      decl = new UsingModule(parseMember(), s);
+    else
+      decl = new UsingName(parseMember(), s);
+    expectPunct(SEMICOLON);
+    decl->setLocation(loc);
+    s->usingDecls.push_back(decl);
+  }
+
   void Stream::parseTest(Scope* s)
   {
     Node* location = lookAhead();
@@ -815,6 +827,7 @@ namespace Parser
         case FUNCTYPE:
         case PROCTYPE:
         case STATIC:
+        case USING:
           {
             return parseDecl(b->scope, semicolon);
           }
