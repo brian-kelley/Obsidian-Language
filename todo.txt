@@ -1,17 +1,15 @@
 ---------------------
       TODO:
 ---------------------
-FRONTEND (last core language features):
+FRONTEND (final core language features):
 
--Generalize "x as Y" to provide conversion of expression x to type Y.
+-Generalize "U as V" and "U as V" to handle V being either a single type in
+  union U, or an arbitrary union that shares at least one type with U.
 
--Implicit widening conversions from one union type to another (without as)
-
-"x as y" can do:
--narrow a union to a specific option
--narrow a union to a set of options 
--explicit version wherever implicit conversion would be allowed
-  -should test this case with overload matching
+-Make sure overload matching works with first-class functions, since
+  SubrOverloadExpr does not have a type.
+-When choosing the overload, need to manually go though every param type.
+-Then use resolveAndCoerce on each arg.
 
 -extern functions:
   -Need to design memory ownership model for passing pointers
@@ -26,7 +24,7 @@ FRONTEND (last core language features):
     -main libc functions will already be available to the compiler
     -load other functions from dynamic library (?)
 
--Metaprogramming!
+-Metaprogramming
   -Implement "# StatementOrDecl" pattern to execute statements
     at parse time, and create meta-declarations
   -Implement all AST nodes as types
@@ -62,7 +60,7 @@ BACKEND
     and parse it into an AST node
 
 Example:
-    Type t = type("float[][]");
+    #Type t = type("float[][]");
 
   -New syntax rules:
   * (anywhere):     #<stmt>: execute meta-stmt or create meta-decl

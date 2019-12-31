@@ -806,6 +806,10 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     UnionConstant* uc = dynamic_cast<UnionConstant*>(evaluate(ae->base));
     INTERNAL_ASSERT(uc);
+    if(ae->type->isUnion())
+    {
+      //Converting one union to another: 
+    }
     if(uc->option != ae->optionIndex)
       errMsgLoc(ae, "union value does not have the type expected by \"as\"");
     return uc->value;

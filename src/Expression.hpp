@@ -430,7 +430,7 @@ struct MapConstant : public Expression
   ostream& print(ostream& os);
 };
 
-//UnionConstant only used in IR/optimization
+//UnionConstant only used in interpreter.
 //expr->type exactly matches exactly one of ut's options
 //(which is guaranteed by semantic checking/implicit conversions)
 struct UnionConstant : public Expression

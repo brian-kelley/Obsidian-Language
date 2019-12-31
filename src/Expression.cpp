@@ -1489,14 +1489,22 @@ void AsExpr::resolveImpl()
   {
     errMsgLoc(this, "as can only be used with a union type");
   }
+  //2 modes for as: conversion to other union, and extracting a particular type
   //make sure option is actually one of the types in the union
-  for(size_t i = 0; i < ut->options.size(); i++)
+  if(type->isUnion())
   {
-    if(typesSame(ut->options[i], type))
+  }
+  else
+  {
+    //Figure out which option type is being extracted (must be exact match)
+    for(size_t i = 0; i < ut->options.size(); i++)
     {
-      optionIndex = i;
-      resolved = true;
-      return;
+      if(typesSame(ut->options[i], type))
+      {
+        optionIndex = i;
+        resolved = true;
+        return;
+      }
     }
   }
 }
