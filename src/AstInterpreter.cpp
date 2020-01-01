@@ -800,19 +800,44 @@ Expression* Interpreter::evaluate(Expression* e)
   {
     UnionConstant* uc = dynamic_cast<UnionConstant*>(evaluate(ie->base));
     INTERNAL_ASSERT(uc);
-    return new BoolConstant(uc->option == ie->optionIndex);
+    bool is = false;
+    for(Type* t : ie->subset)
+    {
+      if(typesSame(t, uc->value->type))
+      {
+        is = true;
+        break;
+      }
+    }
+    return new BoolConstant(is);
   }
   else if(auto ae = dynamic_cast<AsExpr*>(e))
   {
     UnionConstant* uc = dynamic_cast<UnionConstant*>(evaluate(ae->base));
     INTERNAL_ASSERT(uc);
-    if(ae->type->isUnion())
+    bool valid = false;
+    for(Type* t : ae->subset)
     {
-      //Converting one union to another: 
+      if(typesSame(t, uc->value->type))
+      {
+        valid = true;
+        break;
+      }
     }
-    if(uc->option != ae->optionIndex)
-      errMsgLoc(ae, "union value does not have the type expected by \"as\"");
-    return uc->value;
+    if(!valid)
+    {
+      errMsgLoc(ae, "can't evaluate 'as' because value's type " <<
+          uc->value->type->getName() << " is not in union");
+    }
+    UnionType* destUnion = dynamic_cast<UnionType*>(ae->destType);
+    if(destUnion)
+    {
+      return new UnionConstant(uc->value, destUnion);
+    }
+    else
+    {
+      return uc->value;
+    }
   }
   else if(dynamic_cast<ThisExpr*>(e))
   {

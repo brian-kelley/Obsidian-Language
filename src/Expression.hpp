@@ -729,17 +729,18 @@ struct ArrayLength : public Expression
   ostream& print(ostream& os);
 };
 
-struct IsExpr : public Expression
+struct UnionConvBase : public Expression
 {
-  IsExpr(Expression* b, Type* t)
+  UnionConvBase(Expression* b, Type* t)
   {
     base = b;
-    ut = nullptr;
-    optionIndex = -1;
-    option = t;
-    type = primitives[Prim::BOOL];
+    destType = t;
   }
-  void resolveImpl();
+  //Expression implementation stuff that differs between Is and As
+  virtual void resolveImpl() = 0;
+  virtual bool operator==(const Expression& rhs) const = 0;
+  virtual Expression* copy() = 0;
+  virtual ostream& print(ostream& os) = 0;
   bool assignable()
   {
     return false;
@@ -747,46 +748,47 @@ struct IsExpr : public Expression
   size_t hash() const
   {
     FNV1A f;
-    f.pump(optionIndex);
-    f.pump(13 * base->hash());
+    f.pump(base->hash());
+    f.pump(13 * destType->hash());
     return f.get();
   }
-  bool operator==(const Expression& rhs) const;
-  ostream& print(ostream& os);
-  Expression* copy();
+  //Resolve destType and base, then populate subset.
+  void partialResolve();
+  //The (set of) type(s) that the union is narrowed to at runtime,
+  //before final conversion to destType.
+  vector<Type*> subset;
   Expression* base;
-  UnionType* ut;
-  int optionIndex;
-  Type* option;
+  Type* destType;
 };
 
-struct AsExpr : public Expression
+struct IsExpr : public UnionConvBase
 {
-  AsExpr(Expression* b, Type* t)
-  {
-    base = b;
-    ut = nullptr;
-    optionIndex = -1;
-    type = t;
-  }
-  void resolveImpl();
-  bool assignable()
-  {
-    return false;
-  }
+  IsExpr(Expression* b, Type* t)
+    : UnionConvBase(b, t)
+  {}
   size_t hash() const
   {
-    FNV1A f;
-    f.pump(optionIndex);
-    f.pump(17 * base->hash());
-    return f.get();
+    return fnv1a(UnionConvBase::hash());
   }
+  void resolveImpl();
   bool operator==(const Expression& rhs) const;
   Expression* copy();
   ostream& print(ostream& os);
-  Expression* base;
-  UnionType* ut;
-  int optionIndex;
+};
+
+struct AsExpr : public UnionConvBase
+{
+  AsExpr(Expression* b, Type* t)
+    : UnionConvBase(b, t)
+  {}
+  size_t hash() const
+  {
+    return UnionConvBase::hash();
+  }
+  void resolveImpl();
+  bool operator==(const Expression& rhs) const;
+  Expression* copy();
+  ostream& print(ostream& os);
 };
 
 struct ThisExpr : public Expression

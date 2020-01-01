@@ -305,13 +305,13 @@ int emitExpression(Expression* e)
   {
     root = out.createNode("Is");
     out.createEdge(root, emitExpression(ie->base));
-    out.createEdge(root, emitType(ie->option));
+    out.createEdge(root, emitType(ie->destType));
   }
   else if(AsExpr* ae = dynamic_cast<AsExpr*>(e))
   {
     root = out.createNode("As");
     out.createEdge(root, emitExpression(ae->base));
-    out.createEdge(root, emitType(ae->type));
+    out.createEdge(root, emitType(ae->destType));
   }
   else if(NewArray* na = dynamic_cast<NewArray*>(e))
   {

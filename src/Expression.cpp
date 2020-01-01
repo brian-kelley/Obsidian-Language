@@ -1430,50 +1430,49 @@ ostream& ArrayLength::print(ostream& os)
   return os;
 }
 
-/**********
- * IsExpr *
- **********/
+/*****************
+ * UnionConvBase *
+ *****************/
 
-void IsExpr::resolveImpl()
+void UnionConvBase::partialResolve()
 {
   resolveExpr(base);
-  resolveType(option);
-  ut = dynamic_cast<UnionType*>(canonicalize(base->type));
-  if(!ut)
+  resolveType(destType);
+  UnionType* srcUnion = dynamic_cast<UnionType*>(base->type);
+  UnionType* destUnion = dynamic_cast<UnionType*>(destType);
+  if(destUnion)
   {
-    errMsgLoc(this, "is can only be used with a union type");
-  }
-  //make sure option is actually one of the types in the union
-  for(size_t i = 0; i < ut->options.size(); i++)
-  {
-    if(typesSame(ut->options[i], option))
+    //subset is the intersection of src and dest unions
+    for(Type* srcOption : srcUnion->options)
+      for(Type* destOption : destUnion->options)
+        if(typesSame(srcOption, destOption))
+        {
+          subset.push_back(srcOption);
+          break;
+        }
+    if(subset.size() == 0)
     {
-      optionIndex = i;
-      resolved = true;
-      return;
+      errMsgLoc(this, "union types " << srcUnion->getName() << " and " <<
+          destUnion->getName() << " have no options in common");
     }
   }
-}
-
-Expression* IsExpr::copy()
-{
-  auto c = new IsExpr(base->copy(), option);
-  c->resolve();
-  return c;
-}
-
-bool IsExpr::operator==(const Expression& erhs) const
-{
-  auto rhs = dynamic_cast<const IsExpr*>(&erhs);
-  if(!rhs)
-    return false;
-  return *base == *rhs->base && optionIndex == rhs->optionIndex;
-}
-
-ostream& IsExpr::print(ostream& os)
-{
-  os << '(' << base << " is " << option->getName() << ')';
-  return os;
+  else
+  {
+    //subset is just destType, but make sure it is actually in srcUnion
+    for(Type* srcOption : srcUnion->options)
+    {
+      if(typesSame(base->type, srcOption))
+      {
+        subset.push_back(srcOption);
+        break;
+      }
+    }
+    if(subset.size() == 0)
+    {
+      errMsgLoc(this, "type " << base->type->getName() << " is not in union "
+          << srcUnion->getName());
+    }
+  }
 }
 
 /**********
@@ -1482,51 +1481,69 @@ ostream& IsExpr::print(ostream& os)
 
 void AsExpr::resolveImpl()
 {
-  resolveExpr(base);
-  resolveType(type);
-  ut = dynamic_cast<UnionType*>(canonicalize(base->type));
-  if(!ut)
-  {
-    errMsgLoc(this, "as can only be used with a union type");
-  }
-  //2 modes for as: conversion to other union, and extracting a particular type
-  //make sure option is actually one of the types in the union
-  if(type->isUnion())
-  {
-  }
-  else
-  {
-    //Figure out which option type is being extracted (must be exact match)
-    for(size_t i = 0; i < ut->options.size(); i++)
-    {
-      if(typesSame(ut->options[i], type))
-      {
-        optionIndex = i;
-        resolved = true;
-        return;
-      }
-    }
-  }
+  partialResolve();
+  type = destType;
+  resolved = true;
+}
+
+bool AsExpr::operator==(const Expression& rhs) const
+{
+  const AsExpr* ae = dynamic_cast<const AsExpr*>(&rhs);
+  if(!ae)
+    return false;
+  return typesSame(ae->type, type) && *base == *ae->base;
 }
 
 Expression* AsExpr::copy()
 {
-  auto c = new AsExpr(base->copy(), type);
-  c->resolve();
-  return c;
-}
-
-bool AsExpr::operator==(const Expression& erhs) const
-{
-  auto rhs = dynamic_cast<const AsExpr*>(&erhs);
-  if(!rhs)
-    return false;
-  return *base == *rhs->base && optionIndex == rhs->optionIndex;
+  INTERNAL_ASSERT(resolved);
+  AsExpr* ae = new AsExpr(base, destType);
+  ae->type = this->type;
+  ae->subset = this->subset;
+  ae->setLocation(this);
+  ae->resolved = true;
+  return ae;
 }
 
 ostream& AsExpr::print(ostream& os)
 {
-  os << '(' << base << " as " << type->getName() << ')';
+  os << base << " as " << destType->getName();
+  return os;
+}
+
+/**********
+ * IsExpr *
+ **********/
+
+void IsExpr::resolveImpl()
+{
+  partialResolve();
+  type = getBoolType();
+  resolved = true;
+}
+
+bool IsExpr::operator==(const Expression& rhs) const
+{
+  const IsExpr* ie = dynamic_cast<const IsExpr*>(&rhs);
+  if(!ie)
+    return false;
+  return typesSame(ie->type, type) && *base == *ie->base;
+}
+
+Expression* IsExpr::copy()
+{
+  INTERNAL_ASSERT(resolved);
+  IsExpr* ie = new IsExpr(base, destType);
+  ie->type = this->type;
+  ie->subset = this->subset;
+  ie->setLocation(this);
+  ie->resolved = true;
+  return ie;
+}
+
+ostream& IsExpr::print(ostream& os)
+{
+  os << base << " is " << destType->getName();
   return os;
 }
 
