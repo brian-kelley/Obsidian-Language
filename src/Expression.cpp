@@ -1461,9 +1461,9 @@ void UnionConvBase::partialResolve()
     //subset is just destType, but make sure it is actually in srcUnion
     for(Type* srcOption : srcUnion->options)
     {
-      if(typesSame(base->type, srcOption))
+      if(typesSame(destType, srcOption))
       {
-        subset.push_back(srcOption);
+        subset.push_back(destType);
         break;
       }
     }
@@ -1773,11 +1773,11 @@ void resolveExpr(Expression*& expr)
   {
     //Check if the base is really a union.
     resolveExpr(asExpr->base);
-    resolveType(asExpr->type);
+    resolveType(asExpr->destType);
     if(!asExpr->base->type->isUnion())
     {
       //Replace with a cast
-      expr = new Converted(asExpr->base, asExpr->type);
+      expr = new Converted(asExpr->base, asExpr->destType);
       expr->setLocation(asExpr);
       //and resolve below.
     }
