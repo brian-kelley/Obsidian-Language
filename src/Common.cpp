@@ -60,6 +60,18 @@ ostream& compilerOut = compilerOutputCapture;
 ostream& compilerOut = cout;
 #endif
 
+static bool verbose_enabled = false;
+
+void enableVerboseMode()
+{
+  verbose_enabled = true;
+}
+
+bool verboseEnabled()
+{
+  return verbose_enabled;
+}
+
 string getInterpreterOutput()
 {
   return compilerOutputCapture.str();

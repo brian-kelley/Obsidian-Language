@@ -7,10 +7,13 @@
 struct Options
 {
   string input;
-  string outputStem;
+  string output;
   int backend;
   //emit intermediate c source
   bool emitC;
+  bool verbose;
+  bool interactive;
+  vector<string> interpArgs;
 };
 
 Options getDefaultOptions();

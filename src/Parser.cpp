@@ -43,13 +43,23 @@ extern Module* global;
     expectPunct(COMMA); \
   }
 
-void parseProgram(string mainSourcePath)
+void parseProgram(SourceFile* sf)
 {
-  Parser::Stream mainStream(addSourceFile(nullptr, mainSourcePath));
+  Parser::Stream mainStream(sf);
   while(!mainStream.accept(PastEOF::inst))
   {
     mainStream.parseDecl(global->scope, true);
   }
+}
+
+void parseProgram()
+{
+  parseProgram(new SourceFile);
+}
+
+void parseProgram(string mainSourcePath)
+{
+  parseProgram(addSourceFile(nullptr, mainSourcePath));
 }
 
 namespace Parser

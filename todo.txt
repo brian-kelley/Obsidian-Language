@@ -1,6 +1,14 @@
 ---------------------
       TODO:
 ---------------------
+-Refactor testing harness:
+  -Testing shouldn't do any disk writes
+  -Add "interactive" mode (-i) with source from stdin
+    -This will allow using redirects and pipe() to easily
+     make flexible test drivers
+  -Remove separate test driver  
+    -Don't print out timers by default, make a -v mode
+
 FRONTEND (final core language features):
 
 -Generalize "U as V" and "U as V" to handle V being either a single type in

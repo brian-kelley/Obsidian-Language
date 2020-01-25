@@ -22,6 +22,9 @@ struct ExternalSubroutine;
 struct Type;
 struct StructType;
 
+void parseProgram(SourceFile* sf);
+//Parse program from stdin
+void parseProgram();
 //Parse the whole program into the global AST
 void parseProgram(string mainSourcePath);
 

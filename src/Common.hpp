@@ -48,6 +48,9 @@ using std::to_string;
 //this either points to cout or capturedOutput (ostringstream)
 extern ostream& compilerOut;
 
+void enableVerboseMode();
+bool verboseEnabled();
+
 string getInterpreterOutput();
 
 typedef ostringstream Oss;
@@ -58,7 +61,6 @@ struct None{};
 struct Node;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
-#define DEBUG
 
 //Read string from file, and append \n
 string loadFile(string filename);
@@ -94,22 +96,17 @@ string getSourceName(int id);
 //DEBUG_DO does something only when DEBUG is defined
 //TIMEIT(name, stmt) does stmt, but times it and prints the time if DEBUG
 
-#ifdef DEBUG
-#define DEBUG_DO(x) x
-#else
-#define DEBUG_DO(x)
-#endif
+#define DEBUG_DO(x) {if(verboseEnabled()) x;}
 
-#ifdef DEBUG
 #define TIMEIT(name, stmt) \
 { \
-  auto _startClock = clock(); \
+  clock_t startClock = clock(); \
   stmt; \
-  std::cout << name << " took " << ((double) (clock() - _startClock)) / CLOCKS_PER_SEC << " sec.\n"; \
+  if(verboseEnabled()) \
+  { \
+    std::cout << name << " took " << ((double) (clock() - startClock)) / CLOCKS_PER_SEC << " sec.\n"; \
+  } \
 }
-#else
-#define TIMEIT(name, stmt) stmt
-#endif
 
 //generate a character for use in C code (i.e. "a" or "\n" or "\x4A")
 //doesn't add any quotes

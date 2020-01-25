@@ -1,11 +1,14 @@
 #include "Options.hpp" 
+#include <cstring>
 
 Options getDefaultOptions()
 {
   Options op;
   op.emitC = false;
   op.input = "";
-  op.outputStem = "";
+  op.output = "";
+  op.verbose = false;
+  op.interactive = false;
   return op;
 }
 
@@ -13,55 +16,37 @@ Options parseOptions(int argc, const char** argv)
 {
   if(argc == 1)
   {
-    puts("Error: no input files.");
+    puts("Error: no input.");
     exit(EXIT_FAILURE);
   }
   Options op = getDefaultOptions();
-  /*
-  for(int i = 1; i < argc; i++)
+  for(int a = 1; a < argc; a++)
   {
-    if(strcmp(argv[i], "--output") == 0)
+    if(op.interactive || op.input.length())
     {
-      if(i < argc - 1)
-      {
-        op.outputStem = argv[++i];
-        if(op.outputStem.find(".exe") != string::npos)
-          op.outputStem = op.outputStem.substr(0, op.outputStem.length() - 4);
-      }
-      else
-      {
-        puts("Error: output file not specified.");
-        exit(EXIT_FAILURE);
-      }
+      //Have input file (or interactive flag),
+      //all remaining args will be passed to main()
+      //by interpreter
+      op.interpArgs.emplace_back(argv[a]);
+      cout << "Got interp arg: \"" << op.interpArgs.back() << "\"\n";
+      continue;
     }
-    else if(strcmp(argv[i], "--c") == 0)
-    {
+    if(!strcmp(argv[a], "-i"))
+      op.interactive = true;
+    else if(!strcmp(argv[a], "-a"))
       op.emitC = true;
+    else if(!strcmp(argv[a], "-v"))
+      op.verbose = true;
+    else if(!strcmp(argv[a], "-o"))
+    {
+      op.output = argv[++a];
     }
     else
     {
-      op.input = argv[i];
+      if(op.input.length())
+        errMsg("Must provide a single main input file");
+      op.input = argv[a];
     }
-  }
-  */
-  op.input = argv[1];
-  if(op.input == "")
-  {
-    puts("Error: no input files.");
-    exit(EXIT_FAILURE);
-  }
-  else if(op.input.length() < 3 || op.input.substr(op.input.length() - 3, 3) != ".os")
-  {
-    puts("Error: input file does not have .os file extension.");
-    exit(EXIT_FAILURE);
-  }
-  if(op.outputStem == "")
-  {
-    size_t stemStart = 0;
-    auto find = op.input.rfind("/");
-    if(find != string::npos)
-      stemStart = find + 1;
-    op.outputStem = op.input.substr(stemStart, op.input.length() - stemStart - 3);
   }
   return op;
 }

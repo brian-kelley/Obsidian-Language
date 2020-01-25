@@ -7,6 +7,10 @@
 #include "AstInterpreter.hpp"
 #include "BuiltIn.hpp"
 
+//Stuff for specific tests
+#include "LexerFuzzing.hpp"
+#include "ParserFuzzing.hpp"
+
 Module* global = nullptr;
 
 void resolveSemantics()

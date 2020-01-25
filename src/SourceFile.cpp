@@ -10,12 +10,29 @@ vector<SourceFile*> fileList;
 //files, looked up by path
 map<string, SourceFile*> fileTable;
 
+SourceFile::SourceFile()
+{
+  id = fileCounter++;
+  path = "<stdin>";
+  Oss source;
+  while(!std::cin.eof())
+  {
+    string line;
+    getline(std::cin, line);
+    source << line << '\n';
+  }
+  fileList.push_back(this);
+  fileTable[path] = this;
+  tokens = lex(source.str(), id);
+}
+
 SourceFile::SourceFile(Node* includeLoc, string path_)
 {
   //TODO: convert to absolute, canonical path
   //Doesn't affect correctness but may avoid redundant loads
   id = fileCounter++;
-  path = path_;  FILE* f = fopen(path.c_str(), "rb");
+  path = path_;
+  FILE* f = fopen(path.c_str(), "rb");
   if(!f)
   {
     if(!includeLoc)
@@ -66,6 +83,14 @@ SourceFile* addSourceFile(Node* includeLoc, string path)
 {
   SourceFile* sf = new SourceFile(includeLoc, path);
   fileTable[path] = sf;
+  return sf;
+}
+
+SourceFile* addStdinMainFile()
+{
+  string fname = "<stdin>";
+  SourceFile* sf = new SourceFile(nullptr, fname);
+  fileTable[fname] = sf;
   return sf;
 }
 
