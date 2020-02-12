@@ -1,6 +1,7 @@
 #ifndef COMMON
 #define COMMON
 
+#include "Utils.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -41,12 +42,9 @@ using std::ostringstream;
 using std::exception;
 using std::runtime_error;
 using std::cout;
+using std::cerr;
 using std::endl;
 using std::to_string;
-
-//Interpreter output capture:
-//this either points to cout or capturedOutput (ostringstream)
-extern ostream& compilerOut;
 
 void enableVerboseMode();
 bool verboseEnabled();
@@ -62,21 +60,13 @@ struct Node;
 
 //Whether compiler is in debug mode (enabled = diagnostic output)
 
-//Read string from file, and append \n
-string loadFile(string filename);
-//Write string to file
-void writeFile(string& text, string filename);
-
-//Print message and exit(EXIT_FAILURE)
-void errAndQuit(string message);
-
 //Run a command (return true if success, and return the elapsed time)
 //if silenced, suppress all output to stdout and stderr
 bool runCommand(string command, bool silenced = false);
 
 string getSourceName(int id);
 
-#define errMsg(msg) {ostringstream oss_; oss_ << msg; errAndQuit(oss_.str());}
+#define errMsg(msg) {ostringstream oss_; oss_ << "Error: " << msg; errAndQuit(oss_.str());}
 
 #define errMsgLocManual(fileID, line, col, msg) \
 {ostringstream oss_; oss_ << "Error in " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; errAndQuit(oss_.str());}
@@ -84,11 +74,11 @@ string getSourceName(int id);
 #define errMsgLoc(node, msg) errMsgLocManual(node->fileID, node->line, node->col, msg)
 
 #define warnMsgLocManual(fileID, line, col, msg) \
-{ostringstream oss_; oss_ << "Warning: " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; compilerOut << (oss_.str()) << '\n';}
+{ostringstream oss_; oss_ << "Warning: " << getSourceName(fileID) << ", " << line << "." << col << ":\n" << msg; cout << (oss_.str()) << '\n';}
 
 #define warnMsgLoc(node, msg) warnMsgLocManual(node->fileID, node->line, node->col, msg)
 
-#define IE_IMPL(f, l) {cout << "<!> Onyx internal error: " << f << ", line " << l << '\n'; int* asdf = nullptr; asdf[0] = 4; exit(1);}
+#define IE_IMPL(f, l) {cout << "<!> Onyx INTERNAL ERROR: " << f << ", line " << l << '\n'; int* asdf = nullptr; asdf[0] = 4; exit(1);}
 
 #define INTERNAL_ERROR IE_IMPL(__FILE__, __LINE__)
 #define INTERNAL_ASSERT(cond) {if(!(cond)) {INTERNAL_ERROR}}

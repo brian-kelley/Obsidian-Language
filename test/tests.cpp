@@ -1,17 +1,5 @@
+#include "Testing.hpp"
 #include "Common.hpp"
-#include "Options.hpp"
-#include "Token.hpp"
-#include "Lexer.hpp"
-#include "Parser.hpp"
-#include "AST.hpp"
-#include "AstInterpreter.hpp"
-#include "BuiltIn.hpp"
-
-//Stuff for specific tests
-#include "LexerFuzzing.hpp"
-#include "ParserFuzzing.hpp"
-
-Module* global = nullptr;
 
 void resolveSemantics()
 {

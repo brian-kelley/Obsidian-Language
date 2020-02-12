@@ -18,7 +18,9 @@ project (Onyx-Lang)
 
 add_executable (onyx
   src/Common.cpp
-  src/SourceFile.cpp src/Token.cpp
+  src/Utils.cpp
+  src/SourceFile.cpp
+  src/Token.cpp
   src/Lexer.cpp
   src/Parser.cpp
   src/AST.cpp

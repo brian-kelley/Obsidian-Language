@@ -2,44 +2,6 @@
 #include "AST.hpp"
 #include "SourceFile.hpp"
 
-string loadFile(string filename)
-{
-  FILE* f = fopen(filename.c_str(), "rb");
-  if(!f)
-  {
-    errAndQuit(string("Could not open file \"") + filename + "\" for reading.");
-  }
-  fseek(f, 0, SEEK_END);
-  size_t size = ftell(f);
-  rewind(f);
-  string text;
-  text.resize(size);
-  fread((void*) text.c_str(), 1, size, f);
-  fclose(f);
-  return text;
-}
-
-void writeFile(string& text, string filename)
-{
-  FILE* f = fopen(filename.c_str(), "wb");
-  if(!f)
-  {
-    errAndQuit(string("Could not open file \"") + filename + "\" for writing.");
-  }
-  fwrite(text.c_str(), 1, text.size(), f);
-  fclose(f);
-}
-
-void errAndQuit(string message)
-{
-  compilerOut << message << '\n';
-#ifdef ONYX_TESTING
-  throw std::runtime_error("Normal compile error");
-#else
-  exit(1);
-#endif
-}
-
 bool runCommand(string command, bool silenced)
 {
   if(silenced)
@@ -49,16 +11,6 @@ bool runCommand(string command, bool silenced)
   }
   return system(command.c_str()) == 0;
 }
-
-//this is not used outside this file
-Oss compilerOutputCapture;
-
-//this is only defined when building the test driver
-#ifdef ONYX_TESTING
-ostream& compilerOut = compilerOutputCapture;
-#else
-ostream& compilerOut = cout;
-#endif
 
 static bool verbose_enabled = false;
 
@@ -70,11 +22,6 @@ void enableVerboseMode()
 bool verboseEnabled()
 {
   return verbose_enabled;
-}
-
-string getInterpreterOutput()
-{
-  return compilerOutputCapture.str();
 }
 
 string getSourceName(int id)

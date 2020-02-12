@@ -109,6 +109,10 @@ vector<Token*> lex(string code, int file)
       int stringStart = cs.iter;
       while(true)
       {
+        if(!cs)
+        {
+          cs.err("Unterminated string constant");
+        }
         char next = cs.getNext();
         if(next == '\\')
         {

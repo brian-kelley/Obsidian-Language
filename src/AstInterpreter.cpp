@@ -245,7 +245,7 @@ void Interpreter::execute(Statement* stmt)
       if(typesSame(toPrint->type, getCharType()))
       {
         IntConstant* ic = dynamic_cast<IntConstant*>(toPrint);
-        compilerOut << (char) ic->uval;
+        cout << (char) ic->uval;
       }
       else if(typesSame(e->type, getStringType()))
       {
@@ -254,12 +254,12 @@ void Interpreter::execute(Statement* stmt)
         for(auto elem : stringArr->members)
         {
           IntConstant* ic = dynamic_cast<IntConstant*>(elem);
-          compilerOut << (char) ic->uval;
+          cout << (char) ic->uval;
         }
       }
       else
       {
-        compilerOut << toPrint;
+        cout << toPrint;
       }
     }
   }
