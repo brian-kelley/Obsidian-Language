@@ -1,23 +1,58 @@
 ---------------------
       TODO:
 ---------------------
--Refactor testing harness:
-  -Testing shouldn't do any disk writes
-  -Add "interactive" mode (-i) with source from stdin
-    -This will allow using redirects and pipe() to easily
-     make flexible test drivers
-  -Remove separate test driver  
-    -Don't print out timers by default, make a -v mode
+Final frontend changes
+-Variable syntax should be changed to "name: type"
+  -StmtOrDecl is one of the most performance critical
+    parsing routines, and it currently uses backtracking
+  -Also is probably good for code readability in the long run
 
-FRONTEND (final core language features):
+-Lambdas (types and exprs) as syntactic sugar for functype and func
+ 
+Function type sugar in lambda form:
+\ A,B -> D
+instead of:
+functype D(A,B)
 
--Generalize "U as V" and "U as V" to handle V being either a single type in
-  union U, or an arbitrary union that shares at least one type with U.
+Lambda expressions will be:  \ A a, B b: expr
+                        or:  \ A a, B b {stmts...}
+Alternately, with non-inferred
+return type:                 \ A a, B b -> D: expr
+                             \ A a, B b -> D {stmts...}
 
--Make sure overload matching works with first-class functions, since
-  SubrOverloadExpr does not have a type.
--When choosing the overload, need to manually go though every param type.
--Then use resolveAndCoerce on each arg.
+auto f1 = \(int a, float b): a * 10 - b;
+auto f2 = \(int a, float b)
+{
+  return a * 10 - b;
+};
+
+auto g1 = \(int a, float b) -> double: a * 5 - b * 3;
+auto g2 = \(int a, float b) -> double
+{
+  double c = a * 1.4;
+  return c * 5 - b * 3;
+};
+
+Pattern matching issues:
+A call with union(s) as arguments will first match with overload taking the unions.
+Otherwise, it matches the overload at runtime based on which type the union's underlying value is.
+
+Functions returning error:
+  -Should not have to write overloads to handle error
+  -Make T? implicitly convertible to T, but if T is error at runtime:
+    * if in a subr that possibly returns error, return it
+    * otherwise, abort the whole program.
+      - For debug builds, should print a decent message and exit
+      - For release builds, assume this never happens
+  -A bit like exceptions but much simpler.
+
+-Argument types just appear as a tuple type.
+-Backslash immediately distinguishes
+  function types in parseType, so easy to parse
+
+FRONTEND TESTING TODO:
+-First-class functions
+-First-class functions with overloads
 
 -extern functions:
   -Need to design memory ownership model for passing pointers

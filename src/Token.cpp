@@ -114,6 +114,7 @@ void initTokens()
   operatorMap["="] = ASSIGN;
   operatorMap["++"] = INC;
   operatorMap["--"] = DEC;
+  operatorMap["->"] = ARROW;
   operatorTable.resize(operatorMap.size());
   for(auto& it : operatorMap)
   {
@@ -131,6 +132,7 @@ void initTokens()
   punctMap[']'] = RBRACKET;
   punctMap['.'] = DOT;
   punctMap[','] = COMMA;
+  punctMap['\\'] = BACKSLASH;
   punctMap['$'] = DOLLAR;
   punctMap['?'] = QUESTION;
   punctMap['#'] = HASH;

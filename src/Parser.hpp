@@ -21,6 +21,7 @@ struct Subroutine;
 struct ExternalSubroutine;
 struct Type;
 struct StructType;
+struct UnresolvedType;
 
 void parseProgram(SourceFile* sf);
 //Parse program from stdin
@@ -33,7 +34,7 @@ namespace Parser
   struct Stream
   {
     Stream(SourceFile* file);
-    Stream(const Stream& s);
+    Stream(const Stream& s) = delete;
     size_t pos;
     vector<Token*>* tokens;
     bool emitErrors;
@@ -70,6 +71,7 @@ namespace Parser
     //if s belongs to a block and the variable is initialized, return the assignment
     Assign* parseVarDecl(Scope* s);
     Expression* parseExpression(Scope* s, int prec = 0);
+    Expression* parseLambdaExpr(Scope* s);
     void parseSubroutineDecl(Scope* s);
     void parseSubroutine(SubroutineDecl* sd);
     void parseExternalSubroutine(SubroutineDecl* sd);
@@ -89,6 +91,7 @@ namespace Parser
     void parseBlock(Block* b);
     void parseTest(Scope* s);
     Type* parseType(Scope* s);
+    void parseLambdaType(UnresolvedType* ut);
 
     //Metaprogramming
     //Starting at offset from current stream position,

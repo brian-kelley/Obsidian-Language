@@ -20,7 +20,7 @@ void setOperatorPrec();
 //return index in Keyword enum, or -1
 int getKeyword(string str);
 
-enum
+enum KeywordEnum
 {
   FUNC,
   PROC,
@@ -73,7 +73,7 @@ enum
   CONST
 };
 
-enum
+enum OperatorEnum
 {
   PLUS,
   PLUSEQ,
@@ -107,27 +107,29 @@ enum
   CMPGE,
   ASSIGN,
   INC,
-  DEC
+  DEC,
+  ARROW
 };
 
-enum
+enum PunctEnum
 {
+  COMMA,
   SEMICOLON,
   COLON,
+  DOT,
   LPAREN,
   RPAREN,
   LBRACE,
   RBRACE,
   LBRACKET,
   RBRACKET,
-  DOT,
-  COMMA,
-  DOLLAR,
+  BACKSLASH,
   QUESTION,
+  DOLLAR,
   HASH
 };
 
-enum
+enum TokenTypeEnum
 {
   IDENTIFIER,
   STRING_LITERAL,
@@ -147,7 +149,7 @@ struct Token : public Node
   virtual bool compareTo(Token* rhs) = 0;
   virtual string getStr() = 0;    //string equivalent to original text
   virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
-  int type;
+  TokenTypeEnum type;
 };
 
 //Identifier: variable name or type name
@@ -171,7 +173,7 @@ struct Oper : public Token
   bool operator==(Oper& rhs);
   string getStr();
   string getDesc();
-  int op;
+  OperatorEnum op;
 };
 
 //"xyz"
@@ -233,7 +235,7 @@ struct Punct : public Token
   bool operator==(Punct& rhs);
   string getStr();
   string getDesc();
-  int val;
+  PunctEnum val;
 };
 
 struct Keyword : public Token
@@ -245,7 +247,7 @@ struct Keyword : public Token
   bool operator==(Keyword& rhs);
   string getStr();
   string getDesc();
-  int kw;
+  KeywordEnum kw;
 };
 
 struct PastEOF : public Token

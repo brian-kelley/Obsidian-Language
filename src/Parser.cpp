@@ -233,6 +233,7 @@ namespace Parser
     t->scope = s;
     Node* loc = lookAhead();
     t->arrayDims = 0;
+    Punct backslash(BACKSLASH);
     //check for keyword
     if(Keyword* keyword = (Keyword*) accept(KEYWORD))
     {
@@ -336,6 +337,10 @@ namespace Parser
     {
       //a named type
       t->t = parseMember();
+    }
+    else if(lookAhead()->compareTo(&backslash))
+    {
+      parseLambdaType(t);
     }
     else
     {
@@ -477,6 +482,7 @@ namespace Parser
     bool compose = false;
     bool isAuto = false;
     Type* type = nullptr;
+    //first: compose/static specifiers (optional)
     if(acceptOper(BXOR))
     {
       compose = true;
@@ -485,11 +491,14 @@ namespace Parser
     {
       isStatic = true;
     }
+    //next: name (required)
+    string name = expectIdent();
+    //then type (required)
     if(acceptKeyword(AUTO))
       isAuto = true;
     else
       type = parseType(s);
-    string name = expectIdent();
+    //finally, initializer (optional)
     Expression* init = nullptr;
     if(acceptOper(ASSIGN))
     {
@@ -515,7 +524,7 @@ namespace Parser
       //at parse time, if a variable is static, make sure it's in a struct
       if(!s->getMemberContext() && isStatic)
       {
-        err("static variable declared outside any struct");
+        err("var " + name + " explicitly declared static but is not in a struct");
       }
       var = new Variable(s, name, type, init, isStatic, compose);
     }
@@ -767,33 +776,17 @@ namespace Parser
     Punct lbrace(LBRACE);
     Punct lparen(LPAREN);
     Punct lbracket(LBRACKET);
-    if(next->type == IDENTIFIER || next->compareTo(&lparen))
+    Punct colon(COLON);
+    if(next->type == IDENTIFIER && lookAhead(1)->compareTo(&colon))
     {
-      //Don't know if the next tokens are for a decl or statement.
-      //Pattern "type ident" means VarDecl.
-      //All other patterns mean Stmt.
-      Stream tempStream(*this);
-      //with errors disabled, parsing failure will just throw
-      tempStream.emitErrors = false;
-      bool haveVarDecl = false;
-      try
-      {
-        //parse but discard a type
-        tempStream.parseType(b->scope);
-        //if an identifier follows the type, have a variable decl
-        if(tempStream.accept(IDENTIFIER))
-          haveVarDecl = true;
-      }
-      catch(...) {}
-      if(haveVarDecl)
-      {
-         auto stmt = parseVarDecl(b->scope);
-         if(semicolon)
-           expectPunct(SEMICOLON);
-         return stmt;
-      }
-      else
-        return parseStatement(b, semicolon);
+      auto stmt = parseVarDecl(b->scope);
+      if(semicolon)
+        expectPunct(SEMICOLON);
+      return stmt;
+    }
+    else if(next->type == IDENTIFIER || next->compareTo(&lparen))
+    {
+      return parseStatement(b, semicolon);
     }
     else if(next->type == KEYWORD)
     {
@@ -1244,6 +1237,71 @@ namespace Parser
     return nullptr;
   }
 
+  Expression* Stream::parseLambdaExpr(Scope* s)
+  {
+    expectPunct(BACKSLASH);
+    Punct lbrace(LBRACE);
+    //2 modes: body can be either expr or block
+    //Signature part is the same either way
+    //A lambda expr is first parsed into a normal function
+    //with a unique name (which is impossible to 
+    Node* location = lookAhead();
+    bool isStatic = false;
+    if(acceptKeyword(STATIC))
+      isStatic = true;
+    bool pure;
+    if(acceptKeyword(FUNC))
+    {
+      pure = true;
+    }
+    else
+    {
+      expectKeyword(PROC);
+      pure = false;
+    }
+    auto sd = new SubroutineDecl(expectIdent(), s, pure, isStatic);
+    sd->setLocation(location);
+    Keyword extrn(EXTERN);
+    while(acceptPunct(COLON))
+    {
+      if(lookAhead()->compareTo(&extrn))
+      {
+        parseExternalSubroutine(sd);
+      }
+      else
+      {
+        parseSubroutine(sd);
+      }
+    }
+    s->addName(sd);
+    
+    vector<Variable*> params;
+    return nullptr;
+  }
+
+  void Stream::parseLambdaType(UnresolvedType* ut)
+  {
+    expectPunct(BACKSLASH);
+    Scope* s = ut->scope;
+    //A lambda (function) is always static - it does not
+    //capture const this like a "func"
+    vector<Type*> params;
+    while(true)
+    {
+      params.push_back(parseType(s));
+      //if ',' next, expect another param
+      //otherwise, expect "->" marking end of params
+      if(!acceptPunct(COMMA))
+      {
+        expectOper(ARROW);
+        break;
+      }
+    }
+    Type* retType = parseType(s);
+    //note: isStatic=true is benign if already in a struct context
+    ut->t = UnresolvedType::Callable(true, true, retType, params);
+  }
+
   void Stream::accept()
   {
     pos++;
@@ -1374,12 +1432,6 @@ namespace Parser
     pos = 0;
     emitErrors = true;
     tokens = &file->tokens;
-  }
-  Stream::Stream(const Stream& s)
-  {
-    pos = s.pos;
-    emitErrors = s.emitErrors;
-    tokens = s.tokens;
   }
   Stream& Stream::operator=(const Stream& s)
   {
