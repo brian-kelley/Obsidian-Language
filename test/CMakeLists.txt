@@ -4,7 +4,7 @@ set(ONYX_SRC "${PROJECT_SOURCE_DIR}/src")
 
 add_executable(Driver GeneralTestDriver.cpp ../src/Utils.cpp)
 add_executable(LexFuzz LexerFuzzing.cpp ../src/Utils.cpp)
-add_executable(UtilsUnitTests UtilsUnitTests.cpp ../src/Utils.cpp)
+add_executable(UtilUnitTests UtilUnitTests.cpp ../src/Utils.cpp)
 
 function(createTest name)
   configure_file("${name}.os" "${CMAKE_CURRENT_BINARY_DIR}/${name}.os" COPYONLY)
@@ -37,5 +37,5 @@ createTest("FuncPatternMatching")
 
 add_test(LexFuzzAll LexFuzz "--all")
 add_test(LexFuzzASCII LexFuzz "--standard")
-add_test(UtilsUnitTests UtilsUnitTests)
+add_test(UtilUnitTests UtilUnitTests)
 

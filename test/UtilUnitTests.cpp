@@ -55,7 +55,7 @@ namespace Base64Testing
     failures += runBase64DE("uvwxyz");
     failures += runBase64DE("012345");
     failures += runBase64DE("6a7b8c9d");
-    return 0;
+    return failures;
   }
 }
 
@@ -65,3 +65,4 @@ int main()
   failures += Base64Testing::test();
   return failures;
 }
+
