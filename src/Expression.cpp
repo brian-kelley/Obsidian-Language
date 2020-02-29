@@ -10,7 +10,7 @@ using std::numeric_limits;
  * UnaryArith *
  **************/
 
-UnaryArith::UnaryArith(int o, Expression* e)
+UnaryArith::UnaryArith(OperatorEnum o, Expression* e)
   : op(o), expr(e) {}
 
 void UnaryArith::resolveImpl()
@@ -49,7 +49,7 @@ bool UnaryArith::operator==(const Expression& erhs) const
 
 ostream& UnaryArith::print(ostream& os)
 {
-  os << operatorTable[op] << expr;
+  os << Oper(op).getStr() << expr;
   return os;
 }
 
@@ -57,7 +57,7 @@ ostream& UnaryArith::print(ostream& os)
  * BinaryArith *
  ***************/
 
-BinaryArith::BinaryArith(Expression* l, int o, Expression* r) : op(o), lhs(l), rhs(r) {}
+BinaryArith::BinaryArith(Expression* l, OperatorEnum o, Expression* r) : op(o), lhs(l), rhs(r) {}
 
 void BinaryArith::resolveImpl()
 {
@@ -74,7 +74,7 @@ void BinaryArith::resolveImpl()
       if(!typesSame(ltype, getBoolType()) ||
          !typesSame(rtype, getBoolType()))
       {
-        errMsgLoc(this, "operands to " << operatorTable[op] << " must be bools.");
+        errMsgLoc(this, "operands to " << Oper(op).getStr() << " must be bools.");
       }
       //type of expression is always bool
       this->type = getBoolType();
@@ -87,7 +87,7 @@ void BinaryArith::resolveImpl()
       //both operands must be integers
       if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        errMsgLoc(this, "operands to " << operatorTable[op] << " must be integers.");
+        errMsgLoc(this, "operands to " << Oper(op).getStr() << " must be integers.");
       }
       //the resulting type is the wider of the two integers, favoring unsigned
       type = promote(ltype, rtype);
@@ -187,7 +187,7 @@ void BinaryArith::resolveImpl()
       //TODO (CTE): error for rhs < 0
       if(!(ltype->isInteger()) || !(rtype->isInteger()))
       {
-        errMsgLoc(this, "operands to " << operatorTable[op] << " must be integers.");
+        errMsgLoc(this, "operands to " << Oper(op).getStr() << " must be integers.");
       }
       type = ltype;
       break;
@@ -248,7 +248,7 @@ bool BinaryArith::operator==(const Expression& eother) const
     return false;
   if(*lhs == *other->lhs && *rhs == *other->rhs)
     return true;
-  if(operCommutativeTable[op])
+  if(isOperCommutative(op))
   {
     if(*lhs == *other->rhs && *rhs == *other->lhs)
       return true;
@@ -258,7 +258,7 @@ bool BinaryArith::operator==(const Expression& eother) const
 
 ostream& BinaryArith::print(ostream& os)
 {
-  os << '(' << lhs << ' ' << operatorTable[op];
+  os << '(' << lhs << ' ' << Oper(op).getStr();
   os << ' ' << rhs << ')';
   return os;
 }

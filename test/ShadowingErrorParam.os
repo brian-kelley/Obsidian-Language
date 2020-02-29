@@ -1,6 +1,6 @@
-int A = 5;
+A: int = 5;
 
-func problem: int(int A)
+func problem: int(A: int)
 {
   return A * 4;
 }

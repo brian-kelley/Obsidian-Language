@@ -4,21 +4,10 @@
 #include "Common.hpp"
 #include "AST.hpp"
 
-extern vector<string> keywordTable;
-extern map<string, int> keywordMap;
-extern vector<string> operatorTable;
-extern vector<int> operatorPrec;
-extern map<string, int> operatorMap;
-extern vector<char> punctTable;
-extern map<char, int> punctMap;
-extern vector<string> tokTypeTable;
-extern vector<bool> operCommutativeTable;
-
 void initTokens();
 void setOperatorPrec();
 
-//return index in Keyword enum, or -1
-int getKeyword(string str);
+/* Token enum declarations */
 
 enum KeywordEnum
 {
@@ -70,7 +59,9 @@ enum KeywordEnum
   STATIC,
   ARRAY,
   EXTERN,
-  CONST
+  CONST,
+  NUM_KEYWORDS,
+  INVALID_KEYWORD
 };
 
 enum OperatorEnum
@@ -108,7 +99,8 @@ enum OperatorEnum
   ASSIGN,
   INC,
   DEC,
-  ARROW
+  ARROW,
+  INVALID_OPERATOR
 };
 
 enum PunctEnum
@@ -126,7 +118,8 @@ enum PunctEnum
   BACKSLASH,
   QUESTION,
   DOLLAR,
-  HASH
+  HASH,
+  INVALID_PUNCT
 };
 
 enum TokenTypeEnum
@@ -140,15 +133,17 @@ enum TokenTypeEnum
   OPERATOR,
   KEYWORD,
   PAST_EOF,         //null or empty token
-  NUM_TOKEN_TYPES
+  NUM_TOKEN_TYPES,
+  INVALID_TOKEN_TYPE
 };
+
+/* Token types */
 
 struct Token : public Node
 {
   Token();
   virtual bool compareTo(Token* rhs) = 0;
   virtual string getStr() = 0;    //string equivalent to original text
-  virtual string getDesc() = 0;   //get description of the token type, i.e. "identifier" or "operator"
   TokenTypeEnum type;
 };
 
@@ -160,7 +155,6 @@ struct Ident : public Token
   bool compareTo(Token* rhs);
   bool operator==(Ident& rhs);
   string getStr();
-  string getDesc();
   string name;
 };
 
@@ -168,11 +162,10 @@ struct Ident : public Token
 struct Oper : public Token
 {
   Oper();
-  Oper(int op);
+  Oper(OperatorEnum op);
   bool compareTo(Token* rhs);
   bool operator==(Oper& rhs);
   string getStr();
-  string getDesc();
   OperatorEnum op;
 };
 
@@ -184,7 +177,6 @@ struct StrLit : public Token
   bool compareTo(Token* rhs);
   bool operator==(StrLit& rhs);
   string getStr();
-  string getDesc();
   string val;
 };
 
@@ -196,7 +188,6 @@ struct CharLit : public Token
   bool compareTo(Token* rhs);
   bool operator==(CharLit& rhs);
   string getStr();
-  string getDesc();
   char val;
 };
 
@@ -208,7 +199,6 @@ struct IntLit : public Token
   bool compareTo(Token* rhs);
   bool operator==(IntLit& rhs);
   string getStr();
-  string getDesc();
   //note: val is always positive because any minus sign is read in as operator -
   uint64_t val;
 };
@@ -221,7 +211,6 @@ struct FloatLit : public Token
   bool compareTo(Token* rhs);
   bool operator==(FloatLit& rhs);
   string getStr();
-  string getDesc();
   //note: val is always positive
   double val;
 };
@@ -230,11 +219,10 @@ struct FloatLit : public Token
 struct Punct : public Token
 {
   Punct();
-  Punct(int val);
+  Punct(PunctEnum val);
   bool compareTo(Token* rhs);
   bool operator==(Punct& rhs);
   string getStr();
-  string getDesc();
   PunctEnum val;
 };
 
@@ -242,11 +230,10 @@ struct Keyword : public Token
 {
   Keyword();
   Keyword(string text);
-  Keyword(int val);
+  Keyword(KeywordEnum val);
   bool compareTo(Token* rhs);
   bool operator==(Keyword& rhs);
   string getStr();
-  string getDesc();
   KeywordEnum kw;
 };
 
@@ -257,8 +244,17 @@ struct PastEOF : public Token
   bool compareTo(Token* rhs);
   bool operator==(PastEOF& rhs);
   string getStr();
-  string getDesc();
 };
+
+/* Utility functions */
+
+KeywordEnum getKeyword(const string& str);
+PunctEnum getPunct(char c);
+OperatorEnum getOper(const string& str);
+bool isOperCommutative(OperatorEnum o);
+int getOperPrecedence(OperatorEnum o);
+string getTokenTypeDesc(TokenTypeEnum tte);
+string getTokenTypeDesc(Token* t);
 
 #endif
 

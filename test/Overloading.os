@@ -1,35 +1,35 @@
 func getSize
-: int(int i)
+: int(i: int)
 {
   return 4;
 }
-: int(double d)
+: int(d: double)
 {
   return 8;
 }
-: int(char c)
+: int(c: char)
 {
   return 1;
 }
-: int(string s)
+: int(s: string)
 {
   return s.len;
 }
 
 func twice
-: char(char c)
+: char(c: char)
 {
   return c * 2;
 }
-: int(int i)
+: int(i: int)
 {
   return i * 2;
 }
-: double(double d)
+: double(d: double)
 {
   return d * 2;
 }
-: string(string s)
+: string(s: string)
 {
   return s + s;
 }

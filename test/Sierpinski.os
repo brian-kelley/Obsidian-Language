@@ -1,10 +1,10 @@
 proc main: void()
 {
-  uint ctr = 1;
-  uint one = 1;
+  ctr: uint = 1;
+  one: uint = 1;
   for i: 0,16
   {
-    uint iter = ctr;
+    iter: uint = ctr;
     for j: 0,16
     {
       if(iter == 0)

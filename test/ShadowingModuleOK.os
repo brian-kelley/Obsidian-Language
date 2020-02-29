@@ -1,8 +1,8 @@
-int globalInt = 4;
+globalInt: int = 4;
 
 module InnerModule
 {
-  int globalInt = 5;
+  globalInt: int = 5;
   proc getGlobalInt: int()
   {
     return globalInt;

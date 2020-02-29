@@ -11,12 +11,12 @@ proc main: void()
     SAT,
     NUM_DAYS
   }
-  int numDays = Day.NUM_DAYS;
+  numDays: int = Day.NUM_DAYS;
   print("There are ", numDays, " days of the week.\n");
   //Intentionally trigger the warning about ambiguous names
-  Day TUES = Day.MON;
+  TUES: day = Day.MON;
   print("Here they are, twice each:\n");
-  for(Day day = 0; day < Day.NUM_DAYS; day++)
+  for(day: Day = 0; day < Day.NUM_DAYS; day++)
   {
     switch(day)
     {
@@ -69,8 +69,8 @@ proc main: void()
         break;
     }
   }
-  Day oneDay = Day.FRI;
-  Day otherDay = Day.SAT;
+  oneDay: Day = Day.FRI;
+  otherDay: Day = Day.SAT;
   switch(oneDay)
   {
     case MON:
@@ -93,7 +93,7 @@ proc main: void()
     default:
       print("Something else.\n");
   }
-  int a = 5;
+  a: int = 5;
   switch(a)
   {
     case 0:

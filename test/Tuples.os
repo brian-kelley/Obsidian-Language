@@ -1,6 +1,6 @@
 typedef (double, double, double) vec3;
 
-func sqHypot: double(vec3 v)
+func sqHypot: double(v: vec3)
 {
   return v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
 }

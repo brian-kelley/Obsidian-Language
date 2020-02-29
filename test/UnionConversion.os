@@ -22,16 +22,16 @@ proc main: void()
   */
   {
     //Test narrowing conversions to another union
-    UnionA a = "hello\n";
+    a: UnionA = "hello\n";
     /*
     assert(a is string);
     assert((a as string) == "hello\n");
     */
-    UnionB b = a as UnionB;
+    b: UnionB = a as UnionB;
     /*
     assert(b is string);
     assert((b as string) == "hello\n");
-    UnionE e = a as UnionE;
+    e: UnionE = a as UnionE;
     assert(e is string);
     assert((e as string) == "hello\n");
     */
@@ -39,12 +39,12 @@ proc main: void()
   /*
   {
     //Test narrowing to single type
-    UnionA a = 'A';
+    a: UnionA = 'A';
     assert(a is char);
-    char charA = a as char;
+    charA: char = a as char;
     assert(charA == 'A');
     //constant doesn't fit in int, should be ulong
-    UnionC bignum = 0xAAAABBBBCCCC;
+    bignum: UnionC = 0xAAAABBBBCCCC;
     assert(bignum is ulong);
     assert((bignum as ulong) == 0xAAAABBBBCCCC);
   }

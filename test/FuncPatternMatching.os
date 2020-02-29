@@ -37,8 +37,8 @@ proc withPattern
 
 proc main: void()
 {
-  string? aString = "hello";
-  string? anError = error;
+  aString: string? = "hello";
+  anError: string? = error;
   withMatch(aString);
   withMatch(anError);
   withIs(aString);

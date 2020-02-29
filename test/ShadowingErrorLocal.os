@@ -1,8 +1,8 @@
-int A = 5;
+A: int = 5;
 
-func problem: int(int B)
+func problem: int(B: int)
 {
-  int A = B + 3;
+  A: int = B + 3;
   return A * 2;
 }
 

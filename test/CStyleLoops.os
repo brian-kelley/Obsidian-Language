@@ -2,8 +2,8 @@ proc main: void()
 {
   {
     //init, cond, incr
-    int pyramid = 0;
-    for(int i = 1; i <= 5; i++)
+    pyramid: int = 0;
+    for(i: int = 1; i <= 5; i++)
     {
       pyramid += i * i;
     }
@@ -11,8 +11,8 @@ proc main: void()
   }
   {
     //cond, incr
-    int pyramid = 0;
-    int i = 1;
+    pyramid: int= 0;
+    i: int = 1;
     for(; i <= 5; i++)
     {
       pyramid += i * i;
@@ -21,8 +21,8 @@ proc main: void()
   }
   {
     //init, incr
-    int pyramid = 0;
-    for(int i = 1;; i++)
+    pyramid: int = 0;
+    for(i: int = 1;; i++)
     {
       pyramid += i * i;
       if(i == 5)
@@ -32,8 +32,8 @@ proc main: void()
   }
   {
     //init, cond
-    int pyramid = 0;
-    for(int i = 1; i <= 5;)
+    pyramid: int = 0;
+    for(i: int = 1; i <= 5;)
     {
       pyramid += i * i;
       i++;
@@ -42,8 +42,8 @@ proc main: void()
   }
   {
     //init
-    int pyramid = 0;
-    for(int i = 1;;)
+    pyramid: int = 0;
+    for(i: int = 1;;)
     {
       pyramid += i * i;
       if(i == 5)
@@ -54,8 +54,8 @@ proc main: void()
   }
   {
     //cond
-    int pyramid = 0;
-    int i = 1;
+    pyramid: int = 0;
+    i: int = 1;
     for(; i <= 5;)
     {
       pyramid += i * i;
@@ -67,8 +67,8 @@ proc main: void()
   }
   {
     //incr
-    int pyramid = 0;
-    int i = 1;
+    pyramid: int = 0;
+    i: int = 1;
     for(;; i++)
     {
       pyramid += i * i;
@@ -79,8 +79,8 @@ proc main: void()
   }
   {
     //none
-    int pyramid = 0;
-    int i = 1;
+    pyramid: int = 0;
+    i: int = 1;
     for(;;)
     {
       pyramid += i * i;
@@ -92,8 +92,8 @@ proc main: void()
   }
   {
     //while
-    int pyramid = 0;
-    int i = 1;
+    pyramid: int = 0;
+    i: int = 1;
     while(i <= 5)
     {
       pyramid += i * i;

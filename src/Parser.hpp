@@ -45,15 +45,15 @@ namespace Parser
 
     void accept();                //accept (and discard) any token
     bool accept(Token& t);
-    Token* accept(int tokType);   //return NULL if tokType doesn't match next
-    bool acceptKeyword(int type);
-    bool acceptOper(int type);
-    bool acceptPunct(int type);
+    Token* accept(TokenTypeEnum tokType);   //return NULL if tokType doesn't match next
+    bool acceptKeyword(KeywordEnum type);
+    bool acceptOper(OperatorEnum type);
+    bool acceptPunct(PunctEnum type);
     void expect(Token& t);
-    Token* expect(int tokType);
-    void expectKeyword(int type);
-    void expectOper(int type);
-    void expectPunct(int type);
+    Token* expect(TokenTypeEnum tokType);
+    void expectKeyword(KeywordEnum type);
+    void expectOper(OperatorEnum type);
+    void expectPunct(PunctEnum type);
     string expectIdent();
     Token* lookAhead(int n = 0);  //get the next token without advancing pos
     void err(string msg = "");

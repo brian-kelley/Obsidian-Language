@@ -84,7 +84,7 @@ Assign::Assign(Block* b, Expression* lhs, int op, Expression* rhs)
     case SHLEQ:
     case SHREQ:
       {
-        int nonAssignOp = -1;
+        OperatorEnum nonAssignOp = INVALID_OPERATOR;
         switch(op)
         {
           case PLUSEQ:

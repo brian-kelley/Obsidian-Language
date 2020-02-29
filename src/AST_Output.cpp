@@ -216,12 +216,12 @@ int emitExpression(Expression* e)
   int root = 0;
   if(UnaryArith* ua = dynamic_cast<UnaryArith*>(e))
   {
-    root = out.createNode(operatorTable[ua->op]);
+    root = out.createNode(Oper(ua->op).getStr());
     out.createEdge(root, emitExpression(ua->expr));
   }
   else if(BinaryArith* ba = dynamic_cast<BinaryArith*>(e))
   {
-    root = out.createNode(operatorTable[ba->op]);
+    root = out.createNode(Oper(ba->op).getStr());
     out.createEdge(root, emitExpression(ba->lhs));
     out.createEdge(root, emitExpression(ba->rhs));
   }

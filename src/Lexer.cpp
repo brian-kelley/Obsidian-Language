@@ -216,11 +216,11 @@ vector<Token*> lex(string code, int file)
         cs.err("identifier can't end with two underscores.");
       }
       //check if keyword
-      auto kwIter = keywordMap.find(ident);
-      if(kwIter == keywordMap.end())
+      KeywordEnum k = getKeyword(ident);
+      if(k == INVALID_KEYWORD)
         cs.addToken(new Ident(ident));
       else
-        cs.addToken(new Keyword(kwIter->second));
+        cs.addToken(new Keyword(k));
     }
     else if(c == '0' && tolower(cs.peek(0)) == 'x' && isxdigit(cs.peek(1)))
     {
@@ -279,37 +279,33 @@ vector<Token*> lex(string code, int file)
     else if(ispunct(c))
     {
       //check for punctuation first (only 1 char)
-      auto punctIter = punctMap.find(c);
-      if(punctIter == punctMap.end())
+      auto p = getPunct(c);
+      if(p == INVALID_PUNCT)
       {
         //operator, not punct
-        //some operators are 2 chars long, use them if valid, otherwise 1 char
-        string oper1 = string("") + c;
-        string oper2 = oper1 + cs.peek();
-        auto oper2Iter = operatorMap.find(oper2);
-        if(oper2Iter == operatorMap.end())
+        //operators can be 1 or 2 chars long, so form strings and take the longest
+        //matching operator
+        OperatorEnum oper2 = getOper(string("") + c + cs.peek());
+        if(oper2 == INVALID_OPERATOR)
         {
-          //must be 1-char operator
-          auto oper1Iter = operatorMap.find(oper1);
-          if(oper1Iter == operatorMap.end())
-          {
-            cs.err(string("symbol character '") + oper1 + "' neither valid operator nor punctuation.");
-          }
+          OperatorEnum oper1 = getOper(string("") + c);
+          //must be a 1-char operator, or it's an error.
+          if(oper1 == INVALID_OPERATOR)
+            cs.err(string("symbol character '") + c + "' neither valid operator nor punctuation.");
           else
-          {
-            cs.addToken(new Oper(oper1Iter->second));
-          }
+            cs.addToken(new Oper(oper1));
         }
         else
         {
-          cs.addToken(new Oper(oper2Iter->second));
+          //eat the character that was peeked
           cs.getNext();
+          cs.addToken(new Oper(oper2));
         }
       }
       else
       {
         //c is punct char
-        cs.addToken(new Punct(punctIter->second));
+        cs.addToken(new Punct(p));
       }
     }
     else

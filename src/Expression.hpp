@@ -121,8 +121,8 @@ struct ExprHash
 
 struct UnaryArith : public Expression
 {
-  UnaryArith(int op, Expression* expr);
-  int op;
+  UnaryArith(OperatorEnum op, Expression* expr);
+  OperatorEnum op;
   Expression* expr;
   bool assignable()
   {
@@ -143,8 +143,8 @@ struct UnaryArith : public Expression
 
 struct BinaryArith : public Expression
 {
-  BinaryArith(Expression* lhs, int op, Expression* rhs);
-  int op;
+  BinaryArith(Expression* lhs, OperatorEnum op, Expression* rhs);
+  OperatorEnum op;
   Expression* lhs;
   Expression* rhs;
   void resolveImpl();
@@ -154,7 +154,7 @@ struct BinaryArith : public Expression
   }
   bool commutative()
   {
-    return operCommutativeTable[op];
+    return isOperCommutative(op);
   }
   size_t hash() const
   {
@@ -163,7 +163,7 @@ struct BinaryArith : public Expression
     size_t rhsHash = rhs->hash();
     //Make sure that "a op b" and "b op a" hash the same if op is commutative-
     //operator== says these are identical
-    if(operCommutativeTable[op] && lhsHash > rhsHash)
+    if(isOperCommutative(op) && lhsHash > rhsHash)
       std::swap(lhsHash, rhsHash);
     f.pump(op);
     f.pump(lhsHash);

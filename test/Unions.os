@@ -1,12 +1,12 @@
 proc main: void()
 {
-  (int | char) a = 'a';
-  (int | char) b = 532;
+  a: (int | char) = 'a';
+  b: (int | char) = 532;
   assert(a is char);
   assert(b is int);
   assert(!a is int);
   assert(!b is char);
-  (int | char | double) c = b;
+  c: (int | char | double) = b;
   assert(c is int);
   print(a as char, '\n');
   print(b as int, '\n');

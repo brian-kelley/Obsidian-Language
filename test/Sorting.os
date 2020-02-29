@@ -1,6 +1,6 @@
-func bubbleSort: int[] (int[] arr)
+func bubbleSort: int[] (arr: int[])
 {
-  bool update = true;
+  update: bool = true;
   while(update)
   {
     update = false;
@@ -9,7 +9,7 @@ func bubbleSort: int[] (int[] arr)
       if(arr[i] > arr[i + 1])
       {
         update = true;
-        int temp = arr[i];
+        temp: int = arr[i];
         arr[i] = arr[i + 1];
         arr[i + 1] = temp;
       }
@@ -18,12 +18,12 @@ func bubbleSort: int[] (int[] arr)
   return arr;
 }
 
-proc insertionSort: int[] (int[] arr)
+proc insertionSort: int[] (arr: int[])
 {
   for i: 1, arr.len
   {
-    int j = i - 1;
-    int moving = arr[i];
+    j: int = i - 1;
+    moving: int = arr[i];
     //this tests short-circuit evaluation
     while(j >= 0 && arr[j] > moving)
     {
@@ -35,12 +35,12 @@ proc insertionSort: int[] (int[] arr)
   return arr;
 }
 
-func selectionSort: int[] (int[] arr)
+func selectionSort: int[] (arr: int[])
 {
   for i: 0, arr.len - 1
   {
-    int minIndex = i;
-    int minVal = arr[i];
+    minIndex: int = i;
+    minVal: int = arr[i];
     for j: i + 1, arr.len
     {
       if(arr[j] < minVal)
@@ -51,7 +51,7 @@ func selectionSort: int[] (int[] arr)
     }
     if(minIndex != i)
     {
-      int temp = arr[i];
+      temp: int = arr[i];
       arr[i] = arr[minIndex];
       arr[minIndex] = temp;
     }
@@ -61,7 +61,7 @@ func selectionSort: int[] (int[] arr)
 
 proc main: void()
 {
-  int[] testArr = [67, -234, 63, 786, 13412, -234, 754324];
+  testArr: int[] = [67, -234, 63, 786, 13412, -234, 754324];
   print("Bubble sorted:    ", bubbleSort(testArr), '\n');
   print("Insertion sorted: ", insertionSort(testArr), '\n');
   print("Selection sorted: ", selectionSort(testArr), '\n');

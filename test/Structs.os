@@ -17,8 +17,8 @@ struct A
     print("A string: ", label, '\n');
     label = "Already printed it.";
   }
-  int dataA;
-  static string label;
+  dataA: int;
+  static label: string;
 }
 
 struct B
@@ -35,8 +35,8 @@ struct B
   {
     return a.dataA + dataB;
   }
-  ^A a;
-  int dataB;
+  ^a: A;
+  dataB: int;
 }
 
 struct C
@@ -53,15 +53,15 @@ struct C
   {
     return b.a.dataA * b.dataB * dataC;
   }
-  ^B b;
-  int dataC;
+  ^b: B;
+  dataC: int;
 }
 
 proc main: void()
 {
-  A a = [4];
-  B b = [[5], 6];
-  C c = [[[1], 2], 8];
+  a: A = [4];
+  b: B = [[5], 6];
+  c: C = [[[1], 2], 8];
   print("Exercising A.\n");
   a.doThing();
   a.doAThing();

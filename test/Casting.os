@@ -4,8 +4,8 @@ struct Thing1
   {
     print("Int vec: (", a, ", ", b, ")\n");
   }
-  int a;
-  int b;
+  a: int;
+  b: int;
 }
 
 struct Thing2
@@ -14,8 +14,8 @@ struct Thing2
   {
     print("Float vec: (", a, ", ", b, ")\n");
   }
-  float a;
-  float b;
+  a: float;
+  b: float;
 }
 
 proc printThing
@@ -60,7 +60,7 @@ proc main: void()
   }
   //Convert/truncate double to different types
   {
-    double someNum = 12 * 3.14159265;
+    someNum: double = 12 * 3.14159265;
     printThing(someNum as int);
     printThing(someNum as ulong);
     printThing(someNum as char);
@@ -81,13 +81,13 @@ proc main: void()
   }
   //Try casting to struct and calling
   {
-    (int, int) raw1 = [5, 6];
+    raw1: (int, int) = [5, 6];
     print("Raw tuple 1: ", raw1, '\n');
     print("raw 1 as Thing1: ");
     (raw1 as Thing1).printout();
     print("raw 1 as Thing2: ");
     (raw1 as Thing2).printout();
-    (double, int) raw2 = [5.3, 6];
+    raw2: (double, int) = [5.3, 6];
     print("Raw tuple 2: ", raw2, '\n');
     print("raw 2 as Thing1: ");
     (raw2 as Thing1).printout();

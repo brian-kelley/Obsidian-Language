@@ -172,22 +172,6 @@ namespace Parser
         case USING:
           parseUsing(s);
           return nullptr;
-        case VOID:
-        case ERROR:
-        case BOOL:
-        case CHAR:
-        case BYTE:
-        case UBYTE:
-        case SHORT:
-        case USHORT:
-        case INT:
-        case UINT:
-        case LONG:
-        case ULONG:
-        case FLOAT:
-        case DOUBLE:
-        case FUNCTYPE:
-        case PROCTYPE:
         case STATIC:
           {
             auto varInit = parseVarDecl(s);
@@ -1084,7 +1068,7 @@ namespace Parser
         if(next->type != OPERATOR)
           break;
         Oper* op = (Oper*) next;
-        if(operatorPrec[op->op] != prec)
+        if(getOperPrecedence(op->op) != prec)
           break;
         accept();
         Expression* rhs = parseExpression(s, prec + 1);
@@ -1099,7 +1083,7 @@ namespace Parser
       //unary expressions (-!~), left to right
       if(lookAhead()->type == OPERATOR)
       {
-        int op = ((Oper*) lookAhead())->op;
+        OperatorEnum op = ((Oper*) lookAhead())->op;
         if(op == SUB || op == LNOT || op == BNOT)
         {
           accept();
@@ -1246,20 +1230,7 @@ namespace Parser
     //A lambda expr is first parsed into a normal function
     //with a unique name (which is impossible to 
     Node* location = lookAhead();
-    bool isStatic = false;
-    if(acceptKeyword(STATIC))
-      isStatic = true;
-    bool pure;
-    if(acceptKeyword(FUNC))
-    {
-      pure = true;
-    }
-    else
-    {
-      expectKeyword(PROC);
-      pure = false;
-    }
-    auto sd = new SubroutineDecl(expectIdent(), s, pure, isStatic);
+    auto sd = new SubroutineDecl(expectIdent(), s, true, true);
     sd->setLocation(location);
     Keyword extrn(EXTERN);
     while(acceptPunct(COLON))
@@ -1315,7 +1286,7 @@ namespace Parser
     return res;
   }
 
-  Token* Stream::accept(int tokType)
+  Token* Stream::accept(TokenTypeEnum tokType)
   {
     Token* next = lookAhead();
     bool res = next->type == tokType;
@@ -1328,19 +1299,19 @@ namespace Parser
       return NULL;
   }
 
-  bool Stream::acceptKeyword(int type)
+  bool Stream::acceptKeyword(KeywordEnum type)
   {
     Keyword kw(type);
     return accept(kw);
   }
 
-  bool Stream::acceptOper(int type)
+  bool Stream::acceptOper(OperatorEnum type)
   {
     Oper op(type);
     return accept(op);
   }
 
-  bool Stream::acceptPunct(int type)
+  bool Stream::acceptPunct(PunctEnum type)
   {
     Punct p(type);
     return accept(p);
@@ -1357,7 +1328,7 @@ namespace Parser
     err(string("expected ") + t.getStr() + " but got " + next->getStr());
   }
 
-  Token* Stream::expect(int tokType)
+  Token* Stream::expect(TokenTypeEnum tokType)
   {
     Token* next = lookAhead();
     if(next->type == tokType)
@@ -1366,24 +1337,24 @@ namespace Parser
     }
     else
     {
-      err(string("expected a ") + tokTypeTable[tokType] + " but got " + next->getStr());
+      err(string("expected a ") + getTokenTypeDesc(tokType) + " but got " + next->getStr());
     }
     return next;
   }
 
-  void Stream::expectKeyword(int type)
+  void Stream::expectKeyword(KeywordEnum type)
   {
     Keyword kw(type);
     expect(kw);
   }
 
-  void Stream::expectOper(int type)
+  void Stream::expectOper(OperatorEnum type)
   {
     Oper op(type);
     expect(op);
   }
 
-  void Stream::expectPunct(int type)
+  void Stream::expectPunct(PunctEnum type)
   {
     Punct p(type);
     expect(p);

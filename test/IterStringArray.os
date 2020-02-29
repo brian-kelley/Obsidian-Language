@@ -1,6 +1,6 @@
 proc main: void()
 {
-  string[] arr = ["Hello", "World", "ABC"];
+  arr: string[] = ["Hello", "World", "ABC"];
   for [i, iter] : arr
   {
     print(i, ": ", iter, '\n');

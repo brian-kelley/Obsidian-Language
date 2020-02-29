@@ -2,12 +2,12 @@
 
 PastEOF PastEOF::inst;
 
-map<string, int> keywordMap;
+map<string, KeywordEnum> keywordMap;
 vector<string> keywordTable;
-map<string, int> operatorMap;
+map<string, OperatorEnum> operatorMap;
 vector<int> operatorPrec;
 vector<string> operatorTable;
-map<char, int> punctMap;
+map<char, PunctEnum> punctMap;
 vector<char> punctTable;
 //enum values => string
 vector<string> tokTypeTable;
@@ -182,18 +182,9 @@ void setOperatorPrec()
   operatorPrec[MOD] = 10;
 }
 
-int getKeyword(string str)
-{
-  auto it = keywordMap.find(str);
-  if(it == keywordMap.end())
-    return -1;
-  else
-    return it->second;
-}
-
 Token::Token()
 {
-  type = -1;
+  type = INVALID_TOKEN_TYPE;
 }
 
 /* Identifier */
@@ -225,18 +216,13 @@ string Ident::getStr()
   return string("ident \"") + name + "\"";
 }
 
-string Ident::getDesc()
-{
-  return tokTypeTable[IDENTIFIER];
-}
-
 /* Operator */
 Oper::Oper()
 {
   type = OPERATOR;
 }
 
-Oper::Oper(int o)
+Oper::Oper(OperatorEnum o)
 {
   type = OPERATOR;
   this->op = o;
@@ -255,11 +241,6 @@ bool Oper::operator==(Oper& rhs)
 string Oper::getStr()
 {
   return operatorTable[op];
-}
-
-string Oper::getDesc()
-{
-  return tokTypeTable[OPERATOR];
 }
 
 /* String Literal */
@@ -295,11 +276,6 @@ string StrLit::getStr()
   return str;
 }
 
-string StrLit::getDesc()
-{
-  return tokTypeTable[STRING_LITERAL];
-}
-
 /* Character Literal */
 CharLit::CharLit()
 {
@@ -331,11 +307,6 @@ string CharLit::getStr()
   return buf;
 }
 
-string CharLit::getDesc()
-{
-  return tokTypeTable[CHAR_LITERAL];
-}
-
 /* Integer Literal */
 IntLit::IntLit()
 {
@@ -361,11 +332,6 @@ bool IntLit::operator==(IntLit& rhs)
 string IntLit::getStr()
 {
   return to_string(val);
-}
-
-string IntLit::getDesc()
-{
-  return tokTypeTable[INT_LITERAL];
 }
 
 /* float/double literal */
@@ -395,18 +361,13 @@ string FloatLit::getStr()
   return to_string(val);
 }
 
-string FloatLit::getDesc()
-{
-  return tokTypeTable[FLOAT_LITERAL];
-}
-
 /* Punctuation */
 Punct::Punct()
 {
   type = PUNCTUATION;
 }
 
-Punct::Punct(int v)
+Punct::Punct(PunctEnum v)
 {
   type = PUNCTUATION;
   this->val = v;
@@ -427,11 +388,6 @@ string Punct::getStr()
   return string("") + punctTable[val];
 }
 
-string Punct::getDesc()
-{
-  return tokTypeTable[PUNCTUATION];
-}
-
 /* Keyword */
 Keyword::Keyword()
 {
@@ -441,15 +397,15 @@ Keyword::Keyword()
 Keyword::Keyword(string text)
 {
   type = KEYWORD;
-  int val = getKeyword(text);
-  if(val == -1)
+  KeywordEnum val = getKeyword(text);
+  if(val == INVALID_KEYWORD)
   {
     INTERNAL_ERROR;
   }
   this->kw = val;
 }
 
-Keyword::Keyword(int val)
+Keyword::Keyword(KeywordEnum val)
 {
   type = KEYWORD;
   this->kw = val;
@@ -468,11 +424,6 @@ bool Keyword::operator==(Keyword& rhs)
 string Keyword::getStr()
 {
   return keywordTable[kw];
-}
-
-string Keyword::getDesc()
-{
-  return tokTypeTable[KEYWORD];
 }
 
 PastEOF::PastEOF()
@@ -495,8 +446,52 @@ string PastEOF::getStr()
   return "<INVALID TOKEN>";
 }
 
-string PastEOF::getDesc()
+/* Non-member utility functions */
+
+KeywordEnum getKeyword(const string& str)
 {
-  return tokTypeTable[PAST_EOF];
+  auto it = keywordMap.find(str);
+  if(it == keywordMap.end())
+    return INVALID_KEYWORD;
+  else
+    return it->second;
+}
+
+PunctEnum getPunct(char c)
+{
+  auto it = punctMap.find(c);
+  if(it == punctMap.end())
+    return INVALID_PUNCT;
+  else
+    return it->second;
+}
+
+OperatorEnum getOper(const string& str)
+{
+  auto it = operatorMap.find(str);
+  if(it == operatorMap.end())
+    return INVALID_OPERATOR;
+  else
+    return it->second;
+}
+
+bool isOperCommutative(OperatorEnum o)
+{
+  return operCommutativeTable[o];
+}
+
+int getOperPrecedence(OperatorEnum o)
+{
+  return operatorPrec[o];
+}
+
+string getTokenTypeDesc(TokenTypeEnum tte)
+{
+  return tokTypeTable[tte];
+}
+
+string getTokenTypeDesc(Token* t)
+{
+  return getTokenTypeDesc(t->type);
 }
 
