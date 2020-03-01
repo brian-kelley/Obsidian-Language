@@ -40,8 +40,9 @@ int main(int argc, const char** argv)
         text[i] = genStandard();
     }
     vector<string> args(1, string("-i"));
-    string output = runOnyx(args, text);
-    bool success = !compilerInternalError(output);
+    bool crash;
+    string output = runOnyx(args, text, crash);
+    bool success = !crash && !compilerInternalError(output);
     if(!success)
     {
       cout << "Compiler produced internal error on input:\n";

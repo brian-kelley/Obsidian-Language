@@ -8,10 +8,15 @@ int main(int argc, const char** argv)
   string srcFile = fileStem + ".os";
   string goldOut = loadFile(fileStem + ".gold");
   vector<string> args(1, srcFile);
-  string actualOut = runOnyx(args, "");
-  bool success = actualOut == goldOut;
+  bool crash;
+  string actualOut = runOnyx(args, "", crash);
+  bool success = !crash && actualOut == goldOut;
   if(success)
     cout << "TEST PASSED\n";
+  else if(crash)
+  {
+    cout << "TEST FAILED: compiler crashed!\n";
+  }
   else
   {
     cout << "TEST FAILED\n";

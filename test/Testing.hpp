@@ -7,8 +7,9 @@
 //Run the compiler with the given string of arguments,
 //and piping the given string into its stdin.
 //
-//Return everything from its stdout.
-string runOnyx(const vector<string>& args, string pipeIn)
+//Return everything from its stdout, and set "crash" to true if the compiler
+//didn't exit() normally.
+string runOnyx(const vector<string>& args, string pipeIn, bool& crash)
 {
   pid_t pid = 0;
   int compilerIn[2];
@@ -71,8 +72,8 @@ string runOnyx(const vector<string>& args, string pipeIn)
   //close the handle to mark "eof"
   close(compilerIn[1]);
   //Read all bytes of ouptut
+  string pipeOut;
   char outbuf[4097];
-  string compilerOutput;
   while(true)
   {
     int bytesRead = read(compilerOut[0], outbuf, 4096);
@@ -81,10 +82,13 @@ string runOnyx(const vector<string>& args, string pipeIn)
     //otherwise, append the buf (as terinated string)
     //to full output string
     outbuf[bytesRead] = 0;
-    compilerOutput += outbuf;
+    pipeOut += outbuf;
   }
+  int statLoc;
+  wait(&statLoc);
   close(compilerOut[0]);
-  return compilerOutput;
+  crash = WTERMSIG(statLoc);
+  return pipeOut;
 }
 
 bool compilerInternalError(const string& output)

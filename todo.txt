@@ -2,11 +2,6 @@
       TODO:
 ---------------------
 Final frontend changes
--Variable syntax should be changed to "name: type"
-  -StmtOrDecl is one of the most performance critical
-    parsing routines, and it currently uses backtracking
-  -Also is probably good for code readability in the long run
-
 -Lambdas (types and exprs) as syntactic sugar for functype and func
  
 Function type sugar in lambda form:
