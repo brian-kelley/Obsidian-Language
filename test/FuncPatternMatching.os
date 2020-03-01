@@ -2,7 +2,7 @@
 //or prints an error message saying there is no string
 
 //First, implement a version with match
-proc withMatch: void(string? s)
+proc withMatch: void(s: string?)
 {
   match(n : s)
   {

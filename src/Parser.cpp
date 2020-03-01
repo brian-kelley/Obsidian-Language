@@ -417,8 +417,9 @@ namespace Parser
     while(!acceptPunct(RPAREN))
     {
       Node* ploc = lookAhead();
-      Type* paramType = parseType(outer);
       string paramName = expectIdent();
+      expectPunct(COLON);
+      Type* paramType = parseType(outer);
       Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
       param->setLocation(ploc);
       subr->scope->addName(param);
@@ -475,8 +476,9 @@ namespace Parser
     {
       isStatic = true;
     }
-    //next: name (required)
+    //next: "name:" (required)
     string name = expectIdent();
+    expectPunct(COLON);
     //then type (required)
     if(acceptKeyword(AUTO))
       isAuto = true;

@@ -14,7 +14,7 @@ proc main: void()
   numDays: int = Day.NUM_DAYS;
   print("There are ", numDays, " days of the week.\n");
   //Intentionally trigger the warning about ambiguous names
-  TUES: day = Day.MON;
+  TUES: Day = Day.MON;
   print("Here they are, twice each:\n");
   for(day: Day = 0; day < Day.NUM_DAYS; day++)
   {

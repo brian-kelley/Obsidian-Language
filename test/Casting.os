@@ -19,31 +19,31 @@ struct Thing2
 }
 
 proc printThing
-: void(int val)
+: void(val: int)
 {
   print("Got int: ", val, '\n');
 }
-: void(ulong val)
+: void(val: ulong)
 {
   print("Got ulong: ", val, '\n');
 }
-: void(char val)
+: void(val: char)
 {
   print("Got char: ", val, '\n');
 }
-: void(double val)
+: void(val: double)
 {
   print("Got double: ", val, '\n');
 }
-: void(float val)
+: void(val: float)
 {
   print("Got float: ", val, '\n');
 }
-: void(int[] val)
+: void(val: int[])
 {
   print("Got int array: ", val, '\n');
 }
-: void((int, int, int) val)
+: void(val: (int, int, int))
 {
   print("Got 3-int tuple: ", val, '\n');
 }
