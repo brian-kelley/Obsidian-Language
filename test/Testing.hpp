@@ -3,6 +3,7 @@
 //TODO: get this to work on win32 :(
 #include <signal.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 //Run the compiler with the given string of arguments,
 //and piping the given string into its stdin.
