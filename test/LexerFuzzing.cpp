@@ -45,7 +45,7 @@ int main(int argc, const char** argv)
     bool success = !crash && !compilerInternalError(output);
     if(!success)
     {
-      cout << "Compiler produced internal error on input:\n";
+      cout << "Compiler crashed or produced internal error on input:\n";
       if(doAll)
       {
         //print in hex so the terminal doesn't get

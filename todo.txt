@@ -1,7 +1,12 @@
 ---------------------
       TODO:
 ---------------------
-Final frontend changes
+Frontend:
+-Assigning any value to "void" discards it
+  -Useful for functions returning multiple things
+  -Alternative would require declaring variables for outputs that aren't needed
+-"test"
+-"benchmark"
 -Lambdas (types and exprs) as syntactic sugar for functype and func
  
 Function type sugar in lambda form:
@@ -29,7 +34,7 @@ auto g2 = \(int a, float b) -> double
 };
 
 Pattern matching issues:
-A call with union(s) as arguments will first match with overload taking the unions.
+A call with a union as arguments will first match with overload taking the unions.
 Otherwise, it matches the overload at runtime based on which type the union's underlying value is.
 
 Functions returning error:
@@ -41,13 +46,13 @@ Functions returning error:
       - For release builds, assume this never happens
   -A bit like exceptions but much simpler.
 
--Argument types just appear as a tuple type.
--Backslash immediately distinguishes
-  function types in parseType, so easy to parse
-
 FRONTEND TESTING TODO:
 -First-class functions
 -First-class functions with overloads
+-First-class member functions
+-"test", both success and failure
+-Compound LHS assignment with some or all 'void' elements
+-
 
 -extern functions:
   -Need to design memory ownership model for passing pointers
