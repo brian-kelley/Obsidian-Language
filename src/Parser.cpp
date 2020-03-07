@@ -1225,29 +1225,47 @@ namespace Parser
 
   Expression* Stream::parseLambdaExpr(Scope* s)
   {
-    expectPunct(BACKSLASH);
     Punct lbrace(LBRACE);
+    Node* location = lookAhead();
+    expectPunct(BACKSLASH);
     //2 modes: body can be either expr or block
     //Signature part is the same either way
     //A lambda expr is first parsed into a normal function
     //with a unique name (which is impossible to 
-    Node* location = lookAhead();
-    auto sd = new SubroutineDecl(expectIdent(), s, true, true);
+    string funcName = "#L_";
+    funcName += base64Encode(getNextLambdaID());
+    auto sd = new SubroutineDecl(
+        funcName, s, true, true);
     sd->setLocation(location);
-    Keyword extrn(EXTERN);
-    while(acceptPunct(COLON))
+    Subroutine* subr = new Subroutine(sd);
+   subr->setLocation(location);
+    sd->overloads.push_back(subr);
+    Scope* outer = sd->scope;
+    Type* retType = parseType(outer);
+    vector<Variable*> params;
+    expectPunct(LPAREN);
+    while(!acceptPunct(RPAREN))
     {
-      if(lookAhead()->compareTo(&extrn))
-      {
-        parseExternalSubroutine(sd);
-      }
-      else
-      {
-        parseSubroutine(sd);
-      }
+      Node* ploc = lookAhead();
+      string paramName = expectIdent();
+      expectPunct(COLON);
+      Type* paramType = parseType(outer);
+      Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
+      param->setLocation(ploc);
+      subr->scope->addName(param);
+      params.push_back(param);
     }
+    subr->setSignature(retType, params);
+    //Finally, parse the body statements (body has already been created)
+    expectPunct(LBRACE);
+    while(!acceptPunct(RBRACE))
+    {
+      Statement* stmt = parseStatementOrDecl(subr->body, true);
+      if(stmt)
+        subr->body->addStatement(stmt);
+    }
+
     s->addName(sd);
-    
     vector<Variable*> params;
     return nullptr;
   }

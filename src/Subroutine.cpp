@@ -7,6 +7,13 @@ using std::find;
 static int nextSubrID = 0;
 //static int nextExSubrID = 0;
 
+static int nextLambdaID = 0;
+
+int getNextLambdaID()
+{
+  return nextLambdaID++;
+}
+
 Subroutine* mainSubr = nullptr;
 extern Module* global;
 

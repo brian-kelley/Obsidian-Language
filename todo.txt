@@ -2,17 +2,37 @@
       TODO:
 ---------------------
 Frontend:
+-Generalize resolution
+  * Instead of having e.g. UnresolvedType, have
+    a general ClosureType that stores some data and a
+    function, and can resolve the real type on demand
+  * The closure could look up a name, or resolve
+    another kind of node
+      - Ex: to infer the return type for a lambda,
+        first need to resolve the statements and
+        expressions inside. This is very fragile
+        in the current system.
+  * Do for types and expressions
+
 -Assigning any value to "void" discards it
-  -Useful for functions returning multiple things
+  -Useful for functions returning a tuple
   -Alternative would require declaring variables for outputs that aren't needed
+  -Only applies to compound assignment - not allowed to do "void = expr;"
 -"test"
 -"benchmark"
 -Lambdas (types and exprs) as syntactic sugar for functype and func
- 
+-Closures (non-pure lambdas) as syntactic sugar for
+  member procedure of a struct
+  * But the struct and procedure are packed into one expression
+  * Can be passed around and assigned like
+    a normal 'proc'
+  * Can have read/write access to an explicitly defined set
+    
+
 Function type sugar in lambda form:
 \ A,B -> D
 instead of:
-functype D(A,B)
+functype D(A,B) (it's a tiny bit shorter...)
 
 Lambda expressions will be:  \ A a, B b: expr
                         or:  \ A a, B b {stmts...}
@@ -33,8 +53,17 @@ auto g2 = \(int a, float b) -> double
   return c * 5 - b * 3;
 };
 
-Pattern matching issues:
-A call with a union as arguments will first match with overload taking the unions.
+Pattern matching through overloads:
+  -Will not work with first-class functions,
+    because a callable expression must have
+    a single type. Alternative is union of
+    callables, but that is:
+    -Avoid making it easy to end up with a
+      union of callables, since that is
+       * syntactically hideous
+       * of limited use anyway, since different
+         overloads will likely return different types
+  -Calling an overloaded subroutine with one or more union value(s) will first match with overload taking the unions.
 Otherwise, it matches the overload at runtime based on which type the union's underlying value is.
 
 Functions returning error:

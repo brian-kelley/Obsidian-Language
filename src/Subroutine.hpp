@@ -16,6 +16,8 @@ namespace IR
   struct SubroutineIR;
 }
 
+int getNextLambdaID();
+
 extern Subroutine* mainSubr;
 
 struct Statement : public Node

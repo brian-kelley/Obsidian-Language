@@ -1,5 +1,6 @@
 #include "Common.hpp"
 #include "Testing.hpp"
+#include <cstring>
 
 char genAny()
 {
