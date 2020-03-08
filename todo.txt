@@ -1,19 +1,6 @@
 ---------------------
       TODO:
 ---------------------
-Frontend:
--Generalize resolution
-  * Instead of having e.g. UnresolvedType, have
-    a general ClosureType that stores some data and a
-    function, and can resolve the real type on demand
-  * The closure could look up a name, or resolve
-    another kind of node
-      - Ex: to infer the return type for a lambda,
-        first need to resolve the statements and
-        expressions inside. This is very fragile
-        in the current system.
-  * Do for types and expressions
-
 -Assigning any value to "void" discards it
   -Useful for functions returning a tuple
   -Alternative would require declaring variables for outputs that aren't needed
@@ -21,13 +8,37 @@ Frontend:
 -"test"
 -"benchmark"
 -Lambdas (types and exprs) as syntactic sugar for functype and func
--Closures (non-pure lambdas) as syntactic sugar for
-  member procedure of a struct
-  * But the struct and procedure are packed into one expression
-  * Can be passed around and assigned like
-    a normal 'proc'
-  * Can have read/write access to an explicitly defined set
-    
+After getting first-class functions to work:
+-Closures as syntactic sugar for a struct + member function.
+  * Captures could be either explicit or automatic
+    - It will be possible to pass a closure to 
+  * Syntax: \[captures](args) {stmts}
+            \[](args) {stmts}
+            \[captures](args): expr
+            \[](args): expr
+  * Does not complicate dataflow analysis any more than existing OOP features
+  * Does not break referential transparency:
+    - capturing by value means calling it can't have side effects
+    - captured variables are immutable, so invoking a closure does not permanently
+      change the captures
+  * Provides an elegant way to do partial function evaluation.
+    This would be impossible using pure functions, since
+    it's not allowed to reference variables of a parent
+    scope in a lambda.
+  * Its semantic type is that of a 'functype', since it
+    does not violate purity
+  * Can have read-only access to a fixed set of variables
+    in any scope (the values are those at the time of capture)
+  * In AST:
+    - Need a "ClosureType" that is effectively a tuple
+      containing the function and captured values
+
+- Allow proc definitions (not the same as closure)
+  anywhere. However, a proc that
+  references any local (temporary) variables can't be
+  used as first-class, since it's too hard to track the
+  correct lifetime of such a function, and it gets
+  extermely ugly with recursion.
 
 Function type sugar in lambda form:
 \ A,B -> D
@@ -69,19 +80,20 @@ Otherwise, it matches the overload at runtime based on which type the union's un
 Functions returning error:
   -Should not have to write overloads to handle error
   -Make T? implicitly convertible to T, but if T is error at runtime:
-    * if in a subr that possibly returns error, return it
-    * otherwise, abort the whole program.
-      - For debug builds, should print a decent message and exit
-      - For release builds, assume this never happens
-  -A bit like exceptions but much simpler.
+    * if the statement attempting conversion is in a subr that could return error,
+      return it (basically exceptions, but easier to reason
+      about since stack only unwinds by a single frame at a time)
+    * otherwise:
+      - Debug build: print a decent message and the location. Abort cleanly.
+      - Release build: assume this can never happen.
+        * to get nicer behavior, just check "thing is error" explicitly
 
 FRONTEND TESTING TODO:
--First-class functions
+-First-class functions (this worked before the big refactor...)
 -First-class functions with overloads
--First-class member functions
+-First-class member functions (this worked before the big refactor...)
 -"test", both success and failure
 -Compound LHS assignment with some or all 'void' elements
--
 
 -extern functions:
   -Need to design memory ownership model for passing pointers
@@ -139,17 +151,6 @@ Example:
   * (in meta-stmt): $<expr>: evaluate expr, unparse and output to code stream where the meta-stmt appeared
   * Save "@" for potential later use in metaprogramming...
 
-  //This is a fully functional "include",
-  //although real compiler should have #include
-  //built in so that file/line/col works with multiple files
-  //also, should actually include each file once, even if #included
-  //multiple times
-  #proc void include(string fname)
-  {
-    string text = readFile(fname);
-    @text;
-  }
-
   //C++ style generics (but with code size reduction option)
   //need keyword "generic"
   //example syntax:
@@ -190,27 +191,42 @@ Example:
 -----------------------------------
    After core language compiler:
 -----------------------------------
+BUILT-IN LOW LEVEL FUNCTIONS (not keywords, but pure functions that are always available)
+  sizeof(x): if x is a primitive type or expression, return #bytes needed to represent
+  bytes(x): reinterpret a primitive value x as byte tuple (little-endian)
+  btos(t): convert 2-byte tuple t to short or ushort
+  btoi(t): convert 4-byte tuple t to int or uint
+  btol(t): convert 8-byte tuple t to long or ulong
+  btof(t): convert 4-byte tuple t to float
+  btod(t): convert 8-byte tuple t to double
+
 BUILT-IN MODULES (all must be fully cross-platform)
+  -I/O streams
   -Term (stdin/stdout/formatting/parsing, commands)
   -Sys (File I/O, filesystem, sockets, time)
-  -GL (4.1+), plus some nice utilties, like:
+  -Math: constants and transcendental functions
+  -GL (4.1+) interface, plus some nice utilties:
     -GLM-style math
     -OBJ model loading
     -Shader utilities
     -Mesh utilities (half-edge structure, loading, saving)
-  -Font (Unicode support, antialiasing)
+  -Fonts (Unicode support, antialiased rendering, glyph/string dimensions)
+    * find a GPU accelerated library to link with?
   -Input (keyboard, mouse, gamepad - must be portable)
     -Want to be able to poll keys/buttons efficiently like SDL,
       or set callbacks for button events
     -callbacks can be very simple with first-class subrs
-  -UI through Nuklear
-  -Native audio wrapper?
+  -UI (through Nuklear or libui?)
+  -Audio?
   -set(T) in global, implemented as (T : void)
   -Compression, for use with serialization: Zstd? (speed > compression)
   -Graph
-    -Directed and not
-    -Dijkstra's algo for single source reachability/distance
-    -Kosaraju's algo for strongly connected components
-    -topological sort
-    -Prim's algo for MST
+    -CRS representation?
+      Could construct from general edge list too
+    -Optionally weighted
+    -Single source reachability/distance/widest path
+    -Strongly connected components
+    -Topological sort
+    -Minimum spanning tree
+    -Greedy coloring
 

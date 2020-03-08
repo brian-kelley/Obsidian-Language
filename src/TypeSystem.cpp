@@ -1154,6 +1154,10 @@ void ElemExprType::resolveImpl()
   INTERNAL_ERROR;
 }
 
+ElemExprType::InferredReturnType(Block* b)
+  : 
+void resolveImpl();
+
 void resolveType(Type*& t)
 {
   INTERNAL_ASSERT(t);

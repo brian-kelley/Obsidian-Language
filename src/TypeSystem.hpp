@@ -646,6 +646,17 @@ struct ElemExprType : public Type
   size_t hash() const {INTERNAL_ERROR; return 0;}
 };
 
+//Used for inferring lambda/closure return types.
+struct InferredReturnType : public Type
+{
+  InferredReturnType(Block* b);
+  void resolveImpl();
+  Block* block;
+  bool canConvert(Type* other) {return false;}
+  string getName() const {return "<unresolved inferred return type>";};
+  size_t hash() const {INTERNAL_ERROR; return 0;}
+};
+
 struct TypeEqual
 {
   bool operator()(const Type* t1, const Type* t2) const

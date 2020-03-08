@@ -1234,14 +1234,12 @@ namespace Parser
     //with a unique name (which is impossible to 
     string funcName = "#L_";
     funcName += base64Encode(getNextLambdaID());
-    auto sd = new SubroutineDecl(
-        funcName, s, true, true);
+    auto sd = new SubroutineDecl(funcName, s, true, true);
     sd->setLocation(location);
     Subroutine* subr = new Subroutine(sd);
-   subr->setLocation(location);
+    subr->setLocation(location);
     sd->overloads.push_back(subr);
-    Scope* outer = sd->scope;
-    Type* retType = parseType(outer);
+    Type* retType = parseType(s);
     vector<Variable*> params;
     expectPunct(LPAREN);
     while(!acceptPunct(RPAREN))
@@ -1249,8 +1247,9 @@ namespace Parser
       Node* ploc = lookAhead();
       string paramName = expectIdent();
       expectPunct(COLON);
-      Type* paramType = parseType(outer);
-      Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
+      Type* paramType = parseType(s);
+      Variable* param =
+        new Variable(subr->scope, paramName, paramType, nullptr, false);
       param->setLocation(ploc);
       subr->scope->addName(param);
       params.push_back(param);
@@ -1266,7 +1265,6 @@ namespace Parser
     }
 
     s->addName(sd);
-    vector<Variable*> params;
     return nullptr;
   }
 
