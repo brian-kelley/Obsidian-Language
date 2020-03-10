@@ -1,0 +1,13 @@
+A(5): 10
+B(5): -5
+map1(5): 10
+map2(5): -5
+Array: [1, 2, 3, 4, 5]
+Applying A to arr: [2, 4, 6, 8, 10]
+Applying B to arr: [-1, -2, -3, -4, -5]
+Applying map1 to arr: [2, 4, 6, 8, 10]
+Applying map2 to arr: [-1, -2, -3, -4, -5]
+Calling callbacks for all events, in order:
+Hello from callback 2!
+Hello from callback 1!
+Hello from callback 2!

@@ -50,6 +50,11 @@ void Variable::resolveImpl()
     if(!typesSame(initial->type, type))
       initial = new Converted(initial, type);
   }
+  else if(isParameter() || type->isCallable())
+  {
+    //Parameters and callables do not have default values.
+    initial = nullptr;
+  }
   else
     initial = type->getDefaultValue();
   resolved = true;

@@ -199,11 +199,11 @@ struct Switch : public Statement
 struct Return : public Statement
 {
   //Constructor for returning a value
-  Return(Block* b, Expression* value);
+  Return(Block* b, Expression* v);
   //Constructor for void return
   Return(Block* b);
   void resolveImpl();
-  Expression* value; //null for void return
+  Expression* value;
 };
 
 struct Break : public Statement

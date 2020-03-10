@@ -96,6 +96,7 @@ FRONTEND TESTING TODO:
 -First-class member functions (this worked before the big refactor...)
 -"test", both success and failure
 -Compound LHS assignment with some or all 'void' elements
+-Test conflicting types in inferred return type (several returns, not all the same type)
 
 -extern functions:
   -Need to design memory ownership model for passing pointers

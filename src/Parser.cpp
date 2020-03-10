@@ -414,16 +414,22 @@ namespace Parser
     Type* retType = parseType(outer);
     vector<Variable*> params;
     expectPunct(LPAREN);
-    while(!acceptPunct(RPAREN))
+    if(!acceptPunct(RPAREN))
     {
-      Node* ploc = lookAhead();
-      string paramName = expectIdent();
-      expectPunct(COLON);
-      Type* paramType = parseType(outer);
-      Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
-      param->setLocation(ploc);
-      subr->scope->addName(param);
-      params.push_back(param);
+      while(true)
+      {
+        Node* ploc = lookAhead();
+        string paramName = expectIdent();
+        expectPunct(COLON);
+        Type* paramType = parseType(outer);
+        Variable* param = new Variable(subr->scope, paramName, paramType, nullptr, false);
+        param->setLocation(ploc);
+        subr->scope->addName(param);
+        params.push_back(param);
+        if(!acceptPunct(COMMA))
+          break;
+      }
+      expectPunct(RPAREN);
     }
     subr->setSignature(retType, params);
     //Finally, parse the body statements (body was constructed in Subroutine ctor)
@@ -1271,7 +1277,7 @@ namespace Parser
         retType->setLocation(retLoc);
       }
     }
-    else
+    else if(lookAhead()->compareTo(&lbrace))
     {
       //body is a normal block
       parseBlock(subr->body);
@@ -1281,6 +1287,10 @@ namespace Parser
         retType = new InferredReturnType(subr->body);
         retType->setLocation(subr->body);
       }
+    }
+    else
+    {
+      errMsgLoc(lookAhead(), "Expected lambda body: either  \":expr\", or \"{block}\")");
     }
     subr->setSignature(retType, params);
     //Add the subroutine decl

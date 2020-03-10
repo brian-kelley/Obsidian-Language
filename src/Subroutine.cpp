@@ -408,32 +408,25 @@ void Switch::resolveImpl()
   resolved = true;
 }
 
+//Constructor for non-void return
 Return::Return(Block* b, Expression* e) : Statement(b)
 {
   value = e;
 }
 
+//Constructor for void return
 Return::Return(Block* b) : Statement(b)
 {
-  value = nullptr;
+  value = getVoidType()->val;
 }
 
 void Return::resolveImpl()
 {
-  if(value)
-  {
-    resolveExpr(value);
-  }
+  INTERNAL_ASSERT(value);
+  resolveExpr(value);
   //make sure value can be converted to enclosing subroutine's return type
   auto subrRetType = block->subr->type->returnType;
-  if(typesSame(subrRetType, primitives[Prim::VOID]))
-  {
-    if(value)
-    {
-      errMsgLoc(this, "returned a value from void subroutine");
-    }
-  }
-  else if(!subrRetType->canConvert(value->type))
+  if(!subrRetType->canConvert(value->type))
   {
     errMsgLoc(this, "returned value of type " << value->type->getName() << " incompatible with subroutine return type " << subrRetType->getName());
   }
@@ -655,6 +648,8 @@ void Subroutine::resolveImpl()
   //pretend this is resolved, so that recursive calls can resolve
   //(the type and params are resolved, so CallExprs can resolve successfully)
   resolved = true;
+  //If this returns void, and the last statement is not a "return;", add it
+  //This way, control flow must always end on a "return".
   if(typesSame(type->returnType, primitives[Prim::VOID]) &&
       (body->stmts.size() == 0 ||
       !dynamic_cast<Return*>(body->stmts.back())))

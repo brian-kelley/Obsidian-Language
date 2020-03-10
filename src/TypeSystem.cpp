@@ -1293,6 +1293,38 @@ void resolveType(Type*& t)
       t = getArrayType(arrType->elem, arrType->dims - eet->reduction);
     }
   }
+  else if(InferredReturnType* irt = dynamic_cast<InferredReturnType*>(t))
+  {
+    Block* topBlock = irt->block;
+    topBlock->resolve();
+    //find all return statements in the block, resolve the returned values,
+    //and make sure all types match.
+    stack<Block*> toVisit;
+    toVisit.push(topBlock);
+    t = nullptr;
+    while(toVisit.size())
+    {
+      Block* block = toVisit.top();
+      toVisit.pop();
+      for(auto s : block->stmts)
+      {
+        if(Block* subblock = dynamic_cast<Block*>(s))
+          toVisit.push(subblock);
+        else if(Return* ret = dynamic_cast<Return*>(s))
+        {
+          if(!ret->value)
+            errMsgLoc(ret, "Trying to infer function return type, but this return has no value");
+          if(t && !typesSame(t, ret->value->type))
+            errMsgLoc(ret, "Trying to infer function return type, but this return type differs from a previous one");
+          t = ret->value->type;
+        }
+      }
+    }
+    if(!t)
+    {
+      errMsgLoc(topBlock, "Trying to infer function return type, but body contained no return statements");
+    }
+  }
   else
   {
     t->resolve();
