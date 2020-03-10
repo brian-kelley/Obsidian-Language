@@ -382,7 +382,10 @@ Expression* StructType::getDefaultValue()
   vector<Expression*> vals;
   for(size_t i = 0; i < members.size(); i++)
   {
-    vals.push_back(members[i]->type->getDefaultValue());
+    if(members[i]->initial)
+      vals.push_back(members[i]->initial);
+    else
+      errMsgLoc(members[i], "Member " << members[i]->name << " must be initialized explicitly");
   }
   auto cl = new CompoundLiteral(vals);
   cl->resolve();
