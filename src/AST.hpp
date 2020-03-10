@@ -53,9 +53,11 @@ struct Node
 
 struct Member : public Node
 {
+  Member() {}
+  Member(string s) : names(1, s) {}
+  Member(const vector<string>& n) : names(n) {}
   vector<string> names;
 };
-
 
 #endif
 

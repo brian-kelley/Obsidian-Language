@@ -33,12 +33,14 @@ After getting first-class functions to work:
     - Need a "ClosureType" that is effectively a tuple
       containing the function and captured values
 
-- Allow proc definitions (not the same as closure)
-  anywhere. However, a proc that
-  references any local (temporary) variables can't be
-  used as first-class, since it's too hard to track the
-  correct lifetime of such a function, and it gets
-  extermely ugly with recursion.
+- Allow proc definitions (NOT the same as closure - can have
+  arbitrary side effects) anywhere. However, a proc that
+  references any local (temporary) variables can only be
+  called directly, not used as a value. It's too hard to
+  efficiently track the lifetime of lcoals, and it gets
+  very ugly with recursion.
+  - A proc that doesn't access any locals can _always_ be 
+    used as a value.
 
 Function type sugar in lambda form:
 \ A,B -> D
@@ -51,8 +53,8 @@ Alternately, with non-inferred
 return type:                 \ A a, B b -> D: expr
                              \ A a, B b -> D {stmts...}
 
-auto f1 = \(int a, float b): a * 10 - b;
-auto f2 = \(int a, float b)
+auto f1 = \int a, float b: a * 10 - b;
+auto f2 = \int a, float b
 {
   return a * 10 - b;
 };

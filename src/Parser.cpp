@@ -426,14 +426,8 @@ namespace Parser
       params.push_back(param);
     }
     subr->setSignature(retType, params);
-    //Finally, parse the body statements (body has already been created)
-    expectPunct(LBRACE);
-    while(!acceptPunct(RBRACE))
-    {
-      Statement* stmt = parseStatementOrDecl(subr->body, true);
-      if(stmt)
-        subr->body->addStatement(stmt);
-    }
+    //Finally, parse the body statements (body was constructed in Subroutine ctor)
+    parseBlock(subr->body);
   }
 
   void Stream::parseExternalSubroutine(SubroutineDecl* sd)
@@ -1226,6 +1220,8 @@ namespace Parser
   Expression* Stream::parseLambdaExpr(Scope* s)
   {
     Punct lbrace(LBRACE);
+    Punct colon(COLON);
+    Oper arrow(ARROW);
     Node* location = lookAhead();
     expectPunct(BACKSLASH);
     //2 modes: body can be either expr or block
@@ -1239,10 +1235,13 @@ namespace Parser
     Subroutine* subr = new Subroutine(sd);
     subr->setLocation(location);
     sd->overloads.push_back(subr);
-    Type* retType = parseType(s);
     vector<Variable*> params;
-    expectPunct(LPAREN);
-    while(!acceptPunct(RPAREN))
+    //TODO: for inferred return type:
+    //  If body is an expression, use ExprType
+    //  If body is a block, use InferredReturnType
+    while(!lookAhead()->compareTo(&colon) &&
+        !lookAhead()->compareTo(&lbrace) &&
+        !lookAhead()->compareTo(&arrow))
     {
       Node* ploc = lookAhead();
       string paramName = expectIdent();
@@ -1254,22 +1253,47 @@ namespace Parser
       subr->scope->addName(param);
       params.push_back(param);
     }
-    subr->setSignature(retType, params);
-    //Finally, parse the body statements (body has already been created)
-    expectPunct(LBRACE);
-    while(!acceptPunct(RBRACE))
+    Type* retType = nullptr;
+    if(acceptOper(ARROW))
+      retType = parseType(s);
+    if(acceptPunct(COLON))
     {
-      Statement* stmt = parseStatementOrDecl(subr->body, true);
-      if(stmt)
-        subr->body->addStatement(stmt);
+      //body is just an expression
+      Node* retLoc = lookAhead();
+      Expression* val = parseExpression(s);
+      Return* ret = new Return(subr->body, val);
+      ret->setLocation(retLoc);
+      subr->body->addStatement(ret);
+      if(!retType)
+      {
+        //Infer return type from val's type
+        retType = new ExprType(val);
+        retType->setLocation(retLoc);
+      }
     }
-
+    else
+    {
+      //body is a normal block
+      parseBlock(subr->body);
+      if(!retType)
+      {
+        //Infer return type from the return statements in block
+        retType = new InferredReturnType(subr->body);
+        retType->setLocation(subr->body);
+      }
+    }
+    subr->setSignature(retType, params);
+    //Add the subroutine decl
     s->addName(sd);
-    return nullptr;
+    //Then return a reference to the function
+    Expression* funcRef = new UnresolvedExpr(new Member(funcName), s); 
+    funcRef->setLocation(location);
+    return funcRef;
   }
 
   void Stream::parseLambdaType(UnresolvedType* ut)
   {
+    Node* loc = lookAhead();
     expectPunct(BACKSLASH);
     Scope* s = ut->scope;
     //A lambda (function) is always static - it does not
@@ -1281,14 +1305,13 @@ namespace Parser
       //if ',' next, expect another param
       //otherwise, expect "->" marking end of params
       if(!acceptPunct(COMMA))
-      {
-        expectOper(ARROW);
         break;
-      }
     }
+    expectOper(ARROW);
     Type* retType = parseType(s);
     //note: isStatic=true is benign if already in a struct context
     ut->t = UnresolvedType::Callable(true, true, retType, params);
+    ut->setLocation(loc);
   }
 
   void Stream::accept()
