@@ -667,6 +667,10 @@ struct StructMem : public Expression
   void resolveImpl();
   Expression* base;  //base->type must be a StructType
   variant<Variable*, Subroutine*> member;
+  StructType* getOwner()
+  {
+    return dynamic_cast<StructType*>(base->type);
+  }
   bool assignable()
   {
     return base->assignable() && member.is<Variable*>();

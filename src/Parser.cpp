@@ -1319,7 +1319,7 @@ namespace Parser
     }
     expectOper(ARROW);
     Type* retType = parseType(s);
-    //note: isStatic=true is benign if already in a struct context
+    //note: isStatic=true has no effect if already in a struct context
     ut->t = UnresolvedType::Callable(true, true, retType, params);
     ut->setLocation(loc);
   }

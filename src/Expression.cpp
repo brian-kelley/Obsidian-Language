@@ -1562,6 +1562,8 @@ void ThisExpr::resolveImpl()
   //or show error if there is none
   structType = usage->getStructContext();
   if(!structType)
+    structType = usage->getMemberContext();
+  if(!structType)
   {
     errMsgLoc(this, "can't use 'this' in static context");
   }
@@ -1872,7 +1874,16 @@ void resolveExpr(Expression*& expr)
       }
       //Otherwise, use scope lookup.
       Name found = (i == 0) ? searchScope->findName(names[i]) : searchScope->lookup(names[i]);
+      //"struct context" is what "this" refers to, and is only allowed inside a nonstatic subroutine
+      //"member context" is the struct that a variable would become a member of.
+      //These can never be non-null in the same scope, so just combine them to determine enclosing struct.
       StructType* enclosingStruct = searchScope->getStructContext();
+      bool semiStaticContext = false;
+      if(!enclosingStruct)
+      {
+        enclosingStruct = searchScope->getMemberContext();
+        semiStaticContext = true;
+      }
       if(!found.item && i == 0 && enclosingStruct)
       {
         //after normal lookup failed, try to use full struct member lookup
@@ -1931,21 +1942,29 @@ void resolveExpr(Expression*& expr)
             {
               //Make sure searchScope context matches 
               if(!enclosingStruct)
-                errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
+                errMsgLoc(unres, "Can't refer to " << sd->name << " (member subroutine of " <<
                     sd->owner->name << ") in static context.")
               else if(enclosingStruct != sd->owner)
-                errMsgLoc(unres, "Can't call " << sd->name << " (member of " <<
+                errMsgLoc(unres, "Can't refer to " << sd->name << " (member subroutine of " <<
                     sd->owner->name << ") in context where 'this' refers to other struct "
                     << enclosingStruct->name);
-              //Can call with implicit this
-              ThisExpr* implicitThis = new ThisExpr(searchScope);
-              implicitThis->resolve();
-              implicitThis->setLocation(unres);
-              Subroutine* only = dynamic_cast<Subroutine*>(sd->getOnly());
-              if(only)
-                base = new StructMem(implicitThis, only);
+              if(semiStaticContext)
+              {
+                //Static reference to member subroutine
+                base = new SubrOverloadExpr(sd);
+              }
               else
-                base = new SubrOverloadExpr(implicitThis, sd);
+              {
+                //Can call with implicit this
+                ThisExpr* implicitThis = new ThisExpr(searchScope);
+                implicitThis->setLocation(unres);
+                implicitThis->resolve();
+                Subroutine* only = dynamic_cast<Subroutine*>(sd->getOnly());
+                if(only)
+                  base = new StructMem(implicitThis, only);
+                else
+                  base = new SubrOverloadExpr(implicitThis, sd);
+              }
             }
             else
             {
@@ -1978,9 +1997,11 @@ void resolveExpr(Expression*& expr)
                 errMsgLoc(unres, "Can't refer to member " << var->name << " of struct " <<
                     var->owner->name << ") where 'this' refers to other struct " << enclosingStruct->name);
               }
+              //note: semi-static reference to variable should never be necessary, so let it be error:
+              //"can't reference this in static context"
               ThisExpr* implicitThis = new ThisExpr(searchScope);
-              implicitThis->resolve();
               implicitThis->setLocation(unres);
+              implicitThis->resolve();
               base = new StructMem(implicitThis, var);
             }
             else

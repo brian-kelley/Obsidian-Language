@@ -1,6 +1,13 @@
 ---------------------
       TODO:
 ---------------------
+-Really need to refactor the way static vs. nonstatic subroutine references are done
+  -All references should be static by default (SubrOverloadExpr or SubroutineExpr),
+   if no "this" object is provided.
+  -Only form a object/callable pair in an actual CallExpr
+  -Should have a placeholder type for overload sets
+    -Should be able to convert or coerce to any desired type
+
 -Assigning any value to "void" discards it
   -Useful for functions returning a tuple
   -Alternative would require declaring variables for outputs that aren't needed
@@ -91,12 +98,12 @@ Functions returning error:
         * to get nicer behavior, just check "thing is error" explicitly
 
 FRONTEND TESTING TODO:
--First-class functions (this worked before the big refactor...)
 -First-class functions with overloads
 -First-class member functions (this worked before the big refactor...)
 -"test", both success and failure
 -Compound LHS assignment with some or all 'void' elements
 -Test conflicting types in inferred return type (several returns, not all the same type)
+-Test trying to initialize a static/global/member using a member. Should be a semantic error.
 
 -extern functions:
   -Need to design memory ownership model for passing pointers

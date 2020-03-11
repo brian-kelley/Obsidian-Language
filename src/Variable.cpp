@@ -44,11 +44,37 @@ void Variable::resolveImpl()
   {
     resolveExpr(initial);
     INTERNAL_ASSERT(initial->resolved);
-    if(!type->canConvert(initial->type))
-      errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
-    //convert initial value, if necessary
-    if(!typesSame(initial->type, type))
-      initial = new Converted(initial, type);
+    //Intercept SubrOverloadExpr and find the the proper overload, so initial can have a specific type.
+    //A correct, fully resolved SubrOverloadExpr still has no type.
+    //This must match this->type exactly.
+    if(auto soe = dynamic_cast<SubrOverloadExpr*>(initial))
+    {
+      //Make sure this is a callable
+      auto callable = dynamic_cast<CallableType*>(this->type);
+      if(!callable)
+        errMsgLoc(this, "cannot initialize value of type " << type->getName() << " with subroutine value");
+      SubrBase* matched = soe->decl->match(callable);
+      if(!matched)
+        errMsgLoc(this, soe->decl->name << " has no overload of type " << type->getName());
+      Node* loc = initial;
+      initial = new SubroutineExpr(matched);
+      initial->setLocation(loc);
+      initial->resolve();
+    }
+    else
+    {
+      if(!type->canConvert(initial->type))
+        errMsgLoc(this, "cannot convert from " << initial->type->getName() << " to " << type->getName());
+      //Make sure initial variable value is not a member.
+      //This is fine, as local vars do not have initial values.
+      //Currently, the only way a free expression can appear outside a subr
+      //is as a variable initializer.
+      if(auto sm = dynamic_cast<StructMem*>(initial))
+        errMsgLoc(initial, "cannot refer to member of " << sm->getOwner()->name << " in this context");
+      //convert initial value, if necessary
+      if(!typesSame(initial->type, type))
+        initial = new Converted(initial, type);
+    }
   }
   else if(isParameter() || type->isCallable())
   {

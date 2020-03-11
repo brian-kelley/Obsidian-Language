@@ -1071,6 +1071,8 @@ void CallableType::resolveImpl()
 string CallableType::getName() const
 {
   Oss oss;
+  if(ownerStruct)
+    oss << ownerStruct->name << ".";
   if(pure)
     oss << "func ";
   else
@@ -1234,6 +1236,8 @@ void resolveType(Type*& t)
     {
       //walk up scope tree to see if in a non-static context
       auto ownerStruct = unres->scope->getStructContext();
+      if(!ownerStruct)
+        ownerStruct = unres->scope->getMemberContext();
       auto& ct = unres->t.get<UnresolvedType::Callable>();
       bool isStatic = ct.isStatic || !ownerStruct;
       bool allResolved = true;
